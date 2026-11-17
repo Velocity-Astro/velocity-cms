@@ -173,6 +173,12 @@ describe('the velocity-cms command', () => {
     expect(output).toContain(`${ORIGIN}/api/cms/auth/magic-link/verify?token=`);
   });
 
+  it('refuses to print a link for someone who has no access', async () => {
+    const { code, output } = await run(['link', 'stranger@example.com']);
+    expect(code).toBe(1);
+    expect(output).not.toContain('token=');
+  });
+
   it('says what is missing instead of guessing', async () => {
     expect((await run(['owner', 'dana@example.com'])).code).toBe(1);
     expect((await run(['owner', 'not-an-address', 'Dana'])).output).toContain('email address');

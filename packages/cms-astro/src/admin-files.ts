@@ -1,6 +1,6 @@
 import fs from 'node:fs';
-import { createRequire } from 'node:module';
 import path from 'node:path';
+import { appDirectory } from '@velocity/cms-admin/app-directory';
 
 /** What the editor needs to know about the site, written into its page. */
 export interface EditorPageConfig {
@@ -43,10 +43,7 @@ const PAGE_HEADERS = {
 };
 
 /** Where `@velocity/cms-admin` keeps the editor it built. */
-export function builtEditorDirectory(): string {
-  const manifest = createRequire(import.meta.url).resolve('@velocity/cms-admin/package.json');
-  return path.join(path.dirname(manifest), 'app-dist');
-}
+export const builtEditorDirectory = (): string => appDirectory;
 
 /**
  * Serves the editor: a page and the files it loads, built ahead of time by `cms-admin`. The

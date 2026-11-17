@@ -10,6 +10,7 @@ export interface CliEnvironment {
 
 const USAGE = `Usage:
   velocity-cms owner <email> <name>   Create the site's first owner and print a link that signs them in.
+  velocity-cms link <email>           Print a new sign-in link for someone who already has access.
 
 Reads VELOCITY_CMS_SECRET, VELOCITY_CMS_ORIGIN (the site's address, such as https://example.com)
 and VELOCITY_CMS_DATABASE_URL from the environment or from a .env file in this folder.`;
@@ -18,7 +19,8 @@ and VELOCITY_CMS_DATABASE_URL from the environment or from a .env file in this f
 export async function runCli(args: readonly string[], { env, print }: CliEnvironment): Promise<number> {
   const [command, email, ...nameParts] = args;
   const name = nameParts.join(' ');
-  if (command !== 'owner' || !email || !name) {
+  const understood = (command === 'owner' && email && name) || (command === 'link' && email && !name);
+  if (!understood || !email) {
     print(USAGE);
     return command === undefined || command === 'help' ? 0 : 1;
   }
@@ -35,8 +37,13 @@ export async function runCli(args: readonly string[], { env, print }: CliEnviron
   });
   try {
     const auth = new CmsAuth({ db: connection.db, secret, origin, siteName: 'Velocity CMS', mailer: new LogMailer(print), access: connection.cms.access });
-    const { user, link } = await auth.createFirstOwner({ email, name });
-    print(`${user.name} <${user.email}> is the site's owner.\n\nOpen this link to sign in. It works once, for 10 minutes:\n\n${link}\n`);
+    if (command === 'owner') {
+      const { user, link } = await auth.createFirstOwner({ email, name });
+      print(`${user.name} <${user.email}> is the site's owner.\n\nOpen this link to sign in. It works once, for 10 minutes:\n\n${link}\n`);
+    } else {
+      // Whoever holds the link is that person, so it is only ever printed here, for whoever runs the site.
+      print(`Open this link to sign in as ${email}. It works once, for 10 minutes:\n\n${await auth.createSignInLink(email)}\n`);
+    }
     return 0;
   } catch (error) {
     if (!(error instanceof CmsError)) throw error;

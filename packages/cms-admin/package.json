@@ -14,11 +14,17 @@
       "types": "./dist/testing/index.d.ts",
       "default": "./dist/testing/index.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./app-directory": {
+      "types": "./app-directory.d.mts",
+      "default": "./app-directory.mjs"
+    }
   },
   "files": [
     "dist",
     "app-dist",
+    "app-directory.mjs",
+    "app-directory.d.mts",
     "!dist/**/*.test.*"
   ],
   "scripts": {
