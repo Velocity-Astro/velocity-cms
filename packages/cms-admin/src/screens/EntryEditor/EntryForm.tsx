@@ -1,12 +1,12 @@
 import type { ContentTypeDef, Entry, EntryData } from '@velocity/cms-core';
 import { SLUG_PATH, isSlug, liveFields } from '@velocity/cms-core';
-import { Box, Button, ConfirmDialog, Form, SaveBar, Stack, Tag, Text, TextField, toast } from '@velocity/cms-ui';
+import { Box, Button, ConfirmDialog, Form, SaveBar, Segmented, Stack, Tag, Text, TextField, toast } from '@velocity/cms-ui';
 import { useState } from 'react';
 import { paths } from '../../app/paths.js';
 import { AdminRequestError } from '../../client/errors.js';
 import { useCreateEntry, usePublishEntry, useUnpublishEntry, useUpdateEntry } from '../../client/queries.js';
 import { FieldGrid } from '../../fields/index.js';
-import { entryState, entryTitle, localized, sameData, withValue, type EntryState } from '../../lib/content.js';
+import { entryState, entryTitle, languageName, localized, sameData, withValue, type EntryState } from '../../lib/content.js';
 import { relativeTime } from '../../lib/relative-time.js';
 import { slugify } from '../../lib/slug.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
@@ -26,6 +26,10 @@ export interface EntryFormProps {
   readonly entry: Entry | null;
   /** Called once, when a new entry is saved for the first time. */
   readonly onCreated: (entry: Entry) => void;
+  /** The entry in every language it exists in, this one included. Fewer than two shows no switch. */
+  readonly versions?: readonly Entry[];
+  /** Called with the id of the version the person chose to open instead. */
+  readonly onSwitch?: (entryId: string) => void;
 }
 
 /**
@@ -34,7 +38,7 @@ export interface EntryFormProps {
  * It holds what the person has typed. The server holds what is saved, and what is published.
  * Saving sends the first to the second; publishing is a separate step the person chooses.
  */
-export function EntryForm({ type, entry, onCreated }: EntryFormProps) {
+export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: EntryFormProps) {
   const messages = useMessages();
   const locale = useLocale();
   const create = useCreateEntry();
@@ -143,6 +147,19 @@ export function EntryForm({ type, entry, onCreated }: EntryFormProps) {
         }
         actions={
           <>
+            {entry !== null && versions.length > 1 && (
+              <Segmented
+                label={messages.editor.language}
+                selected={entry.id}
+                onChange={(id) => onSwitch?.(id)}
+                // Leaving would drop what was typed, so the other languages wait for a save.
+                options={versions.map((version) => ({
+                  id: version.id,
+                  label: languageName(version.locale, locale),
+                  isDisabled: version.id !== entry.id && (hasChanges || isBusy),
+                }))}
+              />
+            )}
             {entry?.status === 'published' && (
               <Button variant="ghost" isDisabled={isBusy} onPress={() => setConfirmingUnpublish(true)}>
                 {messages.editor.unpublish}

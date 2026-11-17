@@ -206,3 +206,30 @@ it('shows what went wrong when the entry cannot be loaded, and tries again', asy
   await user.click(screen.getByRole('button', { name: 'Try again' }));
   expect(await screen.findByRole('heading', { level: 1, name: '6214 Lakeshore Drive' })).toBeTruthy();
 });
+
+it('switches to the entry\'s other language, once there is nothing unsaved to lose', async () => {
+  const user = userEvent.setup();
+  const [first, ...rest] = sampleEntries();
+  if (!first) throw new Error('No sample entries.');
+  const spanish = { ...first, id: 'e-es', locale: 'es', slug: 'paseo-del-lago', data: { ...first.data, 'f-title': 'Paseo del Lago 6214' } };
+  renderApp(`/content/listings/${first.id}`, { ...signedIn(), entries: [first, spanish, ...rest] });
+
+  const languages = within(await screen.findByRole('radiogroup', { name: 'Language' }));
+  expect(languages.getByRole('radio', { name: 'English' }).getAttribute('aria-checked')).toBe('true');
+
+  // While something is typed and not saved, the other language waits.
+  await user.type(await field('Title'), '!');
+  expect(languages.getByRole('radio', { name: 'Spanish' })).toHaveProperty('disabled', true);
+  await user.click(saveBar().getByRole('button', { name: 'Save draft' }));
+  await waitFor(() => expect(languages.getByRole('radio', { name: 'Spanish' })).toHaveProperty('disabled', false));
+
+  await user.click(languages.getByRole('radio', { name: 'Spanish' }));
+  expect(await screen.findByRole('heading', { level: 1, name: 'Paseo del Lago 6214' })).toBeTruthy();
+  expect((await field('Slug')).value).toBe('paseo-del-lago');
+});
+
+it('shows no language switch for an entry in one language', async () => {
+  renderApp('/content/listings/e1', signedIn());
+  await screen.findByRole('heading', { level: 1, name: '6214 Lakeshore Drive' });
+  expect(screen.queryByRole('radiogroup', { name: 'Language' })).toBeNull();
+});

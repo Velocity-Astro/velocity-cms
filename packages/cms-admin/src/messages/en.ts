@@ -70,6 +70,7 @@ export const en = {
     choose: 'Choose one',
     unsupportedField: 'This kind of field cannot be edited here yet. Its content is kept as it is.',
     saveBar: 'Save and publish',
+    language: 'Language',
     saveDraft: 'Save draft',
     publish: 'Publish',
     publishChanges: 'Publish changes',

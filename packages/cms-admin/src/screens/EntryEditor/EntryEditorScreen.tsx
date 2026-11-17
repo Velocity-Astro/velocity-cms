@@ -5,7 +5,7 @@ import { useNavigate, useParams } from 'react-router';
 import { NEW_ENTRY, paths } from '../../app/paths.js';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { AdminRequestError } from '../../client/errors.js';
-import { useContentTypes, useEntry, useFieldTypes } from '../../client/queries.js';
+import { useContentTypes, useEntries, useEntry, useFieldTypes } from '../../client/queries.js';
 import { localized } from '../../lib/content.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 import { EntryForm } from './EntryForm.js';
@@ -20,6 +20,9 @@ export function EntryEditorScreen() {
   const types = useContentTypes();
   const fieldTypes = useFieldTypes();
   const entry = useEntry(isNew ? null : entryId);
+  // The same request the list makes, so it is usually answered already. Only used to find the
+  // entry's other languages: if it fails, the entry can still be edited.
+  const siblings = useEntries({ type: typeKey, limit: 200 });
   // The entry this screen created, if any. Its form carries on, instead of starting again.
   const [createdId, setCreatedId] = useState<string | null>(null);
 
@@ -62,6 +65,12 @@ export function EntryEditorScreen() {
       key={entryId === createdId ? NEW_ENTRY : entryId}
       type={type}
       entry={isNew ? null : (entry.data ?? null)}
+      versions={
+        isNew || !entry.data
+          ? []
+          : (siblings.data?.items ?? []).filter((other) => other.translationGroup === entry.data.translationGroup)
+      }
+      onSwitch={(id) => void navigate(paths.entry(type.key, id))}
       onCreated={(created) => {
         setCreatedId(created.id);
         void navigate(paths.entry(type.key, created.id), { replace: true });
