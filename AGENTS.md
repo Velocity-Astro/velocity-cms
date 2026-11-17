@@ -24,7 +24,8 @@ TypeScript (strict) · Zod 4 · Drizzle + libSQL (SQLite) · Astro 7 · Vitest �
 - `packages/cms-core/src/ports.ts` — the interfaces adapters implement.
 - `packages/cms-core/src/testing/` — in-memory adapters and the contract tests for real ones.
 - `packages/cms-db/src/tables.ts` — the tables. `migrations/` is generated from it.
-- `packages/cms-astro/src/loader.ts` — the Content Layer loader.
+- `packages/cms-astro/src/live-loader.ts` — the live loader, for pages rendered on demand. The default way a site reads content.
+- `packages/cms-astro/src/loader.ts` — the Content Layer loader, for sites that choose a fully static build.
 - `prototypes/` — phase 0 experiments. Scripts here may be rough; packages may not.
 
 ## Rules
@@ -38,4 +39,5 @@ TypeScript (strict) · Zod 4 · Drizzle + libSQL (SQLite) · Astro 7 · Vitest �
 - **Migrations only move forward.** Never edit a generated migration that has shipped.
 - **Errors are for people.** Throw a `CmsError` subclass with a message that says what happened and what to do, naming fields by key.
 - **No `any`** and no hardcoded user-facing strings outside error messages.
+- **Live by default.** A published change must be visible at once. Pages that show CMS content are rendered on demand, cached with `Astro.cache.set()` under the tags the live loader provides, and cleared by tag on publish. Never add a rebuild step to the publish path.
 - **Zod** is a peer dependency pinned to the range Astro ships, so the same schemas serve the CMS and Astro's collections.
