@@ -1,11 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { FileText, House, Image, Plus, Settings, Users } from 'lucide-react';
+import { FileText, House, Image, LogOut, MapPin, Plus, Settings, Users } from 'lucide-react';
 import { Box } from '../../components/Box/index.js';
 import { Button } from '../../components/Button/index.js';
+import { Logo } from '../../components/Logo/index.js';
 import { Stack } from '../../components/Stack/index.js';
 import { Table } from '../../components/Table/index.js';
 import { Tag } from '../../components/Tag/index.js';
-import { Text } from '../../components/Text/index.js';
 import { PageHeader } from '../PageHeader/index.js';
 import { AppShell } from './AppShell.js';
 
@@ -34,21 +34,38 @@ const meta = {
   component: AppShell,
   parameters: { layout: 'fullscreen' },
   args: {
-    brand: <Text weight="semibold">Lakeshore Realty</Text>,
+    logo: <Logo label="Velocity" />,
+    siteName: 'Lakeshore Realty',
+    siteDetail: 'Real estate template',
     navLabel: 'Main',
     skipLabel: 'Skip to content',
     nav: [
-      { id: 'listings', label: 'Listings', href: '#listings', icon: House, isCurrent: true },
-      { id: 'pages', label: 'Pages', href: '#pages', icon: FileText },
-      { id: 'media', label: 'Media', href: '#media', icon: Image },
-      { id: 'people', label: 'People', href: '#people', icon: Users },
-      { id: 'settings', label: 'Settings', href: '#settings', icon: Settings },
+      { id: 'top', items: [{ id: 'home', label: 'Home', href: '#home', icon: House }] },
+      {
+        id: 'content',
+        label: 'Content',
+        items: [
+          { id: 'listings', label: 'Listings', href: '#listings', icon: FileText, isCurrent: true },
+          { id: 'neighborhoods', label: 'Neighborhoods', href: '#neighborhoods', icon: MapPin },
+        ],
+      },
+      {
+        id: 'site',
+        label: 'Site',
+        items: [
+          { id: 'media', label: 'Media', href: '#media', icon: Image },
+          { id: 'team', label: 'Team', href: '#team', icon: Users },
+          { id: 'settings', label: 'Settings', href: '#settings', icon: Settings },
+        ],
+      },
     ],
-    footer: (
-      <Text size="sm" tone="muted">
-        Signed in as Dana
-      </Text>
-    ),
+    account: {
+      name: 'Dana Whitfield',
+      detail: 'Owner',
+      label: 'Account',
+      actions: [{ id: 'sign-out', label: 'Sign out', icon: LogOut }],
+      onAction: () => undefined,
+    },
     children: screen,
   },
 } satisfies Meta<typeof AppShell>;

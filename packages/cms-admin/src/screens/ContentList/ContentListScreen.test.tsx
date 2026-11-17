@@ -21,24 +21,46 @@ it('lists a type\'s entries, newest first, with a title, a state and when each w
   const table = await screen.findByRole('grid', { name: 'Listings' });
   const rows = within(table).getAllByRole('row').slice(1).map((row) => Array.from(row.children, (cell) => cell.textContent));
   expect(rows).toEqual([
-    ['6214 Lakeshore Drive', 'Published', '2 hours ago'],
-    ['18 Alder Court', 'Draft', 'yesterday'],
-    ['907 Mesa Verde Lane', 'Unpublished changes', '3 days ago'],
-    ['Untitled', 'Draft', '8 days ago'],
+    ['6214 Lakeshore Drive/listings/6214-lakeshore-drive', 'Published', '2 hours ago'],
+    ['18 Alder Court/listings/18-alder-court', 'Draft', 'yesterday'],
+    ['907 Mesa Verde Lane/listings/907-mesa-verde-lane', 'Unpublished changes', '3 days ago'],
+    ['Untitled/listings/e4', 'Draft', '8 days ago'],
   ]);
   expect(screen.getByText('4 entries')).toBeTruthy();
 });
 
-it('says which language each entry is in when the site has more than one', async () => {
+it('shows an entry in two languages as one row that names both', async () => {
   const [first, ...rest] = sampleEntries();
   if (!first) throw new Error('No sample entries.');
-  const spanish = { ...first, id: 'e-es', locale: 'es' };
-  renderApp('/content/listings', { ...signedIn, entries: [first, spanish, ...rest] });
+  const spanish = { ...first, id: 'e-es', locale: 'es', slug: 'paseo-del-lago' };
+  renderApp('/content/listings', { ...signedIn, entries: [spanish, first, ...rest] });
   const table = await screen.findByRole('grid', { name: 'Listings' });
-  expect(within(table).getAllByRole('columnheader').map((header) => header.textContent)).toEqual(['Title', 'Language', 'Status', 'Updated']);
-  const languages = within(table).getAllByRole('row').slice(1).map((row) => row.children[1]?.textContent);
-  expect(languages.filter((language) => language === 'Spanish')).toHaveLength(1);
-  expect(languages.filter((language) => language === 'English')).toHaveLength(4);
+  expect(within(table).getAllByRole('columnheader').map((header) => header.textContent)).toEqual(['Title', 'Status', 'Languages', 'Updated']);
+  const rows = within(table).getAllByRole('row').slice(1);
+  expect(rows).toHaveLength(4);
+  // The row shows the version in the editor's language, whichever came first.
+  expect(rows[0]?.children[0]?.textContent).toBe('6214 Lakeshore Drive/listings/6214-lakeshore-drive');
+  expect(rows.map((row) => row.children[2]?.textContent)).toEqual(['ENES', 'EN', 'EN', 'EN']);
+  expect(screen.getByText('4 entries')).toBeTruthy();
+});
+
+it('narrows the list by state and by what is typed, and says when nothing matches', async () => {
+  const user = userEvent.setup();
+  renderApp('/content/listings', signedIn);
+  const table = await screen.findByRole('grid', { name: 'Listings' });
+  const titles = () => within(screen.getByRole('grid', { name: 'Listings' })).getAllByRole('rowheader').map((cell) => cell.textContent);
+  expect(within(table).getAllByRole('rowheader')).toHaveLength(4);
+
+  await user.click(screen.getByRole('radio', { name: 'Drafts' }));
+  expect(titles()).toEqual(['18 Alder Court/listings/18-alder-court', 'Untitled/listings/e4']);
+
+  await user.type(screen.getByRole('searchbox', { name: 'Search listings' }), 'alder');
+  expect(titles()).toEqual(['18 Alder Court/listings/18-alder-court']);
+
+  await user.type(screen.getByRole('searchbox', { name: 'Search listings' }), 'zzz');
+  expect(await screen.findByRole('heading', { name: 'Nothing matches' })).toBeTruthy();
+  await user.click(screen.getByRole('button', { name: 'Clear search' }));
+  expect(titles()).toHaveLength(2);
 });
 
 it('moves between types from the navigation without leaving the app', async () => {
@@ -73,7 +95,7 @@ it('shows what went wrong and tries again when asked', async () => {
 it('signs out from the account menu and returns to the sign-in screen', async () => {
   const user = userEvent.setup();
   renderApp('/content/listings', signedIn);
-  await user.click(await screen.findByRole('button', { name: 'Signed in as Dana' }));
+  await user.click(await screen.findByRole('button', { name: /^Account\s*Dana/ }));
   await user.click(screen.getByRole('menuitem', { name: 'Sign out' }));
   expect(await screen.findByRole('heading', { level: 1, name: 'Sign in' })).toBeTruthy();
 });

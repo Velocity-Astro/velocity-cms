@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { dismissToasts } from '@velocity/cms-ui';
 import { afterEach, expect, it } from 'vitest';
@@ -13,7 +13,7 @@ it('edits and publishes an entry through the real API, with its refusals shown o
   const { client } = await createHttpServer({ contentTypes: sampleContentTypes, entries: sampleEntries() }, sampleUser);
   render(<AdminApp client={client} siteName="Lakeshore" initialPath="/content/listings" />);
 
-  await user.click(await screen.findByRole('rowheader', { name: 'Untitled' }));
+  await user.click(await screen.findByRole('rowheader', { name: /^Untitled/ }));
   await user.click(await screen.findByRole('button', { name: 'Publish' }));
   expect(await screen.findByText('Not published')).toBeTruthy();
   const title = await screen.findByRole('textbox', { name: /Title/ });
@@ -24,6 +24,6 @@ it('edits and publishes an entry through the real API, with its refusals shown o
   expect(await screen.findByText('Visitors can see it now.')).toBeTruthy();
   expect(await client.getEntry('e4')).toMatchObject({ status: 'published', published: { data: { 'f-title': '4 Elm Row' } } });
 
-  await user.click(screen.getByRole('link', { name: 'All listings' }));
-  expect(await screen.findByRole('rowheader', { name: '4 Elm Row' })).toBeTruthy();
+  await user.click(within(screen.getByRole('region', { name: 'Save and publish' })).getByRole('link', { name: 'Listings' }));
+  expect(await screen.findByRole('rowheader', { name: /^4 Elm Row/ })).toBeTruthy();
 });

@@ -13,12 +13,20 @@ it('is a named region holding the status and the buttons', () => {
   expect(within(bar).getByRole('button', { name: 'Publish' })).toBeTruthy();
 });
 
+it('shows what is being edited as the page\'s heading, and the way back', () => {
+  render(<SaveBar label="Save and publish" back={{ href: '/admin/listings', label: 'Listings' }} title="Lakeshore Drive" status="Draft" actions={<Button>Publish</Button>} />);
+  expect(screen.getByRole('heading', { level: 1, name: 'Lakeshore Drive' })).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Listings' }).getAttribute('href')).toBe('/admin/listings');
+});
+
 it('announces its status when it changes, without moving focus', () => {
   render(example);
   expect(screen.getByText('Saved 2 minutes ago').getAttribute('aria-live')).toBe('polite');
 });
 
 it('has no accessibility violations', async () => {
-  const { container } = render(example);
+  const { container } = render(
+    <SaveBar label="Save and publish" back={{ href: '/admin/listings', label: 'Listings' }} title="Lakeshore Drive" status="Draft" actions={<Button>Publish</Button>} />,
+  );
   await expectAccessible(container);
 });

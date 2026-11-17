@@ -54,7 +54,7 @@ it('signs in with a passkey and opens the editor', async () => {
   renderApp('/sign-in', { passkeyUser: sampleUser, contentTypes: sampleContentTypes });
   await user.click(await screen.findByRole('button', { name: 'Sign in with a passkey' }));
   expect(await screen.findByRole('heading', { level: 1, name: 'Agents' })).toBeTruthy();
-  expect(screen.getByRole('button', { name: 'Signed in as Dana' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: /^Account\s*Dana/ })).toBeTruthy();
 });
 
 it('says so when the passkey does not work, and stays on the screen', async () => {

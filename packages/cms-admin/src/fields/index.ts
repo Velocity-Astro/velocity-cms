@@ -8,3 +8,4 @@ export {
   type FieldControls,
 } from './field-control.js';
 export { FieldEditor, type FieldEditorProps } from './FieldEditor.js';
+export { FieldGrid, type FieldGridProps } from './FieldGrid.js';

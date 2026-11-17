@@ -1,10 +1,11 @@
-import { Box, Button, EmptyState, PageHeader, Stack, Table, Tag, type TableColumn, type TableRow } from '@velocity/cms-ui';
-import { FileQuestion, Inbox, Plus } from 'lucide-react';
+import { Box, Button, EmptyState, Inline, PageHeader, SearchField, Segmented, Stack, Table, Tag, Text, type TableColumn, type TableRow } from '@velocity/cms-ui';
+import { FileQuestion, Inbox, Plus, SearchX } from 'lucide-react';
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { paths } from '../../app/paths.js';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { useContentTypes, useEntries } from '../../client/queries.js';
-import { entryState, entryTitle, languageName, localized, type EntryState } from '../../lib/content.js';
+import { entryState, entryTitle, groupTranslations, localized, type EntryState } from '../../lib/content.js';
 import { relativeTime } from '../../lib/relative-time.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 
@@ -14,6 +15,17 @@ const STATE_TONE = { draft: 'neutral', scheduled: 'info', published: 'success', 
   string
 >;
 
+type Filter = 'all' | 'published' | 'drafts' | 'changed';
+const SHOWN: Readonly<Record<Filter, (state: EntryState) => boolean>> = {
+  all: () => true,
+  published: (state) => state === 'published' || state === 'unpublishedChanges',
+  drafts: (state) => state === 'draft',
+  changed: (state) => state === 'unpublishedChanges',
+};
+
+/** As many entries as one request may carry. Paging comes with search on the server. */
+const PAGE = 200;
+
 /** Every entry of one content type. */
 export function ContentListScreen() {
   const messages = useMessages();
@@ -21,7 +33,9 @@ export function ContentListScreen() {
   const navigate = useNavigate();
   const { typeKey = '' } = useParams();
   const types = useContentTypes();
-  const entries = useEntries({ type: typeKey });
+  const entries = useEntries({ type: typeKey, limit: PAGE });
+  const [filter, setFilter] = useState<Filter>('all');
+  const [query, setQuery] = useState('');
 
   if (types.isPending) return <LoadingState />;
   if (types.isError) return <ErrorState error={types.error} onRetry={() => void types.refetch()} />;
@@ -38,25 +52,51 @@ export function ContentListScreen() {
   }
 
   const name = localized(type.label, locale);
-  const items = entries.data?.items ?? [];
-  // An entry in two languages is two rows with the same title. The column that tells them
-  // apart is only worth its space on a site that has more than one language.
-  const manyLanguages = new Set(items.map((entry) => entry.locale)).size > 1;
+  // An entry in two languages is one row, not two that look the same.
+  const groups = groupTranslations(entries.data?.items ?? [], locale);
+  const manyLanguages = groups.some((group) => group.versions.length > 1) || new Set(groups.map((group) => group.primary.locale)).size > 1;
+  const words = query.trim().toLowerCase();
+  const shown = groups.filter(({ primary, versions }) => {
+    if (!SHOWN[filter](entryState(primary))) return false;
+    if (words === '') return true;
+    return versions.some((entry) => `${entryTitle(type, entry.data) ?? ''} ${entry.slug}`.toLowerCase().includes(words));
+  });
+
   const columns: TableColumn[] = [
     { id: 'title', label: messages.contentList.columnTitle },
-    ...(manyLanguages ? [{ id: 'language', label: messages.contentList.columnLanguage }] : []),
     { id: 'status', label: messages.contentList.columnStatus },
+    ...(manyLanguages ? [{ id: 'languages', label: messages.contentList.columnLanguages }] : []),
     { id: 'updated', label: messages.contentList.columnUpdated },
   ];
-  const rows: TableRow[] = items.map((entry) => {
-    const state = entryState(entry);
+  const rows: TableRow[] = shown.map(({ primary, versions }) => {
+    const state = entryState(primary);
+    const updated = versions.reduce((latest, entry) => (entry.updatedAt > latest ? entry.updatedAt : latest), primary.updatedAt);
     return {
-      id: entry.id,
+      id: primary.id,
       cells: {
-        title: entryTitle(type, entry.data) ?? messages.contentList.untitled,
-        ...(manyLanguages && { language: languageName(entry.locale, locale) }),
+        title: (
+          <Stack gap={0}>
+            <Text weight="semibold">{entryTitle(type, primary.data) ?? messages.contentList.untitled}</Text>
+            <Text size="sm" tone="muted" mono>
+              {type.urlPattern ? type.urlPattern.replace('[slug]', primary.slug) : primary.slug}
+            </Text>
+          </Stack>
+        ),
         status: <Tag tone={STATE_TONE[state]}>{messages.status[state]}</Tag>,
-        updated: relativeTime(entry.updatedAt, locale),
+        ...(manyLanguages && {
+          languages: (
+            <Inline gap={1}>
+              {versions.map((entry) => (
+                <Tag key={entry.id}>{entry.locale.toUpperCase()}</Tag>
+              ))}
+            </Inline>
+          ),
+        }),
+        updated: (
+          <Text size="sm" tone="muted">
+            {relativeTime(updated, locale)}
+          </Text>
+        ),
       },
     };
   });
@@ -68,20 +108,44 @@ export function ContentListScreen() {
   );
 
   return (
-    <Box padding={8}>
+    <Box paddingX={12} paddingY={10}>
       <Stack gap={6}>
-        <PageHeader
-          title={name}
-          actions={newEntry}
-          {...(entries.data && { description: messages.contentList.description(entries.data.total) })}
-        />
+        <PageHeader title={name} actions={newEntry} {...(entries.data && { description: messages.contentList.description(groups.length) })} />
         {entries.isPending && <LoadingState />}
         {entries.isError && <ErrorState error={entries.error} onRetry={() => void entries.refetch()} />}
-        {entries.isSuccess && rows.length === 0 && (
+        {entries.isSuccess && groups.length === 0 && (
           <EmptyState icon={Inbox} title={messages.contentList.emptyTitle(name)} description={messages.contentList.emptyDescription} />
         )}
-        {entries.isSuccess && rows.length > 0 && (
-          <Table label={name} columns={columns} rows={rows} onRowAction={(id) => void navigate(paths.entry(type.key, id))} />
+        {entries.isSuccess && groups.length > 0 && (
+          <>
+            <Inline justify="between" gap={4} wrap>
+              <Segmented
+                label={messages.contentList.filter}
+                selected={filter}
+                onChange={(id) => setFilter(id as Filter)}
+                options={[
+                  { id: 'all', label: messages.contentList.filterAll },
+                  { id: 'published', label: messages.contentList.filterPublished },
+                  { id: 'drafts', label: messages.contentList.filterDrafts },
+                  { id: 'changed', label: messages.contentList.filterChanged },
+                ]}
+              />
+              <Box maxWidth="xs" grow>
+                <SearchField
+                  label={messages.contentList.search(name)}
+                  placeholder={messages.contentList.searchPlaceholder}
+                  clearLabel={messages.contentList.clearSearch}
+                  value={query}
+                  onChange={setQuery}
+                />
+              </Box>
+            </Inline>
+            {rows.length === 0 ? (
+              <EmptyState icon={SearchX} title={messages.contentList.noMatchesTitle} description={messages.contentList.noMatchesDescription} />
+            ) : (
+              <Table label={name} columns={columns} rows={rows} onRowAction={(id) => void navigate(paths.entry(type.key, id))} />
+            )}
+          </>
         )}
       </Stack>
     </Box>

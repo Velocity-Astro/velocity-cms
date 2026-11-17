@@ -1,5 +1,8 @@
 import { cva, type VariantProps } from 'class-variance-authority';
 
+/** The card the table sits in. A table wider than the screen scrolls inside it. */
+export const tableFrameClass = 'overflow-x-auto rounded-xl border border-border bg-card';
+
 export const tableClass = 'w-full border-separate border-spacing-0 text-left text-base outline-none';
 
 const align = {
@@ -9,7 +12,7 @@ const align = {
 
 export const tableColumnVariants = cva(
   [
-    'border-b border-border px-3 py-2 text-sm font-medium whitespace-nowrap text-foreground-secondary',
+    'border-b border-border px-4 py-2.5 text-xs font-semibold whitespace-nowrap text-foreground-muted',
     'outline-none data-focus-visible:ring-2 data-focus-visible:ring-ring data-focus-visible:ring-inset',
     'data-allows-sorting:cursor-default data-hovered:text-foreground',
   ],
@@ -19,18 +22,18 @@ export const tableColumnVariants = cva(
 export const tableColumnLabelClass = 'inline-flex items-center gap-1';
 
 export const tableRowClass = [
-  'outline-none transition-colors motion-fast',
+  'group outline-none transition-colors motion-fast',
   'data-hovered:bg-background-secondary data-pressed:bg-background-tertiary',
   'data-focus-visible:ring-2 data-focus-visible:ring-ring data-focus-visible:ring-inset',
   'data-href:cursor-default data-action:cursor-default',
 ].join(' ');
 
 export const tableCellVariants = cva(
-  'border-b border-border-subtle px-3 py-3 text-foreground outline-none data-focus-visible:ring-2 data-focus-visible:ring-ring data-focus-visible:ring-inset',
+  'border-b border-border px-4 py-3 align-middle text-foreground outline-none group-last:border-b-0 data-focus-visible:ring-2 data-focus-visible:ring-ring data-focus-visible:ring-inset',
   { variants: { align }, defaultVariants: { align: 'start' } },
 );
 
-export const tableEmptyClass = 'px-3 py-12 text-center text-foreground-muted';
+export const tableEmptyClass = 'px-4 py-12 text-center text-foreground-muted';
 
 /** The size of the sort arrow, in pixels. */
 export const tableSortIconSize = 14;

@@ -17,7 +17,7 @@ afterEach(() => act(() => dismissToasts()));
 it('opens an entry from the list, with each value in the control its field type asks for', async () => {
   const user = userEvent.setup();
   renderApp('/content/listings', signedIn());
-  await user.click(await screen.findByRole('rowheader', { name: '6214 Lakeshore Drive' }));
+  await user.click(await screen.findByRole('rowheader', { name: /^6214 Lakeshore Drive/ }));
 
   expect(await screen.findByRole('heading', { level: 1, name: '6214 Lakeshore Drive' })).toBeTruthy();
   expect((await field('Title')).value).toBe('6214 Lakeshore Drive');
@@ -108,8 +108,8 @@ it('creates an entry whose slug follows its title, and carries on editing it', a
   await waitFor(async () => expect((await client.getEntry(created?.id ?? '')).data['f-name']).toBe('María Ortiz Vega'));
   expect((await client.listEntries({ type: 'agents' })).total).toBe(1);
 
-  await user.click(screen.getByRole('link', { name: 'All agents' }));
-  expect(await screen.findByRole('rowheader', { name: 'María Ortiz Vega' })).toBeTruthy();
+  await user.click(within(screen.getByRole('region', { name: 'Save and publish' })).getByRole('link', { name: 'Agents' }));
+  expect(await screen.findByRole('rowheader', { name: /^María Ortiz Vega/ })).toBeTruthy();
 });
 
 it('asks for a usable slug before sending anything', async () => {

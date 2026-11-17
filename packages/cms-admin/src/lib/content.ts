@@ -55,3 +55,26 @@ export function sameData(a: unknown, b: unknown): boolean {
   const keys = Object.keys(left);
   return keys.length === Object.keys(right).length && keys.every((key) => key in right && sameData(left[key], right[key]));
 }
+
+/** One thing in every language it exists in: the versions of an entry that translate each other. */
+export interface EntryGroup {
+  /** The version to show and open first: the reader's language if there is one. */
+  readonly primary: Entry;
+  /** Every version, the primary first. */
+  readonly versions: readonly Entry[];
+}
+
+/**
+ * Puts translations of the same entry together, keeping the order of the list: a group sits
+ * where its first version was.
+ */
+export function groupTranslations(entries: readonly Entry[], locale: string): EntryGroup[] {
+  const base = locale.split('-')[0] ?? locale;
+  const groups = new Map<string, Entry[]>();
+  for (const entry of entries) groups.set(entry.translationGroup, [...(groups.get(entry.translationGroup) ?? []), entry]);
+  return [...groups.values()].map((versions) => {
+    const primary = versions.find((entry) => entry.locale === locale) ?? versions.find((entry) => entry.locale.split('-')[0] === base) ?? versions[0];
+    if (!primary) throw new Error('A group of translations has no entries.');
+    return { primary, versions: [primary, ...versions.filter((entry) => entry !== primary)] };
+  });
+}

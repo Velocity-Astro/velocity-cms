@@ -1,11 +1,11 @@
 import type { ContentTypeDef, Entry, EntryData } from '@velocity/cms-core';
 import { SLUG_PATH, isSlug, liveFields } from '@velocity/cms-core';
-import { Box, Button, ConfirmDialog, Form, Link, PageHeader, SaveBar, Stack, Tag, Text, TextField, toast } from '@velocity/cms-ui';
+import { Box, Button, ConfirmDialog, Form, SaveBar, Stack, Tag, Text, TextField, toast } from '@velocity/cms-ui';
 import { useState } from 'react';
 import { paths } from '../../app/paths.js';
 import { AdminRequestError } from '../../client/errors.js';
 import { useCreateEntry, usePublishEntry, useUnpublishEntry, useUpdateEntry } from '../../client/queries.js';
-import { FieldEditor } from '../../fields/index.js';
+import { FieldGrid } from '../../fields/index.js';
 import { entryState, entryTitle, localized, sameData, withValue, type EntryState } from '../../lib/content.js';
 import { relativeTime } from '../../lib/relative-time.js';
 import { slugify } from '../../lib/slug.js';
@@ -129,49 +129,10 @@ export function EntryForm({ type, entry, onCreated }: EntryFormProps) {
 
   return (
     <Stack gap={0} fill>
-      <Box padding={8} grow>
-        <Box maxWidth="md">
-          <Stack gap={6}>
-            <Stack gap={2}>
-              <Link href={paths.contentList(type.key)} tone="muted">
-                {messages.editor.back(typeName)}
-              </Link>
-              <PageHeader title={title ?? (entry ? messages.contentList.untitled : messages.editor.newTitle)} />
-            </Stack>
-            <Form label={messages.editor.form} gap={6} onSubmit={() => void run('save')}>
-              {liveFields(type.fields).map((field) => (
-                <FieldEditor
-                  key={field.id}
-                  field={field}
-                  value={data[field.id]}
-                  onChange={(value) => {
-                    setData((current) => withValue(current, field.id, value));
-                    // A problem is about what was sent. Once the field changes, it no longer applies.
-                    setProblems((current) => new Map([...current].filter(([path]) => path !== field.key && !path.startsWith(`${field.key}.`))));
-                  }}
-                  path={field.key}
-                  problems={problems}
-                />
-              ))}
-              <TextField
-                label={messages.editor.slug}
-                value={slug}
-                onChange={(next) => {
-                  setTypedSlug(next);
-                  setSlugProblem(null);
-                }}
-                isRequired
-                {...(type.urlPattern !== undefined && {
-                  description: messages.editor.slugDescription(type.urlPattern.replace('[slug]', slug === '' ? '…' : slug)),
-                })}
-                {...(slugProblem !== null && { errorMessage: slugProblem })}
-              />
-            </Form>
-          </Stack>
-        </Box>
-      </Box>
       <SaveBar
         label={messages.editor.saveBar}
+        back={{ href: paths.contentList(type.key), label: typeName }}
+        title={title ?? (entry ? messages.contentList.untitled : messages.editor.newTitle)}
         status={
           <>
             <Tag tone={STATE_TONE[state]}>{messages.status[state]}</Tag>
@@ -196,6 +157,36 @@ export function EntryForm({ type, entry, onCreated }: EntryFormProps) {
           </>
         }
       />
+      <Box paddingX={12} paddingY={8} grow>
+        <Box maxWidth="lg">
+          <Form label={messages.editor.form} gap={5} onSubmit={() => void run('save')}>
+            <FieldGrid
+              fields={liveFields(type.fields)}
+              values={data}
+              onChange={(field, value) => {
+                setData((current) => withValue(current, field.id, value));
+                // A problem is about what was sent. Once the field changes, it no longer applies.
+                setProblems((current) => new Map([...current].filter(([path]) => path !== field.key && !path.startsWith(`${field.key}.`))));
+              }}
+              pathOf={(field) => field.key}
+              problems={problems}
+            />
+            <TextField
+              label={messages.editor.slug}
+              value={slug}
+              onChange={(next) => {
+                setTypedSlug(next);
+                setSlugProblem(null);
+              }}
+              isRequired
+              {...(type.urlPattern !== undefined && {
+                description: messages.editor.slugDescription(type.urlPattern.replace('[slug]', slug === '' ? '…' : slug)),
+              })}
+              {...(slugProblem !== null && { errorMessage: slugProblem })}
+            />
+          </Form>
+        </Box>
+      </Box>
       {entry !== null && (
         <ConfirmDialog
           isOpen={isConfirmingUnpublish}
