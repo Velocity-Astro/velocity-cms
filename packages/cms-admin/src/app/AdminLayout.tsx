@@ -1,5 +1,5 @@
 import { AppShell, Logo, Toast, dismissToasts, type AppShellNavItem } from '@velocity/cms-ui';
-import { LogOut } from 'lucide-react';
+import { House, LogOut } from 'lucide-react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router';
 import { useContentTypes, useSession, useSignOut } from '../client/queries.js';
 import { localized } from '../lib/content.js';
@@ -45,7 +45,10 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
         siteName={siteName}
         navLabel={messages.app.mainNavigation}
         skipLabel={messages.app.skipToContent}
-        nav={[{ id: 'content', label: messages.app.contentGroup, items: nav }]}
+        nav={[
+          { id: 'top', items: [{ id: 'home', label: messages.app.home, href: paths.home, icon: House, isCurrent: location.pathname === paths.home }] },
+          { id: 'content', label: messages.app.contentGroup, items: nav },
+        ]}
         account={{
           name: session.data.name,
           detail: session.data.email,

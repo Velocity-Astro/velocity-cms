@@ -18,6 +18,7 @@ export * from './Segmented/index.js';
 export * from './Select/index.js';
 export * from './Spinner/index.js';
 export * from './Stack/index.js';
+export * from './Stat/index.js';
 export * from './Switch/index.js';
 export * from './Table/index.js';
 export * from './Tabs/index.js';

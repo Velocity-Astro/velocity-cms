@@ -158,6 +158,15 @@
       "uses": []
     },
     {
+      "name": "Stat",
+      "layer": "component",
+      "group": "Data",
+      "description": "One figure with what it counts, for the top of a dashboard.",
+      "example": "<Stat label=\"Drafts\" value=\"3\" />",
+      "useInstead": "Tag for a state; Table past four figures.",
+      "uses": []
+    },
+    {
       "name": "PageHeader",
       "layer": "pattern",
       "group": "Page",

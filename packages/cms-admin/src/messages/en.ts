@@ -8,6 +8,7 @@ export const en = {
   app: {
     product: 'Velocity',
     contentGroup: 'Content',
+    home: 'Home',
     skipToContent: 'Skip to content',
     mainNavigation: 'Main',
     notifications: 'Notifications',
@@ -91,6 +92,25 @@ export const en = {
     cancel: 'Cancel',
     notFoundTitle: 'This entry does not exist',
     notFoundDescription: 'It may have been deleted.',
+  },
+  home: {
+    greeting: {
+      morning: (name: string) => `Good morning, ${name}`,
+      afternoon: (name: string) => `Good afternoon, ${name}`,
+      evening: (name: string) => `Good evening, ${name}`,
+    },
+    description: (site: string) => `Here is where ${site} stands.`,
+    published: 'Published',
+    publishedDetail: 'On the site now',
+    drafts: 'Drafts',
+    draftsDetail: 'Not on the site yet',
+    changed: 'Unpublished changes',
+    changedDetail: 'Saved, waiting to be published',
+    addTitle: 'Add new',
+    recentTitle: 'Recent changes',
+    recentEmpty: 'Nothing has been written yet',
+    recentEmptyDescription: 'Entries appear here as soon as someone saves one.',
+    columnType: 'Type',
   },
   status: {
     draft: 'Draft',

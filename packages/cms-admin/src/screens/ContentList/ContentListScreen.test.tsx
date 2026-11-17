@@ -8,11 +8,11 @@ import { sampleContentTypes, sampleEntries, sampleUser } from '../../testing/sam
 
 const signedIn = { user: sampleUser, contentTypes: sampleContentTypes, entries: sampleEntries() };
 
-it('opens on the first content type, with every type in the navigation', async () => {
-  renderApp('/', signedIn);
+it('has every type in the navigation, after Home', async () => {
+  renderApp('/content/agents', signedIn);
   expect(await screen.findByRole('heading', { level: 1, name: 'Agents' })).toBeTruthy();
   const nav = screen.getByRole('navigation', { name: 'Main' });
-  expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Agents', 'Listings']);
+  expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Home', 'Agents', 'Listings']);
   expect(within(nav).getByRole('link', { name: 'Agents' }).getAttribute('aria-current')).toBe('page');
 });
 

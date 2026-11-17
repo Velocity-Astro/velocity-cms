@@ -53,7 +53,7 @@ it('signs in with a passkey and opens the editor', async () => {
   const user = userEvent.setup();
   renderApp('/sign-in', { passkeyUser: sampleUser, contentTypes: sampleContentTypes });
   await user.click(await screen.findByRole('button', { name: 'Sign in with a passkey' }));
-  expect(await screen.findByRole('heading', { level: 1, name: 'Agents' })).toBeTruthy();
+  expect(await screen.findByRole('heading', { level: 1, name: /, Dana$/ })).toBeTruthy();
   expect(screen.getByRole('button', { name: /^Account\s*Dana/ })).toBeTruthy();
 });
 
@@ -66,7 +66,7 @@ it('says so when the passkey does not work, and stays on the screen', async () =
 
 it('skips the sign-in screen for someone already signed in', async () => {
   renderApp('/sign-in', { user: sampleUser, contentTypes: sampleContentTypes });
-  expect(await screen.findByRole('heading', { level: 1, name: 'Agents' })).toBeTruthy();
+  expect(await screen.findByRole('heading', { level: 1, name: /, Dana$/ })).toBeTruthy();
 });
 
 it('explains a sign-in link that no longer works, and offers a new one', async () => {

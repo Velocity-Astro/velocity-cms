@@ -1,4 +1,4 @@
-import { MutationCache, QueryCache, QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { MutationCache, QueryCache, QueryClient, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Entry } from '@velocity/cms-core';
 import type { EntryChanges, EntryListQuery, NewEntry } from './admin-client.js';
 import { AdminRequestError } from './errors.js';
@@ -48,6 +48,14 @@ export function useContentTypes() {
 export function useEntries(query: EntryListQuery) {
   const client = useClient();
   return useQuery({ queryKey: keys.entries(query), queryFn: () => client.listEntries(query) });
+}
+
+/** The entries of several content types at once, one request each, sharing the lists' cache. */
+export function useEntriesOfTypes(queries: readonly EntryListQuery[]) {
+  const client = useClient();
+  return useQueries({
+    queries: queries.map((query) => ({ queryKey: keys.entries(query), queryFn: () => client.listEntries(query) })),
+  });
 }
 
 /** Field types change only when the site is redeployed, so they are fetched once. */
