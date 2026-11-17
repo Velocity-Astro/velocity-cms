@@ -1,0 +1,69 @@
+import { Box, EmptyState, PageHeader, Stack, Table, Tag, type TableColumn, type TableRow } from '@velocity/cms-ui';
+import { FileQuestion, Inbox } from 'lucide-react';
+import { useParams } from 'react-router';
+import { ErrorState, LoadingState } from '../../app/RequestState.js';
+import { useContentTypes, useEntries } from '../../client/queries.js';
+import { entryState, entryTitle, localized, type EntryState } from '../../lib/content.js';
+import { relativeTime } from '../../lib/relative-time.js';
+import { useLocale, useMessages } from '../../messages/messages-context.js';
+
+/** How each state is coloured. The words come from the messages. */
+const STATE_TONE = { draft: 'neutral', scheduled: 'info', published: 'success', unpublishedChanges: 'warning' } as const satisfies Record<
+  EntryState,
+  string
+>;
+
+/** Every entry of one content type. */
+export function ContentListScreen() {
+  const messages = useMessages();
+  const locale = useLocale();
+  const { typeKey = '' } = useParams();
+  const types = useContentTypes();
+  const entries = useEntries({ type: typeKey });
+
+  if (types.isPending) return <LoadingState />;
+  if (types.isError) return <ErrorState error={types.error} onRetry={() => void types.refetch()} />;
+
+  const type = types.data.find((candidate) => candidate.key === typeKey);
+  if (!type) {
+    return (
+      <EmptyState
+        icon={FileQuestion}
+        title={messages.contentList.typeNotFoundTitle}
+        description={messages.contentList.typeNotFoundDescription}
+      />
+    );
+  }
+
+  const name = localized(type.label, locale);
+  const columns: TableColumn[] = [
+    { id: 'title', label: messages.contentList.columnTitle },
+    { id: 'status', label: messages.contentList.columnStatus },
+    { id: 'updated', label: messages.contentList.columnUpdated },
+  ];
+  const rows: TableRow[] = (entries.data?.items ?? []).map((entry) => {
+    const state = entryState(entry);
+    return {
+      id: entry.id,
+      cells: {
+        title: entryTitle(type, entry) ?? messages.contentList.untitled,
+        status: <Tag tone={STATE_TONE[state]}>{messages.status[state]}</Tag>,
+        updated: relativeTime(entry.updatedAt, locale),
+      },
+    };
+  });
+
+  return (
+    <Box padding={8}>
+      <Stack gap={6}>
+        <PageHeader title={name} {...(entries.data && { description: messages.contentList.description(entries.data.total) })} />
+        {entries.isPending && <LoadingState />}
+        {entries.isError && <ErrorState error={entries.error} onRetry={() => void entries.refetch()} />}
+        {entries.isSuccess && rows.length === 0 && (
+          <EmptyState icon={Inbox} title={messages.contentList.emptyTitle(name)} description={messages.contentList.emptyDescription} />
+        )}
+        {entries.isSuccess && rows.length > 0 && <Table label={name} columns={columns} rows={rows} />}
+      </Stack>
+    </Box>
+  );
+}

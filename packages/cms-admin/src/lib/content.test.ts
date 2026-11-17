@@ -1,0 +1,48 @@
+import type { ContentTypeDef, Entry } from '@velocity/cms-core';
+import { expect, it } from 'vitest';
+import { entryState, entryTitle, localized } from './content.js';
+
+const type: ContentTypeDef = {
+  id: 't1',
+  key: 'listings',
+  kind: 'collection',
+  label: { en: 'Listings' },
+  fields: [
+    { id: 'f0', key: 'old', type: 'text', label: { en: 'Old' }, translated: false, required: false, options: {}, deletedAt: '2026-01-01T00:00:00.000Z' },
+    { id: 'f1', key: 'price', type: 'number', label: { en: 'Price' }, translated: false, required: false, options: {} },
+    { id: 'f2', key: 'title', type: 'text', label: { en: 'Title' }, translated: true, required: true, options: {} },
+  ],
+};
+const entry = (changes: Partial<Entry> = {}): Entry => ({
+  id: 'e1',
+  typeId: 't1',
+  locale: 'en',
+  translationGroup: 'g1',
+  slug: 'lakeshore',
+  status: 'draft',
+  data: { f0: 'Removed', f1: 845000, f2: 'Lakeshore Drive' },
+  revision: 1,
+  createdAt: '2026-11-17T10:00:00.000Z',
+  updatedAt: '2026-11-17T10:00:00.000Z',
+  ...changes,
+});
+
+it('picks the text for a language, its base language, or whatever there is', () => {
+  expect(localized({ en: 'Listings', es: 'Propiedades' }, 'es')).toBe('Propiedades');
+  expect(localized({ en: 'Listings', es: 'Propiedades' }, 'es-ES')).toBe('Propiedades');
+  expect(localized({ en: 'Listings' }, 'fr')).toBe('Listings');
+  expect(localized({}, 'en')).toBe('');
+});
+
+it('titles an entry by its first live text field', () => {
+  expect(entryTitle(type, entry())).toBe('Lakeshore Drive');
+  expect(entryTitle(type, entry({ data: { f2: '  ' } }))).toBeNull();
+  expect(entryTitle({ ...type, fields: [] }, entry())).toBeNull();
+});
+
+it('tells a published entry with newer saves from one that is up to date', () => {
+  const published = { slug: 'lakeshore', data: {}, revision: 2, at: '2026-11-17T11:00:00.000Z' };
+  expect(entryState(entry())).toBe('draft');
+  expect(entryState(entry({ status: 'published', revision: 2, published }))).toBe('published');
+  expect(entryState(entry({ status: 'published', revision: 3, published }))).toBe('unpublishedChanges');
+});

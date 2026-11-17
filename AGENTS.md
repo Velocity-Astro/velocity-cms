@@ -32,6 +32,7 @@ TypeScript (strict) · Zod 4 · Drizzle + libSQL (SQLite) · Astro 7 · React 19
 - `packages/cms-astro/src/integration.ts` — what `velocityCms()` adds to a site. `routes/` holds the pages it injects: they ship as source and are compiled with the site, because they must see the site's own files. Keep them thin; logic goes in `src/`, where it is type-checked and tested.
 - `packages/cms-astro/src/loader.ts` — the Content Layer loader, for sites that choose a fully static build.
 - `packages/cms-ui/` — the editor's design system. `src/tokens/tokens.css` holds every colour, size, radius, shadow and duration; `src/styles.css` turns them into the Tailwind theme and switches Tailwind's own palette off; `src/components/` and `src/patterns/` hold one folder per part; `component-registry.json` lists them all; `scripts/check.mjs` enforces the rules below.
+- `packages/cms-admin/` — the editor's screens, a React app. `src/client/admin-client.ts` is the only way to the server (`queries.ts` wraps every request); `src/messages/en.ts` holds every word; `src/app/` has the routes, addresses and frame; `src/screens/` has one folder per screen; `src/testing/` has the in-memory server the tests and the preview (`pnpm --filter @velocity/cms-admin dev`) run against.
 - `prototypes/` — phase 0 experiments. Scripts here may be rough; packages may not.
 
 ## Rules
@@ -65,3 +66,14 @@ TypeScript (strict) · Zod 4 · Drizzle + libSQL (SQLite) · Astro 7 · React 19
 - **Registry in sync.** Add the part to `component-registry.json` (group, description, example, `uses`) and export it from the layer's `index.ts`. The story title is `Components/<group>/<Name>` or `Patterns/<group>/<Name>`.
 - **Every part is tested** for what it does with a keyboard and a pointer, and with `expectAccessible()`. Every story must pass WCAG 2.1 AA in light and dark (`check:stories`). A story that shows something open (a dialog, a list, a tooltip) is tagged `['!autodocs', 'overlay']`, so it is checked once open and kept off the docs page.
 - **Something missing?** Add it to `cms-ui` first, with its six files, then use it. Don't build a one-off in a screen.
+
+## Screen rules (`cms-admin`)
+
+ESLint fails when one of these is broken.
+
+- **Screens are built only from `@velocity/cms-ui`.** No `className`, no `style`, no HTML elements, no imports of React Aria or Tailwind. If a part is missing, add it to `cms-ui` first.
+- **No words in screens.** Every string a person reads lives in `src/messages/en.ts` and is read with `useMessages()`. A message with a value in it is a function.
+- **The server is reached only through `AdminClient`,** and screens call it only through the hooks in `client/queries.ts`, so each request has one cache key.
+- **Addresses come from `app/paths.ts`.** Don't write a path by hand in a screen.
+- **Every request has three states on screen:** loading, failed (with what went wrong and a way to try again) and done, which includes an empty state.
+- **Screens are tested through the whole app** with `renderApp(path, …)` against `MemoryAdminClient`: find things by role and name, act as a person would, and check what they would see.
