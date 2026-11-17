@@ -4,6 +4,7 @@
     { "path": "packages/cms-core" },
     { "path": "packages/cms-db" },
     { "path": "packages/cms-astro" },
-    { "path": "packages/cms-ui" }
+    { "path": "packages/cms-ui" },
+    { "path": "packages/cms-admin" }
   ]
 }

@@ -5,10 +5,10 @@ export default defineConfig({
     projects: [
       { test: { name: 'node', include: ['packages/*/src/**/*.test.ts'] } },
       {
-        // Components are tested in a browser-like page.
+        // Components and screens are tested in a browser-like page.
         test: {
           name: 'ui',
-          include: ['packages/cms-ui/src/**/*.test.tsx'],
+          include: ['packages/cms-ui/src/**/*.test.tsx', 'packages/cms-admin/src/**/*.test.tsx'],
           environment: 'jsdom',
           setupFiles: ['packages/cms-ui/src/testing/setup.ts'],
         },

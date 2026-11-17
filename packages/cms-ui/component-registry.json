@@ -235,6 +235,36 @@
       "description": "The bar that stays at the bottom of an editing screen, with the entry's state and its save buttons.",
       "example": "<SaveBar label=\"Save and publish\" status={status} actions={actions} />",
       "uses": []
+    },
+    {
+      "name": "Form",
+      "layer": "component",
+      "group": "Forms",
+      "description": "Fields that are sent together, in a column.",
+      "example": "<Form onSubmit={save}>…</Form>",
+      "useInstead": "Stack for layout alone.",
+      "uses": []
+    },
+    {
+      "name": "Spinner",
+      "layer": "component",
+      "group": "Status",
+      "description": "Says that something is on its way.",
+      "example": "<Spinner label=\"Loading listings\" showLabel />",
+      "useInstead": "Button isPending for an action under way.",
+      "uses": []
+    },
+    {
+      "name": "AuthShell",
+      "layer": "pattern",
+      "group": "Page",
+      "description": "The frame around the screens before sign-in: one card in the middle of the page.",
+      "example": "<AuthShell brand={brand} title=\"Sign in\">…</AuthShell>",
+      "useInstead": "AppShell after sign-in.",
+      "uses": [
+        "Heading",
+        "Text"
+      ]
     }
   ]
 }

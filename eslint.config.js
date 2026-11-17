@@ -38,6 +38,42 @@ export default tseslint.config(
     ['@velocity/*', 'drizzle-orm', 'drizzle-orm/*', '@libsql/*', 'astro', 'astro/*', 'astro:*', 'node:*', 'zod'],
     'cms-ui is the design system: tokens, components and patterns. It must not know about content, the API or the server, so that plugins and other apps can use it as it is.',
   ),
+  boundary(
+    ['packages/cms-admin/src/**'],
+    [
+      '@velocity/cms-db', '@velocity/cms-db/*', '@velocity/cms-astro', '@velocity/cms-astro/*',
+      'drizzle-orm', 'drizzle-orm/*', '@libsql/*', 'astro', 'astro/*', 'astro:*', 'node:*',
+      'react-aria-components', 'react-aria', 'react-aria/*', 'class-variance-authority', 'tailwindcss', 'tailwindcss/*',
+    ],
+    'cms-admin holds the screens. It reaches the server only through AdminClient, and builds its screens only from @velocity/cms-ui. If a part is missing, add it to cms-ui first.',
+  ),
+  {
+    // Screens have no styling, no HTML and no words of their own.
+    files: ['packages/cms-admin/src/**/*.tsx'],
+    ignores: ['packages/cms-admin/src/**/*.test.tsx', 'packages/cms-admin/src/testing/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "JSXAttribute[name.name=/^(className|style)$/]",
+          message: 'Screens contain no styling. Use a variant of a cms-ui part, or add one there.',
+        },
+        {
+          selector: 'JSXOpeningElement[name.type="JSXIdentifier"][name.name=/^[a-z]/]',
+          message: 'Screens contain no HTML elements. Use a cms-ui part (Box, Stack, Text, Button, Link…), or add one there.',
+        },
+        {
+          selector: 'JSXText[value=/\\p{L}/u]',
+          message: 'Screens contain no words. Add the text to src/messages/en.ts and read it with useMessages().',
+        },
+        {
+          selector:
+            'JSXAttribute[name.name=/^(label|title|description|placeholder|errorMessage|content|closeLabel|confirmLabel|cancelLabel|navLabel|skipLabel|empty)$/] > Literal',
+          message: 'Screens contain no words. Add the text to src/messages/en.ts and read it with useMessages().',
+        },
+      ],
+    },
+  },
   {
     // Tests and the shared test helpers may use Node and Vitest.
     files: ['packages/*/src/**/*.test.{ts,tsx}', 'packages/*/src/testing/**'],

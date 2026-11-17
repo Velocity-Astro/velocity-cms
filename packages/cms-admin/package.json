@@ -1,0 +1,49 @@
+{
+  "name": "@velocity/cms-admin",
+  "version": "0.0.0",
+  "description": "The Velocity CMS editor: the screens people use to manage content. Built only from cms-ui parts.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.test.*"
+  ],
+  "scripts": {
+    "dev": "vite dev"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.108.0",
+    "@velocity/cms-core": "workspace:*",
+    "@velocity/cms-ui": "workspace:*",
+    "lucide-react": "^1.74.0",
+    "react-router": "^8.5.1"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.5",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.0.0",
+    "jsdom": "^31.0.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tailwindcss": "^4.3.5",
+    "vite": "^8.0.0"
+  }
+}
