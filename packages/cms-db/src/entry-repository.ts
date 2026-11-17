@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, ne, or, type SQL } from 'drizzle-orm';
 import {
   ConflictError,
   type Entry,
@@ -13,12 +13,25 @@ import { entries, revisions } from './tables.js';
 
 type EntryRow = typeof entries.$inferSelect;
 
-const toEntry = ({ publishAt, ...row }: EntryRow): Entry => ({
+const toEntry = ({ publishAt, publishedSlug, publishedData, publishedRevision, publishedAt, ...row }: EntryRow): Entry => ({
   ...row,
   ...(publishAt !== null && { publishAt }),
+  ...(publishedSlug !== null &&
+    publishedData !== null &&
+    publishedRevision !== null &&
+    publishedAt !== null && {
+      published: { slug: publishedSlug, data: publishedData, revision: publishedRevision, at: publishedAt },
+    }),
 });
 
-const toRow = (entry: Entry): EntryRow => ({ ...entry, publishAt: entry.publishAt ?? null });
+const toRow = ({ published, ...entry }: Entry): EntryRow => ({
+  ...entry,
+  publishAt: entry.publishAt ?? null,
+  publishedSlug: published?.slug ?? null,
+  publishedData: published?.data ?? null,
+  publishedRevision: published?.revision ?? null,
+  publishedAt: published?.at ?? null,
+});
 
 export class SqliteEntryRepository implements EntryRepository {
   constructor(private readonly db: Db) {}
@@ -33,6 +46,8 @@ export class SqliteEntryRepository implements EntryRepository {
     if (query.typeId !== undefined) filters.push(eq(entries.typeId, query.typeId));
     if (query.locale !== undefined) filters.push(eq(entries.locale, query.locale));
     if (query.status !== undefined) filters.push(eq(entries.status, query.status));
+    if (query.slug !== undefined) filters.push(eq(entries.slug, query.slug));
+    if (query.publishedSlug !== undefined) filters.push(eq(entries.publishedSlug, query.publishedSlug));
     const where = filters.length > 0 ? and(...filters) : undefined;
 
     const rows = await this.db
@@ -58,13 +73,23 @@ export class SqliteEntryRepository implements EntryRepository {
         throw new ConflictError(`Entry "${entry.id}" changed since it was read.`);
       }
 
-      const [sameSlug] = await tx
-        .select({ id: entries.id })
+      // An address belongs to one entry, whether that entry is working under it or showing it to visitors.
+      const mine = entry.published ? [entry.slug, entry.published.slug] : [entry.slug];
+      const [other] = await tx
+        .select({ slug: entries.slug, publishedSlug: entries.publishedSlug })
         .from(entries)
-        .where(and(eq(entries.typeId, entry.typeId), eq(entries.locale, entry.locale), eq(entries.slug, entry.slug)))
+        .where(
+          and(
+            eq(entries.typeId, entry.typeId),
+            eq(entries.locale, entry.locale),
+            ne(entries.id, entry.id),
+            or(inArray(entries.slug, mine), inArray(entries.publishedSlug, mine)),
+          ),
+        )
         .limit(1);
-      if (sameSlug && sameSlug.id !== entry.id) {
-        throw new ConflictError(`Another entry already uses the slug "${entry.slug}" in ${entry.locale}.`);
+      if (other) {
+        const taken = mine.includes(other.slug) ? other.slug : other.publishedSlug;
+        throw new ConflictError(`Another entry already uses the slug "${taken}" in ${entry.locale}.`);
       }
 
       const row = toRow(entry);

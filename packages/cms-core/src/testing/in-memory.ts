@@ -29,7 +29,9 @@ export class InMemoryEntryRepository implements EntryRepository {
         (entry) =>
           (query.typeId === undefined || entry.typeId === query.typeId) &&
           (query.locale === undefined || entry.locale === query.locale) &&
-          (query.status === undefined || entry.status === query.status),
+          (query.status === undefined || entry.status === query.status) &&
+          (query.slug === undefined || entry.slug === query.slug) &&
+          (query.publishedSlug === undefined || entry.published?.slug === query.publishedSlug),
       )
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
     const offset = query.offset ?? 0;
@@ -41,14 +43,12 @@ export class InMemoryEntryRepository implements EntryRepository {
     if ((stored?.revision ?? null) !== options.expectedRevision) {
       throw new ConflictError(`Entry "${entry.id}" changed since it was read.`);
     }
+    const mine = [entry.slug, entry.published?.slug];
     for (const other of this.#entries.values()) {
-      if (
-        other.id !== entry.id &&
-        other.typeId === entry.typeId &&
-        other.locale === entry.locale &&
-        other.slug === entry.slug
-      ) {
-        throw new ConflictError(`Another entry already uses the slug "${entry.slug}" in ${entry.locale}.`);
+      if (other.id === entry.id || other.typeId !== entry.typeId || other.locale !== entry.locale) continue;
+      const taken = mine.find((slug) => slug !== undefined && (slug === other.slug || slug === other.published?.slug));
+      if (taken !== undefined) {
+        throw new ConflictError(`Another entry already uses the slug "${taken}" in ${entry.locale}.`);
       }
     }
     this.#entries.set(entry.id, entry);

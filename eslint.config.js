@@ -13,14 +13,14 @@ const boundary = (files, patterns, message) => ({
 });
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/node_modules/**', 'prototypes/**/work/**'] },
+  { ignores: ['**/dist/**', '**/node_modules/**', 'prototypes/**/work/**', 'prototypes/auth/schema.ts'] },
   js.configs.recommended,
   ...tseslint.configs.strict,
   {
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/consistent-type-imports': 'error',
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', ignoreRestSiblings: true }],
     },
   },
   boundary(

@@ -35,7 +35,7 @@ export function convert(project) {
 
   // 1. The integration, and a cache rule for every page rendered on demand.
   edit('astro.config.mjs', (config) => {
-    let next = `import velocityCms from '@velocity/cms-astro';\n${must(config, '  integrations: [', '  integrations: [\n    velocityCms(),')}`;
+    let next = `import velocityCms from '@velocity/cms-astro';\n${must(config, '  integrations: [', '  integrations: [\n    velocityCms({ unlisted: [...searchPages] }),')}`;
     next = must(
       next,
       '  cache: {',
@@ -44,18 +44,10 @@ export function convert(project) {
     return must(next, '    sitemap({', "    sitemap({\n      customSitemaps: [new URL('/sitemap-live.xml', process.env.SITE_URL || 'https://example.com').href],");
   });
 
-  // 2. Live collections, the helper that reads them, and the endpoint that clears the cache.
+  // 2. Live collections and the helper that reads them. Search, the sitemap, share images and
+  //    the publish notice come with the integration.
   add('src/live.config.ts', 'live.config.ts');
   add('src/lib/live.ts', 'live.ts');
-  add('src/pages/api/cms-revalidate.ts', 'cms-revalidate.ts');
-
-  // 2b. What the build used to make from finished pages: sitemap, share images, search.
-  add('src/lib/live-site.ts', 'live-site.ts');
-  add('src/pages/sitemap-live.xml.ts', 'sitemap-live.xml.ts');
-  add('src/pages/og/[...live].png.ts', 'og-live.png.ts');
-  add('src/lib/live-search.ts', 'live-search.ts');
-  add('src/pages/api/search.json.ts', 'search.json.ts');
-  add('public/cms-search.js', 'cms-search.js');
   edit('src/views/SearchView.astro', (view) => must(view, "const url = '/pagefind/pagefind.js';", "const url = '/cms-search.js';"));
 
   // 3. The one file that reads content now reads it live.
@@ -90,7 +82,7 @@ export function convert(project) {
         /^(const .* = )Astro\.props( as .*)$/m,
         'const live = matchParams(await livePaths(), Astro.params);\nif (!live) return new Response(null, { status: 404 });\n$1live.props$2',
       );
-      return next.replace(/^---\n/, "---\nimport { matchParams } from '@/lib/live';\n");
+      return next.replace(/^---\n/, "---\nimport { matchParams } from '@velocity/cms-astro';\n");
     });
   }
   edit('src/pages/listing-catalog/[locale].json.ts', (source) =>

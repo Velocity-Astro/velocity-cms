@@ -163,6 +163,7 @@ try {
   const before = await timed(page);
   const publishStarted = performance.now();
   await cms.content.update(OWNER, entry.id, { data: { ...entry.data, [priceId]: newPrice }, expectedRevision: entry.revision });
+  await cms.content.publish(OWNER, entry.id);
   await revalidate();
   const after = await timed(page);
   const publishMs = performance.now() - publishStarted;

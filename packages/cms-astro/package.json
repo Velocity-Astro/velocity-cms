@@ -8,10 +8,15 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./middleware": {
+      "types": "./dist/preview.d.ts",
+      "default": "./dist/preview.js"
     }
   },
   "files": [
     "dist",
+    "routes",
     "!dist/**/*.test.*"
   ],
   "dependencies": {

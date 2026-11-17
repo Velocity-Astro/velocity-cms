@@ -1,15 +1,12 @@
 /**
- * Search for a live site, kept in the CMS database. Written into `src/lib/live-search.ts` by the
- * prototype.
- *
- * A search document is a page as a visitor reads it, so results match what is on the site. After a
- * publish only the pages that changed are read again, which keeps search as fresh as the page.
+ * Search for a live site, kept in the CMS database. A search document is a page as a visitor
+ * reads it, so results match what is on the site. After a publish only the pages that changed
+ * are read again, which keeps search as fresh as the page.
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { sharedConnection } from '@velocity/cms-astro';
 import type { SearchDocument, SearchResults } from '@velocity/cms-core';
-import { liveAddresses } from '@/lib/live-site';
+import { sharedConnection } from './connection.js';
 
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
 const decode = (text: string) =>
@@ -25,7 +22,7 @@ const documentId = (address: string) => `page:${address}`;
  * The searchable part of a finished page: what sits inside `data-pagefind-body`, the mark Velocity
  * layouts already put on real content. A page without it (search results, 404) is not searchable.
  */
-export function toDocument(address: string, html: string): SearchDocument | null {
+export function toSearchDocument(address: string, html: string): SearchDocument | null {
   const start = html.search(/<[^>]+\sdata-pagefind-body/);
   if (start === -1) return null;
   const end = html.indexOf('</main>', start);
@@ -43,7 +40,7 @@ export function toDocument(address: string, html: string): SearchDocument | null
   };
 }
 
-const search = async () => (await sharedConnection({})).search;
+const index = async () => (await sharedConnection({})).search;
 
 /** Reads these pages again from the running site and updates their search entries. */
 export async function indexPages(origin: string, addresses: readonly string[]): Promise<number> {
@@ -53,35 +50,33 @@ export async function indexPages(origin: string, addresses: readonly string[]): 
   const worker = async () => {
     for (let address = queue.shift(); address !== undefined; address = queue.shift()) {
       const response = await fetch(new URL(address, origin));
-      const document = response.ok ? toDocument(address, await response.text()) : null;
+      const document = response.ok ? toSearchDocument(address, await response.text()) : null;
       if (document) documents.push(document);
       else gone.push(documentId(address));
     }
   };
   await Promise.all(Array.from({ length: 8 }, worker));
-  const index = await search();
-  await index.put(documents);
-  await index.remove(gone);
+  const search = await index();
+  await search.put(documents);
+  await search.remove(gone);
   return documents.length;
 }
 
-/** Every page: the ones the build made, read from disk, and the live ones. Run once after a deploy. */
-export async function indexSite(origin: string): Promise<number> {
-  const client = path.join(process.cwd(), 'dist/client');
+/** Every page: the ones the build made, read from `clientDir`, and the live ones. Run once after a deploy. */
+export async function indexSite(origin: string, clientDir: string, addresses: readonly string[]): Promise<number> {
   const built = fs
-    .readdirSync(client, { recursive: true })
+    .readdirSync(clientDir, { recursive: true })
     .map(String)
     .filter((file) => file.endsWith('index.html'))
     .map((file) => {
       const address = `/${file.replaceAll('\\', '/').replace(/index\.html$/, '')}`;
-      return toDocument(address, fs.readFileSync(path.join(client, file), 'utf8'));
+      return toSearchDocument(address, fs.readFileSync(path.join(clientDir, file), 'utf8'));
     })
     .filter((document) => document !== null);
-  await (await search()).put(built);
-  const live = await indexPages(origin, (await liveAddresses()).map((address) => address.path));
-  return built.length + live;
+  await (await index()).put(built);
+  return built.length + (await indexPages(origin, addresses));
 }
 
 export async function searchSite(text: string, locale: string | undefined): Promise<SearchResults> {
-  return (await search()).search({ text, ...(locale !== undefined && { locale }) });
+  return (await index()).search({ text, ...(locale !== undefined && { locale }) });
 }

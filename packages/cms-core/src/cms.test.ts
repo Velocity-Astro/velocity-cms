@@ -4,7 +4,7 @@ import type { Actor } from './access.js';
 import { createCms, type Cms } from './cms.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from './errors.js';
 import { FieldType } from './field-type.js';
-import type { ContentTypeDef, FieldDef } from './model.js';
+import { hasUnpublishedChanges, type ContentTypeDef, type FieldDef } from './model.js';
 import { UnknownTypeError } from './registry.js';
 import {
   FakeClock,
@@ -148,15 +148,43 @@ describe('ContentService', () => {
     expect(published).toMatchObject({ status: 'published', revision: 3 });
   });
 
-  it('holds edits to a published entry to the publish rules', async () => {
+  it('keeps what visitors see until the next publish, however the entry is edited', async () => {
     const draft = await cms.content.create(editor, { typeId: listings.id, locale: 'en', slug: 'a', data: valid() });
     const live = await cms.content.publish(editor, draft.id);
-    await expect(
-      cms.content.update(editor, live.id, {
-        data: { [id(listings, 'headline')]: 'Price removed' },
-        expectedRevision: live.revision,
-      }),
-    ).rejects.toBeInstanceOf(ValidationError);
+    const before = cms.content.toPublic(listings, live);
+    expect(hasUnpublishedChanges(live)).toBe(false);
+
+    // Unfinished on purpose: the required price is gone, and the slug is new.
+    const edited = await cms.content.update(editor, live.id, {
+      data: { [id(listings, 'headline')]: 'Being rewritten' },
+      slug: 'b',
+      expectedRevision: live.revision,
+    });
+    expect(edited.status).toBe('published');
+    expect(hasUnpublishedChanges(edited)).toBe(true);
+    expect(cms.content.toPublic(listings, edited)).toEqual(before);
+    expect(cms.content.toPublic(listings, edited, 'working')).toMatchObject({ slug: 'b', data: { headline: 'Being rewritten' } });
+
+    const find = (slug: string, version?: 'working') =>
+      cms.content.findBySlug(editor, { typeId: listings.id, locale: 'en', slug, ...(version && { version }) });
+    expect((await find('a'))?.id).toBe(live.id);
+    expect(await find('b')).toBeNull();
+    expect((await find('b', 'working'))?.id).toBe(live.id);
+
+    await expect(cms.content.publish(editor, edited.id)).rejects.toBeInstanceOf(ValidationError);
+    const finished = await cms.content.update(editor, edited.id, { data: valid(), expectedRevision: edited.revision });
+    const republished = await cms.content.publish(editor, finished.id);
+    expect(cms.content.toPublic(listings, republished).slug).toBe('b');
+    expect(hasUnpublishedChanges(republished)).toBe(false);
+  });
+
+  it('has nothing for visitors before the first publish or after an unpublish', async () => {
+    const draft = await cms.content.create(editor, { typeId: listings.id, locale: 'en', slug: 'a', data: valid() });
+    expect(() => cms.content.toPublic(listings, draft)).toThrow(NotFoundError);
+    const live = await cms.content.publish(editor, draft.id);
+    const withdrawn = await cms.content.unpublish(editor, live.id);
+    expect(withdrawn).not.toHaveProperty('published');
+    expect(() => cms.content.toPublic(listings, withdrawn)).toThrow(NotFoundError);
   });
 
   it('lets an author write but not publish', async () => {
@@ -193,7 +221,7 @@ describe('ContentService', () => {
 
   it('hands the site values keyed by field key', async () => {
     const draft = await cms.content.create(editor, { typeId: listings.id, locale: 'en', slug: 'a', data: valid() });
-    expect(cms.content.toPublic(listings, draft).data).toEqual({
+    expect(cms.content.toPublic(listings, draft, 'working').data).toEqual({
       headline: 'Restored farmhouse on a corner lot',
       price: 629000,
       photos: ['front.jpg'],
@@ -217,8 +245,8 @@ describe('schema changes are safe for existing content', () => {
   it('keeps the value when a field is renamed', async () => {
     const entry = await create();
     const renamed = await cms.schema.renameField(owner, listings.id, id(listings, 'headline'), { key: 'title' });
-    expect(cms.content.toPublic(renamed, entry).data).toMatchObject({ title: 'Restored farmhouse' });
-    expect(cms.content.toPublic(renamed, entry).data).not.toHaveProperty('headline');
+    expect(cms.content.toPublic(renamed, entry, 'working').data).toMatchObject({ title: 'Restored farmhouse' });
+    expect(cms.content.toPublic(renamed, entry, 'working').data).not.toHaveProperty('headline');
   });
 
   it('hides a removed field but keeps its data through later saves, so restoring brings it back', async () => {
@@ -226,7 +254,7 @@ describe('schema changes are safe for existing content', () => {
     const priceId = id(listings, 'price');
 
     const without = await cms.schema.removeField(owner, listings.id, priceId);
-    expect(cms.content.toPublic(without, entry).data).not.toHaveProperty('price');
+    expect(cms.content.toPublic(without, entry, 'working').data).not.toHaveProperty('price');
 
     // An edit made while the field is gone does not send the field, and must not erase it.
     const edited = await cms.content.update(editor, entry.id, {
@@ -236,7 +264,7 @@ describe('schema changes are safe for existing content', () => {
     expect(edited.data[priceId]).toBe(629000);
 
     const restored = await cms.schema.restoreField(owner, listings.id, priceId);
-    expect(cms.content.toPublic(restored, edited).data).toMatchObject({
+    expect(cms.content.toPublic(restored, edited, 'working').data).toMatchObject({
       headline: 'Edited while price was removed',
       price: 629000,
     });
@@ -248,7 +276,7 @@ describe('schema changes are safe for existing content', () => {
     await cms.schema.removeField(owner, listings.id, oldId);
     const next = await cms.schema.addField(owner, listings.id, { key: 'price', type: 'number', label: { en: 'Price' } });
     expect(id(next, 'price')).not.toBe(oldId);
-    expect(cms.content.toPublic(next, entry).data).not.toHaveProperty('price');
+    expect(cms.content.toPublic(next, entry, 'working').data).not.toHaveProperty('price');
     await expect(cms.schema.restoreField(owner, listings.id, oldId)).rejects.toBeInstanceOf(ConflictError);
   });
 
@@ -313,7 +341,7 @@ describe('fields that hold other fields', () => {
     await expect(cms.content.publish(editor, entry.id)).rejects.toMatchObject({
       issues: [{ path: ['address', 'city'] }, { path: ['awards', 1, 'name'] }],
     });
-    expect(cms.content.toPublic(agents, entry).data).toEqual({
+    expect(cms.content.toPublic(agents, entry, 'working').data).toEqual({
       address: { street: '12 Elm St' },
       awards: [{ name: 'Top seller', year: '2025' }, { year: '2026' }],
     });
@@ -347,7 +375,7 @@ describe('extending with a new field type', () => {
       slug: 'r1',
       data: { [id(reviews, 'stars')]: 5 },
     });
-    expect(cms.content.toPublic(reviews, ok).data).toEqual({ stars: 5 });
+    expect(cms.content.toPublic(reviews, ok, 'working').data).toEqual({ stars: 5 });
   });
 
   it('refuses a second field type with the same name', () => {

@@ -22,16 +22,19 @@ export {
   createFieldRegistry,
 } from './fields/index.js';
 export {
+  hasUnpublishedChanges,
   liveFields,
   type ContentTypeDef,
   type ContentTypeKind,
   type Entry,
   type EntryData,
   type EntryStatus,
+  type EntryVersion,
   type FieldDef,
   type LocalizedText,
   type Page,
   type PublicEntry,
+  type PublishedVersion,
   type Revision,
   type Timestamp,
 } from './model.js';
@@ -48,6 +51,7 @@ export type {
   SearchQuery,
   SearchResults,
 } from './ports.js';
+export { PreviewLinks } from './preview.js';
 export { Registry, UnknownTypeError } from './registry.js';
 export { MARK_CLOSE, MARK_OPEN, escapeHtml, markedExcerpt, searchWords } from './search-text.js';
 export { buildFieldsSchema, toPublicData, validateData } from './schema-builder.js';

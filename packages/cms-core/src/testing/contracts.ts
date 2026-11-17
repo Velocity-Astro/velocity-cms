@@ -91,6 +91,42 @@ export function entryRepositoryContract(name: string, create: () => Promise<Entr
       expect((await repository.find()).total).toBe(3);
     });
 
+    const live = { slug: 'first', data: { f1: 'Live' }, revision: 2, at: '2026-01-02T00:00:00.000Z' };
+
+    it('stores the published version beside the working one, and drops it on unpublish', async () => {
+      await repository.save(entry(), fresh);
+      const published = entry({ revision: 2, status: 'published', published: live });
+      await repository.save(published, { expectedRevision: 1, actorId: 'tester' });
+      expect(await repository.get('e1')).toEqual(published);
+
+      const edited = entry({ revision: 3, status: 'published', slug: 'renamed', data: { f1: 'Draft' }, published: live });
+      await repository.save(edited, { expectedRevision: 2, actorId: 'tester' });
+      expect(await repository.get('e1')).toEqual(edited);
+
+      await repository.save(entry({ revision: 4, slug: 'renamed' }), { expectedRevision: 3, actorId: 'tester' });
+      expect(await repository.get('e1')).not.toHaveProperty('published');
+    });
+
+    it('finds an entry by its working slug or by the slug visitors see', async () => {
+      await repository.save(entry({ status: 'published', slug: 'renamed', published: live }), fresh);
+      await repository.save(entry({ id: 'e2', slug: 'second' }), fresh);
+      const ids = async (query: Parameters<EntryRepository['find']>[0]) => (await repository.find(query)).items.map((item) => item.id);
+      expect(await ids({ slug: 'renamed' })).toEqual(['e1']);
+      expect(await ids({ slug: 'first' })).toEqual([]);
+      expect(await ids({ publishedSlug: 'first' })).toEqual(['e1']);
+      expect(await ids({ publishedSlug: 'second' })).toEqual([]);
+      expect(await ids({ typeId: 't1', locale: 'en', slug: 'second' })).toEqual(['e2']);
+    });
+
+    it('refuses a slug that another entry still shows to visitors', async () => {
+      await repository.save(entry({ status: 'published', slug: 'renamed', published: live }), fresh);
+      await expect(repository.save(entry({ id: 'e2', slug: 'first' }), fresh)).rejects.toBeInstanceOf(ConflictError);
+      await expect(
+        repository.save(entry({ id: 'e3', slug: 'third', status: 'published', published: { ...live, slug: 'renamed' } }), fresh),
+      ).rejects.toBeInstanceOf(ConflictError);
+      await repository.save(entry({ id: 'e4', slug: 'first', locale: 'es' }), fresh);
+    });
+
     it('keeps every saved version in history, newest first', async () => {
       await repository.save(entry(), { expectedRevision: null, actorId: 'ana' });
       await repository.save(entry({ revision: 2, status: 'published', data: { f1: 'Second' } }), {
