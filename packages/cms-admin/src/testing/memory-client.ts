@@ -81,14 +81,13 @@ export class MemoryAdminClient implements AdminClient {
   listEntries(query: EntryListQuery): Promise<Page<Entry>> {
     return this.#request(async (actor) => {
       const type = await this.#cms.schema.getByKey(query.type);
-      const all = await this.#cms.content.find(actor, {
+      return this.#cms.content.find(actor, {
         typeId: type.id,
-        limit: Number.MAX_SAFE_INTEGER,
+        order: 'updated',
+        limit: query.limit ?? 50,
+        offset: query.offset ?? 0,
         ...(query.locale !== undefined && { locale: query.locale }),
       });
-      const newestFirst = [...all.items].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-      const offset = query.offset ?? 0;
-      return { items: newestFirst.slice(offset, offset + (query.limit ?? 50)), total: all.total };
     });
   }
 
@@ -123,7 +122,7 @@ export class MemoryAdminClient implements AdminClient {
   /** Runs one signed-in request against the CMS, and reports a refusal the way a server would. */
   async #request<T>(run: (actor: Actor) => Promise<T>): Promise<T> {
     this.#failIfAsked();
-    if (!this.#user) throw new AdminRequestError('Sign in to continue.', 'forbidden');
+    if (!this.#user) throw new AdminRequestError('Sign in to continue.', 'unauthenticated');
     await this.#ready;
     try {
       return await run({ kind: 'user', id: this.#user.id, role: 'owner' });

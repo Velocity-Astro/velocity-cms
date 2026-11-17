@@ -53,10 +53,12 @@ export type {
 } from './ports.js';
 export { PreviewLinks } from './preview.js';
 export { Registry, UnknownTypeError } from './registry.js';
+export { MAX_SLUG_LENGTH, isSlug } from './slug.js';
 export { MARK_CLOSE, MARK_OPEN, escapeHtml, markedExcerpt, searchWords } from './search-text.js';
 export { buildFieldsSchema, toPublicData, validateData } from './schema-builder.js';
 export {
   ContentService,
+  SLUG_PATH,
   type CreateEntryInput,
   type UpdateEntryInput,
 } from './services/content-service.js';

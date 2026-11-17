@@ -1,11 +1,12 @@
 import type { AccessControl, Actor } from '../access.js';
-import { ConflictError, NotFoundError } from '../errors.js';
+import { ConflictError, NotFoundError, ValidationError } from '../errors.js';
 import type { EventBus } from '../events.js';
 import type { FieldContext, FieldType, ValidationMode } from '../field-type.js';
 import type { ContentTypeDef, Entry, EntryData, EntryVersion, Page, PublicEntry, Revision } from '../model.js';
 import type { Clock, EntryQuery, EntryRepository, IdGenerator } from '../ports.js';
 import type { Registry } from '../registry.js';
 import { toPublicData, validateData } from '../schema-builder.js';
+import { isSlug } from '../slug.js';
 import type { SchemaService } from './schema-service.js';
 
 export interface CreateEntryInput {
@@ -75,6 +76,7 @@ export class ContentService {
   async create(actor: Actor, input: CreateEntryInput): Promise<Entry> {
     this.access.require(actor, 'entry:write');
     const type = await this.schema.get(input.typeId);
+    requireSlug(input.slug);
     const now = this.clock.now();
     const id = this.ids.next();
     const entry: Entry = {
@@ -96,6 +98,7 @@ export class ContentService {
     this.access.require(actor, 'entry:write');
     const current = await this.load(id);
     this.requireRevision(current, input.expectedRevision);
+    if (input.slug !== undefined) requireSlug(input.slug);
     const type = await this.schema.get(current.typeId);
 
     // Only the working version changes, so it may be unfinished even when the entry is published.
@@ -193,6 +196,18 @@ export class ContentService {
   private context(mode: ValidationMode): FieldContext {
     return { fields: this.fields, mode };
   }
+}
+
+/** The path a problem with the slug is reported at. No field can have this key: keys are words. */
+export const SLUG_PATH = '$slug';
+
+function requireSlug(slug: string): void {
+  if (isSlug(slug)) return;
+  const message =
+    slug === ''
+      ? 'Give this entry a slug. It is the last part of its address.'
+      : `"${slug}" cannot be a slug. Use lowercase letters, numbers and hyphens, such as lake-house.`;
+  throw new ValidationError(message, [{ path: [SLUG_PATH], message }]);
 }
 
 /**

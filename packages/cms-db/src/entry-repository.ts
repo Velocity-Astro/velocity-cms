@@ -54,7 +54,7 @@ export class SqliteEntryRepository implements EntryRepository {
       .select()
       .from(entries)
       .where(where)
-      .orderBy(asc(entries.createdAt), asc(entries.id))
+      .orderBy(query.order === 'updated' ? desc(entries.updatedAt) : asc(entries.createdAt), asc(entries.id))
       .limit(query.limit ?? 50)
       .offset(query.offset ?? 0);
     const [counted] = await this.db.select({ total: count() }).from(entries).where(where);

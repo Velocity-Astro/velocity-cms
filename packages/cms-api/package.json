@@ -1,0 +1,31 @@
+{
+  "name": "@velocity/cms-api",
+  "version": "0.0.0",
+  "description": "The Velocity CMS over HTTP: what the editor, the CLI and plugins call. Built on web-standard Request and Response, so it runs wherever the site does.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.test.*"
+  ],
+  "dependencies": {
+    "@velocity/cms-core": "workspace:*"
+  },
+  "peerDependencies": {
+    "zod": "^4.6.6"
+  },
+  "devDependencies": {
+    "zod": "^4.6.6"
+  }
+}

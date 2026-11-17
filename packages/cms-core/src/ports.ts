@@ -12,6 +12,11 @@ export interface EntryQuery {
   readonly slug?: string;
   /** The slug visitors see. Matches published entries only. */
   readonly publishedSlug?: string;
+  /**
+   * `created` (the default) is oldest first, which never reorders as people work. `updated` is
+   * most recently saved first, which is what an editor's list shows.
+   */
+  readonly order?: 'created' | 'updated';
   /** Defaults to 50. */
   readonly limit?: number;
   readonly offset?: number;
@@ -28,7 +33,7 @@ export interface SaveOptions {
 
 export interface EntryRepository {
   get(id: string): Promise<Entry | null>;
-  /** Entries ordered by creation time, then id. */
+  /** Entries in the order the query asks for, then by id, so paging never skips or repeats one. */
   find(query?: EntryQuery): Promise<Page<Entry>>;
   /**
    * Stores the entry and adds it to its history, as one step. Also refuses, with a

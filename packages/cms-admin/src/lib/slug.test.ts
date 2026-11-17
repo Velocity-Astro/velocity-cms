@@ -1,5 +1,6 @@
+import { isSlug } from '@velocity/cms-core';
 import { expect, it } from 'vitest';
-import { isSlug, slugify } from './slug.js';
+import { slugify } from './slug.js';
 
 it('makes a slug from a title', () => {
   expect(slugify('6214 Lakeshore Drive')).toBe('6214-lakeshore-drive');
@@ -7,7 +8,6 @@ it('makes a slug from a title', () => {
   expect(slugify('¡¿?!')).toBe('');
 });
 
-it('accepts lowercase words joined by single hyphens, and nothing else', () => {
-  expect(isSlug('lake-house-2')).toBe(true);
-  for (const bad of ['', 'Lake', 'lake house', '-lake', 'lake-', 'lake--house', 'lake/house']) expect(isSlug(bad)).toBe(false);
+it('always makes something the server accepts as a slug, or nothing', () => {
+  for (const title of ['6214 Lakeshore Drive', 'Café — on 5th!', 'ÅÄÖ', '  a  b  ']) expect(isSlug(slugify(title))).toBe(true);
 });

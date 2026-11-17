@@ -33,7 +33,11 @@ export class InMemoryEntryRepository implements EntryRepository {
           (query.slug === undefined || entry.slug === query.slug) &&
           (query.publishedSlug === undefined || entry.published?.slug === query.publishedSlug),
       )
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+      .sort((a, b) =>
+        query.order === 'updated'
+          ? b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id)
+          : a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
+      );
     const offset = query.offset ?? 0;
     return { items: matches.slice(offset, offset + (query.limit ?? 50)), total: matches.length };
   }
