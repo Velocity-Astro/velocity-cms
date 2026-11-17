@@ -1,0 +1,75 @@
+import { CircleAlert, CircleCheck, Info, X } from 'lucide-react';
+import {
+  Text,
+  UNSTABLE_Toast as AriaToast,
+  UNSTABLE_ToastContent as ToastContent,
+  UNSTABLE_ToastQueue as ToastQueue,
+  UNSTABLE_ToastRegion as ToastRegion,
+} from 'react-aria-components';
+import { IconButton } from '../IconButton/index.js';
+import {
+  toastClass,
+  toastContentClass,
+  toastDescriptionClass,
+  toastDuration,
+  toastIconSize,
+  toastIconVariants,
+  toastRegionClass,
+  toastTitleClass,
+  type ToastTone,
+} from './Toast.variants.js';
+
+export interface ToastMessage {
+  /** What happened, in a few words: "Listing published". */
+  readonly title: string;
+  /** One more sentence, when the title is not enough. */
+  readonly description?: string;
+  /** `danger` messages stay until they are dismissed. */
+  readonly tone?: ToastTone;
+}
+
+export interface ToastProps {
+  /** Names the place messages appear for screen readers, such as "Notifications". */
+  readonly label: string;
+  /** The name of each message's close button, such as "Dismiss". */
+  readonly closeLabel: string;
+}
+
+const ICONS = { neutral: Info, success: CircleCheck, danger: CircleAlert } as const;
+
+/** One list of messages for the whole editor, so they stack in one place whoever sends them. */
+const queue = new ToastQueue<ToastMessage>({ maxVisibleToasts: 4 });
+
+/** Shows a message. Returns a function that takes it away early. */
+export function toast(message: ToastMessage): () => void {
+  const key = queue.add(message, message.tone === 'danger' ? {} : { timeout: toastDuration });
+  return () => queue.close(key);
+}
+
+/** Where messages from `toast()` appear. Put exactly one in the app. */
+export function Toast({ label, closeLabel }: ToastProps) {
+  return (
+    <ToastRegion queue={queue} aria-label={label} className={toastRegionClass}>
+      {({ toast: item }) => {
+        const tone = item.content.tone ?? 'neutral';
+        const Icon = ICONS[tone];
+        return (
+          <AriaToast toast={item} className={toastClass}>
+            <Icon aria-hidden size={toastIconSize} className={toastIconVariants({ tone })} />
+            <ToastContent className={toastContentClass}>
+              <Text slot="title" className={toastTitleClass}>
+                {item.content.title}
+              </Text>
+              {item.content.description !== undefined && (
+                <Text slot="description" className={toastDescriptionClass}>
+                  {item.content.description}
+                </Text>
+              )}
+            </ToastContent>
+            <IconButton label={closeLabel} icon={X} size="sm" onPress={() => queue.close(item.key)} />
+          </AriaToast>
+        );
+      }}
+    </ToastRegion>
+  );
+}

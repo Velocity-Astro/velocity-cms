@@ -8,14 +8,17 @@ export const fieldDescriptionClass = 'text-sm text-foreground-muted';
 export const fieldErrorClass = 'text-sm text-destructive';
 
 /** The box a person types or chooses in. */
-export const fieldControlClass = [
-  'h-10 w-full rounded-md border border-input-border bg-input px-3 text-base text-foreground',
+export const fieldBoxClass = [
+  'w-full rounded-md border border-input-border bg-input px-3 text-base text-foreground',
   'transition-colors motion-fast',
   'outline-none data-hovered:border-border-strong data-focused:border-input-focus data-focused:ring-1 data-focused:ring-input-focus',
   'data-focus-visible:border-input-focus data-focus-visible:ring-1 data-focus-visible:ring-input-focus',
   'data-invalid:border-destructive data-invalid:data-focused:ring-destructive',
   'data-disabled:bg-background-secondary data-disabled:text-foreground-muted',
 ].join(' ');
+
+/** The box at the height of one line, which a button lines up with. */
+export const fieldControlClass = `${fieldBoxClass} h-10`;
 
 /** A panel that floats over the page: a select's list, a menu. */
 export const floatingPanelClass =

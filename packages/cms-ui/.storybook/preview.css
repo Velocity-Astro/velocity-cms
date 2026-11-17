@@ -5,3 +5,9 @@
   color: var(--foreground);
   padding: calc(var(--spacing) * 6);
 }
+
+/* A story that fills the page, such as the app shell, gets no frame. */
+.story-surface-full {
+  border-radius: 0;
+  padding: 0;
+}

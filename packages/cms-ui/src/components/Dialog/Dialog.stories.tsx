@@ -47,4 +47,6 @@ type Story = StoryObj<typeof meta>;
 
 export const Closed: Story = {};
 export const Open: Story = { tags: ['!autodocs', 'overlay'], args: { isOpen: true } };
+/** `placement="side"`: a panel down the right edge, for a longer task that still belongs to the page. */
+export const SidePanel: Story = { tags: ['!autodocs', 'overlay'], args: { isOpen: true, placement: 'side', title: 'Edit image' } };
 export const Small: Story = { tags: ['!autodocs', 'overlay'], args: { isOpen: true, size: 'sm' } };

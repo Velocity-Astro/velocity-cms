@@ -12,9 +12,15 @@ reached.
 
 ## Don't use it for
 
-- A whole form or a long task: that is a page, or a side panel.
+- A whole form or a long task: that is a page.
 - A message that needs no answer: that is a toast.
 - A dialog opened from a dialog.
+
+## Side panel
+
+`placement="side"` draws the dialog down the right edge at full height, for a task with a few
+more fields that still belongs to the page behind it: an image's details, a field's settings.
+It behaves the same way in every other respect.
 
 ## Closing
 
