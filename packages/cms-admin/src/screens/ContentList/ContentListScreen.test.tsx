@@ -29,6 +29,18 @@ it('lists a type\'s entries, newest first, with a title, a state and when each w
   expect(screen.getByText('4 entries')).toBeTruthy();
 });
 
+it('says which language each entry is in when the site has more than one', async () => {
+  const [first, ...rest] = sampleEntries();
+  if (!first) throw new Error('No sample entries.');
+  const spanish = { ...first, id: 'e-es', locale: 'es' };
+  renderApp('/content/listings', { ...signedIn, entries: [first, spanish, ...rest] });
+  const table = await screen.findByRole('grid', { name: 'Listings' });
+  expect(within(table).getAllByRole('columnheader').map((header) => header.textContent)).toEqual(['Title', 'Language', 'Status', 'Updated']);
+  const languages = within(table).getAllByRole('row').slice(1).map((row) => row.children[1]?.textContent);
+  expect(languages.filter((language) => language === 'Spanish')).toHaveLength(1);
+  expect(languages.filter((language) => language === 'English')).toHaveLength(4);
+});
+
 it('moves between types from the navigation without leaving the app', async () => {
   const user = userEvent.setup();
   renderApp('/content/listings', signedIn);

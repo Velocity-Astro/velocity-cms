@@ -1,6 +1,6 @@
 import type { ContentTypeDef, Entry } from '@velocity/cms-core';
 import { expect, it } from 'vitest';
-import { entryState, entryTitle, localized, sameData, withValue } from './content.js';
+import { entryState, entryTitle, languageName, localized, sameData, withValue } from './content.js';
 
 const type: ContentTypeDef = {
   id: 't1',
@@ -60,4 +60,10 @@ it('compares field values by content, not by the order of their fields', () => {
   expect(sameData({ a: [1, 2] }, { a: [2, 1] })).toBe(false);
   expect(sameData({ a: [] }, { a: {} })).toBe(false);
   expect(sameData({ a: null }, { a: {} })).toBe(false);
+});
+
+it('names a language in the reader\'s language, and falls back to its tag', () => {
+  expect(languageName('es', 'en')).toBe('Spanish');
+  expect(languageName('en', 'es')).toBe('inglés');
+  expect(languageName('not a tag', 'en')).toBe('not a tag');
 });

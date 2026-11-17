@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router';
 import { paths } from '../../app/paths.js';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { useContentTypes, useEntries } from '../../client/queries.js';
-import { entryState, entryTitle, localized, type EntryState } from '../../lib/content.js';
+import { entryState, entryTitle, languageName, localized, type EntryState } from '../../lib/content.js';
 import { relativeTime } from '../../lib/relative-time.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 
@@ -38,17 +38,23 @@ export function ContentListScreen() {
   }
 
   const name = localized(type.label, locale);
+  const items = entries.data?.items ?? [];
+  // An entry in two languages is two rows with the same title. The column that tells them
+  // apart is only worth its space on a site that has more than one language.
+  const manyLanguages = new Set(items.map((entry) => entry.locale)).size > 1;
   const columns: TableColumn[] = [
     { id: 'title', label: messages.contentList.columnTitle },
+    ...(manyLanguages ? [{ id: 'language', label: messages.contentList.columnLanguage }] : []),
     { id: 'status', label: messages.contentList.columnStatus },
     { id: 'updated', label: messages.contentList.columnUpdated },
   ];
-  const rows: TableRow[] = (entries.data?.items ?? []).map((entry) => {
+  const rows: TableRow[] = items.map((entry) => {
     const state = entryState(entry);
     return {
       id: entry.id,
       cells: {
         title: entryTitle(type, entry.data) ?? messages.contentList.untitled,
+        ...(manyLanguages && { language: languageName(entry.locale, locale) }),
         status: <Tag tone={STATE_TONE[state]}>{messages.status[state]}</Tag>,
         updated: relativeTime(entry.updatedAt, locale),
       },

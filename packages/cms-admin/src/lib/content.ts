@@ -12,6 +12,15 @@ export function localized(text: LocalizedText, locale: string): string {
   return text[locale] ?? text[locale.split('-')[0] ?? locale] ?? Object.values(text)[0] ?? '';
 }
 
+/** A language's name in the reader's own language: `Spanish` for `es`. The tag itself if it has no name. */
+export function languageName(tag: string, locale: string): string {
+  try {
+    return new Intl.DisplayNames(locale, { type: 'language' }).of(tag) ?? tag;
+  } catch {
+    return tag;
+  }
+}
+
 /**
  * What to call an entry in a list: the value of its first text field, or `null` when that is
  * empty. Content types will be able to choose this field; until then the first one is used.

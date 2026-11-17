@@ -36,6 +36,7 @@ export const en = {
     description: (count: number) => (count === 1 ? '1 entry' : `${count} entries`),
     columnTitle: 'Title',
     columnStatus: 'Status',
+    columnLanguage: 'Language',
     columnUpdated: 'Updated',
     untitled: 'Untitled',
     newEntry: 'New entry',
