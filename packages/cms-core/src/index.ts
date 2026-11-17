@@ -1,4 +1,4 @@
-export { AccessControl, type Actor, type Permission, type Role } from './access.js';
+export { AccessControl, ROLES, type Actor, type Permission, type Role } from './access.js';
 export { createCms, type Cms, type CmsOptions } from './cms.js';
 export {
   CmsError,

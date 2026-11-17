@@ -42,6 +42,16 @@ export default tseslint.config(
     'cms-api turns HTTP into calls on the services in cms-core, using only web-standard Request and Response. It must not know which database, framework or runtime it is mounted in.',
   ),
   boundary(
+    ['packages/cms-auth/src/**'],
+    ['@velocity/cms-astro', '@velocity/cms-astro/*', '@velocity/cms-admin', '@velocity/cms-ui', 'astro', 'astro/*', 'astro:*', 'react', 'node:*'],
+    'cms-auth is sign-in and nothing else. It must not know which framework or runtime it is mounted in, or anything about the editor.',
+  ),
+  boundary(
+    ['packages/cms-auth/src/client.ts'],
+    ['@velocity/*', 'better-auth', 'better-auth/*', '@better-auth/*', 'drizzle-orm', 'drizzle-orm/*', 'node:*'],
+    'client.ts runs in the browser. It must import nothing, so the editor never ships server code.',
+  ),
+  boundary(
     ['packages/cms-ui/src/**'],
     ['@velocity/*', 'drizzle-orm', 'drizzle-orm/*', '@libsql/*', 'astro', 'astro/*', 'astro:*', 'node:*', 'zod'],
     'cms-ui is the design system: tokens, components and patterns. It must not know about content, the API or the server, so that plugins and other apps can use it as it is.',

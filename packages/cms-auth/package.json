@@ -1,0 +1,33 @@
+{
+  "name": "@velocity/cms-auth",
+  "version": "0.0.0",
+  "description": "Sign-in for Velocity CMS: email links and passkeys, kept in the CMS's own database. No passwords and no outside account.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.test.*"
+  ],
+  "dependencies": {
+    "@better-auth/passkey": "1.7.25",
+    "@velocity/cms-api": "workspace:*",
+    "@velocity/cms-core": "workspace:*",
+    "@velocity/cms-db": "workspace:*",
+    "better-auth": "1.7.25",
+    "drizzle-orm": "^0.45.4"
+  },
+  "devDependencies": {
+    "@libsql/client": "^0.18.0"
+  }
+}

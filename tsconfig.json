@@ -11,6 +11,9 @@
       "path": "packages/cms-api"
     },
     {
+      "path": "packages/cms-auth"
+    },
+    {
       "path": "packages/cms-astro"
     },
     {

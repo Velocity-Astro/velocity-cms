@@ -4,7 +4,7 @@ Instructions for AI coding agents and people working in this repo.
 
 ## Stack
 
-TypeScript (strict) · Zod 4 · web-standard `Request`/`Response` · Drizzle + libSQL (SQLite) · Astro 7 · React 19 · React Aria Components · Tailwind CSS v4 · Storybook 10 · Vitest · Node ≥22.23.4 · pnpm 10
+TypeScript (strict) · Zod 4 · web-standard `Request`/`Response` · Better Auth · Drizzle + libSQL (SQLite) · Astro 7 · React 19 · React Aria Components · Tailwind CSS v4 · Storybook 10 · Vitest · Node ≥22.23.4 · pnpm 10
 
 ## Commands
 
@@ -32,6 +32,7 @@ TypeScript (strict) · Zod 4 · web-standard `Request`/`Response` · Drizzle + l
 - `packages/cms-astro/src/integration.ts` — what `velocityCms()` adds to a site. `routes/` holds the pages it injects: they ship as source and are compiled with the site, because they must see the site's own files. Keep them thin; logic goes in `src/`, where it is type-checked and tested.
 - `packages/cms-astro/src/loader.ts` — the Content Layer loader, for sites that choose a fully static build.
 - `packages/cms-api/src/api.ts` — the CMS over HTTP: `CmsApi.handle(request)` answers with a `Response`. Routes hold no rules; they check the shape of what was sent and call a service. `authenticator.ts` is how it learns who is asking; `http.ts` maps each refusal to a status and a code.
+- `packages/cms-auth/src/auth.ts` — sign-in: `CmsAuth` wraps Better Auth (email links, passkeys) and is the only file that knows it. `client.ts` is the browser's side and imports nothing. `mailer.ts` is how a site delivers the links. Its tables are `auth_*` in `packages/cms-db/src/auth-tables.ts`.
 - `packages/cms-ui/` — the editor's design system. `src/tokens/tokens.css` holds every colour, size, radius, shadow and duration; `src/styles.css` turns them into the Tailwind theme and switches Tailwind's own palette off; `src/components/` and `src/patterns/` hold one folder per part; `component-registry.json` lists them all; `scripts/check.mjs` enforces the rules below.
 - `packages/cms-admin/` — the editor's screens, a React app. `src/client/admin-client.ts` is the only way to the server (`queries.ts` wraps every request, `http-client.ts` is the one a real site uses); `src/messages/en.ts` holds every word; `src/app/` has the routes, addresses and frame; `src/screens/` has one folder per screen; `src/fields/` has the control for each kind of field, looked up by the name a field type gives as `editor`; `src/testing/` has the in-memory server the tests and the preview (`pnpm --filter @velocity/cms-admin dev`) run against.
 - `prototypes/` — phase 0 experiments. Scripts here may be rough; packages may not.
@@ -60,6 +61,15 @@ TypeScript (strict) · Zod 4 · web-standard `Request`/`Response` · Drizzle + l
 - **Errors have one shape:** `{ error: { code, message, issues? } }`. A refusal keeps the service's own words. A fault answers 500 with nothing about the inside, and goes to `onFault`.
 - **Nothing is cacheable.** Every response is `no-store`: the API serves drafts.
 - **A new method on `AdminClient` gets a route here, a method on `HttpAdminClient`, and a case in `adminClientContract`** (`cms-admin/src/testing`), which both clients run.
+
+## Sign-in rules (`cms-auth`)
+
+- **One file knows the library.** Everything else sees `Authenticator`, `handle`, and the methods on `CmsAuth`. Don't import `better-auth` anywhere else, and don't reach into its internals: write to the `auth_*` tables this package owns.
+- **No passwords, no sign-up.** People are invited by an owner. The first owner is made by `createFirstOwner`, which refuses once anyone exists.
+- **Never email a stranger, and never say who has an account.** A request for a link is answered the same way whoever the address belongs to.
+- **A link never leaves the site.** Where a link lands afterwards must be a path here; `#deliver` checks it whatever the library does.
+- **The role lives on the person and only an owner changes it.** A role this version does not know grants nothing.
+- **`client.ts` imports nothing**, so the editor never ships server code. ESLint enforces it.
 
 ## Design system rules (`cms-ui`)
 

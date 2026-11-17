@@ -29,6 +29,7 @@ export const en = {
     linkSent: (email: string) =>
       `If ${email} belongs to someone on this site, a sign-in link is on its way. It works once and expires in 10 minutes.`,
     useAnotherEmail: 'Use a different email',
+    linkFailed: 'That sign-in link has expired or was already used. Ask for a new one below.',
     passkeyFailed: 'The passkey did not work. Try again, or use a sign-in link instead.',
   },
   contentList: {
