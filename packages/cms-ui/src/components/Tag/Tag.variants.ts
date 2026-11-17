@@ -1,6 +1,6 @@
 import { cva, type VariantProps } from 'class-variance-authority';
 
-export const tagVariants = cva('inline-flex h-6 items-center gap-1 rounded-full px-2 text-xs font-medium whitespace-nowrap', {
+export const tagVariants = cva('inline-flex h-6 items-center gap-1 rounded-md px-2 text-xs font-medium whitespace-nowrap', {
   variants: {
     tone: {
       neutral: 'bg-secondary text-secondary-foreground',

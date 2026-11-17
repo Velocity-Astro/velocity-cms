@@ -5,3 +5,4 @@ dist/
 *.db-journal
 prototypes/**/work/
 storybook-static/
+app-dist/

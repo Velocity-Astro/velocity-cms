@@ -1,0 +1,44 @@
+name: Demo sign-in link
+
+# Prints a link that signs one person in to the CMS demo, until the demo sends email itself.
+# The first run creates the site's owner. The link works once, for 10 minutes, and is shown in
+# this run's log, which only people with access to this repository can read.
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: Your email address
+        required: true
+      name:
+        description: Your name (used the first time only)
+        required: false
+        default: Site owner
+
+permissions:
+  contents: read
+
+jobs:
+  link:
+    name: Sign-in link
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VELOCITY_CMS_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+      VELOCITY_CMS_DATABASE_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+      VELOCITY_CMS_SECRET: ${{ secrets.VELOCITY_CMS_SECRET }}
+      VELOCITY_CMS_ORIGIN: ${{ vars.CMS_DEMO_URL || 'https://velocity-cms-real-estate-demo.vercel.app' }}
+      EMAIL: ${{ inputs.email }}
+      NAME: ${{ inputs.name }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: npx tsc -b
+      - name: Sign-in link
+        run: |
+          cli=packages/cms-astro/bin/velocity-cms.mjs
+          node "$cli" link "$EMAIL" || node "$cli" owner "$EMAIL" "$NAME"

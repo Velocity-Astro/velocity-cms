@@ -16,7 +16,7 @@ export function createRoutes(siteName: string): RouteObject[] {
         {
           element: <AdminLayout siteName={siteName} />,
           children: [
-            { index: true, element: <HomeScreen /> },
+            { index: true, element: <HomeScreen siteName={siteName} /> },
             { path: 'content/:typeKey', element: <ContentListScreen /> },
             // A new entry has this address too, with `NEW_ENTRY` as its id, so saving it for the
             // first time changes the address without starting the screen again.

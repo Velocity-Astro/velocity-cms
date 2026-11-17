@@ -1,5 +1,8 @@
 export { sharedConnection, type Connection, type ConnectionOptions } from './connection.js';
-export { default } from './integration.js';
+export { AdminFiles, type EditorPageConfig } from './admin-files.js';
+export { EditorHost, LogMailer, type EditorHostOptions } from './editor.js';
+export { default, type VelocityCmsOptions } from './integration.js';
+export { EditorNotSetUpError, editorOrigin, siteEditorHost, withEditor, type SiteEditorSettings } from './site-editor.js';
 export {
   cmsLiveLoader,
   entryTag,

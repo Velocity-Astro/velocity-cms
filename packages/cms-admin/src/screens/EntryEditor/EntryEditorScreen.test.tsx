@@ -17,7 +17,7 @@ afterEach(() => act(() => dismissToasts()));
 it('opens an entry from the list, with each value in the control its field type asks for', async () => {
   const user = userEvent.setup();
   renderApp('/content/listings', signedIn());
-  await user.click(await screen.findByRole('rowheader', { name: '6214 Lakeshore Drive' }));
+  await user.click(await screen.findByRole('rowheader', { name: /^6214 Lakeshore Drive/ }));
 
   expect(await screen.findByRole('heading', { level: 1, name: '6214 Lakeshore Drive' })).toBeTruthy();
   expect((await field('Title')).value).toBe('6214 Lakeshore Drive');
@@ -108,8 +108,8 @@ it('creates an entry whose slug follows its title, and carries on editing it', a
   await waitFor(async () => expect((await client.getEntry(created?.id ?? '')).data['f-name']).toBe('María Ortiz Vega'));
   expect((await client.listEntries({ type: 'agents' })).total).toBe(1);
 
-  await user.click(screen.getByRole('link', { name: 'All agents' }));
-  expect(await screen.findByRole('rowheader', { name: 'María Ortiz Vega' })).toBeTruthy();
+  await user.click(within(screen.getByRole('region', { name: 'Save and publish' })).getByRole('link', { name: 'Agents' }));
+  expect(await screen.findByRole('rowheader', { name: /^María Ortiz Vega/ })).toBeTruthy();
 });
 
 it('asks for a usable slug before sending anything', async () => {
@@ -205,4 +205,31 @@ it('shows what went wrong when the entry cannot be loaded, and tries again', asy
   expect(await screen.findByText('The server did not answer.')).toBeTruthy();
   await user.click(screen.getByRole('button', { name: 'Try again' }));
   expect(await screen.findByRole('heading', { level: 1, name: '6214 Lakeshore Drive' })).toBeTruthy();
+});
+
+it('switches to the entry\'s other language, once there is nothing unsaved to lose', async () => {
+  const user = userEvent.setup();
+  const [first, ...rest] = sampleEntries();
+  if (!first) throw new Error('No sample entries.');
+  const spanish = { ...first, id: 'e-es', locale: 'es', slug: 'paseo-del-lago', data: { ...first.data, 'f-title': 'Paseo del Lago 6214' } };
+  renderApp(`/content/listings/${first.id}`, { ...signedIn(), entries: [first, spanish, ...rest] });
+
+  const languages = within(await screen.findByRole('radiogroup', { name: 'Language' }));
+  expect(languages.getByRole('radio', { name: 'English' }).getAttribute('aria-checked')).toBe('true');
+
+  // While something is typed and not saved, the other language waits.
+  await user.type(await field('Title'), '!');
+  expect(languages.getByRole('radio', { name: 'Spanish' })).toHaveProperty('disabled', true);
+  await user.click(saveBar().getByRole('button', { name: 'Save draft' }));
+  await waitFor(() => expect(languages.getByRole('radio', { name: 'Spanish' })).toHaveProperty('disabled', false));
+
+  await user.click(languages.getByRole('radio', { name: 'Spanish' }));
+  expect(await screen.findByRole('heading', { level: 1, name: 'Paseo del Lago 6214' })).toBeTruthy();
+  expect((await field('Slug')).value).toBe('paseo-del-lago');
+});
+
+it('shows no language switch for an entry in one language', async () => {
+  renderApp('/content/listings/e1', signedIn());
+  await screen.findByRole('heading', { level: 1, name: '6214 Lakeshore Drive' });
+  expect(screen.queryByRole('radiogroup', { name: 'Language' })).toBeNull();
 });

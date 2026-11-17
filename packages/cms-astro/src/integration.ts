@@ -1,13 +1,23 @@
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { AstroIntegration } from 'astro';
 
 const PACKAGE = '@velocity/cms-astro';
 const OPTIONS = 'virtual:velocity-cms/options';
+const MAILER = 'virtual:velocity-cms/mailer';
+const ADMIN_PATH = '/admin';
 const route = (file: string) => fileURLToPath(new URL(`../routes/${file}`, import.meta.url));
 
 export interface VelocityCmsOptions {
   /** Addresses to leave out of the sitemap, such as search results: `['/search/', '/es/buscar/']`. */
   readonly unlisted?: readonly string[];
+  /** The site's name, shown in the editor, in sign-in emails and in the passkey prompt. */
+  readonly siteName?: string;
+  /**
+   * The file whose default export delivers sign-in links by email (a `Mailer`), from the
+   * project's root: `'./src/cms-mailer.ts'`. Without one, links are printed to the server's log.
+   */
+  readonly mailer?: string;
 }
 
 /**
@@ -22,22 +32,37 @@ export interface VelocityCmsOptions {
  * - `/api/cms/published`: where a publish is announced
  * - preview links, through a middleware
  *
+ * And it switches the editor on:
+ *
+ * - `/admin`: the editor
+ * - `/api/cms/*`: the API the editor calls
+ * - `/api/cms/auth/*`: sign-in with an email link or a passkey
+ *
+ * The editor needs `VELOCITY_CMS_SECRET` and the site's address (`site` in the Astro config).
+ * The first owner is made with `npx velocity-cms owner <email> <name>`.
+ *
  * It also keeps this package out of the site's bundle. The package opens a SQLite database
  * through a native module, which a bundler cannot carry. The routes above are the exception:
  * they are compiled with the site, because they need to see the site's own pages.
  */
 export default function velocityCms(options: VelocityCmsOptions = {}): AstroIntegration {
   let clientDir = '';
+  let site: string | undefined;
+  let root = '';
   return {
     name: PACKAGE,
     hooks: {
-      'astro:config:setup': ({ updateConfig, addMiddleware, injectRoute }) => {
+      'astro:config:setup': ({ config, updateConfig, addMiddleware, injectRoute }) => {
+        root = fileURLToPath(config.root);
         addMiddleware({ entrypoint: `${PACKAGE}/middleware`, order: 'pre' });
         injectRoute({ pattern: '/sitemap-live.xml', entrypoint: route('sitemap-live.xml.ts') });
         injectRoute({ pattern: '/og/[...live].png', entrypoint: route('share-image.png.ts') });
         injectRoute({ pattern: '/api/cms/search.json', entrypoint: route('search.json.ts') });
         injectRoute({ pattern: '/api/cms/published', entrypoint: route('published.ts') });
         injectRoute({ pattern: '/cms-search.js', entrypoint: route('search-client.js.ts') });
+        injectRoute({ pattern: '/api/cms/auth/[...path]', entrypoint: route('auth.ts') });
+        injectRoute({ pattern: '/api/cms/[...path]', entrypoint: route('api.ts') });
+        injectRoute({ pattern: `${ADMIN_PATH}/[...path]`, entrypoint: route('admin.ts') });
 
         const external = { resolve: { external: [PACKAGE] } };
         updateConfig({
@@ -48,11 +73,19 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
             plugins: [
               {
                 name: 'velocity-cms:options',
-                resolveId: (id: string) => (id === OPTIONS ? `\0${OPTIONS}` : undefined),
-                load: (id: string) =>
-                  id === `\0${OPTIONS}`
-                    ? `export default ${JSON.stringify({ unlisted: options.unlisted ?? [], clientDir })};`
-                    : undefined,
+                resolveId: (id: string) => (id === OPTIONS || id === MAILER ? `\0${id}` : undefined),
+                load: (id: string) => {
+                  if (id === `\0${OPTIONS}`) {
+                    const editor = { site, siteName: options.siteName ?? 'Velocity CMS', adminPath: ADMIN_PATH };
+                    return `export default ${JSON.stringify({ unlisted: options.unlisted ?? [], clientDir, editor })};`;
+                  }
+                  if (id === `\0${MAILER}`) {
+                    return options.mailer
+                      ? `export { default } from ${JSON.stringify(path.resolve(root, options.mailer))};`
+                      : 'export default undefined;';
+                  }
+                  return undefined;
+                },
               },
             ],
           },
@@ -60,6 +93,7 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
       },
       'astro:config:done': ({ config }) => {
         clientDir = fileURLToPath(config.adapter ? config.build.client : config.outDir);
+        site = config.site;
       },
     },
   };

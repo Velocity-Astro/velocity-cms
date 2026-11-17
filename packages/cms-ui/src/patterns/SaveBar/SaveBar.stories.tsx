@@ -10,6 +10,8 @@ const meta = {
   parameters: { layout: 'padded' },
   args: {
     label: 'Save and publish',
+    back: { href: '#listings', label: 'Listings' },
+    title: 'Updated 1948 bungalow facing the green',
     status: (
       <>
         <Tag tone="warning">Unpublished changes</Tag>

@@ -1,8 +1,9 @@
-import { AppShell, Menu, Button, Text, Toast, dismissToasts, type AppShellNavItem } from '@velocity/cms-ui';
-import { FileText, LogOut } from 'lucide-react';
+import { AppShell, Logo, Toast, dismissToasts, type AppShellNavItem } from '@velocity/cms-ui';
+import { House, LogOut } from 'lucide-react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router';
 import { useContentTypes, useSession, useSignOut } from '../client/queries.js';
 import { localized } from '../lib/content.js';
+import { typeIcon } from '../lib/type-icon.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
 import { paths } from './paths.js';
 import { ErrorState, LoadingState } from './RequestState.js';
@@ -32,7 +33,7 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
       id: type.id,
       label: localized(type.label, locale),
       href,
-      icon: FileText,
+      icon: typeIcon(type.key),
       isCurrent: location.pathname === href || location.pathname.startsWith(`${href}/`),
     };
   });
@@ -40,30 +41,28 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
   return (
     <>
       <AppShell
-        brand={<Text weight="semibold">{siteName}</Text>}
+        logo={<Logo label={messages.app.product} />}
+        siteName={siteName}
         navLabel={messages.app.mainNavigation}
         skipLabel={messages.app.skipToContent}
-        nav={nav}
-        footer={
-          <Menu
-            trigger={
-              <Button variant="ghost" size="sm" fullWidth>
-                {messages.app.signedInAs(session.data.name)}
-              </Button>
-            }
-            placement="top start"
-            actions={[{ id: 'sign-out', label: messages.app.signOut, icon: LogOut }]}
-            onAction={() =>
-              signOut.mutate(undefined, {
-                onSuccess: () => {
-                  // Messages about the last person's work are not for the next.
-                  dismissToasts();
-                  void navigate(paths.signIn);
-                },
-              })
-            }
-          />
-        }
+        nav={[
+          { id: 'top', items: [{ id: 'home', label: messages.app.home, href: paths.home, icon: House, isCurrent: location.pathname === paths.home }] },
+          { id: 'content', label: messages.app.contentGroup, items: nav },
+        ]}
+        account={{
+          name: session.data.name,
+          detail: session.data.email,
+          label: messages.app.accountMenu,
+          actions: [{ id: 'sign-out', label: messages.app.signOut, icon: LogOut }],
+          onAction: () =>
+            signOut.mutate(undefined, {
+              onSuccess: () => {
+                // Messages about the last person's work are not for the next.
+                dismissToasts();
+                void navigate(paths.signIn);
+              },
+            }),
+        }}
       >
         <Outlet />
       </AppShell>

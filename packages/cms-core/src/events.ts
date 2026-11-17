@@ -5,8 +5,9 @@ import type { ContentTypeDef, Entry } from './model.js';
 export interface CmsEvents {
   'type.saved': { type: ContentTypeDef; actor: Actor };
   'entry.saved': { entry: Entry; actor: Actor };
-  'entry.published': { entry: Entry; actor: Actor };
-  'entry.unpublished': { entry: Entry; actor: Actor };
+  /** `before` is the entry as it was, so a listener can tell what visitors saw until now. */
+  'entry.published': { entry: Entry; before: Entry; actor: Actor };
+  'entry.unpublished': { entry: Entry; before: Entry; actor: Actor };
 }
 
 type Listener<T> = (payload: T) => void | Promise<void>;

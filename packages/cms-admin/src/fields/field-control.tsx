@@ -28,6 +28,11 @@ export interface FieldControl {
   /** The editor name a field type asks for: `text-input`. */
   readonly type: string;
   readonly Component: ComponentType<FieldControlProps>;
+  /**
+   * How much room the control needs. `compact` controls (a number, a date, a choice) sit side
+   * by side in a form; everything else takes a row of its own. Defaults to `full`.
+   */
+  readonly width?: 'full' | 'compact';
 }
 
 export type FieldControls = Registry<FieldControl>;

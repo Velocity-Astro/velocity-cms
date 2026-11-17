@@ -17,9 +17,13 @@
   "files": [
     "dist",
     "routes",
+    "bin",
     "!dist/**/*.test.*"
   ],
   "dependencies": {
+    "@velocity/cms-admin": "workspace:*",
+    "@velocity/cms-api": "workspace:*",
+    "@velocity/cms-auth": "workspace:*",
     "@velocity/cms-core": "workspace:*",
     "@velocity/cms-db": "workspace:*"
   },
@@ -31,5 +35,8 @@
   },
   "astro": {
     "external": true
+  },
+  "bin": {
+    "velocity-cms": "./bin/velocity-cms.mjs"
   }
 }

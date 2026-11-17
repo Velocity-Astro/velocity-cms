@@ -13,14 +13,23 @@
     "./testing": {
       "types": "./dist/testing/index.d.ts",
       "default": "./dist/testing/index.js"
+    },
+    "./package.json": "./package.json",
+    "./app-directory": {
+      "types": "./app-directory.d.mts",
+      "default": "./app-directory.mjs"
     }
   },
   "files": [
     "dist",
+    "app-dist",
+    "app-directory.mjs",
+    "app-directory.d.mts",
     "!dist/**/*.test.*"
   ],
   "scripts": {
-    "dev": "vite dev"
+    "dev": "vite dev",
+    "build:app": "vite build --config vite.app.config.ts --logLevel warn"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.108.0",
@@ -40,6 +49,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@velocity/cms-api": "workspace:*",
+    "@velocity/cms-auth": "workspace:*",
     "@vitejs/plugin-react": "^6.0.0",
     "jsdom": "^31.0.1",
     "react": "^19.3.1",

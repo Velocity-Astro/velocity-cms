@@ -1,4 +1,4 @@
-import { AuthShell, Button, Form, Stack, Text, TextField } from '@velocity/cms-ui';
+import { AuthShell, Button, Form, Inline, Logo, Stack, Text, TextField } from '@velocity/cms-ui';
 import { KeyRound } from 'lucide-react';
 import { useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router';
@@ -31,7 +31,12 @@ export function SignInScreen({ siteName }: SignInScreenProps) {
 
   if (session.data) return <Navigate to={paths.home} replace />;
 
-  const brand = <Text weight="semibold">{siteName}</Text>;
+  const brand = (
+    <Inline gap={2} align="center">
+      <Logo label={messages.app.product} />
+      <Text weight="semibold">{siteName}</Text>
+    </Inline>
+  );
 
   if (sendLink.isSuccess) {
     return (

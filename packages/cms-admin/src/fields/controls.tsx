@@ -3,7 +3,7 @@ import { DateField, Fieldset, NumberField, Select, Switch, Text, TextArea, TextF
 import { withValue } from '../lib/content.js';
 import { useMessages } from '../messages/messages-context.js';
 import { createFieldControlRegistry, type FieldControlProps, type FieldControls } from './field-control.js';
-import { FieldEditor } from './FieldEditor.js';
+import { FieldGrid } from './FieldGrid.js';
 
 /** A field setting, when it is a number. Settings are checked by the server, not here. */
 function numberOption(field: FieldDef, name: string): number | undefined {
@@ -43,6 +43,7 @@ function NumberControl({ field, label, value, onChange, problem }: FieldControlP
       label={label}
       value={typeof value === 'number' ? value : null}
       onChange={(next) => onChange(next ?? undefined)}
+      width="full"
       isInteger={field.options['integer'] === true}
       isRequired={field.required}
       {...(min !== undefined && { minValue: min })}
@@ -55,6 +56,7 @@ function NumberControl({ field, label, value, onChange, problem }: FieldControlP
 function DateControl({ field, label, value, onChange, problem }: FieldControlProps) {
   return (
     <DateField
+      width="full"
       label={label}
       value={typeof value === 'string' ? value : null}
       onChange={(next) => onChange(next ?? undefined)}
@@ -78,7 +80,6 @@ function SelectControl({ field, label, value, onChange, problem }: FieldControlP
       placeholder={messages.editor.choose}
       onChange={onChange}
       isRequired={field.required}
-      width="md"
       {...(typeof value === 'string' && { value })}
       {...(problem !== undefined && { errorMessage: problem })}
     />
@@ -96,20 +97,17 @@ function GroupControl({ field, label, value, onChange, path, problem, problems }
           {problem}
         </Text>
       )}
-      {inner.map((child) => (
-        <FieldEditor
-          key={child.id}
-          field={child}
-          value={values[child.id]}
-          onChange={(next) => {
-            const changed = withValue(values, child.id, next);
-            // A group with nothing in it is an empty field, not a value with empty parts.
-            onChange(Object.keys(changed).length === 0 ? undefined : changed);
-          }}
-          path={`${path}.${child.key}`}
-          problems={problems}
-        />
-      ))}
+      <FieldGrid
+        fields={inner}
+        values={values}
+        onChange={(child, next) => {
+          const changed = withValue(values, child.id, next);
+          // A group with nothing in it is an empty field, not a value with empty parts.
+          onChange(Object.keys(changed).length === 0 ? undefined : changed);
+        }}
+        pathOf={(child) => `${path}.${child.key}`}
+        problems={problems}
+      />
     </Fieldset>
   );
 }
@@ -119,9 +117,9 @@ export function createFieldControls(): FieldControls {
   return createFieldControlRegistry()
     .register({ type: 'text-input', Component: TextControl })
     .register({ type: 'url-input', Component: UrlControl })
-    .register({ type: 'number-input', Component: NumberControl })
-    .register({ type: 'date-picker', Component: DateControl })
+    .register({ type: 'number-input', Component: NumberControl, width: 'compact' })
+    .register({ type: 'date-picker', Component: DateControl, width: 'compact' })
     .register({ type: 'switch', Component: SwitchControl })
-    .register({ type: 'select', Component: SelectControl })
+    .register({ type: 'select', Component: SelectControl, width: 'compact' })
     .register({ type: 'group', Component: GroupControl });
 }
