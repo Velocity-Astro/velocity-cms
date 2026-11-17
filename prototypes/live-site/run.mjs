@@ -10,6 +10,7 @@
  */
 import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
+import zlib from 'node:zlib';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { importCollection, multiply, openCms, OWNER } from '../publish-speed/lib.mjs';
@@ -78,14 +79,22 @@ async function startServer() {
   child.kill();
   throw new Error('The server did not start.');
 }
-const revalidate = async () => {
+/** Clears the page cache. `search`: 'skip' leaves the index alone, 'wait' answers once it is rebuilt. */
+const revalidate = async (search = 'skip') => {
   const response = await fetch(`${ORIGIN}/api/cms-revalidate`, {
     method: 'POST',
     headers: { origin: ORIGIN, 'content-type': 'application/json' },
-    body: '{}',
+    body: JSON.stringify({ search }),
   });
   if (!response.ok) throw new Error(`Clearing the cache answered ${response.status}.`);
+  return response.json();
 };
+const locs = (xml) => [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => new URL(match[1]).pathname);
+/** Whether any page in the search index on disk contains the word. */
+function indexHas(word) {
+  const dir = at('dist/client/pagefind/fragment');
+  return fs.readdirSync(dir).some((name) => zlib.gunzipSync(fs.readFileSync(path.join(dir, name))).toString('utf8').includes(word));
+}
 
 async function seed(listingCount) {
   fs.rmSync(at('cms'), { recursive: true, force: true });
@@ -122,6 +131,13 @@ try {
 
   // 3. Every page of the original, asked of the live server.
   server = await startServer();
+  const firstIndex = (await revalidate('wait')).search;
+  const sitemapIndex = await timed(`${ORIGIN}/sitemap-index.xml`);
+  const sitemapLive = await timed(`${ORIGIN}/sitemap-live.xml`);
+  const liveSitemap = new Set([...locs(sitemapAfter), ...locs(sitemapLive.body)]);
+  const wanted = new Set(locs(sitemapBefore));
+  const sitemapMissing = [...wanted].filter((address) => !liveSitemap.has(address));
+  const sitemapExtra = [...liveSitemap].filter((address) => !wanted.has(address));
   const different = [];
   const missingShareImages = [];
   for (const file of originalPages) {
@@ -158,6 +174,10 @@ try {
     return rows;
   }
   const small = await measure();
+  const cardUrl = `${ORIGIN}/og${sample.listing.replace(/\/$/, '')}.png`;
+  await revalidate();
+  const cardFirst = await timed(cardUrl);
+  const cardCached = median(await Promise.all([1, 2, 3].map(() => timed(cardUrl))).then((runs) => runs.map((run) => run.ms)));
 
   // 5. Publish: one price change, seen on the listing page, the index and the Spanish page.
   let { cms, close } = await openCms(`file:${at('cms/data.db')}`);
@@ -174,6 +194,22 @@ try {
   const publishMs = performance.now() - publishStarted;
   close();
   const shown = newPrice.toLocaleString('en-US');
+  // 5b. A new street name: the search index and the share image have to follow.
+  ({ cms, close } = await openCms(`file:${at('cms/data.db')}`));
+  const address = types.listings.fields.find((field) => field.key === 'address');
+  const streetId = address.options.fields.find((field) => field.key === 'street').id;
+  const english = (await cms.content.find(OWNER, { typeId: types.listings.id, locale: 'en', limit: 500 })).items.find((entry) => entry.translationGroup === group);
+  const cardBefore = Buffer.from(await (await fetch(cardUrl)).arrayBuffer());
+  const wordBefore = indexHas('Quillfeather');
+  await cms.content.update(OWNER, english.id, {
+    data: { ...english.data, [address.id]: { ...english.data[address.id], [streetId]: '77 Quillfeather Lane' } },
+    expectedRevision: english.revision,
+  });
+  close();
+  const reindex = (await revalidate('wait')).search;
+  const wordAfter = indexHas('Quillfeather');
+  const cardAfter = Buffer.from(await (await fetch(cardUrl)).arrayBuffer());
+  const cardChanged = !cardBefore.equals(cardAfter);
   const seenOn = [];
   for (const [name, url] of Object.entries(sample)) {
     if (name === 'agents') continue;
@@ -186,6 +222,7 @@ try {
   await seed(500);
   server = await startServer();
   const large = await measure();
+  const largeIndex = (await revalidate('wait')).search;
 
   // Report
   const drew = (log) => log.match(/Checked share images on (\d+) page\(s\), drew (\d+)/);
@@ -198,6 +235,11 @@ try {
   console.log(`| Pages in the search index | ${indexed(original.log)} | ${indexed(live.log)} |`);
   console.log(`| Share images drawn | ${drew(original.log)?.[2]} | ${drew(live.log)?.[2]} |`);
   console.log(`| Addresses in the sitemap | ${count(sitemapBefore)} | ${count(sitemapAfter)} |`);
+  console.log(`\nSitemap, live site: ${liveSitemap.size} addresses (index answered ${sitemapIndex.status}, lists sitemap-live.xml: ${sitemapIndex.body.includes('sitemap-live.xml')}). Missing: ${sitemapMissing.length}. Extra: ${sitemapExtra.length}.`);
+  for (const line of [...sitemapMissing, ...sitemapExtra].slice(0, 10)) console.log(`  - ${line}`);
+  console.log(`Search, live site: ${firstIndex.pages} pages indexed in ${(firstIndex.ms / 1000).toFixed(1)} s after start; ${largeIndex.pages} pages in ${(largeIndex.ms / 1000).toFixed(1)} s with 500 listings.`);
+  console.log(`After a street name change: index rebuilt in ${(reindex.ms / 1000).toFixed(1)} s, new name in the index: ${wordBefore ? 'was already there' : wordAfter ? 'yes' : 'no'}, share image redrawn: ${cardChanged ? 'yes' : 'no'}.`);
+  console.log(`Share image: ${ms(cardFirst.ms)} to draw (status ${cardFirst.status}), ${ms(cardCached)} from the cache.`);
   console.log(`\nPages compared with the original: ${originalPages.length - 1}. Different: ${different.length}.`);
   for (const line of different.slice(0, 20)) console.log(`  - ${line}`);
   console.log(`Live pages whose share image is missing: ${missingShareImages.length}.`);

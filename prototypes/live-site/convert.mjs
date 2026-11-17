@@ -41,13 +41,19 @@ export function convert(project) {
       '  cache: {',
       "  // Live pages are cached until a publish clears the tag. A day is the backstop, not the refresh rate.\n  routeRules: { '/[...path]': { maxAge: 86400, tags: ['cms'] } },\n\n  cache: {",
     );
-    return next;
+    return must(next, '    sitemap({', "    sitemap({\n      customSitemaps: [new URL('/sitemap-live.xml', process.env.SITE_URL || 'https://example.com').href],");
   });
 
   // 2. Live collections, the helper that reads them, and the endpoint that clears the cache.
   add('src/live.config.ts', 'live.config.ts');
   add('src/lib/live.ts', 'live.ts');
   add('src/pages/api/cms-revalidate.ts', 'cms-revalidate.ts');
+
+  // 2b. What the build used to make from finished pages: sitemap, share images, search.
+  add('src/lib/live-site.ts', 'live-site.ts');
+  add('src/lib/live-search.ts', 'live-search.ts');
+  add('src/pages/sitemap-live.xml.ts', 'sitemap-live.xml.ts');
+  add('src/pages/og/[...live].png.ts', 'og-live.png.ts');
 
   // 3. The one file that reads content now reads it live.
   edit('src/content/estate/index.ts', (source) => {
@@ -76,7 +82,7 @@ export function convert(project) {
   // 5. Default-language pages with a parameter: look the entry up at request time.
   for (const route of ['agents/[slug].astro', 'listings/[slug].astro', 'neighborhoods/[slug].astro']) {
     edit(`src/pages/${route}`, (source) => {
-      let next = source.replace(/export (async )?function getStaticPaths\(\)/, 'export const prerender = false;\n\nasync function livePaths()');
+      let next = source.replace(/export (async )?function getStaticPaths\(\)/, 'export const prerender = false;\n\nexport async function livePaths()');
       next = next.replace(
         /^(const .* = )Astro\.props( as .*)$/m,
         'const live = matchParams(await livePaths(), Astro.params);\nif (!live) return new Response(null, { status: 404 });\n$1live.props$2',
