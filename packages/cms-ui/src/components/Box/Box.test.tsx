@@ -20,6 +20,11 @@ it('takes its look only from variants', () => {
   for (const name of ['bg-card', 'border-border', 'rounded-lg', 'shadow-sm']) expect(box.className).toContain(name);
 });
 
+it('can keep its content to a readable width', () => {
+  render(<Box maxWidth="md">Form</Box>);
+  expect(screen.getByText('Form').className).toContain('max-w-2xl');
+});
+
 it('has no accessibility violations', async () => {
   const { container } = render(<Box padding={4}>Inside</Box>);
   await expectAccessible(container);

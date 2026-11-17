@@ -1,7 +1,9 @@
 export * from './Box/index.js';
 export * from './Button/index.js';
 export * from './Checkbox/index.js';
+export * from './DateField/index.js';
 export * from './Dialog/index.js';
+export * from './Fieldset/index.js';
 export * from './Form/index.js';
 export * from './Grid/index.js';
 export * from './Heading/index.js';
@@ -9,6 +11,7 @@ export * from './IconButton/index.js';
 export * from './Inline/index.js';
 export * from './Link/index.js';
 export * from './Menu/index.js';
+export * from './NumberField/index.js';
 export * from './Select/index.js';
 export * from './Spinner/index.js';
 export * from './Stack/index.js';

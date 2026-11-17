@@ -10,6 +10,9 @@ export const stackVariants = cva('flex flex-col', {
       center: 'items-center',
       end: 'items-end',
     },
+    fill: {
+      true: 'min-h-full',
+    },
   },
   defaultVariants: { gap: 4, align: 'stretch' },
 });

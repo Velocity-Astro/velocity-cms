@@ -20,3 +20,8 @@ it('renders a list when asked, so list items are announced as a list', async () 
   expect(screen.getAllByRole('listitem')).toHaveLength(2);
   await expectAccessible(container);
 });
+
+it('is at least as tall as the space it is in when asked to fill it', () => {
+  render(<Stack as="section" fill />);
+  expect(document.querySelector('section')?.className).toContain('min-h-full');
+});

@@ -1,1 +1,1 @@
-export { Toast, toast, type ToastMessage, type ToastProps } from './Toast.js';
+export { Toast, dismissToasts, toast, type ToastMessage, type ToastProps } from './Toast.js';

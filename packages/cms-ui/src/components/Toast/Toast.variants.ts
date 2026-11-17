@@ -1,6 +1,7 @@
 import { cva, type VariantProps } from 'class-variance-authority';
 
-export const toastRegionClass = 'fixed right-4 bottom-4 layer-toast flex w-full max-w-sm flex-col-reverse gap-2 outline-none';
+// At the top, so a message never covers the SaveBar at the foot of a screen.
+export const toastRegionClass = 'fixed top-4 right-4 layer-toast flex w-full max-w-sm flex-col gap-2 outline-none';
 
 export const toastClass = [
   'flex items-start gap-3 rounded-lg border border-border bg-background-elevated p-3 shadow-lg',

@@ -1,0 +1,71 @@
+import { EmptyState, Link } from '@velocity/cms-ui';
+import { FileQuestion } from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
+import { NEW_ENTRY, paths } from '../../app/paths.js';
+import { ErrorState, LoadingState } from '../../app/RequestState.js';
+import { AdminRequestError } from '../../client/errors.js';
+import { useContentTypes, useEntry, useFieldTypes } from '../../client/queries.js';
+import { localized } from '../../lib/content.js';
+import { useLocale, useMessages } from '../../messages/messages-context.js';
+import { EntryForm } from './EntryForm.js';
+
+/** One entry, open for editing: a new one, or one that exists. */
+export function EntryEditorScreen() {
+  const messages = useMessages();
+  const locale = useLocale();
+  const navigate = useNavigate();
+  const { typeKey = '', entryId = NEW_ENTRY } = useParams();
+  const isNew = entryId === NEW_ENTRY;
+  const types = useContentTypes();
+  const fieldTypes = useFieldTypes();
+  const entry = useEntry(isNew ? null : entryId);
+  // The entry this screen created, if any. Its form carries on, instead of starting again.
+  const [createdId, setCreatedId] = useState<string | null>(null);
+
+  if (types.isPending || fieldTypes.isPending) return <LoadingState />;
+  if (types.isError) return <ErrorState error={types.error} onRetry={() => void types.refetch()} />;
+  if (fieldTypes.isError) return <ErrorState error={fieldTypes.error} onRetry={() => void fieldTypes.refetch()} />;
+
+  const type = types.data.find((candidate) => candidate.key === typeKey);
+  if (!type) {
+    return (
+      <EmptyState
+        icon={FileQuestion}
+        title={messages.contentList.typeNotFoundTitle}
+        description={messages.contentList.typeNotFoundDescription}
+      />
+    );
+  }
+
+  const notFound = (
+    <EmptyState
+      icon={FileQuestion}
+      title={messages.editor.notFoundTitle}
+      description={messages.editor.notFoundDescription}
+      action={<Link href={paths.contentList(type.key)}>{messages.editor.back(localized(type.label, locale))}</Link>}
+    />
+  );
+
+  if (!isNew) {
+    if (entry.isPending) return <LoadingState />;
+    if (entry.isError) {
+      const isMissing = entry.error instanceof AdminRequestError && entry.error.code === 'not_found';
+      return isMissing ? notFound : <ErrorState error={entry.error} onRetry={() => void entry.refetch()} />;
+    }
+    // An entry reached through another type's address is not at this address.
+    if (entry.data.typeId !== type.id) return notFound;
+  }
+
+  return (
+    <EntryForm
+      key={entryId === createdId ? NEW_ENTRY : entryId}
+      type={type}
+      entry={isNew ? null : (entry.data ?? null)}
+      onCreated={(created) => {
+        setCreatedId(created.id);
+        void navigate(paths.entry(type.key, created.id), { replace: true });
+      }}
+    />
+  );
+}

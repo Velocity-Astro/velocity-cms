@@ -1,6 +1,7 @@
-import { Box, EmptyState, PageHeader, Stack, Table, Tag, type TableColumn, type TableRow } from '@velocity/cms-ui';
-import { FileQuestion, Inbox } from 'lucide-react';
-import { useParams } from 'react-router';
+import { Box, Button, EmptyState, PageHeader, Stack, Table, Tag, type TableColumn, type TableRow } from '@velocity/cms-ui';
+import { FileQuestion, Inbox, Plus } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router';
+import { paths } from '../../app/paths.js';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { useContentTypes, useEntries } from '../../client/queries.js';
 import { entryState, entryTitle, localized, type EntryState } from '../../lib/content.js';
@@ -17,6 +18,7 @@ const STATE_TONE = { draft: 'neutral', scheduled: 'info', published: 'success', 
 export function ContentListScreen() {
   const messages = useMessages();
   const locale = useLocale();
+  const navigate = useNavigate();
   const { typeKey = '' } = useParams();
   const types = useContentTypes();
   const entries = useEntries({ type: typeKey });
@@ -46,23 +48,35 @@ export function ContentListScreen() {
     return {
       id: entry.id,
       cells: {
-        title: entryTitle(type, entry) ?? messages.contentList.untitled,
+        title: entryTitle(type, entry.data) ?? messages.contentList.untitled,
         status: <Tag tone={STATE_TONE[state]}>{messages.status[state]}</Tag>,
         updated: relativeTime(entry.updatedAt, locale),
       },
     };
   });
 
+  const newEntry = (
+    <Button icon={Plus} onPress={() => void navigate(paths.newEntry(type.key))}>
+      {messages.contentList.newEntry}
+    </Button>
+  );
+
   return (
     <Box padding={8}>
       <Stack gap={6}>
-        <PageHeader title={name} {...(entries.data && { description: messages.contentList.description(entries.data.total) })} />
+        <PageHeader
+          title={name}
+          actions={newEntry}
+          {...(entries.data && { description: messages.contentList.description(entries.data.total) })}
+        />
         {entries.isPending && <LoadingState />}
         {entries.isError && <ErrorState error={entries.error} onRetry={() => void entries.refetch()} />}
         {entries.isSuccess && rows.length === 0 && (
           <EmptyState icon={Inbox} title={messages.contentList.emptyTitle(name)} description={messages.contentList.emptyDescription} />
         )}
-        {entries.isSuccess && rows.length > 0 && <Table label={name} columns={columns} rows={rows} />}
+        {entries.isSuccess && rows.length > 0 && (
+          <Table label={name} columns={columns} rows={rows} onRowAction={(id) => void navigate(paths.entry(type.key, id))} />
+        )}
       </Stack>
     </Box>
   );
