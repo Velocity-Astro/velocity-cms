@@ -1,0 +1,16 @@
+---
+/**
+ * Every translated page, rendered on demand. The pages themselves live in src/live-pages/lang/,
+ * unchanged from when they were routes.
+ */
+import { matchLocalizedPage } from '@/lib/live';
+
+export const prerender = false;
+
+const pages = import.meta.glob('/src/live-pages/lang/*.astro', { eager: true });
+const match = await matchLocalizedPage(pages, Astro.params.lang, Astro.params.path);
+if (!match) return new Response(null, { status: 404 });
+const { Page, props } = match;
+---
+
+<Page {...props} />

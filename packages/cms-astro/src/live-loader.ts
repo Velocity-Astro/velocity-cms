@@ -24,6 +24,19 @@ export const entryTag = (typeKey: string, id: string): string => `cms:${typeKey}
 
 const PAGE_SIZE = 500;
 
+let contentVersion = 0;
+
+/**
+ * A number that goes up every time published content changes. Anything a site derives from live
+ * content and keeps in memory can be stored beside this number and thrown away when it moves.
+ */
+export const liveContentVersion = (): number => contentVersion;
+
+/** Tells this server that published content changed. Called on publish, before clearing the page cache. */
+export function invalidateLiveContent(): void {
+  contentVersion++;
+}
+
 /**
  * A live loader: pages rendered on demand read published entries straight from the CMS, so a
  * change shows as soon as the page's cache is cleared instead of after a rebuild.

@@ -3,6 +3,8 @@ export { default } from './integration.js';
 export {
   cmsLiveLoader,
   entryTag,
+  invalidateLiveContent,
+  liveContentVersion,
   typeTag,
   type CmsCollectionFilter,
   type CmsEntryFilter,

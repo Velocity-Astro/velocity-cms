@@ -84,15 +84,17 @@ export async function importCollection(cms, key, records) {
   });
   const groups = new Map();
   for (const record of records) {
-    const group = groups.get(record.slug);
+    // Velocity's JSON collections give every record the id `<locale>/<slug>`.
+    const slug = record.slug ?? record.id.slice(record.id.indexOf('/') + 1);
+    const group = groups.get(slug);
     const draft = await cms.content.create(OWNER, {
       typeId: type.id,
       locale: record.locale,
-      slug: record.slug,
+      slug,
       data: toStored(type.fields, record),
       ...(group && { translationGroup: group }),
     });
-    groups.set(record.slug, draft.translationGroup);
+    groups.set(slug, draft.translationGroup);
     await cms.content.publish(OWNER, draft.id);
   }
   return type;
