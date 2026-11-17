@@ -1,13 +1,6 @@
 import { FieldError, Input, Label, Text, TextField as AriaTextField } from 'react-aria-components';
-import {
-  descriptionClass,
-  errorClass,
-  inputClass,
-  labelClass,
-  requiredMarkClass,
-  textFieldVariants,
-  type TextFieldVariants,
-} from './TextField.variants.js';
+import { fieldDescriptionClass, fieldErrorClass, fieldLabelClass, fieldRequiredMarkClass } from '../field.js';
+import { inputClass, textFieldVariants, type TextFieldVariants } from './TextField.variants.js';
 
 export interface TextFieldProps extends TextFieldVariants {
   /** Always shown. A field with no visible label is not allowed. */
@@ -59,21 +52,21 @@ export function TextField({
       {...(name !== undefined && { name })}
       {...(autoComplete !== undefined && { autoComplete })}
     >
-      <Label className={labelClass}>
+      <Label className={fieldLabelClass}>
         {label}
         {isRequired && (
-          <span aria-hidden className={requiredMarkClass}>
+          <span aria-hidden className={fieldRequiredMarkClass}>
             {' *'}
           </span>
         )}
       </Label>
       <Input className={inputClass} {...(placeholder !== undefined && { placeholder })} />
       {description !== undefined && (
-        <Text slot="description" className={descriptionClass}>
+        <Text slot="description" className={fieldDescriptionClass}>
           {description}
         </Text>
       )}
-      <FieldError className={errorClass}>{errorMessage}</FieldError>
+      <FieldError className={fieldErrorClass}>{errorMessage}</FieldError>
     </AriaTextField>
   );
 }

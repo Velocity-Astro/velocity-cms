@@ -1,0 +1,42 @@
+# Dialog
+
+A window over the page that must be dealt with before going back to it. Focus moves into it, stays
+inside it, and returns to where it was when it closes. The page behind cannot be scrolled or
+reached.
+
+## Use it for
+
+- A short task that belongs to the page behind it: rename, add a field, choose an image.
+- A question that needs an answer before going on. For "are you sure?", use the `ConfirmDialog`
+  pattern, which is built on this.
+
+## Don't use it for
+
+- A whole form or a long task: that is a page, or a side panel.
+- A message that needs no answer: that is a toast.
+- A dialog opened from a dialog.
+
+## Closing
+
+Escape, a press outside, and the close button (when `closeLabel` is given) all call
+`onOpenChange(false)`. With `role="alertdialog"` a press outside does nothing, so the question is
+answered on purpose.
+
+## Example
+
+```tsx
+<Dialog
+  isOpen={isOpen}
+  onOpenChange={setOpen}
+  title="Rename listing"
+  closeLabel="Close"
+  footer={
+    <>
+      <Button variant="secondary" onPress={() => setOpen(false)}>Cancel</Button>
+      <Button onPress={rename}>Rename</Button>
+    </>
+  }
+>
+  <TextField label="Title" value={title} onChange={setTitle} />
+</Dialog>
+```

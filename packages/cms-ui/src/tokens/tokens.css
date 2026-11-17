@@ -227,6 +227,9 @@
   --layer-sticky: 20;
   --layer-overlay: 40;
   --layer-toast: 50;
+
+  /* The veil over the page behind a dialog. */
+  --scrim: oklch(0 0 0 / 0.5);
 }
 
 @media (prefers-reduced-motion: reduce) {
