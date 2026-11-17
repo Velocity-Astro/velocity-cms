@@ -1,10 +1,23 @@
 {
   "files": [],
   "references": [
-    { "path": "packages/cms-core" },
-    { "path": "packages/cms-db" },
-    { "path": "packages/cms-astro" },
-    { "path": "packages/cms-ui" },
-    { "path": "packages/cms-admin" }
+    {
+      "path": "packages/cms-core"
+    },
+    {
+      "path": "packages/cms-db"
+    },
+    {
+      "path": "packages/cms-api"
+    },
+    {
+      "path": "packages/cms-astro"
+    },
+    {
+      "path": "packages/cms-ui"
+    },
+    {
+      "path": "packages/cms-admin"
+    }
   ]
 }

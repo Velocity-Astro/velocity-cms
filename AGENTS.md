@@ -4,7 +4,7 @@ Instructions for AI coding agents and people working in this repo.
 
 ## Stack
 
-TypeScript (strict) · Zod 4 · Drizzle + libSQL (SQLite) · Astro 7 · React 19 · React Aria Components · Tailwind CSS v4 · Storybook 10 · Vitest · Node ≥22.23.4 · pnpm 10
+TypeScript (strict) · Zod 4 · web-standard `Request`/`Response` · Drizzle + libSQL (SQLite) · Astro 7 · React 19 · React Aria Components · Tailwind CSS v4 · Storybook 10 · Vitest · Node ≥22.23.4 · pnpm 10
 
 ## Commands
 
@@ -31,8 +31,9 @@ TypeScript (strict) · Zod 4 · Drizzle + libSQL (SQLite) · Astro 7 · React 19
 - `packages/cms-astro/src/preview.ts` — preview links: the middleware that turns a signed token into a preview.
 - `packages/cms-astro/src/integration.ts` — what `velocityCms()` adds to a site. `routes/` holds the pages it injects: they ship as source and are compiled with the site, because they must see the site's own files. Keep them thin; logic goes in `src/`, where it is type-checked and tested.
 - `packages/cms-astro/src/loader.ts` — the Content Layer loader, for sites that choose a fully static build.
+- `packages/cms-api/src/api.ts` — the CMS over HTTP: `CmsApi.handle(request)` answers with a `Response`. Routes hold no rules; they check the shape of what was sent and call a service. `authenticator.ts` is how it learns who is asking; `http.ts` maps each refusal to a status and a code.
 - `packages/cms-ui/` — the editor's design system. `src/tokens/tokens.css` holds every colour, size, radius, shadow and duration; `src/styles.css` turns them into the Tailwind theme and switches Tailwind's own palette off; `src/components/` and `src/patterns/` hold one folder per part; `component-registry.json` lists them all; `scripts/check.mjs` enforces the rules below.
-- `packages/cms-admin/` — the editor's screens, a React app. `src/client/admin-client.ts` is the only way to the server (`queries.ts` wraps every request); `src/messages/en.ts` holds every word; `src/app/` has the routes, addresses and frame; `src/screens/` has one folder per screen; `src/fields/` has the control for each kind of field, looked up by the name a field type gives as `editor`; `src/testing/` has the in-memory server the tests and the preview (`pnpm --filter @velocity/cms-admin dev`) run against.
+- `packages/cms-admin/` — the editor's screens, a React app. `src/client/admin-client.ts` is the only way to the server (`queries.ts` wraps every request, `http-client.ts` is the one a real site uses); `src/messages/en.ts` holds every word; `src/app/` has the routes, addresses and frame; `src/screens/` has one folder per screen; `src/fields/` has the control for each kind of field, looked up by the name a field type gives as `editor`; `src/testing/` has the in-memory server the tests and the preview (`pnpm --filter @velocity/cms-admin dev`) run against.
 - `prototypes/` — phase 0 experiments. Scripts here may be rough; packages may not.
 
 ## Rules
@@ -50,6 +51,15 @@ TypeScript (strict) · Zod 4 · Drizzle + libSQL (SQLite) · Astro 7 · React 19
 - **No `any`** and no hardcoded user-facing strings outside error messages.
 - **Live by default.** A published change must be visible at once. Pages that show CMS content are rendered on demand, cached with `Astro.cache.set()` under the tags the live loader provides, and cleared by tag on publish. Never add a rebuild step to the publish path.
 - **Zod** is a peer dependency pinned to the range Astro ships, so the same schemas serve the CMS and Astro's collections.
+
+## API rules (`cms-api`)
+
+- **Web standards only.** `Request` in, `Response` out. No Node, no Astro, no framework, so it mounts anywhere the site runs.
+- **No rules in a route.** A route parses with Zod (`strictObject`, so an unknown property is refused), calls one service as the person who asked, and returns JSON. A rule that seems to belong in a route belongs in `cms-core`.
+- **Every route but `GET /session` needs a session**, and a change must come from the site's own pages as JSON (`#requireOwnPage`).
+- **Errors have one shape:** `{ error: { code, message, issues? } }`. A refusal keeps the service's own words. A fault answers 500 with nothing about the inside, and goes to `onFault`.
+- **Nothing is cacheable.** Every response is `no-store`: the API serves drafts.
+- **A new method on `AdminClient` gets a route here, a method on `HttpAdminClient`, and a case in `adminClientContract`** (`cms-admin/src/testing`), which both clients run.
 
 ## Design system rules (`cms-ui`)
 

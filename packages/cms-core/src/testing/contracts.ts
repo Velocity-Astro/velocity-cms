@@ -163,6 +163,17 @@ export function entryRepositoryContract(name: string, create: () => Promise<Entr
       expect(page.items.map((item) => item.id)).toEqual(['e3', 'e4']);
       expect(page.total).toBe(5);
     });
+
+    it('lists the most recently saved first when asked', async () => {
+      const at = (day: number) => `2026-02-0${day}T00:00:00.000Z`;
+      await repository.save(entry({ id: 'e1', slug: 's1', createdAt: at(1), updatedAt: at(5) }), fresh);
+      await repository.save(entry({ id: 'e2', slug: 's2', createdAt: at(2), updatedAt: at(9) }), fresh);
+      await repository.save(entry({ id: 'e3', slug: 's3', createdAt: at(3), updatedAt: at(3) }), fresh);
+      const ids = async (query: Parameters<EntryRepository['find']>[0]) => (await repository.find(query)).items.map((item) => item.id);
+      expect(await ids({ order: 'updated' })).toEqual(['e2', 'e1', 'e3']);
+      expect(await ids({ order: 'updated', limit: 1, offset: 1 })).toEqual(['e1']);
+      expect(await ids({ order: 'created' })).toEqual(['e1', 'e2', 'e3']);
+    });
   });
 }
 

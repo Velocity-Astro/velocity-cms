@@ -121,6 +121,16 @@ describe('ContentService', () => {
     expect(draft).toMatchObject({ status: 'draft', revision: 1, translationGroup: draft.id });
   });
 
+  it('refuses a slug that could not be part of an address', async () => {
+    const create = (slug: string) => cms.content.create(editor, { typeId: listings.id, locale: 'en', slug, data: {} });
+    for (const slug of ['', 'Farm House', '../admin', 'a/b', 'a--b', 'x'.repeat(201)]) {
+      await expect(create(slug)).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['$slug'] }] });
+    }
+    const draft = await create('farm-house-2');
+    await expect(cms.content.update(editor, draft.id, { slug: 'Nope!', expectedRevision: 1 })).rejects.toBeInstanceOf(ValidationError);
+    expect((await cms.content.get(editor, draft.id)).slug).toBe('farm-house-2');
+  });
+
   it('refuses a value of the wrong kind even in a draft, naming the field by key', async () => {
     const attempt = cms.content.create(editor, {
       typeId: listings.id,

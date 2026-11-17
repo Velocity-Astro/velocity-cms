@@ -1,5 +1,5 @@
 import type { ContentTypeDef, Entry, EntryData } from '@velocity/cms-core';
-import { liveFields } from '@velocity/cms-core';
+import { SLUG_PATH, isSlug, liveFields } from '@velocity/cms-core';
 import { Box, Button, ConfirmDialog, Form, Link, PageHeader, SaveBar, Stack, Tag, Text, TextField, toast } from '@velocity/cms-ui';
 import { useState } from 'react';
 import { paths } from '../../app/paths.js';
@@ -8,7 +8,7 @@ import { useCreateEntry, usePublishEntry, useUnpublishEntry, useUpdateEntry } fr
 import { FieldEditor } from '../../fields/index.js';
 import { entryState, entryTitle, localized, sameData, withValue, type EntryState } from '../../lib/content.js';
 import { relativeTime } from '../../lib/relative-time.js';
-import { isSlug, slugify } from '../../lib/slug.js';
+import { slugify } from '../../lib/slug.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 
 const STATE_TONE = { draft: 'neutral', scheduled: 'info', published: 'success', unpublishedChanges: 'warning' } as const satisfies Record<
@@ -59,6 +59,8 @@ export function EntryForm({ type, entry, onCreated }: EntryFormProps) {
   /** Shows why the server refused: on the fields when it named them, and always in a message. */
   function report(what: string, error: unknown) {
     const issues = error instanceof AdminRequestError ? error.issues : [];
+    const aboutSlug = issues.find((issue) => issue.path[0] === SLUG_PATH);
+    if (aboutSlug) setSlugProblem(aboutSlug.message);
     setProblems(new Map(issues.map((issue) => [issue.path.join('.'), issue.message])));
     toast({
       title: what,

@@ -5,7 +5,14 @@ export interface RequestIssue {
   readonly message: string;
 }
 
-export type RequestErrorCode = 'validation_failed' | 'conflict' | 'not_found' | 'forbidden' | 'unknown';
+export type RequestErrorCode =
+  | 'validation_failed'
+  | 'conflict'
+  | 'not_found'
+  | 'forbidden'
+  /** Nobody is signed in, or the session has ended. */
+  | 'unauthenticated'
+  | 'unknown';
 
 /**
  * A request the server refused. The message is written for the person and can be shown as it
