@@ -68,7 +68,10 @@ export function EntryEditorScreen() {
       versions={
         isNew || !entry.data
           ? []
-          : (siblings.data?.items ?? []).filter((other) => other.translationGroup === entry.data.translationGroup)
+          : (siblings.data?.items ?? [])
+              .filter((other) => other.translationGroup === entry.data.translationGroup)
+              // Always in the same order, whichever was saved last.
+              .sort((a, b) => a.locale.localeCompare(b.locale))
       }
       onSwitch={(id) => void navigate(paths.entry(type.key, id))}
       onCreated={(created) => {

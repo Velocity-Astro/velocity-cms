@@ -3,7 +3,7 @@ import { userEvent } from '@testing-library/user-event';
 import { TextField, dismissToasts } from '@velocity/cms-ui';
 import { afterEach, expect, it } from 'vitest';
 import { AdminApp } from '../../app/AdminApp.js';
-import { createFieldControls } from '../../fields/index.js';
+import { createFieldControlRegistry, createFieldControls } from '../../fields/index.js';
 import { MemoryAdminClient } from '../../testing/memory-client.js';
 import { renderApp } from '../../testing/render-app.js';
 import { sampleContentTypes, sampleEntries, sampleUser } from '../../testing/sample-content.js';
@@ -11,6 +11,14 @@ import { sampleContentTypes, sampleEntries, sampleUser } from '../../testing/sam
 const signedIn = () => ({ user: sampleUser, contentTypes: sampleContentTypes, entries: sampleEntries() });
 const saveBar = () => within(screen.getByRole('region', { name: 'Save and publish' }));
 const field = (name: string) => screen.findByRole<HTMLInputElement>('textbox', { name });
+
+/** The editor's own controls without the one for lists, as a site that replaces it would start. */
+const controlsWithoutLists = () => {
+  const all = createFieldControls();
+  const some = createFieldControlRegistry();
+  for (const name of ['text-input', 'url-input', 'number-input', 'date-picker', 'switch', 'select', 'group']) some.register(all.get(name));
+  return some;
+};
 
 afterEach(() => act(() => dismissToasts()));
 
@@ -159,7 +167,8 @@ it('takes an entry off the site only after asking', async () => {
 it('names a field it has no control for, and keeps its content', async () => {
   const user = userEvent.setup();
   const entries = sampleEntries().map((entry) => (entry.id === 'e2' ? { ...entry, data: { ...entry.data, 'f-photos': ['https://example.com/a.jpg'] } } : entry));
-  const { client } = renderApp('/content/listings/e2', { ...signedIn(), entries });
+  const client = new MemoryAdminClient({ ...signedIn(), entries });
+  render(<AdminApp client={client} siteName="Lakeshore" fieldControls={controlsWithoutLists()} initialPath="/content/listings/e2" />);
   const photos = within(await screen.findByRole('group', { name: 'Photos' }));
   expect(photos.getByText('This kind of field cannot be edited here yet. Its content is kept as it is.')).toBeTruthy();
 
@@ -171,7 +180,7 @@ it('names a field it has no control for, and keeps its content', async () => {
 
 it('uses a control a site or plugin registers for its own field type', async () => {
   const user = userEvent.setup();
-  const fieldControls = createFieldControls().register({
+  const fieldControls = controlsWithoutLists().register({
     type: 'list',
     Component: ({ label, value, onChange }) => (
       <TextField label={`${label} (one address)`} value={Array.isArray(value) ? String(value[0] ?? '') : ''} onChange={(next) => onChange([next])} />
@@ -232,4 +241,45 @@ it('shows no language switch for an entry in one language', async () => {
   renderApp('/content/listings/e1', signedIn());
   await screen.findByRole('heading', { level: 1, name: '6214 Lakeshore Drive' });
   expect(screen.queryByRole('radiogroup', { name: 'Language' })).toBeNull();
+});
+
+it('builds a list: add an item, fill it in, reorder, remove', async () => {
+  const user = userEvent.setup();
+  const entries = sampleEntries().map((entry) => (entry.id === 'e2' ? { ...entry, data: { ...entry.data, 'f-photos': ['https://example.com/a.jpg'] } } : entry));
+  const { client } = renderApp('/content/listings/e2', { ...signedIn(), entries });
+  const photos = within(await screen.findByRole('group', { name: 'Photos' }));
+  expect(photos.getByRole<HTMLInputElement>('textbox', { name: 'Photos 1' }).value).toBe('https://example.com/a.jpg');
+
+  await user.click(photos.getByRole('button', { name: 'Add' }));
+  await user.type(photos.getByRole('textbox', { name: 'Photos 2' }), 'https://example.com/b.jpg');
+  await user.click(photos.getByRole('button', { name: 'Move Photos 2 up' }));
+  expect(photos.getByRole<HTMLInputElement>('textbox', { name: 'Photos 1' }).value).toBe('https://example.com/b.jpg');
+  // An item added and left empty is not part of what is saved.
+  await user.click(photos.getByRole('button', { name: 'Add' }));
+
+  await user.click(screen.getByRole('button', { name: 'Save draft' }));
+  expect(await screen.findByText('Draft saved')).toBeTruthy();
+  expect((await client.getEntry('e2')).data['f-photos']).toEqual(['https://example.com/b.jpg', 'https://example.com/a.jpg']);
+
+  await user.click(photos.getByRole('button', { name: 'Remove Photos 1' }));
+  await user.click(screen.getByRole('button', { name: 'Save draft' }));
+  await waitFor(async () => expect((await client.getEntry('e2')).data['f-photos']).toEqual(['https://example.com/a.jpg']));
+});
+
+it('lays the fields out in the sections the content type names, and calls the entry by its title field', async () => {
+  const [listings, ...others] = sampleContentTypes;
+  if (!listings) throw new Error('No sample types.');
+  const address = listings.fields.find((candidate) => candidate.key === 'address');
+  const street = (address?.options['fields'] as { id: string; key: string }[]).find((candidate) => candidate.key === 'street');
+  const sectioned = {
+    ...listings,
+    titlePath: [address?.id ?? '', street?.id ?? ''],
+    sections: [{ key: 'where', label: { en: 'Where it is' }, fieldIds: [address?.id ?? ''] }],
+  };
+  renderApp('/content/listings/e1', { ...signedIn(), contentTypes: [sectioned, ...others] });
+  expect(await screen.findByRole('heading', { level: 1, name: '6214 Lakeshore Drive' })).toBeTruthy();
+  const where = within(screen.getByRole('region', { name: 'Where it is' }));
+  expect(where.getByRole('group', { name: 'Address' })).toBeTruthy();
+  expect(within(screen.getByRole('region', { name: 'Other details' })).getByRole('textbox', { name: 'Title' })).toBeTruthy();
+  expect(within(screen.getByRole('region', { name: 'Address on the site' })).getByRole('textbox', { name: 'Slug' })).toBeTruthy();
 });

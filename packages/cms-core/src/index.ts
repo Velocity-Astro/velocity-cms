@@ -31,6 +31,7 @@ export {
   type EntryStatus,
   type EntryVersion,
   type FieldDef,
+  type FieldSection,
   type LocalizedText,
   type Page,
   type PublicEntry,
@@ -62,4 +63,5 @@ export {
   type CreateEntryInput,
   type UpdateEntryInput,
 } from './services/content-service.js';
-export { SchemaService, type NewContentType, type NewField } from './services/schema-service.js';
+export { SchemaService, type NewContentType, type NewSection } from './services/schema-service.js';
+export type { NewField } from './define-fields.js';

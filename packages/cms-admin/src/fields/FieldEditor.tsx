@@ -31,5 +31,6 @@ export function FieldEditor({ field, value, onChange, path, problems }: FieldEdi
   }
 
   const { Component } = controls.get(editor);
-  return <Component field={field} label={label} value={value} onChange={onChange} path={path} problem={problems.get(path)} problems={problems} />;
+  const help = field.help ? localized(field.help, locale) : undefined;
+  return <Component field={field} label={label} help={help} value={value} onChange={onChange} path={path} problem={problems.get(path)} problems={problems} />;
 }

@@ -82,6 +82,12 @@ export async function importCollection(cms, key, records) {
     label: label(key),
     fields: inferTopLevelFields(records),
   });
+  await importRecords(cms, type, records);
+  return type;
+}
+
+/** Imports the records of a Velocity JSON collection as published entries of a type that exists. */
+export async function importRecords(cms, type, records) {
   const groups = new Map();
   for (const record of records) {
     // Velocity's JSON collections give every record the id `<locale>/<slug>`.

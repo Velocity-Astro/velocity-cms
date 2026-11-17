@@ -17,7 +17,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { connect } from '../packages/cms-astro/dist/connection.js';
 import { convert } from '../prototypes/live-site/convert.mjs';
-import { importCollection } from '../prototypes/publish-speed/lib.mjs';
+import { OWNER, importRecords } from '../prototypes/publish-speed/lib.mjs';
+import { realEstateModel } from './real-estate-model.mjs';
 
 const [projectArg] = process.argv.slice(2);
 if (!projectArg) throw new Error('Usage: prepare.mjs <assembled real-estate project>');
@@ -25,17 +26,22 @@ const project = path.resolve(projectArg);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const at = (relative) => path.join(project, relative);
 const PACKAGES = ['cms-core', 'cms-db', 'cms-api', 'cms-auth', 'cms-ui', 'cms-admin', 'cms-astro'];
-const COLLECTIONS = ['listings', 'agents', 'neighborhoods', 'reviews'];
 
-// 1. Content, before the conversion moves it.
+// 1. Content types and content, before the conversion moves the files.
 const connection = await connect({});
 try {
-  if ((await connection.cms.schema.list()).length > 0) {
-    console.log('The database already has content types: nothing imported.');
+  const isNew = (await connection.cms.schema.list()).length === 0;
+  // Every deploy: the types are made to match the template's description. Field ids are kept,
+  // so what was edited on the demo stays.
+  const types = new Map();
+  for (const model of realEstateModel) types.set(model.key, await connection.cms.schema.define(OWNER, model));
+  console.log(`Content types match the template: ${[...types.keys()].join(', ')}.`);
+  if (!isNew) {
+    console.log('The database already has content: nothing imported.');
   } else {
-    for (const name of COLLECTIONS) {
+    for (const [name, type] of types) {
       const records = JSON.parse(fs.readFileSync(at(`src/content/estate/${name}.json`), 'utf8'));
-      await importCollection(connection.cms, name, records);
+      await importRecords(connection.cms, type, records);
       console.log(`Imported ${records.length} ${name}.`);
     }
   }

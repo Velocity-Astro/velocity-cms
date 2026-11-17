@@ -1,5 +1,6 @@
 export * from './Box/index.js';
 export * from './Button/index.js';
+export * from './Card/index.js';
 export * from './Checkbox/index.js';
 export * from './DateField/index.js';
 export * from './Dialog/index.js';

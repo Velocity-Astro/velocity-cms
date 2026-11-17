@@ -1,8 +1,10 @@
 import { liveFields, type FieldDef } from '@velocity/cms-core';
-import { DateField, Fieldset, NumberField, Select, Switch, Text, TextArea, TextField } from '@velocity/cms-ui';
-import { withValue } from '../lib/content.js';
-import { useMessages } from '../messages/messages-context.js';
+import { DateField, Fieldset, NumberField, Repeater, Select, Switch, Text, TextArea, TextField } from '@velocity/cms-ui';
+import { useState } from 'react';
+import { localized, sameData, withValue } from '../lib/content.js';
+import { useLocale, useMessages } from '../messages/messages-context.js';
 import { createFieldControlRegistry, type FieldControlProps, type FieldControls } from './field-control.js';
+import { FieldEditor } from './FieldEditor.js';
 import { FieldGrid } from './FieldGrid.js';
 
 /** A field setting, when it is a number. Settings are checked by the server, not here. */
@@ -11,9 +13,10 @@ function numberOption(field: FieldDef, name: string): number | undefined {
   return typeof option === 'number' ? option : undefined;
 }
 
-function TextControl({ field, label, value, onChange, problem }: FieldControlProps) {
+function TextControl({ field, label, help, value, onChange, problem }: FieldControlProps) {
   const shared = {
     label,
+    ...(help !== undefined && { description: help }),
     value: typeof value === 'string' ? value : '',
     onChange: (next: string) => onChange(next === '' ? undefined : next),
     isRequired: field.required,
@@ -22,7 +25,7 @@ function TextControl({ field, label, value, onChange, problem }: FieldControlPro
   return field.options['multiline'] === true ? <TextArea {...shared} /> : <TextField {...shared} />;
 }
 
-function UrlControl({ field, label, value, onChange, problem }: FieldControlProps) {
+function UrlControl({ field, label, help, value, onChange, problem }: FieldControlProps) {
   return (
     <TextField
       type="url"
@@ -30,12 +33,13 @@ function UrlControl({ field, label, value, onChange, problem }: FieldControlProp
       value={typeof value === 'string' ? value : ''}
       onChange={(next) => onChange(next === '' ? undefined : next)}
       isRequired={field.required}
+      {...(help !== undefined && { description: help })}
       {...(problem !== undefined && { errorMessage: problem })}
     />
   );
 }
 
-function NumberControl({ field, label, value, onChange, problem }: FieldControlProps) {
+function NumberControl({ field, label, help, value, onChange, problem }: FieldControlProps) {
   const min = numberOption(field, 'min');
   const max = numberOption(field, 'max');
   return (
@@ -48,12 +52,13 @@ function NumberControl({ field, label, value, onChange, problem }: FieldControlP
       isRequired={field.required}
       {...(min !== undefined && { minValue: min })}
       {...(max !== undefined && { maxValue: max })}
+      {...(help !== undefined && { description: help })}
       {...(problem !== undefined && { errorMessage: problem })}
     />
   );
 }
 
-function DateControl({ field, label, value, onChange, problem }: FieldControlProps) {
+function DateControl({ field, label, help, value, onChange, problem }: FieldControlProps) {
   return (
     <DateField
       width="full"
@@ -61,6 +66,7 @@ function DateControl({ field, label, value, onChange, problem }: FieldControlPro
       value={typeof value === 'string' ? value : null}
       onChange={(next) => onChange(next ?? undefined)}
       isRequired={field.required}
+      {...(help !== undefined && { description: help })}
       {...(problem !== undefined && { errorMessage: problem })}
     />
   );
@@ -70,13 +76,21 @@ function SwitchControl({ label, value, onChange }: FieldControlProps) {
   return <Switch label={label} isSelected={value === true} onChange={onChange} />;
 }
 
-function SelectControl({ field, label, value, onChange, problem }: FieldControlProps) {
+function SelectControl({ field, label, help, value, onChange, problem }: FieldControlProps) {
   const messages = useMessages();
+  const locale = useLocale();
   const choices = Array.isArray(field.options['choices']) ? field.options['choices'].filter((choice) => typeof choice === 'string') : [];
+  // What each choice is called, when the field says. The stored value is shown otherwise.
+  const labels = (field.options['labels'] ?? {}) as Readonly<Record<string, Readonly<Record<string, string>> | undefined>>;
+  const named = (choice: string) => {
+    const name = labels[choice];
+    return name ? localized(name, locale) : choice;
+  };
   return (
     <Select
       label={label}
-      options={choices.map((choice) => ({ id: choice, label: choice }))}
+      {...(help !== undefined && { description: help })}
+      options={choices.map((choice) => ({ id: choice, label: named(choice) }))}
       placeholder={messages.editor.choose}
       onChange={onChange}
       isRequired={field.required}
@@ -87,11 +101,11 @@ function SelectControl({ field, label, value, onChange, problem }: FieldControlP
 }
 
 /** Several fields kept together as one value. Each is drawn by its own control, so groups nest. */
-function GroupControl({ field, label, value, onChange, path, problem, problems }: FieldControlProps) {
+function GroupControl({ field, label, help, value, onChange, path, problem, problems }: FieldControlProps) {
   const inner = Array.isArray(field.options['fields']) ? liveFields(field.options['fields'] as FieldDef[]) : [];
   const values = typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
   return (
-    <Fieldset legend={label}>
+    <Fieldset legend={label} {...(help !== undefined && { description: help })}>
       {problem !== undefined && (
         <Text size="sm" tone="danger">
           {problem}
@@ -112,6 +126,74 @@ function GroupControl({ field, label, value, onChange, path, problem, problems }
   );
 }
 
+const isFilled = (item: unknown) => item !== undefined && item !== null;
+
+/**
+ * Several values of the same kind, in an order the person chooses. Each item is drawn by the
+ * control of the list's item type, so a list of groups and a list of plain text work alike.
+ */
+function ListControl({ field, label, help, value, onChange, path, problem, problems }: FieldControlProps) {
+  const messages = useMessages();
+  const stored: readonly unknown[] = Array.isArray(value) ? value : [];
+  // What is on screen, which may have items that are still empty. Only filled items are part
+  // of the value. When the value changes from outside (a save, another language), it wins.
+  const [typed, setTyped] = useState<readonly unknown[]>(stored);
+  const items = sameData(typed.filter(isFilled), stored) ? typed : stored;
+  const of = (field.options['of'] ?? { type: 'text' }) as { readonly type: string; readonly options?: Readonly<Record<string, unknown>> };
+  const max = typeof field.options['max'] === 'number' ? field.options['max'] : undefined;
+
+  const change = (next: readonly unknown[]) => {
+    setTyped(next);
+    const filled = next.filter(isFilled);
+    onChange(filled.length === 0 ? undefined : filled);
+  };
+
+  return (
+    <Repeater
+      label={label}
+      {...(help !== undefined && { description: help })}
+      {...(problem !== undefined && { errorMessage: problem })}
+      emptyText={messages.editor.listEmpty}
+      addLabel={messages.editor.listAdd}
+      removeLabel={(position) => messages.editor.listRemove(label, position)}
+      moveUpLabel={(position) => messages.editor.listMoveUp(label, position)}
+      moveDownLabel={(position) => messages.editor.listMoveDown(label, position)}
+      isFull={max !== undefined && items.length >= max}
+      onAdd={() => change([...items, undefined])}
+      onRemove={(index) => change(items.filter((_, at) => at !== index))}
+      onMove={(from, to) => {
+        const next = [...items];
+        const [moved] = next.splice(from, 1);
+        next.splice(to, 0, moved);
+        change(next);
+      }}
+      items={items.map((item, index) => ({
+        id: String(index),
+        content: (
+          <FieldEditor
+            field={{
+              id: `${field.id}.${index}`,
+              key: String(index),
+              type: of.type,
+              label: { [ITEM]: messages.editor.listItem(label, index + 1) },
+              translated: field.translated,
+              required: false,
+              options: of.options ?? {},
+            }}
+            value={item}
+            onChange={(next) => change(items.map((existing, at) => (at === index ? next : existing)))}
+            path={`${path}.${index}`}
+            problems={problems}
+          />
+        ),
+      }))}
+    />
+  );
+}
+
+/** The language an item's made-up label is filed under. `localized` falls back to it. */
+const ITEM = 'en';
+
 /** The controls for the field types every site has. A site or plugin registers more on the result. */
 export function createFieldControls(): FieldControls {
   return createFieldControlRegistry()
@@ -121,5 +203,6 @@ export function createFieldControls(): FieldControls {
     .register({ type: 'date-picker', Component: DateControl, width: 'compact' })
     .register({ type: 'switch', Component: SwitchControl })
     .register({ type: 'select', Component: SelectControl, width: 'compact' })
-    .register({ type: 'group', Component: GroupControl });
+    .register({ type: 'group', Component: GroupControl })
+    .register({ type: 'list', Component: ListControl });
 }
