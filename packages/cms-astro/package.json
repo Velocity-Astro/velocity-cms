@@ -23,5 +23,8 @@
   },
   "devDependencies": {
     "astro": "7.4.5"
+  },
+  "astro": {
+    "external": true
   }
 }
