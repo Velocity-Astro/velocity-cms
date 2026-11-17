@@ -51,9 +51,12 @@ export function convert(project) {
 
   // 2b. What the build used to make from finished pages: sitemap, share images, search.
   add('src/lib/live-site.ts', 'live-site.ts');
-  add('src/lib/live-search.ts', 'live-search.ts');
   add('src/pages/sitemap-live.xml.ts', 'sitemap-live.xml.ts');
   add('src/pages/og/[...live].png.ts', 'og-live.png.ts');
+  add('src/lib/live-search.ts', 'live-search.ts');
+  add('src/pages/api/search.json.ts', 'search.json.ts');
+  add('public/cms-search.js', 'cms-search.js');
+  edit('src/views/SearchView.astro', (view) => must(view, "const url = '/pagefind/pagefind.js';", "const url = '/cms-search.js';"));
 
   // 3. The one file that reads content now reads it live.
   edit('src/content/estate/index.ts', (source) => {

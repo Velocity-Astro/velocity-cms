@@ -1,6 +1,18 @@
 import { ConflictError } from '../errors.js';
 import type { ContentTypeDef, Entry, Page, Revision } from '../model.js';
-import type { Clock, EntryQuery, EntryRepository, IdGenerator, SaveOptions, SchemaRepository } from '../ports.js';
+import type {
+  Clock,
+  EntryQuery,
+  EntryRepository,
+  IdGenerator,
+  SaveOptions,
+  SchemaRepository,
+  SearchDocument,
+  SearchIndex,
+  SearchQuery,
+  SearchResults,
+} from '../ports.js';
+import { MARK_CLOSE, MARK_OPEN, markedExcerpt, searchWords } from '../search-text.js';
 
 /** Keeps entries in memory. For unit tests and examples: nothing survives a restart. */
 export class InMemoryEntryRepository implements EntryRepository {
@@ -100,5 +112,48 @@ export class SequentialIds implements IdGenerator {
 
   next(): string {
     return `id-${this.#next++}`;
+  }
+}
+
+/** Searches documents kept in memory. For unit tests and examples: slow on purpose, and simple. */
+export class InMemorySearchIndex implements SearchIndex {
+  readonly #documents = new Map<string, SearchDocument>();
+
+  async put(documents: readonly SearchDocument[]): Promise<void> {
+    for (const document of documents) this.#documents.set(document.id, document);
+  }
+
+  async remove(ids: readonly string[]): Promise<void> {
+    for (const id of ids) this.#documents.delete(id);
+  }
+
+  async count(): Promise<number> {
+    return this.#documents.size;
+  }
+
+  async search(query: SearchQuery): Promise<SearchResults> {
+    const wanted = searchWords(query.text);
+    if (wanted.length === 0) return { total: 0, hits: [] };
+    const last = wanted.length - 1;
+    const matches = (word: string, index: number, found: string) => (index === last ? found.startsWith(word) : found === word);
+    const has = (words: string[]) => wanted.every((word, index) => words.some((found) => matches(word, index, found)));
+
+    const scored = [...this.#documents.values()]
+      .filter((document) => query.locale === undefined || document.locale === query.locale)
+      .map((document) => ({ document, inTitle: has(searchWords(document.title)) }))
+      .filter(({ document, inTitle }) => inTitle || has(searchWords(`${document.title} ${document.body}`)))
+      .sort((a, b) => Number(b.inTitle) - Number(a.inTitle) || a.document.id.localeCompare(b.document.id));
+
+    const hits = scored.slice(0, query.limit ?? 10).map(({ document }) => ({
+      id: document.id,
+      url: document.url,
+      title: document.title,
+      excerpt: markedExcerpt(
+        document.body.replace(/[\p{L}\p{N}]+/gu, (found) =>
+          wanted.some((word, index) => matches(word, index, searchWords(found)[0] ?? '')) ? `${MARK_OPEN}${found}${MARK_CLOSE}` : found,
+        ),
+      ),
+    }));
+    return { total: scored.length, hits };
   }
 }

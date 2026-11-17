@@ -42,8 +42,14 @@ export type {
   IdGenerator,
   SaveOptions,
   SchemaRepository,
+  SearchDocument,
+  SearchHit,
+  SearchIndex,
+  SearchQuery,
+  SearchResults,
 } from './ports.js';
 export { Registry, UnknownTypeError } from './registry.js';
+export { MARK_CLOSE, MARK_OPEN, escapeHtml, markedExcerpt, searchWords } from './search-text.js';
 export { buildFieldsSchema, toPublicData, validateData } from './schema-builder.js';
 export {
   ContentService,

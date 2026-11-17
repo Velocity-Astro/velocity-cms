@@ -1,4 +1,4 @@
-export type { ConnectionOptions } from './connection.js';
+export { sharedConnection, type Connection, type ConnectionOptions } from './connection.js';
 export { default } from './integration.js';
 export {
   cmsLiveLoader,

@@ -1,5 +1,5 @@
-import { createCms, type Actor, type Cms } from '@velocity/cms-core';
-import { openDatabase, SqliteEntryRepository, SqliteSchemaRepository } from '@velocity/cms-db';
+import { createCms, type Actor, type Cms, type SearchIndex } from '@velocity/cms-core';
+import { openDatabase, SqliteEntryRepository, SqliteSchemaRepository, SqliteSearchIndex } from '@velocity/cms-db';
 
 export interface ConnectionOptions {
   /**
@@ -18,6 +18,7 @@ export const resolveUrl = (options: ConnectionOptions): string =>
 
 export interface Connection {
   readonly cms: Cms;
+  readonly search: SearchIndex;
   close(): void;
 }
 
@@ -30,7 +31,7 @@ export async function connect(options: ConnectionOptions): Promise<Connection> {
     entries: new SqliteEntryRepository(database.db),
     types: new SqliteSchemaRepository(database.db),
   });
-  return { cms, close: () => database.close() };
+  return { cms, search: new SqliteSearchIndex(database.db), close: () => database.close() };
 }
 
 const shared = new Map<string, Promise<Connection>>();

@@ -10,7 +10,7 @@
  */
 import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
-import zlib from 'node:zlib';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { importCollection, multiply, openCms, OWNER } from '../publish-speed/lib.mjs';
@@ -79,21 +79,38 @@ async function startServer() {
   child.kill();
   throw new Error('The server did not start.');
 }
-/** Clears the page cache. `search`: 'skip' leaves the index alone, 'wait' answers once it is rebuilt. */
-const revalidate = async (search = 'skip') => {
+/** Clears the page cache. `reindex`: the pages to read again for search, or 'all'. */
+const revalidate = async (reindex) => {
   const response = await fetch(`${ORIGIN}/api/cms-revalidate`, {
     method: 'POST',
     headers: { origin: ORIGIN, 'content-type': 'application/json' },
-    body: JSON.stringify({ search }),
+    body: JSON.stringify({ reindex }),
   });
   if (!response.ok) throw new Error(`Clearing the cache answered ${response.status}.`);
   return response.json();
 };
+const find = async (query, lang = 'en-US') => (await fetch(`${ORIGIN}/api/search.json?q=${encodeURIComponent(query)}&lang=${lang}`)).json();
 const locs = (xml) => [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => new URL(match[1]).pathname);
-/** Whether any page in the search index on disk contains the word. */
-function indexHas(word) {
-  const dir = at('dist/client/pagefind/fragment');
-  return fs.readdirSync(dir).some((name) => zlib.gunzipSync(fs.readFileSync(path.join(dir, name))).toString('utf8').includes(word));
+/** The search page in a real browser: type nothing, arrive with a query, read what it shows. */
+async function searchInBrowser(query) {
+  const { chromium } = createRequire(import.meta.url)('playwright');
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    const problems = [];
+    page.on('console', (message) => message.type() === 'error' && problems.push(message.text()));
+    page.on('pageerror', (error) => problems.push(error.message));
+    await page.goto(`${ORIGIN}/search/?q=${encodeURIComponent(query)}`);
+    await page.waitForSelector('#search-results li', { timeout: 10_000 });
+    return {
+      status: await page.textContent('#search-status'),
+      first: await page.textContent('#search-results li a'),
+      marked: await page.locator('#search-results mark').count(),
+      problems,
+    };
+  } finally {
+    await browser.close();
+  }
 }
 
 async function seed(listingCount) {
@@ -131,7 +148,7 @@ try {
 
   // 3. Every page of the original, asked of the live server.
   server = await startServer();
-  const firstIndex = (await revalidate('wait')).search;
+  const firstIndex = (await revalidate('all')).search;
   const sitemapIndex = await timed(`${ORIGIN}/sitemap-index.xml`);
   const sitemapLive = await timed(`${ORIGIN}/sitemap-live.xml`);
   const liveSitemap = new Set([...locs(sitemapAfter), ...locs(sitemapLive.body)]);
@@ -200,14 +217,15 @@ try {
   const streetId = address.options.fields.find((field) => field.key === 'street').id;
   const english = (await cms.content.find(OWNER, { typeId: types.listings.id, locale: 'en', limit: 500 })).items.find((entry) => entry.translationGroup === group);
   const cardBefore = Buffer.from(await (await fetch(cardUrl)).arrayBuffer());
-  const wordBefore = indexHas('Quillfeather');
+  const wordBefore = (await find('quillfeather')).total;
   await cms.content.update(OWNER, english.id, {
     data: { ...english.data, [address.id]: { ...english.data[address.id], [streetId]: '77 Quillfeather Lane' } },
     expectedRevision: english.revision,
   });
   close();
-  const reindex = (await revalidate('wait')).search;
-  const wordAfter = indexHas('Quillfeather');
+  const reindex = (await revalidate([sample.listing])).search;
+  const wordAfter = await find('quillfeather');
+  const inBrowser = await searchInBrowser('quillfeather');
   const cardAfter = Buffer.from(await (await fetch(cardUrl)).arrayBuffer());
   const cardChanged = !cardBefore.equals(cardAfter);
   const seenOn = [];
@@ -222,7 +240,13 @@ try {
   await seed(500);
   server = await startServer();
   const large = await measure();
-  const largeIndex = (await revalidate('wait')).search;
+  const largeIndex = (await revalidate('all')).search;
+  const lookups = [];
+  for (const query of ['lakeshore', 'three bed', 'pergola', 'maya', 'dallas hou']) {
+    for (let i = 0; i < 5; i++) lookups.push((await timed(`${ORIGIN}/api/search.json?q=${encodeURIComponent(query)}&lang=en-US`)).ms);
+  }
+  const spanish = await find('habitaciones', 'es-ES');
+  const inEnglish = await find('habitaciones', 'en-US');
 
   // Report
   const drew = (log) => log.match(/Checked share images on (\d+) page\(s\), drew (\d+)/);
@@ -237,8 +261,11 @@ try {
   console.log(`| Addresses in the sitemap | ${count(sitemapBefore)} | ${count(sitemapAfter)} |`);
   console.log(`\nSitemap, live site: ${liveSitemap.size} addresses (index answered ${sitemapIndex.status}, lists sitemap-live.xml: ${sitemapIndex.body.includes('sitemap-live.xml')}). Missing: ${sitemapMissing.length}. Extra: ${sitemapExtra.length}.`);
   for (const line of [...sitemapMissing, ...sitemapExtra].slice(0, 10)) console.log(`  - ${line}`);
-  console.log(`Search, live site: ${firstIndex.pages} pages indexed in ${(firstIndex.ms / 1000).toFixed(1)} s after start; ${largeIndex.pages} pages in ${(largeIndex.ms / 1000).toFixed(1)} s with 500 listings.`);
-  console.log(`After a street name change: index rebuilt in ${(reindex.ms / 1000).toFixed(1)} s, new name in the index: ${wordBefore ? 'was already there' : wordAfter ? 'yes' : 'no'}, share image redrawn: ${cardChanged ? 'yes' : 'no'}.`);
+  console.log(`Search, live site: ${firstIndex.pages} pages indexed in ${(firstIndex.ms / 1000).toFixed(1)} s after start; ${largeIndex.pages} pages in ${(largeIndex.ms / 1000).toFixed(1)} s with 500 listings. That runs once per deploy.`);
+  console.log(`After a street name change: search updated in ${ms(reindex.ms)} (${reindex.pages} page read again). Matches before: ${wordBefore}, after: ${wordAfter.total} (${wordAfter.hits[0]?.url}). Share image redrawn: ${cardChanged ? 'yes' : 'no'}.`);
+  console.log(`In a browser, the unchanged search page shows: "${inBrowser.status}" First result: "${inBrowser.first}". Highlighted words: ${inBrowser.marked}. Errors: ${inBrowser.problems.length}.`);
+  for (const line of inBrowser.problems.slice(0, 5)) console.log(`  - ${line}`);
+  console.log(`A search answers in ${ms(median(lookups))} with 562 pages (median of ${lookups.length}). "habitaciones" finds ${spanish.total} Spanish pages and ${inEnglish.total} English ones.`);
   console.log(`Share image: ${ms(cardFirst.ms)} to draw (status ${cardFirst.status}), ${ms(cardCached)} from the cache.`);
   console.log(`\nPages compared with the original: ${originalPages.length - 1}. Different: ${different.length}.`);
   for (const line of different.slice(0, 20)) console.log(`  - ${line}`);

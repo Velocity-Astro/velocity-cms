@@ -23,6 +23,7 @@ TypeScript (strict) · Zod 4 · Drizzle + libSQL (SQLite) · Astro 7 · Vitest �
 - `packages/cms-core/src/services/` — `SchemaService` and `ContentService`. Every write goes through one of these.
 - `packages/cms-core/src/ports.ts` — the interfaces adapters implement.
 - `packages/cms-core/src/testing/` — in-memory adapters and the contract tests for real ones.
+- `packages/cms-db/src/search-index.ts` — search in the same database (FTS5). Its table is a hand-written migration.
 - `packages/cms-db/src/tables.ts` — the tables. `migrations/` is generated from it.
 - `packages/cms-astro/src/live-loader.ts` — the live loader, for pages rendered on demand. The default way a site reads content.
 - `packages/cms-astro/src/loader.ts` — the Content Layer loader, for sites that choose a fully static build.

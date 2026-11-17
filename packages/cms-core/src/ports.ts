@@ -53,3 +53,50 @@ export interface Clock {
 export interface IdGenerator {
   next(): string;
 }
+
+/** One searchable thing: usually a page of the site, as a visitor reads it. */
+export interface SearchDocument {
+  /** Unique and stable. Putting a document with the same id replaces the old one. */
+  readonly id: string;
+  readonly locale: string;
+  readonly url: string;
+  readonly title: string;
+  /** Plain text, no markup. */
+  readonly body: string;
+}
+
+export interface SearchQuery {
+  /** What the visitor typed. Any text is safe; the last word also matches as a beginning. */
+  readonly text: string;
+  readonly locale?: string;
+  /** Defaults to 10. */
+  readonly limit?: number;
+}
+
+export interface SearchHit {
+  readonly id: string;
+  readonly url: string;
+  readonly title: string;
+  /** A passage of the body, HTML-escaped, with the matched words inside `<mark>`. */
+  readonly excerpt: string;
+}
+
+export interface SearchResults {
+  /** How many documents match, which can be more than `hits`. */
+  readonly total: number;
+  /** Best match first. A match in the title counts for more than one in the body. */
+  readonly hits: readonly SearchHit[];
+}
+
+/**
+ * Full-text search over published content. A publish changes only the documents it touched, so
+ * search is as fresh as the page.
+ */
+export interface SearchIndex {
+  put(documents: readonly SearchDocument[]): Promise<void>;
+  /** Ids that are not in the index are ignored. */
+  remove(ids: readonly string[]): Promise<void>;
+  /** Every document matches all the words, whatever their case or accents. */
+  search(query: SearchQuery): Promise<SearchResults>;
+  count(): Promise<number>;
+}
