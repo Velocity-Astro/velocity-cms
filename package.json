@@ -8,7 +8,7 @@
   "scripts": {
     "build": "tsc -b",
     "check": "tsc -b",
-    "lint": "eslint .",
+    "lint": "eslint . && pnpm --filter @velocity/cms-ui check",
     "test": "pnpm build && vitest run",
     "validate": "pnpm lint && pnpm test"
   },

@@ -3,6 +3,7 @@
   "references": [
     { "path": "packages/cms-core" },
     { "path": "packages/cms-db" },
-    { "path": "packages/cms-astro" }
+    { "path": "packages/cms-astro" },
+    { "path": "packages/cms-ui" }
   ]
 }

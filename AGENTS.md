@@ -4,7 +4,7 @@ Instructions for AI coding agents and people working in this repo.
 
 ## Stack
 
-TypeScript (strict) · Zod 4 · Drizzle + libSQL (SQLite) · Astro 7 · Vitest · Node ≥22.23.4 · pnpm 10
+TypeScript (strict) · Zod 4 · Drizzle + libSQL (SQLite) · Astro 7 · React 19 · React Aria Components · Tailwind CSS v4 · Storybook 10 · Vitest · Node ≥22.23.4 · pnpm 10
 
 ## Commands
 
@@ -13,7 +13,9 @@ TypeScript (strict) · Zod 4 · Drizzle + libSQL (SQLite) · Astro 7 · Vitest �
 | Everything, before a commit | `pnpm validate` (lint → build → test) |
 | Build and type-check | `pnpm build` |
 | Tests | `pnpm test` (builds first: packages import each other's `dist`) |
-| Lint | `pnpm lint` |
+| Lint | `pnpm lint` (ESLint, then the design system's rules) |
+| Design system showcase | `pnpm --filter @velocity/cms-ui storybook` |
+| Accessibility of every story, light and dark | `pnpm --filter @velocity/cms-ui check:stories` |
 | New migration | `pnpm --filter @velocity/cms-db migrations:generate` |
 
 ## Where things live
@@ -29,6 +31,7 @@ TypeScript (strict) · Zod 4 · Drizzle + libSQL (SQLite) · Astro 7 · Vitest �
 - `packages/cms-astro/src/preview.ts` — preview links: the middleware that turns a signed token into a preview.
 - `packages/cms-astro/src/integration.ts` — what `velocityCms()` adds to a site. `routes/` holds the pages it injects: they ship as source and are compiled with the site, because they must see the site's own files. Keep them thin; logic goes in `src/`, where it is type-checked and tested.
 - `packages/cms-astro/src/loader.ts` — the Content Layer loader, for sites that choose a fully static build.
+- `packages/cms-ui/` — the editor's design system. `src/tokens/tokens.css` holds every colour, size, radius, shadow and duration; `src/styles.css` turns them into the Tailwind theme and switches Tailwind's own palette off; `src/components/` and `src/patterns/` hold one folder per part; `component-registry.json` lists them all; `scripts/check.mjs` enforces the rules below.
 - `prototypes/` — phase 0 experiments. Scripts here may be rough; packages may not.
 
 ## Rules
@@ -46,3 +49,19 @@ TypeScript (strict) · Zod 4 · Drizzle + libSQL (SQLite) · Astro 7 · Vitest �
 - **No `any`** and no hardcoded user-facing strings outside error messages.
 - **Live by default.** A published change must be visible at once. Pages that show CMS content are rendered on demand, cached with `Astro.cache.set()` under the tags the live loader provides, and cleared by tag on publish. Never add a rebuild step to the publish path.
 - **Zod** is a peer dependency pinned to the range Astro ships, so the same schemas serve the CMS and Astro's collections.
+
+## Design system rules (`cms-ui`)
+
+`pnpm lint` fails when one of these is broken, and says which file and how to fix it.
+
+- **Four layers:** tokens → components → patterns → screens. A layer uses only the layers before it. Screens (`cms-admin`) contain no styling and no raw interactive HTML.
+- **One folder, six files:** `X.tsx`, `X.variants.ts`, `X.stories.tsx`, `X.test.tsx`, `X.md`, `index.ts`. Nothing else.
+- **Parts are closed.** No `className`, no `style`, no props passed through. A new look is a new variant, so every screen gets it.
+- **Class names live in `X.variants.ts`** (CVA), never in the component file.
+- **Tokens only.** Every class must resolve against the theme in `styles.css`. No arbitrary values (`w-[13px]`), raw colours or raw sizes. A new value is a new token in `tokens.css`, for light and dark.
+- **Behaviour comes from React Aria Components.** Don't hand-write focus handling, keyboard handling or ARIA attributes. Style states with its data attributes (`data-hovered:`, `data-focus-visible:`, `data-disabled:`).
+- **Icons are Lucide**, passed as a prop and hidden from screen readers. The words carry the meaning.
+- **No words of its own.** A part shows the text it is given; it has no built-in English.
+- **Registry in sync.** Add the part to `component-registry.json` (group, description, example, `uses`) and export it from the layer's `index.ts`. The story title is `Components/<group>/<Name>`.
+- **Every part is tested** for what it does with a keyboard and a pointer, and with `expectAccessible()`. Every story must pass WCAG 2.1 AA in light and dark (`check:stories`).
+- **Something missing?** Add it to `cms-ui` first, with its six files, then use it. Don't build a one-off in a screen.

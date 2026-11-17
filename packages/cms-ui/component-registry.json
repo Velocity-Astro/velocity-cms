@@ -1,0 +1,71 @@
+{
+  "$comment": "Every part of the design system, for people, the docs site and AI agents. scripts/check.mjs fails when this file and the folders disagree.",
+  "components": [
+    {
+      "name": "Box",
+      "layer": "component",
+      "group": "Layout",
+      "description": "A surface: padding, background, border, radius and shadow, each from the tokens.",
+      "example": "<Box surface=\"card\" border radius=\"lg\" padding={6}>…</Box>",
+      "uses": []
+    },
+    {
+      "name": "Stack",
+      "layer": "component",
+      "group": "Layout",
+      "description": "Children in a column, with the same gap between each.",
+      "example": "<Stack gap={4}>…</Stack>",
+      "uses": []
+    },
+    {
+      "name": "Inline",
+      "layer": "component",
+      "group": "Layout",
+      "description": "Children in a row, with the same gap between each.",
+      "example": "<Inline justify=\"between\">…</Inline>",
+      "uses": []
+    },
+    {
+      "name": "Text",
+      "layer": "component",
+      "group": "Typography",
+      "description": "Body text in one of the editor's sizes, tones and weights.",
+      "example": "<Text tone=\"muted\" size=\"sm\">Last edited 2 hours ago</Text>",
+      "useInstead": "Heading for titles, Tag for a status.",
+      "uses": []
+    },
+    {
+      "name": "Heading",
+      "layer": "component",
+      "group": "Typography",
+      "description": "A title. `level` sets its place in the page outline; `size` changes only how big it looks.",
+      "example": "<Heading level={1}>Listings</Heading>",
+      "uses": []
+    },
+    {
+      "name": "Tag",
+      "layer": "component",
+      "group": "Status",
+      "description": "A short label for a state or a category, such as Draft or Published.",
+      "example": "<Tag tone=\"success\">Published</Tag>",
+      "uses": []
+    },
+    {
+      "name": "Button",
+      "layer": "component",
+      "group": "Actions",
+      "description": "Starts an action: save, publish, add, delete.",
+      "example": "<Button icon={Plus} onPress={create}>New listing</Button>",
+      "useInstead": "A link component for going to another page.",
+      "uses": []
+    },
+    {
+      "name": "TextField",
+      "layer": "component",
+      "group": "Forms",
+      "description": "One line of text, with its label, help and error.",
+      "example": "<TextField label=\"Title\" isRequired errorMessage={errors.title} />",
+      "uses": []
+    }
+  ]
+}
