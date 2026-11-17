@@ -14,6 +14,12 @@ Children in a column, with the same gap between each.
 - Space around something: use `Box` with `padding`.
 - Space between two things by adding an empty element. Put both in a Stack and set `gap`.
 
+## Filling the screen
+
+`fill` makes the column at least as tall as the space it is in. Give the part that should take
+the spare room a `Box` with `grow`, and what comes after it sits at the bottom: this is how a
+screen keeps its `SaveBar` at the foot of a short form.
+
 ## Example
 
 ```tsx

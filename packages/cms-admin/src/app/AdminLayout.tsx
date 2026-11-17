@@ -1,4 +1,4 @@
-import { AppShell, Menu, Button, Text, Toast, type AppShellNavItem } from '@velocity/cms-ui';
+import { AppShell, Menu, Button, Text, Toast, dismissToasts, type AppShellNavItem } from '@velocity/cms-ui';
 import { FileText, LogOut } from 'lucide-react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router';
 import { useContentTypes, useSession, useSignOut } from '../client/queries.js';
@@ -53,7 +53,15 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
             }
             placement="top start"
             actions={[{ id: 'sign-out', label: messages.app.signOut, icon: LogOut }]}
-            onAction={() => signOut.mutate(undefined, { onSuccess: () => void navigate(paths.signIn) })}
+            onAction={() =>
+              signOut.mutate(undefined, {
+                onSuccess: () => {
+                  // Messages about the last person's work are not for the next.
+                  dismissToasts();
+                  void navigate(paths.signIn);
+                },
+              })
+            }
           />
         }
       >

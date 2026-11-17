@@ -13,6 +13,10 @@
     "./testing": {
       "types": "./dist/testing/index.d.ts",
       "default": "./dist/testing/index.js"
+    },
+    "./in-memory": {
+      "types": "./dist/testing/in-memory.d.ts",
+      "default": "./dist/testing/in-memory.js"
     }
   },
   "files": [

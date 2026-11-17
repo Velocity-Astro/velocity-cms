@@ -30,6 +30,7 @@
     "check:stories": "storybook build -o storybook-static --quiet && node scripts/check-stories.mjs"
   },
   "dependencies": {
+    "@internationalized/date": "^3.12.4",
     "class-variance-authority": "^0.7.1",
     "lucide-react": "^1.74.0",
     "react-aria-components": "^1.22.1"

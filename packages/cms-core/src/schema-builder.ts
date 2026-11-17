@@ -53,7 +53,9 @@ export function validateData(
 
   const issues: ValidationIssue[] = result.error.issues.map((issue) => ({
     path: readablePath(fields, issue.path),
-    message: issue.message,
+    // An empty required field is the commonest problem, and the schema's own words for it
+    // ("expected string, received undefined") mean nothing to the person filling in the form.
+    message: valueAt(data, issue.path) === undefined ? REQUIRED : issue.message,
   }));
   const first = issues[0];
   const where = first && first.path.length > 0 ? ` at "${first.path.join('.')}"` : '';
@@ -61,6 +63,18 @@ export function validateData(
     `${issues.length} problem${issues.length === 1 ? '' : 's'} in this entry, the first${where}: ${first?.message ?? 'invalid'}`,
     issues,
   );
+}
+
+const REQUIRED = 'Fill this in before publishing.';
+
+/** The value an issue is about, found by following its path down through the data. */
+function valueAt(data: unknown, path: readonly PropertyKey[]): unknown {
+  let value = data;
+  for (const segment of path) {
+    if (typeof value !== 'object' || value === null) return undefined;
+    value = (value as Record<PropertyKey, unknown>)[segment];
+  }
+  return value;
 }
 
 /** Replaces field ids in an issue path with field keys, following groups and lists down. */

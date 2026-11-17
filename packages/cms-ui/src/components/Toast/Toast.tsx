@@ -46,6 +46,11 @@ export function toast(message: ToastMessage): () => void {
   return () => queue.close(key);
 }
 
+/** Closes every message at once. For when what they were about is gone, such as after signing out. */
+export function dismissToasts(): void {
+  queue.clear();
+}
+
 /** Where messages from `toast()` appear. Put exactly one in the app. */
 export function Toast({ label, closeLabel }: ToastProps) {
   return (

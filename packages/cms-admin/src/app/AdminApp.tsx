@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { createBrowserRouter, createMemoryRouter, RouterProvider } from 'react-router';
 import type { AdminClient } from '../client/admin-client.js';
 import { ClientProvider } from '../client/client-context.js';
+import { createFieldControls, FieldControlsProvider, type FieldControls } from '../fields/index.js';
 import type { Messages } from '../messages/en.js';
 import { MessagesProvider } from '../messages/messages-context.js';
 import { createRoutes } from './routes.js';
@@ -19,6 +20,11 @@ export interface AdminAppProps {
   /** A BCP 47 tag such as `es-ES`, for dates and content labels. Defaults to `en`. */
   readonly locale?: string;
   /**
+   * The control for each kind of field. Defaults to the built-in ones; to add your own, start
+   * from `createFieldControls()` and register it under the name your field type gives as `editor`.
+   */
+  readonly fieldControls?: FieldControls;
+  /**
    * Keeps the address in memory instead of the browser's address bar, starting here. For tests
    * and previews.
    */
@@ -26,7 +32,8 @@ export interface AdminAppProps {
 }
 
 /** The whole editor. Render one, give it a client, and it does the rest. */
-export function AdminApp({ client, siteName, basePath = '/admin', messages, locale, initialPath }: AdminAppProps) {
+export function AdminApp({ client, siteName, basePath = '/admin', messages, locale, fieldControls, initialPath }: AdminAppProps) {
+  const [controls] = useState(() => fieldControls ?? createFieldControls());
   // Created once per app, never shared between two apps on one page.
   const [queries] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 30_000 } } }));
   const [router] = useState(() => {
@@ -40,7 +47,9 @@ export function AdminApp({ client, siteName, basePath = '/admin', messages, loca
     <QueryClientProvider client={queries}>
       <ClientProvider client={client}>
         <MessagesProvider {...(messages && { messages })} {...(locale !== undefined && { locale })}>
-          <RouterProvider router={router} />
+          <FieldControlsProvider controls={controls}>
+            <RouterProvider router={router} />
+          </FieldControlsProvider>
         </MessagesProvider>
       </ClientProvider>
     </QueryClientProvider>

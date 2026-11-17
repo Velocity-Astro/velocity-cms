@@ -265,6 +265,32 @@
         "Heading",
         "Text"
       ]
+    },
+    {
+      "name": "NumberField",
+      "layer": "component",
+      "group": "Forms",
+      "description": "A number, written in the person's own format, with its label, help and error.",
+      "example": "<NumberField label=\"Price\" value={price} onChange={setPrice} minValue={0} />",
+      "useInstead": "TextField for numbers that are really names, such as a postcode.",
+      "uses": []
+    },
+    {
+      "name": "DateField",
+      "layer": "component",
+      "group": "Forms",
+      "description": "A calendar date, typed in the order the person's language writes it.",
+      "example": "<DateField label=\"Listed on\" value={listedOn} onChange={setListedOn} />",
+      "uses": []
+    },
+    {
+      "name": "Fieldset",
+      "layer": "component",
+      "group": "Forms",
+      "description": "Several fields that belong together, under one name.",
+      "example": "<Fieldset legend=\"Address\">\n  <TextField label=\"City\" />\n</Fieldset>",
+      "useInstead": "Heading over a Stack to split a long form into sections.",
+      "uses": []
     }
   ]
 }

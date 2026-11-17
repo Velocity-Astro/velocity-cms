@@ -139,8 +139,9 @@ describe('ContentService', () => {
       slug: 'farmhouse',
       data: { [id(listings, 'headline')]: 'No price yet' },
     });
+    // The message is for the person filling in the form, not the schema's own words.
     await expect(cms.content.publish(editor, draft.id)).rejects.toMatchObject({
-      issues: [{ path: ['price'] }],
+      issues: [{ path: ['price'], message: 'Fill this in before publishing.' }],
     });
 
     const filled = await cms.content.update(editor, draft.id, { data: valid(), expectedRevision: 1 });

@@ -1,6 +1,7 @@
 # Toast
 
-A short message that confirms something happened, shown in the corner without taking focus.
+A short message that confirms something happened, shown in the top corner without taking focus. It sits clear of the
+`SaveBar` at the foot of a screen, so a message never covers the buttons it is about.
 Put one `<Toast />` in the app; call `toast()` from anywhere to show a message.
 
 ## Use it for
@@ -28,4 +29,7 @@ pause while hovered or focused, and can be reached with F6. At most four show at
 // Anywhere
 toast({ title: 'Listing published', tone: 'success' });
 toast({ title: 'Could not save', description: 'Check your connection and try again.', tone: 'danger' });
+
+// When what the messages were about is gone, such as after signing out
+dismissToasts();
 ```

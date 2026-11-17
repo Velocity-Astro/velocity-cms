@@ -1,6 +1,6 @@
 import type { ContentTypeDef, Entry } from '@velocity/cms-core';
 import { expect, it } from 'vitest';
-import { entryState, entryTitle, localized } from './content.js';
+import { entryState, entryTitle, localized, sameData, withValue } from './content.js';
 
 const type: ContentTypeDef = {
   id: 't1',
@@ -35,9 +35,9 @@ it('picks the text for a language, its base language, or whatever there is', () 
 });
 
 it('titles an entry by its first live text field', () => {
-  expect(entryTitle(type, entry())).toBe('Lakeshore Drive');
-  expect(entryTitle(type, entry({ data: { f2: '  ' } }))).toBeNull();
-  expect(entryTitle({ ...type, fields: [] }, entry())).toBeNull();
+  expect(entryTitle(type, entry().data)).toBe('Lakeshore Drive');
+  expect(entryTitle(type, { f2: '  ' })).toBeNull();
+  expect(entryTitle({ ...type, fields: [] }, entry().data)).toBeNull();
 });
 
 it('tells a published entry with newer saves from one that is up to date', () => {
@@ -45,4 +45,19 @@ it('tells a published entry with newer saves from one that is up to date', () =>
   expect(entryState(entry())).toBe('draft');
   expect(entryState(entry({ status: 'published', revision: 2, published }))).toBe('published');
   expect(entryState(entry({ status: 'published', revision: 3, published }))).toBe('unpublishedChanges');
+});
+
+it('changes one value in a copy, and removes a field that is emptied', () => {
+  const values = { a: 1, b: 2 };
+  expect(withValue(values, 'b', 3)).toEqual({ a: 1, b: 3 });
+  expect(withValue(values, 'b', undefined)).toEqual({ a: 1 });
+  expect(values).toEqual({ a: 1, b: 2 });
+});
+
+it('compares field values by content, not by the order of their fields', () => {
+  expect(sameData({ a: 1, b: { c: [1, 2] } }, { b: { c: [1, 2] }, a: 1 })).toBe(true);
+  expect(sameData({ a: 1 }, { a: 1, b: 2 })).toBe(false);
+  expect(sameData({ a: [1, 2] }, { a: [2, 1] })).toBe(false);
+  expect(sameData({ a: [] }, { a: {} })).toBe(false);
+  expect(sameData({ a: null }, { a: {} })).toBe(false);
 });

@@ -26,11 +26,17 @@ export const boxVariants = cva('', {
       sm: 'shadow-sm',
       md: 'shadow-md',
     },
+    maxWidth: {
+      none: '',
+      sm: 'max-w-md',
+      md: 'max-w-2xl',
+      lg: 'max-w-4xl',
+    },
     grow: {
       true: 'min-w-0 flex-1',
     },
   },
-  defaultVariants: { surface: 'none', radius: 'none', shadow: 'none' },
+  defaultVariants: { surface: 'none', radius: 'none', shadow: 'none', maxWidth: 'none' },
 });
 
 export type BoxVariants = VariantProps<typeof boxVariants>;

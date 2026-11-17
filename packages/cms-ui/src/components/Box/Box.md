@@ -14,6 +14,11 @@ chosen from the tokens.
 - Arranging children. Box does not lay anything out: use `Stack` for a column and `Inline` for a row.
 - Clickable surfaces. A Box is never interactive: use `Button`.
 
+## Width
+
+`maxWidth` keeps a form or a column of text to a width that is comfortable to read, however
+wide the screen is.
+
 ## Example
 
 ```tsx

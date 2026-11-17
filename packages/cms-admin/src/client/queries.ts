@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { EntryListQuery } from './admin-client.js';
+import type { Entry } from '@velocity/cms-core';
+import type { EntryChanges, EntryListQuery, NewEntry } from './admin-client.js';
 import { useClient } from './client-context.js';
 
 /**
@@ -9,7 +10,11 @@ import { useClient } from './client-context.js';
 const keys = {
   session: ['session'] as const,
   contentTypes: ['content-types'] as const,
+  fieldTypes: ['field-types'] as const,
+  /** Every list of entries starts with this, so one call marks them all out of date. */
+  entryLists: ['entries'] as const,
   entries: (query: EntryListQuery) => ['entries', query] as const,
+  entry: (id: string) => ['entry', id] as const,
 };
 
 export function useSession() {
@@ -25,6 +30,57 @@ export function useContentTypes() {
 export function useEntries(query: EntryListQuery) {
   const client = useClient();
   return useQuery({ queryKey: keys.entries(query), queryFn: () => client.listEntries(query) });
+}
+
+/** Field types change only when the site is redeployed, so they are fetched once. */
+export function useFieldTypes() {
+  const client = useClient();
+  return useQuery({ queryKey: keys.fieldTypes, queryFn: () => client.listFieldTypes(), staleTime: Infinity });
+}
+
+/** One entry. Not fetched while `id` is `null`, which is how a new entry's screen asks. */
+export function useEntry(id: string | null) {
+  const client = useClient();
+  return useQuery({
+    queryKey: keys.entry(id ?? ''),
+    queryFn: () => client.getEntry(id ?? ''),
+    enabled: id !== null,
+  });
+}
+
+/** What every change to an entry does afterwards: show the new version and refresh the lists. */
+function useEntryChanged() {
+  const cache = useQueryClient();
+  return (entry: Entry) => {
+    cache.setQueryData(keys.entry(entry.id), entry);
+    void cache.invalidateQueries({ queryKey: keys.entryLists });
+  };
+}
+
+export function useCreateEntry() {
+  const client = useClient();
+  return useMutation({ mutationFn: (entry: NewEntry) => client.createEntry(entry), onSuccess: useEntryChanged() });
+}
+
+export function useUpdateEntry() {
+  const client = useClient();
+  return useMutation({
+    mutationFn: ({ id, changes }: { id: string; changes: EntryChanges }) => client.updateEntry(id, changes),
+    onSuccess: useEntryChanged(),
+  });
+}
+
+export function usePublishEntry() {
+  const client = useClient();
+  return useMutation({
+    mutationFn: ({ id, expectedRevision }: { id: string; expectedRevision: number }) => client.publishEntry(id, expectedRevision),
+    onSuccess: useEntryChanged(),
+  });
+}
+
+export function useUnpublishEntry() {
+  const client = useClient();
+  return useMutation({ mutationFn: (id: string) => client.unpublishEntry(id), onSuccess: useEntryChanged() });
 }
 
 export function useRequestSignInLink() {

@@ -32,7 +32,7 @@ TypeScript (strict) · Zod 4 · Drizzle + libSQL (SQLite) · Astro 7 · React 19
 - `packages/cms-astro/src/integration.ts` — what `velocityCms()` adds to a site. `routes/` holds the pages it injects: they ship as source and are compiled with the site, because they must see the site's own files. Keep them thin; logic goes in `src/`, where it is type-checked and tested.
 - `packages/cms-astro/src/loader.ts` — the Content Layer loader, for sites that choose a fully static build.
 - `packages/cms-ui/` — the editor's design system. `src/tokens/tokens.css` holds every colour, size, radius, shadow and duration; `src/styles.css` turns them into the Tailwind theme and switches Tailwind's own palette off; `src/components/` and `src/patterns/` hold one folder per part; `component-registry.json` lists them all; `scripts/check.mjs` enforces the rules below.
-- `packages/cms-admin/` — the editor's screens, a React app. `src/client/admin-client.ts` is the only way to the server (`queries.ts` wraps every request); `src/messages/en.ts` holds every word; `src/app/` has the routes, addresses and frame; `src/screens/` has one folder per screen; `src/testing/` has the in-memory server the tests and the preview (`pnpm --filter @velocity/cms-admin dev`) run against.
+- `packages/cms-admin/` — the editor's screens, a React app. `src/client/admin-client.ts` is the only way to the server (`queries.ts` wraps every request); `src/messages/en.ts` holds every word; `src/app/` has the routes, addresses and frame; `src/screens/` has one folder per screen; `src/fields/` has the control for each kind of field, looked up by the name a field type gives as `editor`; `src/testing/` has the in-memory server the tests and the preview (`pnpm --filter @velocity/cms-admin dev`) run against.
 - `prototypes/` — phase 0 experiments. Scripts here may be rough; packages may not.
 
 ## Rules
@@ -76,4 +76,6 @@ ESLint fails when one of these is broken.
 - **The server is reached only through `AdminClient`,** and screens call it only through the hooks in `client/queries.ts`, so each request has one cache key.
 - **Addresses come from `app/paths.ts`.** Don't write a path by hand in a screen.
 - **Every request has three states on screen:** loading, failed (with what went wrong and a way to try again) and done, which includes an empty state.
+- **No switch on field type here either.** A field is drawn by the control registered under its field type's `editor` name (`fields/controls.tsx`). A new kind of field is a new control, registered; a field with no control is shown by name with a note, and its content is kept.
+- **A form holds what was typed; the server holds what is saved.** Send `expectedRevision` with every save, show a refusal's `issues` on the fields they name, and never drop what the person typed because a request failed.
 - **Screens are tested through the whole app** with `renderApp(path, …)` against `MemoryAdminClient`: find things by role and name, act as a person would, and check what they would see.

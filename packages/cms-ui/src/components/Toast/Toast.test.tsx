@@ -2,7 +2,7 @@ import { act, render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, expect, it } from 'vitest';
 import { expectAccessible } from '../../testing/accessible.js';
-import { Toast, toast } from './Toast.js';
+import { Toast, dismissToasts, toast } from './Toast.js';
 
 const open: (() => void)[] = [];
 const show = (...args: Parameters<typeof toast>) => act(() => void open.push(toast(...args)));
@@ -41,4 +41,14 @@ it('has no accessibility violations while showing', async () => {
   render(<Toast label="Notifications" closeLabel="Dismiss" />);
   show({ title: 'Could not save', description: 'Try again.', tone: 'danger' });
   await expectAccessible(document.body);
+});
+
+it('closes every message at once when asked', async () => {
+  render(<Toast label="Notifications" closeLabel="Dismiss" />);
+  show({ title: 'Saved' });
+  show({ title: 'Could not publish', tone: 'danger' });
+  expect(await screen.findByText('Could not publish')).toBeTruthy();
+  act(() => dismissToasts());
+  expect(screen.queryByText('Saved')).toBeNull();
+  expect(screen.queryByText('Could not publish')).toBeNull();
 });
