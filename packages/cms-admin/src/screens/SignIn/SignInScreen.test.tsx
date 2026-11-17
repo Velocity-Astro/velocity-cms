@@ -2,7 +2,7 @@ import { screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it } from 'vitest';
 import { renderApp } from '../../testing/render-app.js';
-import { sampleContentTypes, sampleUser } from '../../testing/sample-content.js';
+import { sampleContentTypes, sampleEntries, sampleUser } from '../../testing/sample-content.js';
 
 it('sends anyone who is not signed in to the sign-in screen', async () => {
   renderApp('/content/listings');
@@ -73,4 +73,14 @@ it('explains a sign-in link that no longer works, and offers a new one', async (
   renderApp('/sign-in?link=expired');
   expect(await screen.findByText('That sign-in link has expired or was already used. Ask for a new one below.')).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Email me a sign-in link' })).toBeTruthy();
+});
+
+it('shows the sign-in screen when the session has ended and the next request is refused', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/content/listings', { user: sampleUser, contentTypes: sampleContentTypes, entries: sampleEntries() });
+  await screen.findByRole('grid', { name: 'Listings' });
+  // The session ends somewhere else: another tab, or its time ran out.
+  await client.signOut();
+  await user.click(screen.getByRole('link', { name: 'Agents' }));
+  expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeTruthy();
 });

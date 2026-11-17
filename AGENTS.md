@@ -30,6 +30,7 @@ TypeScript (strict) · Zod 4 · web-standard `Request`/`Response` · Better Auth
 - `packages/cms-astro/src/live-loader.ts` — the live loader, for pages rendered on demand. The default way a site reads content.
 - `packages/cms-astro/src/preview.ts` — preview links: the middleware that turns a signed token into a preview.
 - `packages/cms-astro/src/integration.ts` — what `velocityCms()` adds to a site. `routes/` holds the pages it injects: they ship as source and are compiled with the site, because they must see the site's own files. Keep them thin; logic goes in `src/`, where it is type-checked and tested.
+- `packages/cms-astro/src/editor.ts` — `EditorHost`: the editor's page (`admin-files.ts`), the API and sign-in wired over the site's one connection. `site-editor.ts` makes the site's one host and decides which address links are made for. `cli.ts` is the `velocity-cms` command (`bin/` only starts it).
 - `packages/cms-astro/src/loader.ts` — the Content Layer loader, for sites that choose a fully static build.
 - `packages/cms-api/src/api.ts` — the CMS over HTTP: `CmsApi.handle(request)` answers with a `Response`. Routes hold no rules; they check the shape of what was sent and call a service. `authenticator.ts` is how it learns who is asking; `http.ts` maps each refusal to a status and a code.
 - `packages/cms-auth/src/auth.ts` — sign-in: `CmsAuth` wraps Better Auth (email links, passkeys) and is the only file that knows it. `client.ts` is the browser's side and imports nothing. `mailer.ts` is how a site delivers the links. Its tables are `auth_*` in `packages/cms-db/src/auth-tables.ts`.
@@ -51,6 +52,9 @@ TypeScript (strict) · Zod 4 · web-standard `Request`/`Response` · Better Auth
 - **Errors are for people.** Throw a `CmsError` subclass with a message that says what happened and what to do, naming fields by key.
 - **No `any`** and no hardcoded user-facing strings outside error messages.
 - **Live by default.** A published change must be visible at once. Pages that show CMS content are rendered on demand, cached with `Astro.cache.set()` under the tags the live loader provides, and cleared by tag on publish. Never add a rebuild step to the publish path.
+- **The editor is served ready-made.** `cms-admin` builds it once (`build:app`, into `app-dist/`), and a site serves those files at `/admin`; the site's own bundler, React and styles never touch it. Its settings are written into the page as JSON. Its page allows scripts only from the site itself.
+- **Links are made for the configured site, never for the request's host.** On a deployed site the address comes from `site` or `VELOCITY_CMS_ORIGIN` (`editorOrigin`). Whoever sends a request chooses its `Host` header.
+- **A route the integration adds says whether it may be cached.** Sites cache pages rendered on demand by default, so the editor's routes call `cache.set(false)` first: a cached answer would show one person's session or a draft to the next.
 - **Zod** is a peer dependency pinned to the range Astro ships, so the same schemas serve the CMS and Astro's collections.
 
 ## API rules (`cms-api`)

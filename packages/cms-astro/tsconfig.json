@@ -1,6 +1,24 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "rootDir": "src", "outDir": "dist" },
-  "include": ["src"],
-  "references": [{ "path": "../cms-core" }, { "path": "../cms-db" }]
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": [
+    "src"
+  ],
+  "references": [
+    {
+      "path": "../cms-core"
+    },
+    {
+      "path": "../cms-db"
+    },
+    {
+      "path": "../cms-api"
+    },
+    {
+      "path": "../cms-auth"
+    }
+  ]
 }

@@ -1,5 +1,5 @@
 import { createCms, type Actor, type Cms, type SearchIndex } from '@velocity/cms-core';
-import { openDatabase, SqliteEntryRepository, SqliteSchemaRepository, SqliteSearchIndex } from '@velocity/cms-db';
+import { openDatabase, SqliteEntryRepository, SqliteSchemaRepository, SqliteSearchIndex, type Db } from '@velocity/cms-db';
 
 export interface ConnectionOptions {
   /**
@@ -7,6 +7,7 @@ export interface ConnectionOptions {
    * then to `file:./cms/data.db`.
    */
   readonly url?: string;
+  /** The access token of a hosted database. Defaults to `VELOCITY_CMS_DATABASE_TOKEN`. */
   readonly authToken?: string;
 }
 
@@ -19,19 +20,19 @@ export const resolveUrl = (options: ConnectionOptions): string =>
 export interface Connection {
   readonly cms: Cms;
   readonly search: SearchIndex;
+  /** The database itself, for the packages that keep their own tables in it, such as sign-in. */
+  readonly db: Db;
   close(): void;
 }
 
 export async function connect(options: ConnectionOptions): Promise<Connection> {
-  const database = await openDatabase({
-    url: resolveUrl(options),
-    ...(options.authToken !== undefined && { authToken: options.authToken }),
-  });
+  const authToken = options.authToken ?? (process.env.VELOCITY_CMS_DATABASE_TOKEN || undefined);
+  const database = await openDatabase({ url: resolveUrl(options), ...(authToken !== undefined && { authToken }) });
   const cms = createCms({
     entries: new SqliteEntryRepository(database.db),
     types: new SqliteSchemaRepository(database.db),
   });
-  return { cms, search: new SqliteSearchIndex(database.db), close: () => database.close() };
+  return { cms, search: new SqliteSearchIndex(database.db), db: database.db, close: () => database.close() };
 }
 
 const shared = new Map<string, Promise<Connection>>();

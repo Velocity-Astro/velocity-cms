@@ -23,6 +23,9 @@
     },
     {
       "path": "../cms-api"
+    },
+    {
+      "path": "../cms-auth"
     }
   ]
 }

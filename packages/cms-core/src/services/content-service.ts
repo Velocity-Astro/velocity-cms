@@ -140,7 +140,7 @@ export class ContentService {
       },
       { expectedRevision: current.revision, actorId: actor.id },
     );
-    await this.events.emit('entry.published', { entry: published, actor });
+    await this.events.emit('entry.published', { entry: published, before: current, actor });
     return published;
   }
 
@@ -153,7 +153,7 @@ export class ContentService {
       { ...rest, status: 'draft', revision: current.revision + 1, updatedAt: this.clock.now() },
       { expectedRevision: current.revision, actorId: actor.id },
     );
-    await this.events.emit('entry.unpublished', { entry: draft, actor });
+    await this.events.emit('entry.unpublished', { entry: draft, before: current, actor });
     return draft;
   }
 

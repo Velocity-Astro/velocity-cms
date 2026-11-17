@@ -1,8 +1,9 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { createBrowserRouter, createMemoryRouter, RouterProvider } from 'react-router';
 import type { AdminClient } from '../client/admin-client.js';
 import { ClientProvider } from '../client/client-context.js';
+import { createQueryCache } from '../client/queries.js';
 import { createFieldControls, FieldControlsProvider, type FieldControls } from '../fields/index.js';
 import type { Messages } from '../messages/en.js';
 import { MessagesProvider } from '../messages/messages-context.js';
@@ -35,7 +36,7 @@ export interface AdminAppProps {
 export function AdminApp({ client, siteName, basePath = '/admin', messages, locale, fieldControls, initialPath }: AdminAppProps) {
   const [controls] = useState(() => fieldControls ?? createFieldControls());
   // Created once per app, never shared between two apps on one page.
-  const [queries] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 30_000 } } }));
+  const [queries] = useState(createQueryCache);
   const [router] = useState(() => {
     const routes = createRoutes(siteName);
     return initialPath === undefined

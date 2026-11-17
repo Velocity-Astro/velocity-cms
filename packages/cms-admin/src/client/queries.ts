@@ -1,6 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { MutationCache, QueryCache, QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Entry } from '@velocity/cms-core';
 import type { EntryChanges, EntryListQuery, NewEntry } from './admin-client.js';
+import { AdminRequestError } from './errors.js';
 import { useClient } from './client-context.js';
 
 /**
@@ -16,6 +17,23 @@ const keys = {
   entries: (query: EntryListQuery) => ['entries', query] as const,
   entry: (id: string) => ['entry', id] as const,
 };
+
+/**
+ * The cache every request goes through, one per app. When the server answers any request with
+ * "sign in first" (the session ended, or was ended elsewhere), the app learns that nobody is
+ * signed in, and the frame shows the sign-in screen.
+ */
+export function createQueryCache(): QueryClient {
+  const signedOut = (error: unknown) => {
+    if (error instanceof AdminRequestError && error.code === 'unauthenticated') client.setQueryData(keys.session, null);
+  };
+  const client = new QueryClient({
+    queryCache: new QueryCache({ onError: signedOut }),
+    mutationCache: new MutationCache({ onError: signedOut }),
+    defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+  });
+  return client;
+}
 
 export function useSession() {
   const client = useClient();
