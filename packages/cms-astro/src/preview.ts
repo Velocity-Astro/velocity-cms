@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { MiddlewareHandler } from 'astro';
 import { PreviewLinks } from '@velocity/cms-core';
+import { siteSecret } from './secret.js';
 
 const PARAMETER = 'preview';
 const previewing = new AsyncLocalStorage<boolean>();
@@ -11,7 +12,7 @@ export const isPreview = (): boolean => previewing.getStore() === true;
 let links: PreviewLinks | null | undefined;
 function previewLinks(): PreviewLinks | null {
   if (links === undefined) {
-    const secret = process.env.VELOCITY_CMS_PREVIEW_SECRET;
+    const secret = siteSecret();
     links = secret ? new PreviewLinks(secret) : null;
   }
   return links;
@@ -31,7 +32,7 @@ export function keepPreviewInLinks(html: string, token: string): string {
 
 /**
  * Turns a request with a valid preview token (`?preview=<token>`) into a preview. Without
- * `VELOCITY_CMS_PREVIEW_SECRET` there are no previews at all.
+ * `VELOCITY_CMS_SECRET` there are no previews at all.
  *
  * The token stays in the address rather than in a cookie, on purpose. A cache, in this server or
  * at a CDN, answers by address before any code runs: with a cookie it would hand the person the

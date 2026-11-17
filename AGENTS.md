@@ -27,6 +27,7 @@ TypeScript (strict) · Zod 4 · Drizzle + libSQL (SQLite) · Astro 7 · Vitest �
 - `packages/cms-db/src/tables.ts` — the tables. `migrations/` is generated from it.
 - `packages/cms-astro/src/live-loader.ts` — the live loader, for pages rendered on demand. The default way a site reads content.
 - `packages/cms-astro/src/preview.ts` — preview links: the middleware that turns a signed token into a preview.
+- `packages/cms-astro/src/integration.ts` — what `velocityCms()` adds to a site. `routes/` holds the pages it injects: they ship as source and are compiled with the site, because they must see the site's own files. Keep them thin; logic goes in `src/`, where it is type-checked and tested.
 - `packages/cms-astro/src/loader.ts` — the Content Layer loader, for sites that choose a fully static build.
 - `prototypes/` — phase 0 experiments. Scripts here may be rough; packages may not.
 

@@ -68,7 +68,7 @@ async function timed(url, init) {
 async function startServer() {
   const child = spawn('node', ['dist/server/entry.mjs'], {
     cwd: project,
-    env: { ...process.env, HOST: '127.0.0.1', PORT: String(PORT), VELOCITY_CMS_PREVIEW_SECRET: PREVIEW_SECRET },
+    env: { ...process.env, HOST: '127.0.0.1', PORT: String(PORT), VELOCITY_CMS_SECRET: PREVIEW_SECRET },
     stdio: ['ignore', 'ignore', 'inherit'],
   });
   for (let attempt = 0; attempt < 100; attempt++) {
@@ -84,15 +84,15 @@ async function startServer() {
 }
 /** Clears the page cache. `reindex`: the pages to read again for search, or 'all'. */
 const revalidate = async (reindex) => {
-  const response = await fetch(`${ORIGIN}/api/cms-revalidate`, {
+  const response = await fetch(`${ORIGIN}/api/cms/published`, {
     method: 'POST',
-    headers: { origin: ORIGIN, 'content-type': 'application/json' },
+    headers: { origin: ORIGIN, 'content-type': 'application/json', authorization: `Bearer ${PREVIEW_SECRET}` },
     body: JSON.stringify({ reindex }),
   });
   if (!response.ok) throw new Error(`Clearing the cache answered ${response.status}.`);
   return response.json();
 };
-const find = async (query, lang = 'en-US') => (await fetch(`${ORIGIN}/api/search.json?q=${encodeURIComponent(query)}&lang=${lang}`)).json();
+const find = async (query, lang = 'en-US') => (await fetch(`${ORIGIN}/api/cms/search.json?q=${encodeURIComponent(query)}&lang=${lang}`)).json();
 const locs = (xml) => [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => new URL(match[1]).pathname);
 /** The search page in a real browser: type nothing, arrive with a query, read what it shows. */
 async function searchInBrowser(query) {
@@ -274,6 +274,7 @@ try {
   preview.refused = [await sees(`${sample.listing}?preview=${expired}`), await sees(`${sample.listing}?preview=${forged}`), await sees(`${newPage}?preview=nonsense`)];
   preview.publicAfter = [await sees(sample.listing), await sees(newPage), await sees(sample['homes for sale'])];
   preview.inSearch = (await find('unpublished')).total;
+  const stranger = await fetch(`${ORIGIN}/api/cms/published`, { method: 'POST', headers: { origin: ORIGIN, 'content-type': 'application/json' }, body: '{}' });
   const hidden = (answers) => answers.every((answer) => !answer.edit && !answer.fresh);
 
   // 6. Speed again with 500 listing entries.
@@ -284,7 +285,7 @@ try {
   const largeIndex = (await revalidate('all')).search;
   const lookups = [];
   for (const query of ['lakeshore', 'three bed', 'pergola', 'maya', 'dallas hou']) {
-    for (let i = 0; i < 5; i++) lookups.push((await timed(`${ORIGIN}/api/search.json?q=${encodeURIComponent(query)}&lang=en-US`)).ms);
+    for (let i = 0; i < 5; i++) lookups.push((await timed(`${ORIGIN}/api/cms/search.json?q=${encodeURIComponent(query)}&lang=en-US`)).ms);
   }
   const spanish = await find('habitaciones', 'es-ES');
   const inEnglish = await find('habitaciones', 'en-US');
@@ -313,6 +314,7 @@ try {
   console.log(`  The list of homes in the preview shows the new listing: ${preview.inList ? 'yes' : 'NO'}; following its link answers ${preview.clicked.status} and shows it: ${preview.clicked.fresh ? 'yes' : 'NO'}.`);
   console.log(`  Expired, forged and nonsense tokens: draft hidden: ${hidden(preview.refused) ? 'yes' : 'NO'} (${preview.refused.map((answer) => answer.status).join(', ')}).`);
   console.log(`  Visitors after the previews: draft hidden: ${hidden(preview.publicAfter) ? 'yes' : 'NO'}; new listing page answers ${preview.publicAfter[1].status}; in search: ${preview.inSearch}.`);
+  console.log(`  A publish notice without the site's secret answers ${stranger.status}.`);
   console.log(`Share image: ${ms(cardFirst.ms)} to draw (status ${cardFirst.status}), ${ms(cardCached)} from the cache.`);
   console.log(`\nPages compared with the original: ${originalPages.length - 1}. Different: ${different.length}.`);
   for (const line of different.slice(0, 20)) console.log(`  - ${line}`);

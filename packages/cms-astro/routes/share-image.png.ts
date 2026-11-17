@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
-import { readPage, renderCard } from '../../../integrations/og-images.mjs';
+// Velocity's own card drawing, from the site: the live card is the same one the build draws.
+import { readPage, renderCard } from '/integrations/og-images.mjs';
 
 export const prerender = false;
 
