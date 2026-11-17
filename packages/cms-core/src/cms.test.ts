@@ -395,6 +395,22 @@ describe('extending with a new field type', () => {
   });
 });
 
+describe('a link to another entry', () => {
+  it('holds the slug of an entry, and needs to know which type it points into', async () => {
+    const reviews = await cms.schema.create(owner, {
+      key: 'reviews',
+      kind: 'collection',
+      label: { en: 'Reviews' },
+      fields: [{ key: 'listing', type: 'reference', label: { en: 'Listing' }, options: { to: 'listings' } }],
+    });
+    const review = await cms.content.create(owner, { typeId: reviews.id, locale: 'en', slug: 'r1', data: { [id(reviews, 'listing')]: 'lakeshore-farmhouse' } });
+    expect(cms.content.toPublic(reviews, review, 'working').data).toEqual({ listing: 'lakeshore-farmhouse' });
+    await expect(
+      cms.schema.addField(owner, reviews.id, { key: 'agent', type: 'reference', label: { en: 'Agent' } }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+});
+
 describe('describing a content type again', () => {
   const agents = {
     key: 'agents',

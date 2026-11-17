@@ -1,7 +1,8 @@
 import { liveFields, type FieldDef } from '@velocity/cms-core';
 import { DateField, Fieldset, NumberField, Repeater, Select, Switch, Text, TextArea, TextField } from '@velocity/cms-ui';
 import { useState } from 'react';
-import { localized, sameData, withValue } from '../lib/content.js';
+import { useContentTypes, useEntries } from '../client/queries.js';
+import { entryTitle, groupTranslations, localized, sameData, withValue } from '../lib/content.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
 import { createFieldControlRegistry, type FieldControlProps, type FieldControls } from './field-control.js';
 import { FieldEditor } from './FieldEditor.js';
@@ -96,6 +97,47 @@ function SelectControl({ field, label, help, value, onChange, problem }: FieldCo
       isRequired={field.required}
       {...(typeof value === 'string' && { value })}
       {...(problem !== undefined && { errorMessage: problem })}
+    />
+  );
+}
+
+/** As many entries as can be offered to link to. A longer list needs a search, which comes with search on the server. */
+const LINKABLE = 200;
+
+/**
+ * A link to an entry of another type, chosen by name. What is stored is the entry's slug. A
+ * link to an entry that is no longer there is still offered, by its slug, so opening and
+ * saving never drops it.
+ */
+function ReferenceControl({ field, label, help, value, onChange, problem }: FieldControlProps) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const to = typeof field.options['to'] === 'string' ? field.options['to'] : '';
+  const types = useContentTypes();
+  const entries = useEntries({ type: to, limit: LINKABLE });
+  const type = types.data?.find((candidate) => candidate.key === to);
+
+  const found = type
+    ? groupTranslations(entries.data?.items ?? [], locale).map(({ primary }) => ({ id: primary.slug, label: entryTitle(type, primary.data) ?? primary.slug }))
+    : [];
+  const options = found
+    // Two entries may share a name; the list still needs one row per slug.
+    .filter((option, index) => found.findIndex((other) => other.id === option.id) === index)
+    .sort((a, b) => a.label.localeCompare(b.label, locale));
+  const current = typeof value === 'string' ? value : undefined;
+  const missing = current !== undefined && !options.some((option) => option.id === current);
+  const wrong = problem ?? (entries.isError ? messages.editor.linkNotLoaded : undefined);
+
+  return (
+    <Select
+      label={label}
+      options={missing ? [{ id: current, label: entries.isSuccess ? messages.editor.linkMissing(current) : current }, ...options] : options}
+      placeholder={messages.editor.choose}
+      onChange={onChange}
+      isRequired={field.required}
+      {...(current !== undefined && { value: current })}
+      {...(help !== undefined && { description: help })}
+      {...(wrong !== undefined && { errorMessage: wrong })}
     />
   );
 }
@@ -203,6 +245,7 @@ export function createFieldControls(): FieldControls {
     .register({ type: 'date-picker', Component: DateControl, width: 'compact' })
     .register({ type: 'switch', Component: SwitchControl })
     .register({ type: 'select', Component: SelectControl, width: 'compact' })
+    .register({ type: 'reference', Component: ReferenceControl, width: 'compact' })
     .register({ type: 'group', Component: GroupControl })
     .register({ type: 'list', Component: ListControl });
 }

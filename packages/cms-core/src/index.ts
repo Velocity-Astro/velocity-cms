@@ -17,6 +17,7 @@ export {
   ListField,
   NumberField,
   SelectField,
+  ReferenceField,
   TextField,
   UrlField,
   createFieldRegistry,

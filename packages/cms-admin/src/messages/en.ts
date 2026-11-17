@@ -68,6 +68,8 @@ export const en = {
     slugMissing: 'Enter a slug. It is the last part of the page\'s address.',
     slugInvalid: 'Use lowercase letters, numbers and hyphens, such as lake-house.',
     choose: 'Choose one',
+    linkMissing: (slug: string) => `${slug} (not found)`,
+    linkNotLoaded: 'The list to choose from could not be loaded. Reload the page to try again.',
     listEmpty: 'Nothing here yet',
     listAdd: 'Add',
     listItem: (list: string, position: number) => `${list} ${position}`,

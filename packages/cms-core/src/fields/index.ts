@@ -88,6 +88,26 @@ export class SelectField extends FieldType<string, { choices: string[]; labels?:
   }
 }
 
+/**
+ * A link to an entry of another content type, such as a listing's agent.
+ *
+ * It stores the entry's slug, which every language of that entry shares and which a site's
+ * pages already look entries up by. A slug that is changed later leaves the link pointing at
+ * nothing, so the editor shows a link it cannot find instead of hiding it.
+ */
+export class ReferenceField extends FieldType<string, { to: string }> {
+  readonly type = 'reference';
+  readonly editor = 'reference';
+  readonly options = z.object({
+    /** The key of the content type the link points into, e.g. `agents`. */
+    to: z.string().min(1),
+  });
+
+  schema() {
+    return z.string().min(1);
+  }
+}
+
 /** The settings of a field that holds other fields. */
 const fieldDefs = z.custom<FieldDef[]>((value) => Array.isArray(value), 'Expected a list of fields');
 
@@ -163,6 +183,7 @@ export function createFieldRegistry(): Registry<FieldType> {
     .register(new DateField())
     .register(new UrlField())
     .register(new SelectField())
+    .register(new ReferenceField())
     .register(new GroupField())
     .register(new ListField());
 }
