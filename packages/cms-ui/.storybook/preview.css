@@ -1,0 +1,7 @@
+/* The frame each story is shown in. Not part of the design system. */
+.story-surface {
+  border-radius: var(--theme-radius-md);
+  background: var(--background);
+  color: var(--foreground);
+  padding: calc(var(--spacing) * 6);
+}

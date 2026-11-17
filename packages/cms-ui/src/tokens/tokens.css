@@ -1,0 +1,238 @@
+/* =============================================================================
+   Velocity CMS editor tokens
+   =============================================================================
+   The first two blocks are Velocity's own tokens, copied from velocity/src/styles
+   (tokens/primitives.css and themes/default.css), so the editor and the Velocity
+   brand stay in step. Do not edit them here: change Velocity and copy again.
+   Left out on purpose: marketing gradients, inverted sections and site fonts.
+
+   The last block is the editor's own: a fixed type scale (a site's type is fluid,
+   an app's is not), motion and layering, which Velocity does not define.
+   ============================================================================= */
+
+/* --- Velocity primitives ---------------------------------------------------- */
+:root {
+  /* -------------------------------------------------------------------------
+     Grayscale - The foundation (OKLCH neutral scale)
+     ------------------------------------------------------------------------- */
+  --gray-0: oklch(100% 0 0);
+  --gray-50: oklch(98.3% 0 0);
+  --gray-100: oklch(96.5% 0 0);
+  --gray-200: oklch(91.3% 0 0);
+  --gray-300: oklch(85.8% 0 0);
+  --gray-400: oklch(64% 0 0);
+  --gray-500: oklch(52% 0 0);
+  --gray-600: oklch(38% 0 0);
+  --gray-700: oklch(32% 0 0);
+  --gray-800: oklch(26.7% 0 0);
+  --gray-900: oklch(19.4% 0 0);
+  --gray-950: oklch(12.3% 0 0);
+
+  /* -------------------------------------------------------------------------
+     Brand Orange Scale - International Orange (#F94C10)
+     OKLCH for perceptual uniformity across the scale
+     ------------------------------------------------------------------------- */
+  /* Change --brand-hue in your theme to recolour the whole brand scale. */
+  --brand-hue: 38;
+  --brand-50: oklch(97.5% 0.02 calc(var(--brand-hue) + 7));
+  --brand-100: oklch(94.8% 0.04 calc(var(--brand-hue) + 7));
+  --brand-200: oklch(87.5% 0.08 calc(var(--brand-hue) + 7));
+  --brand-300: oklch(77.8% 0.14 calc(var(--brand-hue) + 7));
+  --brand-400: oklch(68.5% 0.19 calc(var(--brand-hue) + 2));
+  --brand-500: oklch(62.5% 0.22 var(--brand-hue));
+  --brand-600: oklch(53.2% 0.19 var(--brand-hue));
+  --brand-700: oklch(45.5% 0.16 var(--brand-hue));
+  --brand-800: oklch(37.2% 0.13 var(--brand-hue));
+  --brand-900: oklch(26.5% 0.09 var(--brand-hue));
+
+  /* Brand fills: Button variant="brand" and brand bands (.brand-section).
+     Dark ink passes AA on --brand-500 for every hue. For a deep brand fill with
+     light text, set --brand-fill: var(--brand-600) and --brand-ink: white in your
+     theme, and a darker --brand-fill-hover. */
+  --brand-fill: var(--brand-500);
+  --brand-fill-hover: var(--brand-400);
+  --brand-ink: var(--gray-950);
+
+  /* Accent - Blue for links/focus */
+  --blue-500: oklch(59.5% 0.19 260);
+  --blue-600: oklch(53.2% 0.19 260);
+
+  /* Status Colors - OKLCH for consistent perception */
+  /* Base colors for icons, borders, indicators */
+  --success: oklch(72.3% 0.19 145);
+  --success-light: oklch(94% 0.05 145);
+  --success-foreground: oklch(35% 0.15 145); /* WCAG AA compliant on success-light */
+  --warning: oklch(79.5% 0.18 85);
+  --warning-light: oklch(96% 0.05 85);
+  --warning-foreground: oklch(40% 0.12 85); /* WCAG AA compliant on warning-light */
+  --error: oklch(62.8% 0.22 25);
+  --error-light: oklch(94% 0.05 25);
+  --error-foreground: oklch(40% 0.18 25); /* WCAG AA compliant on error-light */
+  --info: oklch(59.5% 0.19 260);
+  --info-light: oklch(94% 0.05 260);
+  --info-foreground: oklch(40% 0.15 260); /* WCAG AA compliant on info-light */
+}
+
+/* --- Velocity default theme: semantic tokens, light then dark ---------------- */
+:root {
+  /* -------------------------------------------------------------------------
+     Semantic Tokens - Light Mode
+     ------------------------------------------------------------------------- */
+  --background: var(--gray-0);
+  --background-secondary: var(--gray-50);
+  --background-tertiary: var(--gray-100);
+  --background-elevated: var(--gray-0);
+
+  --foreground: var(--gray-900);           /* 18.3:1 on white — WCAG AAA */
+  --foreground-secondary: var(--gray-700); /* 12.7:1 on white — WCAG AAA */
+  --foreground-muted: var(--gray-600);     /* 10.0:1 on white — WCAG AA  */
+  --foreground-subtle: var(--gray-500);    /*  5.5:1 on white — WCAG AA  */
+
+  --border: var(--gray-200);
+  --border-strong: var(--gray-300);
+  --border-subtle: var(--gray-100);
+
+  --primary: var(--gray-900);
+  --primary-hover: var(--gray-800);
+  --primary-foreground: var(--gray-0);
+
+  --secondary: var(--gray-100);
+  --secondary-hover: var(--gray-200);
+  --secondary-foreground: var(--gray-900);
+
+  --accent: var(--brand-500);
+  --accent-hover: var(--brand-600);
+  --accent-light: var(--brand-100);
+
+  --muted: var(--gray-100);
+  --muted-foreground: var(--gray-500);     /*  5.5:1 on white — WCAG AA  */
+
+  --card: var(--gray-0);
+  --card-border: var(--gray-200);
+
+  --input-bg: var(--gray-0);
+  --input-border: var(--gray-300);
+  --input-focus: var(--gray-900);
+
+  --ring: var(--gray-900);
+
+  /* Destructive - for delete/remove actions */
+  /* Darker than --error so white text on it, and it as text on the page, pass WCAG AA (6.1:1). */
+  --destructive: oklch(52% 0.2 27);
+  --destructive-foreground: var(--gray-0);
+
+  /* -------------------------------------------------------------------------
+     Shadows
+     ------------------------------------------------------------------------- */
+  --theme-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --theme-shadow-md: 0 4px 8px rgba(0, 0, 0, 0.04), 0 0 1px rgba(0, 0, 0, 0.04);
+  --theme-shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.04);
+  --theme-shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.12), 0 0 1px rgba(0, 0, 0, 0.04);
+
+  /* -------------------------------------------------------------------------
+     Border Radii
+     ------------------------------------------------------------------------- */
+  --theme-radius-sm: 0.25rem;    /* 4px */
+  --theme-radius-md: 0.375rem;   /* 6px */
+  --theme-radius-lg: 0.5rem;     /* 8px */
+  --theme-radius-xl: 0.625rem;   /* 10px */
+  --theme-radius-full: 9999px;
+}
+
+.dark {
+  --background: var(--gray-950);
+  --background-secondary: var(--gray-900);
+  --background-tertiary: var(--gray-800);
+  --background-elevated: var(--gray-900);
+
+  --foreground: var(--gray-50);             /* 19.3:1 on gray-950 — WCAG AAA */
+  --foreground-secondary: var(--gray-300); /* 13.1:1 on gray-950 — WCAG AAA */
+  --foreground-muted: var(--gray-400);     /*  6.0:1 on gray-950 — WCAG AA  */
+  --foreground-subtle: oklch(60% 0 0);     /*  5.1:1 on gray-950, 4.6:1 on gray-900 — WCAG AA */
+
+  --border: var(--gray-800);
+  --border-strong: var(--gray-700);
+  --border-subtle: var(--gray-900);
+
+  --primary: var(--gray-0);
+  --primary-hover: var(--gray-200);
+  --primary-foreground: var(--gray-900);
+
+  --secondary: var(--gray-800);
+  --secondary-hover: var(--gray-700);
+  --secondary-foreground: var(--gray-100);
+
+  --muted: var(--gray-800);
+  --muted-foreground: var(--gray-400);     /*  6.0:1 on gray-950 — WCAG AA  */
+
+  --card: var(--gray-900);
+  --card-border: var(--gray-800);
+
+  --input-bg: var(--gray-900);
+  --input-border: var(--gray-700);
+  --input-focus: var(--gray-0);
+
+  --ring: var(--gray-0);
+
+  --accent-light: var(--brand-900);
+
+  /* Light red with dark text: 7:1 as a button, and over 6.7:1 as text on dark surfaces. */
+  --destructive: oklch(72% 0.17 25);
+  --destructive-foreground: oklch(18% 0.03 25);
+
+  /* Status - OKLCH with reduced opacity simulation via lightness */
+  --success-light: oklch(25% 0.05 145);
+  --warning-light: oklch(25% 0.05 85);
+  --error-light: oklch(25% 0.05 25);
+  --info-light: oklch(25% 0.05 260);
+  --success-foreground: oklch(85% 0.12 145); /* text on the status -light surfaces — WCAG AA */
+  --warning-foreground: oklch(88% 0.12 85);
+  --error-foreground: oklch(85% 0.09 25);
+  --info-foreground: oklch(85% 0.08 260);
+
+  /* Dark mode shadow - slightly stronger for visibility */
+  --theme-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.2);
+  --theme-shadow-md: 0 4px 8px rgba(0, 0, 0, 0.25), 0 0 1px rgba(0, 0, 0, 0.1);
+  --theme-shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.3), 0 0 1px rgba(0, 0, 0, 0.1);
+  --theme-shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.35), 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+/* --- Editor only ------------------------------------------------------------ */
+:root {
+  --font-ui: 'Manrope Variable', 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-code: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Type: fixed sizes, each with its line height. 14px is the body size of the editor. */
+  --type-xs: 0.75rem;
+  --type-xs-leading: 1rem;
+  --type-sm: 0.8125rem;
+  --type-sm-leading: 1.25rem;
+  --type-base: 0.875rem;
+  --type-base-leading: 1.25rem;
+  --type-lg: 1rem;
+  --type-lg-leading: 1.5rem;
+  --type-xl: 1.25rem;
+  --type-xl-leading: 1.75rem;
+  --type-2xl: 1.5rem;
+  --type-2xl-leading: 2rem;
+
+  /* Motion: short, and off entirely for people who ask for less. */
+  --motion-fast: 100ms;
+  --motion-base: 150ms;
+  --motion-slow: 250ms;
+  --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Layering: the only stacking levels there are. */
+  --layer-raised: 10;
+  --layer-sticky: 20;
+  --layer-overlay: 40;
+  --layer-toast: 50;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-base: 0ms;
+    --motion-slow: 0ms;
+  }
+}

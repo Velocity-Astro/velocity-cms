@@ -13,7 +13,7 @@ const boundary = (files, patterns, message) => ({
 });
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/node_modules/**', 'prototypes/**/work/**', 'prototypes/auth/schema.ts'] },
+  { ignores: ['**/dist/**', '**/node_modules/**', 'prototypes/**/work/**', 'prototypes/auth/schema.ts', '**/storybook-static/**'] },
   js.configs.recommended,
   ...tseslint.configs.strict,
   {
@@ -33,13 +33,18 @@ export default tseslint.config(
     ['@velocity/cms-astro', '@velocity/cms-astro/*', 'astro', 'astro/*', 'astro:*', 'react'],
     'cms-db implements the storage interfaces from cms-core and nothing else.',
   ),
+  boundary(
+    ['packages/cms-ui/src/**'],
+    ['@velocity/*', 'drizzle-orm', 'drizzle-orm/*', '@libsql/*', 'astro', 'astro/*', 'astro:*', 'node:*', 'zod'],
+    'cms-ui is the design system: tokens, components and patterns. It must not know about content, the API or the server, so that plugins and other apps can use it as it is.',
+  ),
   {
     // Tests and the shared test helpers may use Node and Vitest.
-    files: ['packages/*/src/**/*.test.ts', 'packages/cms-core/src/testing/**'],
+    files: ['packages/*/src/**/*.test.{ts,tsx}', 'packages/*/src/testing/**'],
     rules: { 'no-restricted-imports': 'off' },
   },
   {
-    files: ['prototypes/**/*.mjs', '*.config.js'],
-    languageOptions: { globals: { console: 'readonly', process: 'readonly', performance: 'readonly', fetch: 'readonly', setTimeout: 'readonly', URL: 'readonly', Buffer: 'readonly' } },
+    files: ['prototypes/**/*.mjs', 'packages/*/scripts/**/*.mjs', '*.config.js'],
+    languageOptions: { globals: { document: 'readonly', globalThis: 'readonly', console: 'readonly', process: 'readonly', performance: 'readonly', fetch: 'readonly', setTimeout: 'readonly', URL: 'readonly', Buffer: 'readonly' } },
   },
 );
