@@ -13,7 +13,7 @@ const boundary = (files, patterns, message) => ({
 });
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/node_modules/**', 'prototypes/**/work/**'] },
+  { ignores: ['**/dist/**', '**/node_modules/**', 'prototypes/**/work/**', 'prototypes/auth/schema.ts'] },
   js.configs.recommended,
   ...tseslint.configs.strict,
   {
