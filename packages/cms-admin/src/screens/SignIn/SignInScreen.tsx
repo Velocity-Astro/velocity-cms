@@ -1,7 +1,7 @@
 import { AuthShell, Button, Form, Stack, Text, TextField } from '@velocity/cms-ui';
 import { KeyRound } from 'lucide-react';
 import { useState } from 'react';
-import { Navigate, useNavigate } from 'react-router';
+import { Navigate, useNavigate, useSearchParams } from 'react-router';
 import { paths } from '../../app/paths.js';
 import { useRequestSignInLink, useSession, useSignInWithPasskey } from '../../client/queries.js';
 import { useMessages } from '../../messages/messages-context.js';
@@ -13,6 +13,9 @@ export interface SignInScreenProps {
 /** An address with something before and after an @, and a dot after it. The server decides the rest. */
 const LOOKS_LIKE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** What the address carries when a sign-in link was expired or already used. */
+const LINK_FAILED = 'link';
+
 /** Sign in with a passkey, or ask for a sign-in link by email. */
 export function SignInScreen({ siteName }: SignInScreenProps) {
   const messages = useMessages();
@@ -22,6 +25,9 @@ export function SignInScreen({ siteName }: SignInScreenProps) {
   const passkey = useSignInWithPasskey();
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState<string>();
+  // A sign-in link that no longer works sends the person back here, saying so in the address.
+  const [search] = useSearchParams();
+  const linkFailed = search.has(LINK_FAILED) || search.has('error');
 
   if (session.data) return <Navigate to={paths.home} replace />;
 
@@ -45,7 +51,8 @@ export function SignInScreen({ siteName }: SignInScreenProps) {
     sendLink.mutate(address);
   };
 
-  const failure = sendLink.error?.message ?? (passkey.isError ? messages.signIn.passkeyFailed : undefined);
+  const failure =
+    sendLink.error?.message ?? (passkey.isError ? messages.signIn.passkeyFailed : linkFailed ? messages.signIn.linkFailed : undefined);
 
   return (
     <AuthShell brand={brand} title={messages.signIn.title} description={messages.signIn.description}>

@@ -2,7 +2,10 @@ import { fileURLToPath } from 'node:url';
 import { createClient, type Client } from '@libsql/client';
 import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
-import * as tables from './tables.js';
+import * as authTables from './auth-tables.js';
+import * as contentTables from './tables.js';
+
+const tables = { ...contentTables, ...authTables };
 
 export type Tables = typeof tables;
 export type Db = LibSQLDatabase<Tables>;

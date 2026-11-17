@@ -68,3 +68,9 @@ it('skips the sign-in screen for someone already signed in', async () => {
   renderApp('/sign-in', { user: sampleUser, contentTypes: sampleContentTypes });
   expect(await screen.findByRole('heading', { level: 1, name: 'Agents' })).toBeTruthy();
 });
+
+it('explains a sign-in link that no longer works, and offers a new one', async () => {
+  renderApp('/sign-in?link=expired');
+  expect(await screen.findByText('That sign-in link has expired or was already used. Ask for a new one below.')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Email me a sign-in link' })).toBeTruthy();
+});
