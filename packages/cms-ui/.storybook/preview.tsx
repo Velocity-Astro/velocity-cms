@@ -19,7 +19,7 @@ const withTheme: Decorator = (Story, context) => {
   }, [dark]);
   // The surface is drawn here too, so a dark story is readable on Storybook's own white docs page.
   return (
-    <div className="story-surface">
+    <div className={context.parameters['layout'] === 'fullscreen' ? 'story-surface story-surface-full' : 'story-surface'}>
       <Story />
     </div>
   );

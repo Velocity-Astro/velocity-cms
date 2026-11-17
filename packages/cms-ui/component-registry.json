@@ -190,6 +190,51 @@
         "Button",
         "Dialog"
       ]
+    },
+    {
+      "name": "TextArea",
+      "layer": "component",
+      "group": "Forms",
+      "description": "Several lines of plain text, with its label, help and error.",
+      "example": "<TextArea label=\"Summary\" value={summary} onChange={setSummary} />",
+      "useInstead": "TextField for one line.",
+      "uses": []
+    },
+    {
+      "name": "Switch",
+      "layer": "component",
+      "group": "Forms",
+      "description": "A setting that is on or off, and takes effect at once.",
+      "example": "<Switch label=\"Show on homepage\" isSelected={featured} onChange={setFeatured} />",
+      "useInstead": "Checkbox for a choice saved later with a form.",
+      "uses": []
+    },
+    {
+      "name": "Toast",
+      "layer": "component",
+      "group": "Overlays",
+      "description": "Where short messages appear. Put one in the app and call toast() to show a message.",
+      "example": "toast({ title: 'Listing published', tone: 'success' })",
+      "useInstead": "Dialog for anything that needs an answer.",
+      "uses": [
+        "IconButton"
+      ]
+    },
+    {
+      "name": "AppShell",
+      "layer": "pattern",
+      "group": "Page",
+      "description": "The frame around every screen: the sidebar with its navigation, and the main area.",
+      "example": "<AppShell brand={brand} navLabel=\"Main\" skipLabel=\"Skip to content\" nav={nav}>…</AppShell>",
+      "uses": []
+    },
+    {
+      "name": "SaveBar",
+      "layer": "pattern",
+      "group": "Forms",
+      "description": "The bar that stays at the bottom of an editing screen, with the entry's state and its save buttons.",
+      "example": "<SaveBar label=\"Save and publish\" status={status} actions={actions} />",
+      "uses": []
     }
   ]
 }

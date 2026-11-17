@@ -47,9 +47,19 @@ for (const story of stories) {
     await page.addScriptTag({ content: axeSource });
     const violations = await page.evaluate(async () => {
       // The whole page, because dialogs and lists are drawn outside the story's own element.
-      const results = await globalThis.axe.run(document.body, {
-        runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
-      });
+      // Storybook's own accessibility panel runs axe on the same page; wait for it to finish.
+      const run = async (attempt = 0) => {
+        try {
+          return await globalThis.axe.run(document.body, {
+            runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
+          });
+        } catch (error) {
+          if (attempt > 50 || !String(error).includes('already running')) throw error;
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          return run(attempt + 1);
+        }
+      };
+      const results = await run();
       return results.violations.map((violation) => ({
         id: violation.id,
         help: violation.help,

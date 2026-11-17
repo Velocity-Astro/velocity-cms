@@ -49,6 +49,15 @@ it('has no close button unless it is given a name', () => {
   expect(within(screen.getByRole('alertdialog')).queryByRole('button')).toBeNull();
 });
 
+it('can be drawn as a panel down the side', () => {
+  render(
+    <Dialog isOpen onOpenChange={() => undefined} title="Edit image" placement="side">
+      Body
+    </Dialog>,
+  );
+  expect(screen.getByRole('dialog', { name: 'Edit image' }).className).toContain('h-full');
+});
+
 it('has no accessibility violations while open', async () => {
   render(
     <Dialog isOpen onOpenChange={() => undefined} title="Rename listing" closeLabel="Close" footer={<Button>Rename</Button>}>

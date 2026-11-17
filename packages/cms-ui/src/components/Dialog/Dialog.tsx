@@ -4,10 +4,10 @@ import { Dialog as AriaDialog, Heading, Modal, ModalOverlay } from 'react-aria-c
 import { IconButton } from '../IconButton/index.js';
 import {
   dialogBodyClass,
-  dialogClass,
+  dialogContentVariants,
   dialogFooterClass,
   dialogHeaderClass,
-  dialogOverlayClass,
+  dialogOverlayVariants,
   dialogTitleClass,
   dialogVariants,
   type DialogVariants,
@@ -29,11 +29,26 @@ export interface DialogProps extends DialogVariants {
 }
 
 /** A window over the page that must be dealt with before going back to it. */
-export function Dialog({ isOpen, onOpenChange, title, children, footer, closeLabel, role = 'dialog', size }: DialogProps) {
+export function Dialog({
+  isOpen,
+  onOpenChange,
+  title,
+  children,
+  footer,
+  closeLabel,
+  role = 'dialog',
+  size,
+  placement,
+}: DialogProps) {
   return (
-    <ModalOverlay className={dialogOverlayClass} isOpen={isOpen} onOpenChange={onOpenChange} isDismissable={role === 'dialog'}>
-      <Modal className={dialogVariants({ size })}>
-        <AriaDialog className={dialogClass} role={role}>
+    <ModalOverlay
+      className={dialogOverlayVariants({ placement })}
+      isOpen={isOpen}
+      onOpenChange={onOpenChange}
+      isDismissable={role === 'dialog'}
+    >
+      <Modal className={dialogVariants({ size, placement })}>
+        <AriaDialog className={dialogContentVariants({ placement })} role={role}>
           {({ close }) => (
             <>
               <div className={dialogHeaderClass}>
