@@ -394,3 +394,82 @@ describe('extending with a new field type', () => {
     expect(() => cms.fields.register(new RatingField())).toThrowError(ConflictError);
   });
 });
+
+describe('describing a content type again', () => {
+  const agents = {
+    key: 'agents',
+    kind: 'collection' as const,
+    label: { en: 'Agents' },
+    fields: [
+      { key: 'name', type: 'text', label: { en: 'Name' }, required: true },
+      { key: 'phone', type: 'group', label: { en: 'Phone' }, options: { fields: [{ key: 'display', type: 'text', label: { en: 'Number' } }] } },
+      { key: 'kind', type: 'text', label: { en: 'Kind' } },
+    ],
+  };
+
+  it('creates the type when it is not there', async () => {
+    const type = await cms.schema.define(owner, agents);
+    expect(type.fields.map((field) => field.key)).toEqual(['name', 'phone', 'kind']);
+    expect((type.fields[1]?.options['fields'] as FieldDef[])[0]?.id).toBeTypeOf('string');
+  });
+
+  it('keeps every field id, so content stays, while labels, types, order and help change', async () => {
+    const before = await cms.schema.define(owner, agents);
+    const entry = await cms.content.create(owner, {
+      typeId: before.id,
+      locale: 'en',
+      slug: 'maya',
+      data: { [id(before, 'name')]: 'Maya', [id(before, 'kind')]: 'selling' },
+    });
+
+    const after = await cms.schema.define(owner, {
+      ...agents,
+      label: { en: 'Team' },
+      fields: [
+        { key: 'kind', type: 'select', label: { en: 'Works on' }, help: { en: 'Used by the filter.' }, options: { choices: ['buying', 'selling'] } },
+        { key: 'name', type: 'text', label: { en: 'Full name' }, required: true },
+        { key: 'phone', type: 'group', label: { en: 'Phone' }, options: { fields: [{ key: 'display', type: 'text', label: { en: 'As shown' } }] } },
+      ],
+    });
+
+    expect(after.id).toBe(before.id);
+    expect(after.label).toEqual({ en: 'Team' });
+    expect(after.fields.map((field) => field.key)).toEqual(['kind', 'name', 'phone']);
+    expect(id(after, 'name')).toBe(id(before, 'name'));
+    expect(id(after, 'kind')).toBe(id(before, 'kind'));
+    expect(after.fields[0]).toMatchObject({ type: 'select', help: { en: 'Used by the filter.' } });
+    const inner = (type: ContentTypeDef) => (type.fields.find((field) => field.key === 'phone')?.options['fields'] as FieldDef[])[0];
+    expect(inner(after)?.id).toBe(inner(before)?.id);
+    expect(inner(after)?.label).toEqual({ en: 'As shown' });
+    expect((await cms.content.get(owner, entry.id)).data[id(after, 'kind')]).toBe('selling');
+  });
+
+  it('keeps a field the description leaves out, after the described ones', async () => {
+    const before = await cms.schema.define(owner, agents);
+    const after = await cms.schema.define(owner, { ...agents, fields: agents.fields.slice(0, 1) });
+    expect(after.fields.map((field) => field.key)).toEqual(['name', 'phone', 'kind']);
+    expect(id(after, 'kind')).toBe(id(before, 'kind'));
+  });
+
+  it('stores the title field and the sections by field id', async () => {
+    const type = await cms.schema.define(owner, {
+      ...agents,
+      titleField: 'phone.display',
+      sections: [{ key: 'about', label: { en: 'About' }, fields: ['name', 'kind'] }],
+    });
+    const phone = type.fields.find((field) => field.key === 'phone');
+    expect(type.titlePath).toEqual([phone?.id, (phone?.options['fields'] as FieldDef[])[0]?.id]);
+    expect(type.sections).toEqual([{ key: 'about', label: { en: 'About' }, fieldIds: [id(type, 'name'), id(type, 'kind')] }]);
+  });
+
+  it('refuses a section or a title that names a field the type does not have', async () => {
+    await expect(cms.schema.define(owner, { ...agents, titleField: 'nickname' })).rejects.toBeInstanceOf(ValidationError);
+    await expect(
+      cms.schema.define(owner, { ...agents, sections: [{ key: 'about', label: { en: 'About' }, fields: ['nickname'] }] }),
+    ).rejects.toThrow('There is no field "nickname" for section "about"');
+  });
+
+  it('is for those who may change the schema', async () => {
+    await expect(cms.schema.define(editor, agents)).rejects.toBeInstanceOf(ForbiddenError);
+  });
+});

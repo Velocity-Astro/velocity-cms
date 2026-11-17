@@ -1,4 +1,6 @@
 import type { z } from 'zod';
+import type { FieldDef } from './model.js';
+import type { IdGenerator } from './ports.js';
 import type { Registry } from './registry.js';
 
 /**
@@ -11,6 +13,12 @@ export interface FieldContext {
   /** Every registered field type, for types that contain other fields. */
   readonly fields: Registry<FieldType>;
   readonly mode: ValidationMode;
+}
+
+/** What a field type may use while its settings are being stored. */
+export interface DefineContext {
+  readonly fields: Registry<FieldType>;
+  readonly ids: IdGenerator;
 }
 
 /**
@@ -50,5 +58,19 @@ export abstract class FieldType<TValue = unknown, TOptions extends object = obje
    */
   toPublic(value: TValue, _options: TOptions, _context: FieldContext): unknown {
     return value;
+  }
+
+  /**
+   * The settings as they are stored, given the settings as someone described them and the ones
+   * stored before, if the field existed. A type that holds other fields gives each a permanent
+   * id here, keeping the id of any field that was already there under the same key.
+   */
+  define(described: Readonly<Record<string, unknown>>, _previous: Readonly<Record<string, unknown>> | undefined, _context: DefineContext): Readonly<Record<string, unknown>> {
+    return described;
+  }
+
+  /** The fields this type holds, for a type that holds fields. */
+  inner(_options: Readonly<Record<string, unknown>>): readonly FieldDef[] {
+    return [];
   }
 }

@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { FieldType, type FieldContext } from '../field-type.js';
+import { defineFields, type NewField } from '../define-fields.js';
+import { FieldType, type DefineContext, type FieldContext } from '../field-type.js';
 import type { FieldDef } from '../model.js';
 import { Registry } from '../registry.js';
 import { buildFieldsSchema, toPublicData } from '../schema-builder.js';
@@ -72,10 +73,15 @@ export class UrlField extends FieldType<string, NoOptions> {
 }
 
 /** One choice from a fixed list. */
-export class SelectField extends FieldType<string, { choices: string[] }> {
+export class SelectField extends FieldType<string, { choices: string[]; labels?: Record<string, Record<string, string>> | undefined }> {
   readonly type = 'select';
   readonly editor = 'select';
-  readonly options = z.object({ choices: z.array(z.string()).min(1) });
+  readonly options = z.object({
+    /** The values that are stored. */
+    choices: z.array(z.string()).min(1),
+    /** What the editor calls each choice, per language: `{ 'coming-soon': { en: 'Coming soon' } }`. */
+    labels: z.record(z.string(), z.record(z.string(), z.string())).optional(),
+  });
 
   schema({ choices }: { choices: string[] }) {
     return z.enum(choices as [string, ...string[]]);
@@ -97,6 +103,15 @@ export class GroupField extends FieldType<Record<string, unknown>, { fields: Fie
 
   override toPublic(value: Record<string, unknown>, { fields }: { fields: FieldDef[] }, context: FieldContext) {
     return toPublicData(fields, value, context);
+  }
+
+  override define(described: Readonly<Record<string, unknown>>, previous: Readonly<Record<string, unknown>> | undefined, context: DefineContext) {
+    const before = Array.isArray(previous?.['fields']) ? (previous['fields'] as FieldDef[]) : [];
+    return { ...described, fields: defineFields(described['fields'] as NewField[], before, context) };
+  }
+
+  override inner(options: Readonly<Record<string, unknown>>): readonly FieldDef[] {
+    return Array.isArray(options['fields']) ? (options['fields'] as FieldDef[]) : [];
   }
 }
 
@@ -129,6 +144,13 @@ export class ListField extends FieldType<unknown[], ListOptions> {
     const item = context.fields.get(of.type);
     const options = item.options.parse(of.options);
     return value.map((entry) => item.toPublic(entry, options, context));
+  }
+
+  override define(described: Readonly<Record<string, unknown>>, previous: Readonly<Record<string, unknown>> | undefined, context: DefineContext) {
+    const of = described['of'] as { type: string; options?: Record<string, unknown> };
+    const before = previous?.['of'] as { type: string; options?: Record<string, unknown> } | undefined;
+    const item = context.fields.get(of.type);
+    return { ...described, of: { type: of.type, options: item.define(of.options ?? {}, before?.type === of.type ? before.options : undefined, context) } };
   }
 }
 

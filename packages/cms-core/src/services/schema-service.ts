@@ -1,4 +1,5 @@
 import type { AccessControl, Actor } from '../access.js';
+import { defineField, defineFields, requireKey, type NewField } from '../define-fields.js';
 import { ConflictError, NotFoundError, ValidationError } from '../errors.js';
 import type { EventBus } from '../events.js';
 import type { FieldType } from '../field-type.js';
@@ -7,20 +8,11 @@ import {
   type ContentTypeDef,
   type ContentTypeKind,
   type FieldDef,
+  type FieldSection,
   type LocalizedText,
 } from '../model.js';
 import type { Clock, IdGenerator, SchemaRepository } from '../ports.js';
 import type { Registry } from '../registry.js';
-
-/** A field as someone describes it when adding it. The service assigns the id. */
-export interface NewField {
-  readonly key: string;
-  readonly type: string;
-  readonly label: LocalizedText;
-  readonly translated?: boolean;
-  readonly required?: boolean;
-  readonly options?: Readonly<Record<string, unknown>>;
-}
 
 export interface NewContentType {
   readonly key: string;
@@ -28,9 +20,17 @@ export interface NewContentType {
   readonly label: LocalizedText;
   readonly urlPattern?: string;
   readonly fields?: readonly NewField[];
+  /** The field entries are called by in lists, by key: `name`, or `address.street` inside a group. */
+  readonly titleField?: string;
+  /** How the editor lays the fields out, with fields named by key. */
+  readonly sections?: readonly NewSection[];
 }
 
-const KEY = /^[a-z][a-zA-Z0-9]*(-[a-z0-9]+)*$/;
+export interface NewSection {
+  readonly key: string;
+  readonly label: LocalizedText;
+  readonly fields: readonly string[];
+}
 
 /**
  * Owns content types and their fields.
@@ -66,27 +66,31 @@ export class SchemaService {
 
   async create(actor: Actor, input: NewContentType): Promise<ContentTypeDef> {
     this.access.require(actor, 'schema:write');
-    this.requireKey(input.key, 'content type');
+    requireKey(input.key, 'content type');
+    return this.save(actor, this.described({ id: this.ids.next(), key: input.key, kind: input.kind, label: input.label, fields: [] }, input));
+  }
 
-    const fields: FieldDef[] = [];
-    for (const field of input.fields ?? []) {
-      fields.push(this.defineField(fields, field));
-    }
-    const type: ContentTypeDef = {
-      id: this.ids.next(),
-      key: input.key,
-      kind: input.kind,
-      label: input.label,
-      ...(input.urlPattern !== undefined && { urlPattern: input.urlPattern }),
-      fields,
-    };
-    return this.save(actor, type);
+  /**
+   * Makes a content type match a description, creating it if it is not there. This is how a
+   * template's content types reach a site, and how they are brought up to date.
+   *
+   * It is safe to run again and again. A field that is already there under the same key keeps
+   * its id, so its content stays; it takes the described label, type and settings. Fields the
+   * description leaves out are kept as they are. Content is not converted when a field's type
+   * changes: a value the new type does not accept is reported the next time its entry is saved.
+   */
+  async define(actor: Actor, input: NewContentType): Promise<ContentTypeDef> {
+    this.access.require(actor, 'schema:write');
+    const existing = await this.types.getByKey(input.key);
+    if (!existing) return this.create(actor, input);
+    return this.save(actor, this.described(existing, input));
   }
 
   async addField(actor: Actor, typeId: string, input: NewField): Promise<ContentTypeDef> {
     this.access.require(actor, 'schema:write');
     const type = await this.get(typeId);
-    return this.save(actor, { ...type, fields: [...type.fields, this.defineField(type.fields, input)] });
+    this.requireFreeKey(type.fields, input.key);
+    return this.save(actor, { ...type, fields: [...type.fields, defineField(input, undefined, this.context)] });
   }
 
   /** Changes a field's key or label. Its id, and so its data, stay as they are. */
@@ -100,7 +104,7 @@ export class SchemaService {
     const type = await this.get(typeId);
     const field = this.requireField(type, fieldId);
     if (change.key !== undefined && change.key !== field.key) {
-      this.requireKey(change.key, 'field');
+      requireKey(change.key, 'field');
       this.requireFreeKey(type.fields, change.key);
     }
     return this.replaceField(actor, type, {
@@ -128,29 +132,50 @@ export class SchemaService {
     return this.replaceField(actor, type, field);
   }
 
-  private defineField(existing: readonly FieldDef[], input: NewField): FieldDef {
-    this.requireKey(input.key, 'field');
-    this.requireFreeKey(existing, input.key);
-    const type = this.fields.get(input.type);
-    const options = type.options.safeParse(input.options ?? {});
-    if (!options.success) {
-      throw new ValidationError(
-        `The settings for field "${input.key}" are not valid for a ${input.type} field.`,
-        options.error.issues.map((issue) => ({
-          path: issue.path.map((segment) => (typeof segment === 'symbol' ? String(segment) : segment)),
-          message: issue.message,
-        })),
-      );
-    }
+  private get context() {
+    return { fields: this.fields, ids: this.ids };
+  }
+
+  /** A type with a description applied to it: its fields, what entries are called by, and its layout. */
+  private described(type: ContentTypeDef, input: NewContentType): ContentTypeDef {
+    const { titlePath: _title, sections: _sections, urlPattern: _url, ...rest } = type;
+    const fields = defineFields(input.fields ?? [], type.fields, this.context);
+    const live = liveFields(fields);
+    const sections: FieldSection[] = (input.sections ?? []).map((section) => ({
+      key: section.key,
+      label: section.label,
+      fieldIds: section.fields.map((key) => this.requireFieldByKey(live, key, `section "${section.key}"`).id),
+    }));
     return {
-      id: this.ids.next(),
-      key: input.key,
-      type: input.type,
+      ...rest,
       label: input.label,
-      translated: input.translated ?? true,
-      required: input.required ?? false,
-      options: input.options ?? {},
+      ...(input.urlPattern !== undefined && { urlPattern: input.urlPattern }),
+      fields,
+      ...(input.titleField !== undefined && { titlePath: this.pathOf(live, input.titleField) }),
+      ...(sections.length > 0 && { sections }),
     };
+  }
+
+  /** The ids along a dotted key path, such as `address.street`. */
+  private pathOf(fields: readonly FieldDef[], keys: string): string[] {
+    const path: string[] = [];
+    let within = fields;
+    for (const key of keys.split('.')) {
+      const field = this.requireFieldByKey(within, key, `the title field "${keys}"`);
+      path.push(field.id);
+      within = liveFields(this.fields.get(field.type).inner(field.options));
+    }
+    return path;
+  }
+
+  private requireFieldByKey(fields: readonly FieldDef[], key: string, where: string): FieldDef {
+    const field = fields.find((candidate) => candidate.key === key);
+    if (!field) {
+      throw new ValidationError(`There is no field "${key}" for ${where}. Check the key, or add the field.`, [
+        { path: ['fields'], message: `Unknown field "${key}"` },
+      ]);
+    }
+    return field;
   }
 
   private replaceField(actor: Actor, type: ContentTypeDef, field: FieldDef): Promise<ContentTypeDef> {
@@ -168,15 +193,6 @@ export class SchemaService {
     const field = type.fields.find((candidate) => candidate.id === fieldId);
     if (!field) throw new NotFoundError('Field', fieldId);
     return field;
-  }
-
-  private requireKey(key: string, what: string): void {
-    if (!KEY.test(key)) {
-      throw new ValidationError(
-        `"${key}" can't be used as a ${what} key. Start with a lowercase letter and use letters, numbers and single hyphens.`,
-        [{ path: ['key'], message: 'Invalid key' }],
-      );
-    }
   }
 
   private requireFreeKey(fields: readonly FieldDef[], key: string): void {

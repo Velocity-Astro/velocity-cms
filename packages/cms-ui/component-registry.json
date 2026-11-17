@@ -167,6 +167,24 @@
       "uses": []
     },
     {
+      "name": "Card",
+      "layer": "component",
+      "group": "Layout",
+      "description": "A framed part of a screen with its own heading, such as one section of a long form.",
+      "example": "<Card title=\"Price and status\">…</Card>",
+      "useInstead": "Fieldset for a few fields that make one value; Stat for a single figure.",
+      "uses": []
+    },
+    {
+      "name": "Repeater",
+      "layer": "pattern",
+      "group": "Forms",
+      "description": "A list a person builds: add an item, fill it in, put the items in order, take one out.",
+      "example": "<Repeater label=\"Photos\" items={items} emptyText=\"No photos yet\" addLabel=\"Add photo\" onAdd={add} onRemove={remove} onMove={move} removeLabel={…} moveUpLabel={…} moveDownLabel={…} />",
+      "useInstead": "Select or Checkbox to choose from a fixed set; Table for rows nobody edits.",
+      "uses": ["Button", "IconButton"]
+    },
+    {
       "name": "PageHeader",
       "layer": "pattern",
       "group": "Page",

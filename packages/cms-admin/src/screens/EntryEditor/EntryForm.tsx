@@ -1,6 +1,6 @@
-import type { ContentTypeDef, Entry, EntryData } from '@velocity/cms-core';
+import type { ContentTypeDef, Entry, EntryData, FieldDef } from '@velocity/cms-core';
 import { SLUG_PATH, isSlug, liveFields } from '@velocity/cms-core';
-import { Box, Button, ConfirmDialog, Form, SaveBar, Segmented, Stack, Tag, Text, TextField, toast } from '@velocity/cms-ui';
+import { Box, Button, Card, ConfirmDialog, Form, SaveBar, Segmented, Stack, Tag, Text, TextField, toast } from '@velocity/cms-ui';
 import { useState } from 'react';
 import { paths } from '../../app/paths.js';
 import { AdminRequestError } from '../../client/errors.js';
@@ -128,6 +128,26 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
   }
 
   const isBusy = running !== null;
+
+  const changeField = (field: FieldDef, value: unknown) => {
+    setData((current) => withValue(current, field.id, value));
+    // A problem is about what was sent. Once the field changes, it no longer applies.
+    setProblems((current) => new Map([...current].filter(([path]) => path !== field.key && !path.startsWith(`${field.key}.`))));
+  };
+
+  // The type's own sections, then one for any field it left out of them. A type with no
+  // sections is one card.
+  const live = liveFields(type.fields);
+  const placed = new Set((type.sections ?? []).flatMap((section) => section.fieldIds));
+  const rest = live.filter((field) => !placed.has(field.id));
+  const sections: { key: string; title?: string; fields: FieldDef[] }[] = [
+    ...(type.sections ?? []).map((section) => ({
+      key: section.key,
+      title: localized(section.label, locale),
+      fields: section.fieldIds.flatMap((id) => live.filter((field) => field.id === id)),
+    })),
+    ...(rest.length > 0 ? [{ key: '$rest', ...(type.sections?.length && { title: messages.editor.otherFields }), fields: rest }] : []),
+  ];
   const savedNote =
     entry === null ? messages.editor.notSavedYet : hasChanges ? messages.editor.unsavedChanges : messages.editor.saved(relativeTime(entry.updatedAt, locale));
 
@@ -177,30 +197,26 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
       <Box paddingX={12} paddingY={8} grow>
         <Box maxWidth="lg">
           <Form label={messages.editor.form} gap={5} onSubmit={() => void run('save')}>
-            <FieldGrid
-              fields={liveFields(type.fields)}
-              values={data}
-              onChange={(field, value) => {
-                setData((current) => withValue(current, field.id, value));
-                // A problem is about what was sent. Once the field changes, it no longer applies.
-                setProblems((current) => new Map([...current].filter(([path]) => path !== field.key && !path.startsWith(`${field.key}.`))));
-              }}
-              pathOf={(field) => field.key}
-              problems={problems}
-            />
-            <TextField
-              label={messages.editor.slug}
-              value={slug}
-              onChange={(next) => {
-                setTypedSlug(next);
-                setSlugProblem(null);
-              }}
-              isRequired
-              {...(type.urlPattern !== undefined && {
-                description: messages.editor.slugDescription(type.urlPattern.replace('[slug]', slug === '' ? '…' : slug)),
-              })}
-              {...(slugProblem !== null && { errorMessage: slugProblem })}
-            />
+            {sections.map((section) => (
+              <Card key={section.key} {...(section.title !== undefined && { title: section.title })}>
+                <FieldGrid fields={section.fields} values={data} onChange={changeField} pathOf={(field) => field.key} problems={problems} />
+              </Card>
+            ))}
+            <Card title={messages.editor.addressSection}>
+              <TextField
+                label={messages.editor.slug}
+                value={slug}
+                onChange={(next) => {
+                  setTypedSlug(next);
+                  setSlugProblem(null);
+                }}
+                isRequired
+                {...(type.urlPattern !== undefined && {
+                  description: messages.editor.slugDescription(type.urlPattern.replace('[slug]', slug === '' ? '…' : slug)),
+                })}
+                {...(slugProblem !== null && { errorMessage: slugProblem })}
+              />
+            </Card>
           </Form>
         </Box>
       </Box>

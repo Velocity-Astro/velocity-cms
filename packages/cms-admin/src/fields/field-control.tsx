@@ -7,6 +7,8 @@ export interface FieldControlProps {
   readonly field: FieldDef;
   /** The field's label in the editor's language. */
   readonly label: string;
+  /** A sentence on what to put in the field, in the editor's language, if the field has one. */
+  readonly help?: string | undefined;
   /** The stored value, or `undefined` when the field is empty. */
   readonly value: unknown;
   /** Call with the new value, or `undefined` to empty the field. */

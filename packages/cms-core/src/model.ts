@@ -19,6 +19,8 @@ export interface FieldDef {
   /** A registered field type: `text`, `number`, or a plugin's. */
   readonly type: string;
   readonly label: LocalizedText;
+  /** A sentence under the field in the editor, on what to put in it. */
+  readonly help?: LocalizedText;
   /** True when each language has its own value, false when all languages share one. */
   readonly translated: boolean;
   readonly required: boolean;
@@ -26,6 +28,15 @@ export interface FieldDef {
   readonly options: Readonly<Record<string, unknown>>;
   /** Set when the field was removed. Its data is kept until the retention period ends. */
   readonly deletedAt?: Timestamp;
+}
+
+/** Fields the editor shows together under one heading, such as "Price and status". */
+export interface FieldSection {
+  /** Unique among a type's sections, e.g. `facts`. */
+  readonly key: string;
+  readonly label: LocalizedText;
+  /** Top-level fields, in the order they are shown. */
+  readonly fieldIds: readonly string[];
 }
 
 export type ContentTypeKind = 'collection' | 'single';
@@ -39,6 +50,13 @@ export interface ContentTypeDef {
   /** Where entries of this type live on the site, e.g. `/listings/[slug]`. */
   readonly urlPattern?: string;
   readonly fields: readonly FieldDef[];
+  /**
+   * The field an entry is called by in lists, as field ids from the top down: one id, or a
+   * group's id and then a field inside it. Left out, the first text field is used.
+   */
+  readonly titlePath?: readonly string[];
+  /** How the editor lays the fields out. A field in no section is shown after them. */
+  readonly sections?: readonly FieldSection[];
 }
 
 export type EntryStatus = 'draft' | 'scheduled' | 'published';

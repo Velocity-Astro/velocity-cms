@@ -45,6 +45,7 @@ TypeScript (strict) · Zod 4 · web-standard `Request`/`Response` · Better Auth
 - **Classes for behaviour, plain objects for data.** Don't add methods to `Entry`, `ContentTypeDef` or `FieldDef`. They are stored, sent to the browser and compared.
 - **Two versions per entry.** `data` and `slug` are what is being worked on; `published` is what visitors see. A save never changes `published`; only `publish` does. The site reads with `toPublic(type, entry)`, and only a preview passes `'working'`.
 - **Drafts never leak.** Anything that shows working versions must check `isPreview()`, must not be cached, and must not feed search, the sitemap or share images.
+- **A template's content types are described in code and applied with `schema.define`.** It may run on every deploy: a field keeps its id by key, so content stays, and fields the description leaves out are kept. A type also names the field its entries are called by (`titlePath`) and the sections the editor shows (`sections`).
 - **Field ids are permanent.** Entry data is keyed by field id, never by key. A rename changes the key only. A removed field is marked `deletedAt` and its data is kept.
 - **No switch on field type.** Behaviour that differs by field type is a method on `FieldType`.
 - **A new adapter must pass the contract tests** in `@velocity/cms-core/testing`. Add a case there when you find behaviour an adapter could get wrong.

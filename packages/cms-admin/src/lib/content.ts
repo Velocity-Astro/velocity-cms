@@ -22,12 +22,13 @@ export function languageName(tag: string, locale: string): string {
 }
 
 /**
- * What to call an entry in a list: the value of its first text field, or `null` when that is
- * empty. Content types will be able to choose this field; until then the first one is used.
+ * What to call an entry in a list: the value of the field its content type names, or of its
+ * first text field when the type names none. `null` when that is empty.
  */
 export function entryTitle(type: ContentTypeDef, data: EntryData): string | null {
-  const field = liveFields(type.fields).find((candidate) => candidate.type === 'text');
-  const value = field ? data[field.id] : undefined;
+  const path = type.titlePath ?? liveFields(type.fields).filter((candidate) => candidate.type === 'text').slice(0, 1).map((field) => field.id);
+  let value: unknown = data;
+  for (const id of path) value = typeof value === 'object' && value !== null ? (value as Record<string, unknown>)[id] : undefined;
   return typeof value === 'string' && value.trim() !== '' ? value : null;
 }
 
