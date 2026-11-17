@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ConflictError } from '../errors.js';
 import type { ContentTypeDef, Entry } from '../model.js';
-import type { EntryRepository, SchemaRepository } from '../ports.js';
+import type { EntryRepository, SchemaRepository, SearchDocument, SearchIndex } from '../ports.js';
 
 /**
  * The contract tests for storage adapters.
@@ -185,6 +185,95 @@ export function schemaRepositoryContract(name: string, create: () => Promise<Sch
       await repository.save(type());
       await repository.save(type({ id: 't2', key: 'agents' }));
       expect((await repository.list()).map((item) => item.key)).toEqual(['agents', 'listings']);
+    });
+  });
+}
+
+const page = (overrides: Partial<SearchDocument> = {}): SearchDocument => ({
+  id: 'en:/listings/lake-house/',
+  locale: 'en',
+  url: '/listings/lake-house/',
+  title: 'Lake House',
+  body: 'Four bedrooms on Quillfeather Lane, with a pergola & a <garden> by the water.',
+  ...overrides,
+});
+
+export function searchIndexContract(name: string, create: () => Promise<SearchIndex>): void {
+  describe(`${name}: SearchIndex contract`, () => {
+    let index: SearchIndex;
+    beforeEach(async () => {
+      index = await create();
+      await index.put([
+        page(),
+        page({ id: 'es:/es/propiedades/casa-del-lago/', locale: 'es', url: '/es/propiedades/casa-del-lago/', title: 'Casa del Lago', body: 'Cuatro habitaciones y un jardín junto al agua.' }),
+        page({ id: 'en:/agents/', url: '/agents/', title: 'Our agents', body: 'Maya sold the lake house on Quillfeather Lane.' }),
+      ]);
+    });
+
+    it('finds a document by a word in its body, and says how many match', async () => {
+      const results = await index.search({ text: 'pergola' });
+      expect(results.total).toBe(1);
+      expect(results.hits.map((hit) => hit.url)).toEqual(['/listings/lake-house/']);
+      expect(results.hits[0]?.title).toBe('Lake House');
+    });
+
+    it('needs every word, in any order and any case', async () => {
+      expect((await index.search({ text: 'LANE quillfeather' })).total).toBe(2);
+      expect((await index.search({ text: 'quillfeather pergola' })).total).toBe(1);
+      expect((await index.search({ text: 'quillfeather zebra' })).total).toBe(0);
+    });
+
+    it('puts a match in the title before a match in the body', async () => {
+      const results = await index.search({ text: 'lake house' });
+      expect(results.hits.map((hit) => hit.url)).toEqual(['/listings/lake-house/', '/agents/']);
+    });
+
+    it('matches the last word as a beginning, for search as you type', async () => {
+      expect((await index.search({ text: 'quillf' })).total).toBe(2);
+      expect((await index.search({ text: 'quillf lane' })).total).toBe(0);
+    });
+
+    it('ignores accents', async () => {
+      expect((await index.search({ text: 'jardin' })).hits.map((hit) => hit.title)).toEqual(['Casa del Lago']);
+    });
+
+    it('keeps to one language when asked', async () => {
+      expect((await index.search({ text: 'agua' })).total).toBe(1);
+      expect((await index.search({ text: 'agua', locale: 'en' })).total).toBe(0);
+      expect((await index.search({ text: 'water', locale: 'en' })).total).toBe(1);
+    });
+
+    it('returns an excerpt that is safe to show, with the match marked', async () => {
+      const [hit] = (await index.search({ text: 'pergola' })).hits;
+      expect(hit?.excerpt).toContain('<mark>pergola</mark>');
+      expect(hit?.excerpt).toContain('&amp;');
+      expect(hit?.excerpt).toContain('&lt;garden&gt;');
+    });
+
+    it('accepts any text a visitor might type', async () => {
+      for (const text of ['', '   ', '"', 'a AND (b', "o'brien NEAR *", 'title:lake', '-', '^lake"']) {
+        await expect(index.search({ text })).resolves.toBeDefined();
+      }
+      expect((await index.search({ text: '' })).total).toBe(0);
+    });
+
+    it('limits the hits but not the total', async () => {
+      const results = await index.search({ text: 'quillfeather', limit: 1 });
+      expect(results.hits).toHaveLength(1);
+      expect(results.total).toBe(2);
+    });
+
+    it('replaces a document that is put again', async () => {
+      await index.put([page({ body: 'Now on Zebra Street.' })]);
+      expect(await index.count()).toBe(3);
+      expect((await index.search({ text: 'zebra' })).total).toBe(1);
+      expect((await index.search({ text: 'pergola' })).total).toBe(0);
+    });
+
+    it('removes documents, and ignores ids it does not have', async () => {
+      await index.remove(['en:/agents/', 'nothing']);
+      expect(await index.count()).toBe(2);
+      expect((await index.search({ text: 'maya' })).total).toBe(0);
     });
   });
 }

@@ -10,13 +10,16 @@ import {
   FakeClock,
   InMemoryEntryRepository,
   InMemorySchemaRepository,
+  InMemorySearchIndex,
   SequentialIds,
   entryRepositoryContract,
   schemaRepositoryContract,
+  searchIndexContract,
 } from './testing/index.js';
 
 entryRepositoryContract('InMemoryEntryRepository', async () => new InMemoryEntryRepository());
 schemaRepositoryContract('InMemorySchemaRepository', async () => new InMemorySchemaRepository());
+searchIndexContract('InMemorySearchIndex', async () => new InMemorySearchIndex());
 
 const owner: Actor = { kind: 'user', id: 'maya', role: 'owner' };
 const editor: Actor = { kind: 'user', id: 'daniel', role: 'editor' };

@@ -1,6 +1,6 @@
 # Velocity CMS
 
-A content management system for [Velocity](https://github.com/southwellmedia/velocity) sites: a visual editor at `/admin`, a lightweight SQLite database, and a site that stays static and rebuilds when you publish.
+A content management system for [Velocity](https://github.com/southwellmedia/velocity) sites: a visual editor at `/admin`, a lightweight SQLite database, and changes that are live the moment you publish. Pages are served from a cache that is cleared on publish, so the site stays as fast as a static one. A fully static site that rebuilds on publish is available as an option.
 
 > **Status: phase 0, prototypes.** Nothing here is ready to use. The repository is private until the first beta.
 
@@ -10,7 +10,7 @@ A content management system for [Velocity](https://github.com/southwellmedia/vel
 |---|---|
 | [`@velocity/cms-core`](packages/cms-core) | The content model and every rule about it: content types, fields, entries, permissions, events. Knows nothing about a database, Astro or HTTP. |
 | [`@velocity/cms-db`](packages/cms-db) | SQLite and libSQL storage: tables, migrations, and the repositories the core asks for. |
-| [`@velocity/cms-astro`](packages/cms-astro) | The Astro side. For now, the Content Layer loader that feeds published entries to a static build. |
+| [`@velocity/cms-astro`](packages/cms-astro) | The Astro side: a live loader for pages rendered on demand, a Content Layer loader for static builds, and the integration. |
 
 `prototypes/` holds the phase 0 experiments and their measured results.
 

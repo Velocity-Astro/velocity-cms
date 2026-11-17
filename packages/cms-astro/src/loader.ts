@@ -1,20 +1,11 @@
 import type { Loader } from 'astro/loaders';
-import { createCms, type Actor, type Entry } from '@velocity/cms-core';
-import { openDatabase, SqliteEntryRepository, SqliteSchemaRepository } from '@velocity/cms-db';
+import type { Entry } from '@velocity/cms-core';
+import { connect, SITE, type ConnectionOptions } from './connection.js';
 
-export interface CmsLoaderOptions {
+export interface CmsLoaderOptions extends ConnectionOptions {
   /** The key of the content type to load, e.g. `listings`. */
   readonly type: string;
-  /**
-   * Where the CMS database is. Defaults to the `VELOCITY_CMS_DATABASE_URL` environment variable,
-   * then to `file:./cms/data.db`.
-   */
-  readonly url?: string;
-  readonly authToken?: string;
 }
-
-/** The build reads content as itself, with read access only. */
-const BUILD: Actor = { kind: 'cli', id: 'astro-build', role: 'author' };
 
 const PAGE_SIZE = 500;
 
@@ -36,22 +27,14 @@ export function cmsLoader(options: CmsLoaderOptions): Loader {
   return {
     name: 'velocity-cms',
     async load({ store, parseData, generateDigest, logger }) {
-      const url = options.url ?? process.env.VELOCITY_CMS_DATABASE_URL ?? 'file:./cms/data.db';
-      const database = await openDatabase({
-        url,
-        ...(options.authToken !== undefined && { authToken: options.authToken }),
-      });
+      const { cms, close } = await connect(options);
       try {
-        const cms = createCms({
-          entries: new SqliteEntryRepository(database.db),
-          types: new SqliteSchemaRepository(database.db),
-        });
         const type = await cms.schema.getByKey(options.type);
 
         const seen = new Set<string>();
         let changed = 0;
         for (let offset = 0; ; offset += PAGE_SIZE) {
-          const page = await cms.content.find(BUILD, {
+          const page = await cms.content.find(SITE, {
             typeId: type.id,
             status: 'published',
             limit: PAGE_SIZE,
@@ -75,7 +58,7 @@ export function cmsLoader(options: CmsLoaderOptions): Loader {
         }
         logger.info(`${options.type}: ${seen.size} published, ${changed} changed since the last build`);
       } finally {
-        database.close();
+        close();
       }
     },
   };

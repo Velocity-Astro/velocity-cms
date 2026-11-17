@@ -1,2 +1,2 @@
-export { entryRepositoryContract, schemaRepositoryContract } from './contracts.js';
-export { FakeClock, InMemoryEntryRepository, InMemorySchemaRepository, SequentialIds } from './in-memory.js';
+export { entryRepositoryContract, schemaRepositoryContract, searchIndexContract } from './contracts.js';
+export { FakeClock, InMemoryEntryRepository, InMemorySchemaRepository, InMemorySearchIndex, SequentialIds } from './in-memory.js';
