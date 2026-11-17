@@ -43,7 +43,7 @@ const preview: Preview = {
         guideFor(component?.__docgenInfo?.displayName ?? component?.name),
     },
     options: {
-      storySort: { order: ['Components', ['Layout', 'Typography', 'Actions', 'Forms', 'Status'], 'Patterns'] },
+      storySort: { order: ['Components', ['Layout', 'Typography', 'Actions', 'Forms', 'Status', 'Data', 'Navigation', 'Overlays'], 'Patterns'] },
     },
   },
 };

@@ -14,6 +14,8 @@ export interface ButtonProps extends ButtonVariants {
   readonly isDisabled?: boolean;
   /** The action is under way: the button shows a spinner, stays focusable and ignores presses. */
   readonly isPending?: boolean;
+  /** Takes focus when it appears. For the safe choice in a dialog, and nowhere else. */
+  readonly autoFocus?: boolean;
 }
 
 /** Starts an action. */
@@ -24,6 +26,7 @@ export function Button({
   type = 'button',
   isDisabled = false,
   isPending = false,
+  autoFocus = false,
   size,
   ...variants
 }: ButtonProps) {
@@ -34,6 +37,7 @@ export function Button({
       type={type}
       isDisabled={isDisabled}
       isPending={isPending}
+      autoFocus={autoFocus}
       {...(onPress && { onPress })}
     >
       {Leading && <Leading aria-hidden size={iconSize[size ?? 'md']} {...(isPending && { className: spinnerClass })} />}

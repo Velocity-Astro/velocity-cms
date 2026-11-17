@@ -40,9 +40,14 @@ for (const story of stories) {
     await page.goto(`${origin}/iframe.html?id=${story.id}&viewMode=story&globals=theme:${theme}`);
     await page.waitForFunction(() => document.querySelector('#storybook-root')?.childElementCount > 0);
     await page.waitForFunction((dark) => document.documentElement.classList.contains('dark') === dark, theme === 'dark');
+    // A story tagged `overlay` opens something (a dialog, a list, a tooltip) and is checked once that has appeared.
+    if (story.tags?.includes('overlay')) await page.waitForSelector('[role=dialog], [role=alertdialog], [role=listbox], [role=menu], [role=tooltip]', { timeout: 10_000 }).catch(() => {
+      throw new Error(`${story.title} / ${story.name} (${theme}) is tagged overlay, but nothing opened.`);
+    });
     await page.addScriptTag({ content: axeSource });
     const violations = await page.evaluate(async () => {
-      const results = await globalThis.axe.run('#storybook-root', {
+      // The whole page, because dialogs and lists are drawn outside the story's own element.
+      const results = await globalThis.axe.run(document.body, {
         runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
       });
       return results.violations.map((violation) => ({

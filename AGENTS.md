@@ -57,11 +57,11 @@ TypeScript (strict) · Zod 4 · Drizzle + libSQL (SQLite) · Astro 7 · React 19
 - **Four layers:** tokens → components → patterns → screens. A layer uses only the layers before it. Screens (`cms-admin`) contain no styling and no raw interactive HTML.
 - **One folder, six files:** `X.tsx`, `X.variants.ts`, `X.stories.tsx`, `X.test.tsx`, `X.md`, `index.ts`. Nothing else.
 - **Parts are closed.** No `className`, no `style`, no props passed through. A new look is a new variant, so every screen gets it.
-- **Class names live in `X.variants.ts`** (CVA), never in the component file.
+- **Class names live in `X.variants.ts`** (CVA), never in the component file. Classes that several parts share (a field's label, a floating panel) live in a file at the root of the layer, such as `components/field.ts`, and are checked the same way.
 - **Tokens only.** Every class must resolve against the theme in `styles.css`. No arbitrary values (`w-[13px]`), raw colours or raw sizes. A new value is a new token in `tokens.css`, for light and dark.
 - **Behaviour comes from React Aria Components.** Don't hand-write focus handling, keyboard handling or ARIA attributes. Style states with its data attributes (`data-hovered:`, `data-focus-visible:`, `data-disabled:`).
 - **Icons are Lucide**, passed as a prop and hidden from screen readers. The words carry the meaning.
 - **No words of its own.** A part shows the text it is given; it has no built-in English.
-- **Registry in sync.** Add the part to `component-registry.json` (group, description, example, `uses`) and export it from the layer's `index.ts`. The story title is `Components/<group>/<Name>`.
-- **Every part is tested** for what it does with a keyboard and a pointer, and with `expectAccessible()`. Every story must pass WCAG 2.1 AA in light and dark (`check:stories`).
+- **Registry in sync.** Add the part to `component-registry.json` (group, description, example, `uses`) and export it from the layer's `index.ts`. The story title is `Components/<group>/<Name>` or `Patterns/<group>/<Name>`.
+- **Every part is tested** for what it does with a keyboard and a pointer, and with `expectAccessible()`. Every story must pass WCAG 2.1 AA in light and dark (`check:stories`). A story that shows something open (a dialog, a list, a tooltip) is tagged `['!autodocs', 'overlay']`, so it is checked once open and kept off the docs page.
 - **Something missing?** Add it to `cms-ui` first, with its six files, then use it. Don't build a one-off in a screen.

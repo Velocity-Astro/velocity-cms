@@ -66,6 +66,130 @@
       "description": "One line of text, with its label, help and error.",
       "example": "<TextField label=\"Title\" isRequired errorMessage={errors.title} />",
       "uses": []
+    },
+    {
+      "name": "Grid",
+      "layer": "component",
+      "group": "Layout",
+      "description": "Children in equal columns, with the same gap between each.",
+      "example": "<Grid columns={2}>…</Grid>",
+      "useInstead": "Inline for a row of buttons or tags, Table for rows of data.",
+      "uses": []
+    },
+    {
+      "name": "Link",
+      "layer": "component",
+      "group": "Actions",
+      "description": "Goes to another page.",
+      "example": "<Link href=\"/admin/listings/42\">Edit listing</Link>",
+      "useInstead": "Button for something that happens on this page.",
+      "uses": []
+    },
+    {
+      "name": "IconButton",
+      "layer": "component",
+      "group": "Actions",
+      "description": "A button that shows only an icon. Its label is its accessible name and its tooltip.",
+      "example": "<IconButton label=\"More actions\" icon={Ellipsis} />",
+      "useInstead": "Button for the main action of a screen.",
+      "uses": [
+        "Tooltip"
+      ]
+    },
+    {
+      "name": "Checkbox",
+      "layer": "component",
+      "group": "Forms",
+      "description": "One yes-or-no choice.",
+      "example": "<Checkbox label=\"Featured listing\" isSelected={featured} onChange={setFeatured} />",
+      "uses": []
+    },
+    {
+      "name": "Select",
+      "layer": "component",
+      "group": "Forms",
+      "description": "One choice from a list, with its label, help and error.",
+      "example": "<Select label=\"Status\" options={options} value={status} onChange={setStatus} />",
+      "useInstead": "Menu for a list of actions.",
+      "uses": []
+    },
+    {
+      "name": "Tooltip",
+      "layer": "component",
+      "group": "Overlays",
+      "description": "A short hint shown when a control is hovered or focused.",
+      "example": "<Tooltip content=\"Saves without publishing\"><Button>Save draft</Button></Tooltip>",
+      "uses": []
+    },
+    {
+      "name": "Dialog",
+      "layer": "component",
+      "group": "Overlays",
+      "description": "A window over the page that must be dealt with before going back to it.",
+      "example": "<Dialog isOpen={isOpen} onOpenChange={setOpen} title=\"Rename listing\" closeLabel=\"Close\">…</Dialog>",
+      "useInstead": "ConfirmDialog for \"are you sure?\".",
+      "uses": [
+        "IconButton"
+      ]
+    },
+    {
+      "name": "Menu",
+      "layer": "component",
+      "group": "Overlays",
+      "description": "A list of actions that opens from a button.",
+      "example": "<Menu trigger={<IconButton label=\"More actions\" icon={Ellipsis} />} actions={actions} onAction={run} />",
+      "useInstead": "Select for choosing a field's value.",
+      "uses": []
+    },
+    {
+      "name": "Tabs",
+      "layer": "component",
+      "group": "Navigation",
+      "description": "Views of the same thing, one shown at a time.",
+      "example": "<Tabs label=\"Listing sections\" tabs={tabs} />",
+      "uses": []
+    },
+    {
+      "name": "Table",
+      "layer": "component",
+      "group": "Data",
+      "description": "Rows of the same kind of thing, with a heading for each column.",
+      "example": "<Table label=\"Listings\" columns={columns} rows={rows} onRowAction={open} />",
+      "uses": []
+    },
+    {
+      "name": "PageHeader",
+      "layer": "pattern",
+      "group": "Page",
+      "description": "The top of every screen: its title, what it is for, and its main actions.",
+      "example": "<PageHeader title=\"Listings\" actions={<Button>New listing</Button>} />",
+      "uses": [
+        "Heading",
+        "Stack",
+        "Text"
+      ]
+    },
+    {
+      "name": "EmptyState",
+      "layer": "pattern",
+      "group": "Page",
+      "description": "What a screen shows where its content will be, before there is any.",
+      "example": "<EmptyState icon={House} title=\"No listings yet\" action={<Button>New listing</Button>} />",
+      "uses": [
+        "Heading",
+        "Text"
+      ]
+    },
+    {
+      "name": "ConfirmDialog",
+      "layer": "pattern",
+      "group": "Feedback",
+      "description": "Asks before doing something that is hard to undo.",
+      "example": "<ConfirmDialog isOpen={isOpen} onOpenChange={setOpen} title=\"Delete listing?\" confirmLabel=\"Delete listing\" cancelLabel=\"Cancel\" tone=\"danger\" onConfirm={remove}>…</ConfirmDialog>",
+      "uses": [
+        "Button",
+        "Dialog"
+      ]
     }
   ]
 }

@@ -66,6 +66,7 @@
   --color-info: var(--info);
   --color-info-light: var(--info-light);
   --color-info-foreground: var(--info-foreground);
+  --color-scrim: var(--scrim);
   --color-brand-fill: var(--brand-fill);
   --color-brand-ink: var(--brand-ink);
 

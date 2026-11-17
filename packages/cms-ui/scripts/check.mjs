@@ -93,9 +93,20 @@ const exists = (name) => {
   if (!known.has(name)) known.set(name, design.candidatesToCss([name])[0] !== null);
   return known.get(name);
 };
-const strings = (code) => [...code.matchAll(/'([^'\n]*)'|"([^"\n]*)"|`([^`$]*)`/g)].map((match) => match[1] ?? match[2] ?? match[3]);
+const strings = (code) => [...code.matchAll(/'([^'\n]*)'|"([^"\n]*)"|`([^`]*)`/g)].map((match) => match[1] ?? match[2] ?? match[3]);
 const withoutImports = (code) => code.replace(/^(?:import|export) .* from .*$/gm, '');
 const RAW_COLOUR = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|oklch|oklab|lab|lch)\(/i;
+
+/** Every class name in a file's strings must come from the theme. `${...}` joins are skipped. */
+function checkClasses(file, code) {
+  for (const name of strings(code).flatMap((text) => text.split(/\s+/)).filter(Boolean)) {
+    if (/\[.*\]/.test(name)) {
+      report(file, `Tokens: "${name}" is an arbitrary value.`, 'Use a step from the scale, or add a token to src/tokens/tokens.css.');
+    } else if (/[-:]/.test(name) && !name.includes('${') && !exists(name)) {
+      report(file, `Tokens: "${name}" is not a class the theme provides.`, "Check the spelling, or use a token from src/styles.css. Tailwind's own colours and sizes are switched off.");
+    }
+  }
+}
 
 for (const part of parts) {
   const component = path.join(part.dir, `${part.name}.tsx`);
@@ -115,18 +126,25 @@ for (const part of parts) {
     report(component, 'Variants: class names do not belong in the component file.', `Move them to ${part.name}.variants.ts and import them.`);
   }
 
-  for (const name of strings(variantCode).flatMap((text) => text.split(/\s+/)).filter(Boolean)) {
-    if (/\[.*\]/.test(name)) {
-      report(variants, `Tokens: "${name}" is an arbitrary value.`, 'Use a step from the scale, or add a token to src/tokens/tokens.css.');
-    } else if (/[-:]/.test(name) && !exists(name)) {
-      report(variants, `Tokens: "${name}" is not a class the theme provides.`, 'Check the spelling, or use a token from src/styles.css. Tailwind\'s own colours and sizes are switched off.');
-    }
-  }
+  checkClasses(variants, variantCode);
   for (const [file, text] of [[component, code], [variants, variantCode]]) {
     if (RAW_COLOUR.test(text)) report(file, 'Tokens: a raw colour.', 'Use a colour token.');
     if (/\b\d+(?:px|rem|em)\b/.test(text)) report(file, 'Tokens: a raw size.', 'Use a step from the spacing or type scale.');
   }
 }
+// Class names shared between parts live in files at the root of a layer. They follow the token rules too.
+for (const layer of Object.values(LAYERS)) {
+  const dir = path.join(src, layer);
+  if (!existsSync(dir)) continue;
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (!entry.isFile() || entry.name === 'index.ts') continue;
+    const file = path.join(dir, entry.name);
+    const text = withoutImports(await readFile(file, 'utf8'));
+    checkClasses(file, text);
+    if (RAW_COLOUR.test(text)) report(file, 'Tokens: a raw colour.', 'Use a colour token.');
+  }
+}
+
 const styles = (await readFile(path.join(src, 'styles.css'), 'utf8')).replace(/\/\*[\s\S]*?\*\//g, '');
 if (RAW_COLOUR.test(styles)) report(path.join(src, 'styles.css'), 'Tokens: a raw colour outside src/tokens/.', 'Define it in tokens.css and refer to it by name.');
 
