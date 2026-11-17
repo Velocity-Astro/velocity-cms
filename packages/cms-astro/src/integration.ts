@@ -14,7 +14,9 @@ export default function velocityCms(): AstroIntegration {
   return {
     name: '@velocity/cms-astro',
     hooks: {
-      'astro:config:setup': ({ updateConfig }) => {
+      'astro:config:setup': ({ updateConfig, addMiddleware }) => {
+        // Preview links: a valid token shows the versions being worked on. See preview.ts.
+        addMiddleware({ entrypoint: `${PACKAGE}/middleware`, order: 'pre' });
         const external = { resolve: { external: [PACKAGE] } };
         updateConfig({
           vite: {

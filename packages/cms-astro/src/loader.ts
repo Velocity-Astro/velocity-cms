@@ -1,5 +1,4 @@
 import type { Loader } from 'astro/loaders';
-import type { Entry } from '@velocity/cms-core';
 import { connect, SITE, type ConnectionOptions } from './connection.js';
 
 export interface CmsLoaderOptions extends ConnectionOptions {
@@ -41,11 +40,12 @@ export function cmsLoader(options: CmsLoaderOptions): Loader {
             offset,
           });
           for (const entry of page.items) {
-            const id = entryId(entry);
+            const live = cms.content.toPublic(type, entry);
+            const id = `${live.locale}/${live.slug}`;
             seen.add(id);
-            const data = { ...cms.content.toPublic(type, entry).data, slug: entry.slug, locale: entry.locale };
+            const data = { ...live.data, slug: live.slug, locale: live.locale };
             // The digest lets Astro skip an entry that has not changed since the last build.
-            const digest = generateDigest({ revision: entry.revision, data });
+            const digest = generateDigest({ revision: entry.published?.revision, data });
             if (store.get(id)?.digest === digest) continue;
             store.set({ id, data: await parseData({ id, data }), digest });
             changed++;
@@ -63,5 +63,3 @@ export function cmsLoader(options: CmsLoaderOptions): Loader {
     },
   };
 }
-
-const entryId = (entry: Entry): string => `${entry.locale}/${entry.slug}`;

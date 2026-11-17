@@ -9,10 +9,12 @@
  * put back at the end unless --keep is given.
  */
 import { execFileSync, spawn } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PreviewLinks } from '../../packages/cms-core/dist/index.js';
 import { importCollection, multiply, openCms, OWNER } from '../publish-speed/lib.mjs';
 import { convert } from './convert.mjs';
 
@@ -27,6 +29,7 @@ const loaderPackage = path.resolve(here, '../../packages/cms-astro');
 const PORT = 4399;
 const ORIGIN = `http://127.0.0.1:${PORT}`;
 const at = (relative) => path.join(project, relative);
+const PREVIEW_SECRET = randomBytes(32).toString('hex');
 
 const backup = at('.live-prototype-backup');
 function restore() {
@@ -65,7 +68,7 @@ async function timed(url, init) {
 async function startServer() {
   const child = spawn('node', ['dist/server/entry.mjs'], {
     cwd: project,
-    env: { ...process.env, HOST: '127.0.0.1', PORT: String(PORT) },
+    env: { ...process.env, HOST: '127.0.0.1', PORT: String(PORT), VELOCITY_CMS_PREVIEW_SECRET: PREVIEW_SECRET },
     stdio: ['ignore', 'ignore', 'inherit'],
   });
   for (let attempt = 0; attempt < 100; attempt++) {
@@ -205,6 +208,7 @@ try {
   const publishStarted = performance.now();
   for (const entry of versions) {
     await cms.content.update(OWNER, entry.id, { data: { ...entry.data, [priceId]: newPrice }, expectedRevision: entry.revision });
+    await cms.content.publish(OWNER, entry.id);
   }
   await revalidate();
   const after = await timed(`${ORIGIN}${sample.listing}`);
@@ -222,6 +226,7 @@ try {
     data: { ...english.data, [address.id]: { ...english.data[address.id], [streetId]: '77 Quillfeather Lane' } },
     expectedRevision: english.revision,
   });
+  await cms.content.publish(OWNER, english.id);
   close();
   const reindex = (await revalidate([sample.listing])).search;
   const wordAfter = await find('quillfeather');
@@ -234,6 +239,42 @@ try {
     const body = name === 'listing' ? after.body : (await timed(`${ORIGIN}${url}`)).body;
     seenOn.push(`${name}: ${body.includes(shown) ? 'yes' : 'no'}`);
   }
+
+  // 5c. Drafts: an edit to a published listing and a brand-new listing, saved but not published.
+  ({ cms, close } = await openCms(`file:${at('cms/data.db')}`));
+  const current = await cms.content.get(OWNER, english.id);
+  const draftPrice = newPrice + 700007;
+  const draftShown = draftPrice.toLocaleString('en-US');
+  await cms.content.update(OWNER, current.id, { data: { ...current.data, [priceId]: draftPrice }, expectedRevision: current.revision });
+  const pathId = types.listings.fields.find((field) => field.key === 'path').id;
+  await cms.content.create(OWNER, {
+    typeId: types.listings.id,
+    locale: 'en',
+    slug: 'draft-only-home',
+    data: { ...current.data, [pathId]: 'draft-only-home', [address.id]: { ...current.data[address.id], [streetId]: '1 Unpublished Way' } },
+  });
+  close();
+  const signer = new PreviewLinks(PREVIEW_SECRET);
+  const token = await signer.issue(60);
+  const expired = await signer.issue(-1);
+  const forged = await new PreviewLinks(randomBytes(32).toString('hex')).issue(60);
+  const newPage = '/listings/draft-only-home/';
+  const sees = async (url, init) => {
+    const answer = await timed(`${ORIGIN}${url}`, init);
+    return { status: answer.status, edit: answer.body.includes(draftShown), fresh: answer.body.includes('1 Unpublished Way'), headers: answer.headers };
+  };
+  const preview = {};
+  preview.publicBefore = [await sees(sample.listing), await sees(newPage), await sees(sample['homes for sale'])];
+  preview.byLink = await sees(`${sample.listing}?preview=${token}`);
+  // The list is rendered by a component deep in the page, and was cached for visitors a moment ago.
+  const list = await timed(`${ORIGIN}${sample['homes for sale']}?preview=${token}`);
+  const nextLink = list.body.match(/href="(\/listings\/draft-only-home\/[^"]*)"/)?.[1]?.replaceAll('&amp;', '&');
+  preview.inList = nextLink !== undefined;
+  preview.clicked = nextLink ? await sees(nextLink) : { status: 0, fresh: false };
+  preview.refused = [await sees(`${sample.listing}?preview=${expired}`), await sees(`${sample.listing}?preview=${forged}`), await sees(`${newPage}?preview=nonsense`)];
+  preview.publicAfter = [await sees(sample.listing), await sees(newPage), await sees(sample['homes for sale'])];
+  preview.inSearch = (await find('unpublished')).total;
+  const hidden = (answers) => answers.every((answer) => !answer.edit && !answer.fresh);
 
   // 6. Speed again with 500 listing entries.
   server.kill();
@@ -266,6 +307,12 @@ try {
   console.log(`In a browser, the unchanged search page shows: "${inBrowser.status}" First result: "${inBrowser.first}". Highlighted words: ${inBrowser.marked}. Errors: ${inBrowser.problems.length}.`);
   for (const line of inBrowser.problems.slice(0, 5)) console.log(`  - ${line}`);
   console.log(`A search answers in ${ms(median(lookups))} with 562 pages (median of ${lookups.length}). "habitaciones" finds ${spanish.total} Spanish pages and ${inEnglish.total} English ones.`);
+  console.log(`\nDrafts. A published listing got a new price and a new listing was created, both saved and not published.`);
+  console.log(`  Visitors before any preview: draft hidden on all three pages: ${hidden(preview.publicBefore) ? 'yes' : 'NO'}; new listing page answers ${preview.publicBefore[1].status}.`);
+  console.log(`  Preview link: new price shown: ${preview.byLink.edit ? 'yes' : 'NO'}; headers: ${preview.byLink.headers.get('cache-control')}, ${preview.byLink.headers.get('x-robots-tag')}, ${preview.byLink.headers.get('x-astro-cache') ?? 'not from the cache'}.`);
+  console.log(`  The list of homes in the preview shows the new listing: ${preview.inList ? 'yes' : 'NO'}; following its link answers ${preview.clicked.status} and shows it: ${preview.clicked.fresh ? 'yes' : 'NO'}.`);
+  console.log(`  Expired, forged and nonsense tokens: draft hidden: ${hidden(preview.refused) ? 'yes' : 'NO'} (${preview.refused.map((answer) => answer.status).join(', ')}).`);
+  console.log(`  Visitors after the previews: draft hidden: ${hidden(preview.publicAfter) ? 'yes' : 'NO'}; new listing page answers ${preview.publicAfter[1].status}; in search: ${preview.inSearch}.`);
   console.log(`Share image: ${ms(cardFirst.ms)} to draw (status ${cardFirst.status}), ${ms(cardCached)} from the cache.`);
   console.log(`\nPages compared with the original: ${originalPages.length - 1}. Different: ${different.length}.`);
   for (const line of different.slice(0, 20)) console.log(`  - ${line}`);

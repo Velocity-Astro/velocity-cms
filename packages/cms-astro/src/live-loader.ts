@@ -1,6 +1,7 @@
 import type { LiveLoader } from 'astro/loaders';
 import type { ContentTypeDef, Entry } from '@velocity/cms-core';
 import { sharedConnection, SITE, type ConnectionOptions } from './connection.js';
+import { isPreview } from './preview.js';
 
 export interface CmsLiveLoaderOptions extends ConnectionOptions {
   /** The key of the content type to load, e.g. `listings`. */
@@ -57,10 +58,12 @@ export function cmsLiveLoader(
   const tag = typeTag(options.type);
 
   const toLive = (cms: Awaited<ReturnType<typeof sharedConnection>>['cms'], type: ContentTypeDef, entry: Entry) => {
-    const id = `${entry.locale}/${entry.slug}`;
+    // A preview reads the version being worked on. Everyone else reads the published one.
+    const shown = cms.content.toPublic(type, entry, isPreview() ? 'working' : 'published');
+    const id = `${shown.locale}/${shown.slug}`;
     return {
       id,
-      data: { ...cms.content.toPublic(type, entry).data, slug: entry.slug, locale: entry.locale },
+      data: { ...shown.data, slug: shown.slug, locale: shown.locale },
       cacheHint: { tags: [tag, entryTag(options.type, id)], lastModified: new Date(entry.updatedAt) },
     };
   };
@@ -76,7 +79,7 @@ export function cmsLiveLoader(
         for (let offset = 0; ; offset += PAGE_SIZE) {
           const page = await cms.content.find(SITE, {
             typeId: type.id,
-            status: 'published',
+            ...(!isPreview() && { status: 'published' as const }),
             ...(filter?.locale !== undefined && { locale: filter.locale }),
             limit: PAGE_SIZE,
             offset,
@@ -97,13 +100,9 @@ export function cmsLiveLoader(
         const separator = filter.id.indexOf('/');
         const locale = filter.id.slice(0, separator);
         const slug = filter.id.slice(separator + 1);
-        // Prototype: scans the locale. The repository needs a lookup by slug before this ships.
-        for (let offset = 0; ; offset += PAGE_SIZE) {
-          const page = await cms.content.find(SITE, { typeId: type.id, status: 'published', locale, limit: PAGE_SIZE, offset });
-          const match = page.items.find((entry) => entry.slug === slug);
-          if (match) return toLive(cms, type, match);
-          if (offset + page.items.length >= page.total || page.items.length === 0) return undefined;
-        }
+        const version = isPreview() ? 'working' : 'published';
+        const match = await cms.content.findBySlug(SITE, { typeId: type.id, locale, slug, version });
+        return match ? toLive(cms, type, match) : undefined;
       } catch (error) {
         return { error: error instanceof Error ? error : new Error(String(error)) };
       }

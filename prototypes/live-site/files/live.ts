@@ -7,7 +7,7 @@
  */
 import type { AstroComponentFactory } from 'astro/runtime/server/index.js';
 import { getLiveCollection } from 'astro:content';
-import { liveContentVersion } from '@velocity/cms-astro';
+import { isPreview, liveContentVersion } from '@velocity/cms-astro';
 import { siteCollections } from '@/config/collections';
 import { isValidLocale } from '@/i18n';
 
@@ -35,6 +35,11 @@ async function load(name: CollectionName): Promise<LiveEntry[]> {
 
 /** Published entries of a collection, read once per content version and then kept in memory. */
 export async function liveCollection(name: CollectionName, filter?: (entry: LiveEntry) => boolean): Promise<LiveEntry[]> {
+  // A preview reads the versions being worked on, fresh every time and never remembered.
+  if (isPreview()) {
+    const drafts = await load(name);
+    return filter ? drafts.filter(filter) : drafts;
+  }
   const version = liveContentVersion();
   let cached = memo.get(name);
   if (!cached || cached.version !== version) {

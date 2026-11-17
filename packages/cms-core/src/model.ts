@@ -46,16 +46,31 @@ export type EntryStatus = 'draft' | 'scheduled' | 'published';
 /** Field values keyed by field id. */
 export type EntryData = Readonly<Record<string, unknown>>;
 
+/**
+ * The version of an entry that visitors see. Saving the entry does not touch it; publishing
+ * replaces it. That is what lets someone work on a published entry without the site changing.
+ */
+export interface PublishedVersion {
+  readonly slug: string;
+  readonly data: EntryData;
+  /** The revision of the entry that was published. */
+  readonly revision: number;
+  readonly at: Timestamp;
+}
+
 export interface Entry {
   readonly id: string;
   readonly typeId: string;
   readonly locale: string;
   /** Shared by the versions of one entry in different languages. */
   readonly translationGroup: string;
-  /** The entry's name in URLs. Unique per type and locale. */
+  /** The entry's name in URLs, in the version being worked on. Unique per type and locale. */
   readonly slug: string;
+  /** `published` exactly when `published` below is set. */
   readonly status: EntryStatus;
+  /** The version being worked on. Visitors see `published.data`. */
   readonly data: EntryData;
+  readonly published?: PublishedVersion;
   /** Starts at 1 and goes up by one on every save. */
   readonly revision: number;
   readonly publishAt?: Timestamp;
@@ -73,7 +88,15 @@ export interface Revision {
   readonly createdAt: Timestamp;
 }
 
-/** An entry as the site sees it: published, with values keyed by field key. */
+/** Whether the entry has been saved since it was last published. */
+export function hasUnpublishedChanges(entry: Entry): boolean {
+  return entry.published !== undefined && entry.published.revision !== entry.revision;
+}
+
+/** Which version of an entry to read: the one visitors see, or the one being worked on. */
+export type EntryVersion = 'published' | 'working';
+
+/** An entry as the site sees it, with values keyed by field key. */
 export interface PublicEntry {
   readonly id: string;
   readonly slug: string;

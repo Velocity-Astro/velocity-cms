@@ -21,31 +21,38 @@ Files: 11 added, 18 moved unchanged, 22 edited.
 
 | | Original | Live |
 |---|---|---|
-| Build time | 14.0 s | 9.1 s |
+| Build time | 12.8 s | 9.0 s |
 | Pages built ahead of time | 94 | 8 |
 | Pages in the search index | 94 | 8 |
 | Share images drawn | 56 | 0 |
 | Addresses in the sitemap | 90 | 21 |
 
 Sitemap, live site: 90 addresses (index answered 200, lists sitemap-live.xml: true). Missing: 0. Extra: 0.
-Search, live site: 88 pages indexed in 1.8 s after start; 556 pages in 11.3 s with 500 listings. That runs once per deploy.
-After a street name change: search updated in 43.4 ms (1 page read again). Matches before: 0, after: 1 (/listings/lakeshore-farmhouse/). Share image redrawn: yes.
+Search, live site: 88 pages indexed in 1.7 s after start; 556 pages in 10.8 s with 500 listings. That runs once per deploy.
+After a street name change: search updated in 27.9 ms (1 page read again). Matches before: 0, after: 1 (/listings/lakeshore-farmhouse/). Share image redrawn: yes.
 In a browser, the unchanged search page shows: "1 result for “quillfeather”" First result: "77 Quillfeather Lane". Highlighted words: 1. Errors: 0.
-A search answers in 3.5 ms with 562 pages (median of 25). "habitaciones" finds 195 Spanish pages and 0 English ones.
-Share image: 86.2 ms to draw (status 200), 5.6 ms from the cache.
+A search answers in 3.6 ms with 562 pages (median of 25). "habitaciones" finds 195 Spanish pages and 0 English ones.
+
+Drafts. A published listing got a new price and a new listing was created, both saved and not published.
+  Visitors before any preview: draft hidden on all three pages: yes; new listing page answers 404.
+  Preview link: new price shown: yes; headers: private, no-store, noindex, not from the cache.
+  The list of homes in the preview shows the new listing: yes; following its link answers 200 and shows it: yes.
+  Expired, forged and nonsense tokens: draft hidden: yes (200, 200, 404).
+  Visitors after the previews: draft hidden: yes; new listing page answers 404; in search: 0.
+Share image: 83.2 ms to draw (status 200), 5.8 ms from the cache.
 
 Pages compared with the original: 93. Different: 0.
 Live pages whose share image is missing: 0.
 
-Publish: price changed in both languages and visible on the listing page 49.6 ms later. Seen on: home: yes, homes for sale: yes, listing: yes, listing, Spanish: yes.
+Publish: price changed in both languages and visible on the listing page 58.3 ms later. Seen on: home: yes, homes for sale: yes, listing: yes, listing, Spanish: yes.
 
 | Page | Not cached, 32 listings | Cached, 32 | Not cached, 500 listings | Cached, 500 |
 |---|---|---|---|---|
-| home | 44.7 ms | 3.7 ms | 94.6 ms | 3.5 ms |
-| homes for sale | 25.7 ms | 2.5 ms | 250.3 ms | 8.5 ms |
-| listing | 28.9 ms | 2.6 ms | 68.4 ms | 2.9 ms |
-| listing, Spanish | 22.1 ms | 2.3 ms | 45.3 ms | 2.5 ms |
-| agents | 12.7 ms | 1.9 ms | 42.8 ms | 2.0 ms |
+| home | 52.6 ms | 3.2 ms | 75.8 ms | 3.1 ms |
+| homes for sale | 27.2 ms | 3.0 ms | 227.8 ms | 8.7 ms |
+| listing | 29.1 ms | 2.8 ms | 67.7 ms | 2.8 ms |
+| listing, Spanish | 23.4 ms | 2.4 ms | 62.8 ms | 2.7 ms |
+| agents | 21.9 ms | 2.0 ms | 58.4 ms | 2.2 ms |
 
 The first table is what the build alone produces. The lines under it are the running site.
 Every page has the same text and links as the original (93 compared, 0 different).
@@ -87,6 +94,21 @@ The build made all three from finished pages. Live pages are not built, so they 
   The first version rebuilt a Pagefind index on every publish. It worked, but took 17 s at 562
   pages, because Pagefind cannot change one page of an index.
 
+## Drafts and preview links
+
+An entry now keeps two versions: the one being worked on and the one visitors see. Saving
+changes the first; only publishing changes the second. Before this, an edit to a published entry
+was live the moment it was saved.
+
+A preview link is any address of the site with `?preview=<token>`. The token is an expiry time
+signed with `VELOCITY_CMS_PREVIEW_SECRET`. A request with a valid token renders with the working
+versions, is never cached or indexed, and has the token added to its links so the person can click
+around. The token is in the address and not in a cookie because a cache answers by address before
+any code runs: a first version used a cookie, and the cached public page came back.
+
+The test saves a new price on a published listing and creates a new listing, publishes neither,
+and checks visitors see neither before or after someone previews, including in search.
+
 ## What is still missing
 
 1. **Which pages a publish touches.** The test names the changed listing's page by hand. The
@@ -108,5 +130,8 @@ The build made all three from finished pages. Live pages are not built, so they 
    Fine behind the cache, but filtering belongs in the database.
 7. **One process.** The content memo and page cache live in memory. Several
    servers, or a CDN, need a shared signal.
-8. **All of this belongs in Velocity and `cms-astro`**, not in each template: the dispatcher,
+8. **A preview shows every draft on the site**, not only the entry it was made for, for as long
+   as the token lasts (an hour by default). Good for checking how pages fit together. The editor
+   decides who may create a link.
+9. **All of this belongs in Velocity and `cms-astro`**, not in each template: the dispatcher,
    the address list and the three routes. Then a template needs almost no changes of its own.

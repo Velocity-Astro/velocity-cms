@@ -2,7 +2,7 @@ import type { AccessControl, Actor } from '../access.js';
 import { ConflictError, NotFoundError } from '../errors.js';
 import type { EventBus } from '../events.js';
 import type { FieldContext, FieldType, ValidationMode } from '../field-type.js';
-import type { ContentTypeDef, Entry, EntryData, Page, PublicEntry, Revision } from '../model.js';
+import type { ContentTypeDef, Entry, EntryData, EntryVersion, Page, PublicEntry, Revision } from '../model.js';
 import type { Clock, EntryQuery, EntryRepository, IdGenerator } from '../ports.js';
 import type { Registry } from '../registry.js';
 import { toPublicData, validateData } from '../schema-builder.js';
@@ -49,6 +49,22 @@ export class ContentService {
     return this.entries.find(query);
   }
 
+  /** One entry by its slug: the slug visitors see, or the one being worked on. */
+  async findBySlug(
+    actor: Actor,
+    where: { typeId: string; locale: string; slug: string; version?: EntryVersion },
+  ): Promise<Entry | null> {
+    this.access.require(actor, 'entry:read');
+    const { typeId, locale, slug, version = 'published' } = where;
+    const found = await this.entries.find({
+      typeId,
+      locale,
+      limit: 1,
+      ...(version === 'published' ? { publishedSlug: slug } : { slug }),
+    });
+    return found.items[0] ?? null;
+  }
+
   async history(actor: Actor, id: string): Promise<Revision[]> {
     this.access.require(actor, 'entry:read');
     await this.load(id);
@@ -82,12 +98,11 @@ export class ContentService {
     this.requireRevision(current, input.expectedRevision);
     const type = await this.schema.get(current.typeId);
 
-    // A published entry must stay publishable, so its edits are held to the stricter check.
-    const mode: ValidationMode = current.status === 'published' ? 'publish' : 'draft';
+    // Only the working version changes, so it may be unfinished even when the entry is published.
     const data =
       input.data === undefined
         ? current.data
-        : { ...removedFieldData(type, current.data), ...validateData(type.fields, input.data, this.context(mode)) };
+        : { ...removedFieldData(type, current.data), ...validateData(type.fields, input.data, this.context('draft')) };
 
     return this.save(
       actor,
@@ -102,7 +117,7 @@ export class ContentService {
     );
   }
 
-  /** Makes an entry live. This is where required fields are enforced. */
+  /** Makes the working version the one visitors see. This is where required fields are enforced. */
   async publish(actor: Actor, id: string, expectedRevision?: number): Promise<Entry> {
     this.access.require(actor, 'entry:publish');
     const current = await this.load(id);
@@ -110,8 +125,16 @@ export class ContentService {
     const type = await this.schema.get(current.typeId);
     validateData(type.fields, current.data, this.context('publish'));
 
+    const now = this.clock.now();
+    const revision = current.revision + 1;
     const published = await this.entries.save(
-      { ...current, status: 'published', revision: current.revision + 1, updatedAt: this.clock.now() },
+      {
+        ...current,
+        status: 'published',
+        revision,
+        updatedAt: now,
+        published: { slug: current.slug, data: current.data, revision, at: now },
+      },
       { expectedRevision: current.revision, actorId: actor.id },
     );
     await this.events.emit('entry.published', { entry: published, actor });
@@ -122,22 +145,28 @@ export class ContentService {
     this.access.require(actor, 'entry:publish');
     const current = await this.load(id);
     if (current.status === 'draft') return current;
+    const { published, ...rest } = current;
     const draft = await this.entries.save(
-      { ...current, status: 'draft', revision: current.revision + 1, updatedAt: this.clock.now() },
+      { ...rest, status: 'draft', revision: current.revision + 1, updatedAt: this.clock.now() },
       { expectedRevision: current.revision, actorId: actor.id },
     );
     await this.events.emit('entry.unpublished', { entry: draft, actor });
     return draft;
   }
 
-  /** The entry as the site reads it: values keyed by field key, removed fields left out. */
-  toPublic(type: ContentTypeDef, entry: Entry): PublicEntry {
+  /**
+   * The entry as the site reads it: values keyed by field key, removed fields left out. Visitors
+   * get the published version. A preview asks for the working one.
+   */
+  toPublic(type: ContentTypeDef, entry: Entry, version: EntryVersion = 'published'): PublicEntry {
+    const source = version === 'working' ? entry : entry.published;
+    if (!source) throw new NotFoundError('Published version of entry', entry.id);
     return {
       id: entry.id,
-      slug: entry.slug,
+      slug: source.slug,
       locale: entry.locale,
       translationGroup: entry.translationGroup,
-      data: toPublicData(type.fields, entry.data, this.context('publish')),
+      data: toPublicData(type.fields, source.data, this.context('publish')),
     };
   }
 

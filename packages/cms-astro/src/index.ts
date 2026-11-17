@@ -10,4 +10,5 @@ export {
   type CmsEntryFilter,
   type CmsLiveLoaderOptions,
 } from './live-loader.js';
+export { isPreview } from './preview.js';
 export { cmsLoader, type CmsLoaderOptions } from './loader.js';

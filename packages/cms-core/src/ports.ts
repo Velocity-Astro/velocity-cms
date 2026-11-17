@@ -8,6 +8,10 @@ export interface EntryQuery {
   readonly typeId?: string;
   readonly locale?: string;
   readonly status?: EntryStatus;
+  /** The slug of the version being worked on. */
+  readonly slug?: string;
+  /** The slug visitors see. Matches published entries only. */
+  readonly publishedSlug?: string;
   /** Defaults to 50. */
   readonly limit?: number;
   readonly offset?: number;
@@ -28,7 +32,8 @@ export interface EntryRepository {
   find(query?: EntryQuery): Promise<Page<Entry>>;
   /**
    * Stores the entry and adds it to its history, as one step. Also refuses, with a
-   * `ConflictError`, a slug another entry of the same type and locale already uses.
+   * `ConflictError`, a slug another entry of the same type and locale already uses, whether in
+   * the version being worked on or in the published one: two pages can never share an address.
    */
   save(entry: Entry, options: SaveOptions): Promise<Entry>;
   /** Every saved version, newest first. */

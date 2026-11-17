@@ -15,7 +15,10 @@ export const contentTypes = sqliteTable(
   (table) => [uniqueIndex('content_types_key').on(table.key)],
 );
 
-/** The current version of every entry. */
+/**
+ * One row per entry: the version being worked on, and beside it, in the `published_` columns, the
+ * version visitors see. Those four are all set or all null.
+ */
 export const entries = sqliteTable(
   'entries',
   {
@@ -28,11 +31,16 @@ export const entries = sqliteTable(
     data: text('data', { mode: 'json' }).$type<EntryData>().notNull(),
     revision: integer('revision').notNull(),
     publishAt: text('publish_at'),
+    publishedSlug: text('published_slug'),
+    publishedData: text('published_data', { mode: 'json' }).$type<EntryData>(),
+    publishedRevision: integer('published_revision'),
+    publishedAt: text('published_at'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },
   (table) => [
     uniqueIndex('entries_type_locale_slug').on(table.typeId, table.locale, table.slug),
+    uniqueIndex('entries_type_locale_published_slug').on(table.typeId, table.locale, table.publishedSlug),
     index('entries_type_status').on(table.typeId, table.status),
     index('entries_translation_group').on(table.translationGroup),
   ],

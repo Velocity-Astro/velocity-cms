@@ -113,6 +113,7 @@ try {
   const first = (await cms.content.find(OWNER, { typeId: type.id, limit: 1 })).items[0];
   const price = type.fields.find((field) => field.key === 'price');
   await cms.content.update(OWNER, first.id, { data: { ...first.data, [price.id]: first.data[price.id] + 1000 }, expectedRevision: first.revision });
+  await cms.content.publish(OWNER, first.id);
   close();
   rows.push(build(`CMS, ${many.length} entries, warm, one listing edited`, { cold: false }));
 } finally {
