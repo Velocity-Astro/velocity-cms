@@ -1,0 +1,8 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/cms-core" },
+    { "path": "packages/cms-db" },
+    { "path": "packages/cms-astro" }
+  ]
+}

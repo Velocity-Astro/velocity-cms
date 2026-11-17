@@ -1,0 +1,27 @@
+{
+  "name": "@velocity/cms-astro",
+  "version": "0.0.0",
+  "description": "The Astro side of Velocity CMS. For now: the Content Layer loader that feeds published entries to a static build.",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.test.*"
+  ],
+  "dependencies": {
+    "@velocity/cms-core": "workspace:*",
+    "@velocity/cms-db": "workspace:*"
+  },
+  "peerDependencies": {
+    "astro": "^7.0.0"
+  },
+  "devDependencies": {
+    "astro": "7.4.5"
+  }
+}

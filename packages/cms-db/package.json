@@ -1,0 +1,33 @@
+{
+  "name": "@velocity/cms-db",
+  "version": "0.0.0",
+  "description": "SQLite and libSQL storage for Velocity CMS: tables, migrations and the repositories cms-core asks for.",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "migrations",
+    "!dist/**/*.test.*"
+  ],
+  "scripts": {
+    "migrations:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.18.0",
+    "@velocity/cms-core": "workspace:*",
+    "drizzle-orm": "^0.45.4"
+  },
+  "peerDependencies": {
+    "zod": "^4.6.6"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.11",
+    "zod": "^4.6.6"
+  }
+}

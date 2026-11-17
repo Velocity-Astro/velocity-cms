@@ -1,0 +1,146 @@
+import { z } from 'zod';
+import { FieldType, type FieldContext } from '../field-type.js';
+import type { FieldDef } from '../model.js';
+import { Registry } from '../registry.js';
+import { buildFieldsSchema, toPublicData } from '../schema-builder.js';
+
+const noOptions = z.object({});
+type NoOptions = z.infer<typeof noOptions>;
+
+export class TextField extends FieldType<string, { maxLength?: number | undefined; multiline: boolean }> {
+  readonly type = 'text';
+  readonly editor = 'text-input';
+  readonly options = z.object({
+    maxLength: z.number().int().positive().optional(),
+    multiline: z.boolean().default(false),
+  });
+
+  schema({ maxLength }: { maxLength?: number | undefined }) {
+    return maxLength ? z.string().max(maxLength) : z.string();
+  }
+}
+
+export class NumberField extends FieldType<
+  number,
+  { min?: number | undefined; max?: number | undefined; integer: boolean }
+> {
+  readonly type = 'number';
+  readonly editor = 'number-input';
+  readonly options = z.object({
+    min: z.number().optional(),
+    max: z.number().optional(),
+    integer: z.boolean().default(false),
+  });
+
+  schema({ min, max, integer }: { min?: number | undefined; max?: number | undefined; integer: boolean }) {
+    let schema = integer ? z.number().int() : z.number();
+    if (min !== undefined) schema = schema.min(min);
+    if (max !== undefined) schema = schema.max(max);
+    return schema;
+  }
+}
+
+export class BooleanField extends FieldType<boolean, NoOptions> {
+  readonly type = 'boolean';
+  readonly editor = 'switch';
+  readonly options = noOptions;
+
+  schema() {
+    return z.boolean();
+  }
+}
+
+/** A calendar date, stored as `YYYY-MM-DD`. */
+export class DateField extends FieldType<string, NoOptions> {
+  readonly type = 'date';
+  readonly editor = 'date-picker';
+  readonly options = noOptions;
+
+  schema() {
+    return z.iso.date();
+  }
+}
+
+export class UrlField extends FieldType<string, NoOptions> {
+  readonly type = 'url';
+  readonly editor = 'url-input';
+  readonly options = noOptions;
+
+  schema() {
+    return z.url();
+  }
+}
+
+/** One choice from a fixed list. */
+export class SelectField extends FieldType<string, { choices: string[] }> {
+  readonly type = 'select';
+  readonly editor = 'select';
+  readonly options = z.object({ choices: z.array(z.string()).min(1) });
+
+  schema({ choices }: { choices: string[] }) {
+    return z.enum(choices as [string, ...string[]]);
+  }
+}
+
+/** The settings of a field that holds other fields. */
+const fieldDefs = z.custom<FieldDef[]>((value) => Array.isArray(value), 'Expected a list of fields');
+
+/** Several fields kept together as one value, such as an address. */
+export class GroupField extends FieldType<Record<string, unknown>, { fields: FieldDef[] }> {
+  readonly type = 'group';
+  readonly editor = 'group';
+  readonly options = z.object({ fields: fieldDefs });
+
+  schema({ fields }: { fields: FieldDef[] }, context: FieldContext) {
+    return buildFieldsSchema(fields, context);
+  }
+
+  override toPublic(value: Record<string, unknown>, { fields }: { fields: FieldDef[] }, context: FieldContext) {
+    return toPublicData(fields, value, context);
+  }
+}
+
+interface ListOptions {
+  /** What each item is: a field type and its settings. */
+  of: { type: string; options: Record<string, unknown> };
+  min?: number | undefined;
+  max?: number | undefined;
+}
+
+/** An ordered list of values that all have the same field type. */
+export class ListField extends FieldType<unknown[], ListOptions> {
+  readonly type = 'list';
+  readonly editor = 'list';
+  readonly options = z.object({
+    of: z.object({ type: z.string(), options: z.record(z.string(), z.unknown()).default({}) }),
+    min: z.number().int().min(0).optional(),
+    max: z.number().int().positive().optional(),
+  });
+
+  schema({ of, min, max }: ListOptions, context: FieldContext) {
+    const item = context.fields.get(of.type);
+    let schema = z.array(item.schema(item.options.parse(of.options), context));
+    if (min !== undefined) schema = schema.min(min);
+    if (max !== undefined) schema = schema.max(max);
+    return schema;
+  }
+
+  override toPublic(value: unknown[], { of }: ListOptions, context: FieldContext) {
+    const item = context.fields.get(of.type);
+    const options = item.options.parse(of.options);
+    return value.map((entry) => item.toPublic(entry, options, context));
+  }
+}
+
+/** A registry holding the field types every site has. Templates and plugins add to it. */
+export function createFieldRegistry(): Registry<FieldType> {
+  return new Registry<FieldType>('field type')
+    .register(new TextField())
+    .register(new NumberField())
+    .register(new BooleanField())
+    .register(new DateField())
+    .register(new UrlField())
+    .register(new SelectField())
+    .register(new GroupField())
+    .register(new ListField());
+}

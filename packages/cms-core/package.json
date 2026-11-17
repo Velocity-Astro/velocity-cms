@@ -1,0 +1,35 @@
+{
+  "name": "@velocity/cms-core",
+  "version": "0.0.0",
+  "description": "The Velocity CMS content model and every rule about it. No database, no Astro, no HTTP.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.test.*"
+  ],
+  "peerDependencies": {
+    "zod": "^4.6.6",
+    "vitest": ">=5"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "zod": "^4.6.6",
+    "vitest": "^5.1.0"
+  }
+}
