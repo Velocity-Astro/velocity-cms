@@ -27,7 +27,7 @@ export function EntryEditorScreen() {
   // The entry this screen created, if any. Its form carries on, instead of starting again.
   const [createdId, setCreatedId] = useState<string | null>(null);
 
-  if (types.isPending || fieldTypes.isPending) return <LoadingState />;
+  if (types.isPending || fieldTypes.isPending) return <LoadingState shape="form" />;
   if (types.isError) return <ErrorState error={types.error} onRetry={() => void types.refetch()} />;
   if (fieldTypes.isError) return <ErrorState error={fieldTypes.error} onRetry={() => void fieldTypes.refetch()} />;
 
@@ -52,7 +52,7 @@ export function EntryEditorScreen() {
   );
 
   if (!isNew) {
-    if (entry.isPending) return <LoadingState />;
+    if (entry.isPending) return <LoadingState shape="form" />;
     if (entry.isError) {
       const isMissing = entry.error instanceof AdminRequestError && entry.error.code === 'not_found';
       return isMissing ? notFound : <ErrorState error={entry.error} onRetry={() => void entry.refetch()} />;

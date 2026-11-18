@@ -79,7 +79,7 @@ export function ContentListScreen() {
   const manyLanguages = groups.some((group) => group.versions.length > 1) || new Set(groups.map((group) => group.primary.locale)).size > 1;
   // A single page has no list: its address here leads straight to its entry, or to starting it.
   if (type.kind === 'single') {
-    if (entries.isPending) return <LoadingState />;
+    if (entries.isPending) return <LoadingState shape="form" />;
     if (entries.isError) return <ErrorState error={entries.error} onRetry={() => void entries.refetch()} />;
     const entry = groups[0]?.primary;
     return <Navigate to={entry ? paths.entry(type.key, entry.id) : paths.newEntry(type.key)} replace />;
@@ -155,7 +155,7 @@ export function ContentListScreen() {
     <Box paddingX={12} paddingY={10}>
       <Stack gap={6}>
         <PageHeader title={name} actions={newEntry} {...(entries.data && { description: messages.contentList.description(groups.length) })} />
-        {entries.isPending && <LoadingState />}
+        {entries.isPending && <LoadingState shape="table" />}
         {entries.isError && <ErrorState error={entries.error} onRetry={() => void entries.refetch()} />}
         {entries.isSuccess && groups.length === 0 && (
           <EmptyState icon={Inbox} title={messages.contentList.emptyTitle(name)} description={messages.contentList.emptyDescription} />

@@ -100,7 +100,7 @@ export function ContentTypesScreen() {
     <Box paddingX={12} paddingY={10}>
       <Stack gap={6}>
         <PageHeader title={messages.builder.title} description={messages.builder.description} actions={create} />
-        {types.isPending && <LoadingState />}
+        {types.isPending && <LoadingState shape="table" />}
         {types.isError && <ErrorState error={types.error} onRetry={() => void types.refetch()} />}
         {types.isSuccess && rows.length === 0 && (
           <EmptyState icon={Shapes} title={messages.builder.emptyTitle} description={messages.builder.emptyDescription} action={create} />

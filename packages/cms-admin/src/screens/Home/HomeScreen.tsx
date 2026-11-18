@@ -86,7 +86,7 @@ export function HomeScreen({ siteName }: HomeScreenProps) {
           description={messages.home.description(siteName)}
         />
         {failed && <ErrorState error={failed.error} onRetry={() => void failed.refetch()} />}
-        {!failed && pending && <LoadingState />}
+        {!failed && pending && <LoadingState shape="summary" />}
         {!failed && !pending && (
           <>
             <Grid columns={3} gap={4}>

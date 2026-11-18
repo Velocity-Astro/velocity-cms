@@ -80,7 +80,7 @@ export function PeopleScreen() {
             </Button>
           }
         />
-        {people.isPending && <LoadingState />}
+        {people.isPending && <LoadingState shape="table" />}
         {people.isError && <ErrorState error={people.error} onRetry={() => void people.refetch()} />}
         {people.isSuccess && <Table label={messages.people.title} columns={columns} rows={rows} />}
         <Stack gap={1}>

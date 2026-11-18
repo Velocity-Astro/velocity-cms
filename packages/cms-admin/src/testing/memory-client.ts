@@ -42,6 +42,8 @@ export interface MemoryAdminClientOptions {
   readonly people?: readonly Person[];
   /** The language new entries are written in. Defaults to `en`. */
   readonly defaultLocale?: string;
+  /** How long each signed-in request takes, in milliseconds, to see what a screen shows while it waits. Defaults to none. */
+  readonly delay?: number;
 }
 
 const KNOWN_CODES: ReadonlySet<string> = new Set<RequestErrorCode>(['validation_failed', 'conflict', 'not_found', 'forbidden']);
@@ -70,11 +72,13 @@ export class MemoryAdminClient implements AdminClient {
   readonly #people: MemoryPeople;
   /** Settles once the content given to the constructor is in place. Every request waits for it. */
   readonly #ready: Promise<void>;
+  readonly #delay: number;
 
   constructor(options: MemoryAdminClientOptions = {}) {
     this.#user = options.user ?? null;
     this.#passkeyUser = options.passkeyUser ?? null;
     this.#defaultLocale = options.defaultLocale ?? 'en';
+    this.#delay = options.delay ?? 0;
     this.#people = new MemoryPeople(options.people ?? (options.user ? [options.user] : []));
     const types = new InMemorySchemaRepository();
     const entries = new InMemoryEntryRepository();
@@ -243,6 +247,7 @@ export class MemoryAdminClient implements AdminClient {
     this.#failIfAsked();
     if (!this.#user) throw new AdminRequestError('Sign in to continue.', 'unauthenticated');
     await this.#ready;
+    if (this.#delay > 0) await new Promise((resolve) => setTimeout(resolve, this.#delay));
     try {
       return await run({ kind: 'user', id: this.#user.id, role: this.#user.role });
     } catch (error) {

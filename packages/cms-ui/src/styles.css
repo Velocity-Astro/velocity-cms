@@ -245,6 +245,20 @@
 @utility motion-rise {
   animation: motion-rise-in var(--motion-slow) var(--motion-ease-enter);
 }
+/*
+ * A shape standing in for content that is loading. It waits a moment before it shows, so content
+ * that arrives at once never flashes grey, and then breathes slowly while it waits.
+ */
+@keyframes motion-breathe {
+  50% {
+    opacity: 0.5;
+  }
+}
+@utility motion-skeleton {
+  animation:
+    motion-fade-in var(--motion-slow) var(--motion-ease) var(--motion-slow) backwards,
+    motion-breathe var(--motion-loop) ease-in-out infinite;
+}
 /* A control that gives a little under a press. */
 @utility motion-press {
   transition-property:

@@ -311,6 +311,15 @@
       "uses": []
     },
     {
+      "name": "Skeleton",
+      "layer": "component",
+      "group": "Status",
+      "description": "A grey shape standing where something will be once it has loaded. SkeletonGroup says what is loading.",
+      "example": "<SkeletonGroup label=\"Loading listings\"><Skeleton shape=\"title\" width=\"1/3\" /><Skeleton /></SkeletonGroup>",
+      "useInstead": "Button isPending for an action under way; Spinner where there is no layout to keep.",
+      "uses": []
+    },
+    {
       "name": "Spinner",
       "layer": "component",
       "group": "Status",

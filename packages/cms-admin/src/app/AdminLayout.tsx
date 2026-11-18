@@ -39,7 +39,7 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
     wasSignedIn.current = isSignedIn;
   }, [isSignedIn, session.data, messages]);
 
-  if (session.isPending) return <LoadingState />;
+  if (session.isPending) return <LoadingState shape="spinner" />;
   if (session.isError) return <ErrorState error={session.error} onRetry={() => void session.refetch()} />;
   if (session.data === null) return <Navigate to={paths.signIn} replace />;
 
