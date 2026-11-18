@@ -4,6 +4,7 @@ export { SqliteEntryRepository } from './entry-repository.js';
 export { SqliteFormRepository } from './form-repository.js';
 export { SqliteSubmissionRepository } from './submission-repository.js';
 export { SqliteContactRepository } from './contact-repository.js';
+export { SqliteDealRepository } from './deal-repository.js';
 export { SqlitePipelineStore } from './pipeline-store.js';
 export { SqliteMediaRepository } from './media-repository.js';
 export { SqlitePluginStore } from './plugin-store.js';

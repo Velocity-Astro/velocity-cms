@@ -4,9 +4,10 @@ import { createCms, type Cms } from './cms.js';
 import { ForbiddenError, NotFoundError, ValidationError } from './errors.js';
 import type { FormDef } from './model.js';
 import { definePlugin } from './plugin.js';
-import { FakeClock, InMemoryContactRepository, InMemoryEntryRepository, InMemoryPipelineStore, InMemorySchemaRepository, SequentialIds, contactRepositoryContract, pipelineStoreContract } from './testing/index.js';
+import { FakeClock, InMemoryContactRepository, InMemoryDealRepository, InMemoryEntryRepository, InMemoryPipelineStore, InMemorySchemaRepository, SequentialIds, contactRepositoryContract, dealRepositoryContract, pipelineStoreContract } from './testing/index.js';
 
 contactRepositoryContract('InMemoryContactRepository', async () => new InMemoryContactRepository());
+dealRepositoryContract('InMemoryDealRepository', async () => new InMemoryDealRepository());
 pipelineStoreContract('InMemoryPipelineStore', async () => new InMemoryPipelineStore());
 
 const owner: Actor = { kind: 'user', id: 'maya', role: 'owner' };
@@ -277,5 +278,106 @@ describe('the pipeline', () => {
     ]);
     await expect(cms.pipeline.get(author)).rejects.toBeInstanceOf(ForbiddenError);
     await expect(cms.pipeline.save(author, { stages: [{ id: 'new', kind: 'open' }], expectedRevision: 0 })).rejects.toBeInstanceOf(ForbiddenError);
+  });
+});
+
+describe('deals', () => {
+  const team = { members: async () => [{ id: 'maya', name: 'Maya', role: 'owner' as const }, { id: 'daniel', name: 'Daniel', role: 'editor' as const }, { id: 'priya', name: 'Priya', role: 'author' as const }] };
+  let tom: { id: string };
+  beforeEach(async () => {
+    cms = createCms({ entries: new InMemoryEntryRepository(), types: new InMemorySchemaRepository(), clock: new FakeClock(), ids: new SequentialIds(), team });
+    heard = [];
+    for (const event of ['deal.saved', 'deal.deleted'] as const) cms.events.on(event, () => void heard.push(event));
+    tom = await cms.contacts.create(editor, { email: 'tom@example.com', ownerId: 'daniel' });
+  });
+
+  it('are made for a contact in the first stage, looked after by whoever looks after the contact', async () => {
+    const deal = await cms.deals.create(editor, { contactId: tom.id, title: ' Sale of 18 Alder Court ', value: 450000, closeOn: '2026-03-14' });
+    expect(deal).toMatchObject({ contactId: tom.id, title: 'Sale of 18 Alder Court', value: 450000, stage: 'new', ownerId: 'daniel', closeOn: '2026-03-14', revision: 1 });
+    expect(deal).not.toHaveProperty('closedAt');
+    expect((await cms.deals.find(editor, { contactId: tom.id })).total).toBe(1);
+    expect(heard).toEqual(['deal.saved']);
+    expect(await issuesOf(cms.deals.create(editor, { contactId: 'nobody', title: 'x', value: 1 }))).toEqual([['contactId', 'This contact is no longer here. Choose another.']]);
+    expect(await issuesOf(cms.deals.create(editor, { contactId: tom.id, title: ' ', value: 1.5, stage: 'nowhere', ownerId: 'priya', closeOn: 'soon' }))).toEqual([
+      ['title', 'Say what the deal is about.'],
+      ['value', 'Give what it is worth as a whole number, 0 or more.'],
+      ['stage', 'This stage is no longer in the pipeline. Choose another.'],
+      ['ownerId', 'Choose someone on the team who may read contacts.'],
+      ['closeOn', 'Enter a day, such as 2026-03-14.'],
+    ]);
+  });
+
+  it('change only what they are told to, close when they reach a won or lost stage and open again when moved back', async () => {
+    const deal = await cms.deals.create(editor, { contactId: tom.id, title: 'Sale', value: 100 });
+    const won = await cms.deals.update(editor, deal.id, { stage: 'won', value: 120, expectedRevision: 1 });
+    expect(won).toMatchObject({ stage: 'won', value: 120, title: 'Sale', ownerId: 'daniel', revision: 2 });
+    expect(won.closedAt).toBeDefined();
+    const back = await cms.deals.update(editor, deal.id, { stage: 'qualified', ownerId: null, expectedRevision: 2 });
+    expect(back).not.toHaveProperty('closedAt');
+    expect(back).not.toHaveProperty('ownerId');
+    await expect(cms.deals.update(editor, deal.id, { value: 1, expectedRevision: 2 })).rejects.toThrowError(/saved by someone else/);
+    await cms.deals.delete(editor, deal.id);
+    await expect(cms.deals.get(editor, deal.id)).rejects.toBeInstanceOf(NotFoundError);
+    expect(heard).toEqual(['deal.saved', 'deal.saved', 'deal.saved', 'deal.deleted']);
+  });
+
+  it('are forecast stage by stage: open deals count by their stage\'s chance, and won and lost are told apart', async () => {
+    await cms.deals.create(editor, { contactId: tom.id, title: 'A', value: 1000 });
+    await cms.deals.create(editor, { contactId: tom.id, title: 'B', value: 3000, stage: 'qualified' });
+    await cms.deals.create(editor, { contactId: tom.id, title: 'C', value: 500, stage: 'qualified' });
+    await cms.deals.create(editor, { contactId: tom.id, title: 'D', value: 800, stage: 'won' });
+    await cms.deals.create(editor, { contactId: tom.id, title: 'E', value: 50, stage: 'lost' });
+    expect(await cms.deals.forecast(editor)).toEqual({
+      currency: 'USD',
+      stages: [
+        { stage: 'new', count: 1, value: 1000, weighted: 100 },
+        { stage: 'contacted', count: 0, value: 0, weighted: 0 },
+        { stage: 'qualified', count: 2, value: 3500, weighted: 2100 },
+        { stage: 'won', count: 1, value: 800, weighted: 800 },
+        { stage: 'lost', count: 1, value: 50, weighted: 0 },
+      ],
+      open: 4500,
+      weighted: 2200,
+      won: 800,
+      lost: 50,
+    });
+    await cms.pipeline.save(editor, { stages: [{ id: 'new', kind: 'open', chance: 20 }, { label: 'Offer', kind: 'open' }, { id: 'won', kind: 'won', chance: 5 }], currency: 'eur', expectedRevision: 0 });
+    const after = await cms.deals.forecast(editor);
+    // The deals of the stages that were removed moved to the first; a new open stage counts as half.
+    expect(after).toMatchObject({ currency: 'EUR', open: 4550, weighted: 910, won: 800, lost: 0 });
+    expect((await cms.pipeline.get(editor)).stages.map((stage) => stage.chance)).toEqual([20, undefined, undefined]);
+    expect(await issuesOf(cms.pipeline.save(editor, { stages: [{ id: 'new', kind: 'open', chance: 120 }], currency: 'dollars', assignTo: ['priya'], expectedRevision: 1 }))).toEqual([
+      ['stages.0.chance', 'Give a chance from 0 to 100.'],
+      ['currency', 'Give a currency by its three letters, such as USD.'],
+      ['assignTo', 'Choose people on the team who may read contacts.'],
+    ]);
+  });
+
+  it('go with their contact when the person is erased, and are in the file handed to them', async () => {
+    await cms.deals.create(editor, { contactId: tom.id, title: 'Sale', value: 100 });
+    const ana = await cms.contacts.create(editor, { email: 'ana@example.com' });
+    await cms.deals.create(editor, { contactId: ana.id, title: 'Rental', value: 20 });
+    expect(JSON.parse(await cms.contacts.export(editor, tom.id))).toMatchObject({ deals: [{ title: 'Sale', value: 100, stage: 'new' }] });
+    await cms.contacts.erase(editor, tom.id);
+    expect((await cms.deals.find(editor)).items.map((deal) => deal.title)).toEqual(['Rental']);
+    await cms.submissions.erase(editor, 'ana@example.com');
+    expect((await cms.deals.find(editor)).total).toBe(0);
+  });
+
+  it('are closed to an author, and a new contact from a form goes to whoever of the people named has the fewest', async () => {
+    await expect(cms.deals.find(author)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(cms.deals.forecast(author)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(cms.deals.create(author, { contactId: tom.id, title: 'x', value: 1 })).rejects.toBeInstanceOf(ForbiddenError);
+    await cms.forms.create(editor, { key: 'contact', label: { en: 'Contact' }, fields: [{ key: 'email', type: 'email', label: { en: 'Email' } }], contact: { email: 'email' } });
+    await cms.submissions.submit('contact', { email: 'first@example.com' });
+    expect((await cms.contacts.find(editor, { search: 'first@' })).items[0]).not.toHaveProperty('ownerId');
+    await cms.pipeline.save(editor, { stages: [{ id: 'new', kind: 'open' }], assignTo: ['daniel', 'maya', 'daniel'], expectedRevision: 0 });
+    expect((await cms.pipeline.get(editor)).assignTo).toEqual(['daniel', 'maya']);
+    // Daniel already looks after Tom, so Maya is next; then they are level and the first named takes it.
+    for (const email of ['a@example.com', 'b@example.com', 'c@example.com']) await cms.submissions.submit('contact', { email });
+    const owners = async (email: string) => (await cms.contacts.find(editor, { search: email })).items[0]?.ownerId;
+    expect([await owners('a@example.com'), await owners('b@example.com'), await owners('c@example.com')]).toEqual(['maya', 'daniel', 'maya']);
+    await cms.pipeline.save(editor, { stages: [{ id: 'new', kind: 'open' }], assignTo: [], expectedRevision: 1 });
+    expect(await cms.pipeline.get(editor)).not.toHaveProperty('assignTo');
   });
 });

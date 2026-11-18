@@ -1,5 +1,5 @@
 import { AppShell, Logo, dismissToasts, toast, type AppShellNavItem } from '@velocity/cms-ui';
-import { Blocks, Contact, House, Images, Inbox, KeyRound, LogOut, Puzzle, Shapes, Trash2, Users } from 'lucide-react';
+import { Blocks, Contact, HandCoins, House, Images, Inbox, KeyRound, LogOut, Puzzle, Shapes, Trash2, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router';
 import { useGo } from './use-go.js';
@@ -90,6 +90,7 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
                 ? [
                     { id: 'forms', label: messages.app.forms, href: paths.forms, icon: Inbox, isCurrent: location.pathname === paths.forms || location.pathname.startsWith(`${paths.forms}/`) },
                     { id: 'contacts', label: messages.app.contacts, href: paths.contacts, icon: Contact, isCurrent: location.pathname === paths.contacts || location.pathname.startsWith(`${paths.contacts}/`) },
+                    { id: 'deals', label: messages.app.deals, href: paths.deals, icon: HandCoins, isCurrent: location.pathname === paths.deals },
                   ]
                 : []),
               // Only owners manage people and content types, so only they are shown the way there.

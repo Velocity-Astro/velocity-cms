@@ -17,6 +17,7 @@ export const paths = {
   contacts: '/contacts',
   /** One contact: who they are and what happened with them. */
   contact: (contactId: string) => `/contacts/${encodeURIComponent(contactId)}`,
+  deals: '/deals',
   plugins: '/plugins',
   /** A screen a plugin added. */
   pluginScreen: (plugin: string, screen: string) => `/plugins/${encodeURIComponent(plugin)}/${encodeURIComponent(screen)}`,

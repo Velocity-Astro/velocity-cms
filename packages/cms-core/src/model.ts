@@ -361,13 +361,72 @@ export interface PipelineStage {
   /** What the team called it. A stage the CMS came with has none until it is renamed, and the editor names it. */
   readonly label?: string;
   readonly kind: StageKind;
+  /**
+   * How likely a deal in this stage is to be won, from 0 to 100, for the forecast. Left out, an
+   * open stage counts as 50. A won stage is always 100 and a lost one 0, whatever is here.
+   */
+  readonly chance?: number;
 }
 
 /** The steps a contact moves through, in order. The first is where a new contact starts, and is always open. */
 export interface Pipeline {
   readonly stages: readonly PipelineStage[];
+  /** The money deals are counted in, as an ISO 4217 code such as `USD`. Left out, `USD`. */
+  readonly currency?: string;
+  /**
+   * Who a contact made by a form is given to: whichever of these people looks after the fewest
+   * contacts. One id gives every new contact to that person. Left out or empty, nobody.
+   */
+  readonly assignTo?: readonly string[];
   /** 0 for the pipeline the CMS comes with, before anyone changed it; then up by one on every save. */
   readonly revision: number;
+}
+
+/**
+ * Something a contact may buy, worth an amount, moving through the pipeline's stages. It belongs
+ * to its contact: it is erased with them and exported with them.
+ */
+export interface Deal {
+  readonly id: string;
+  readonly contactId: string;
+  /** What it is about: "Sale of 18 Alder Court". */
+  readonly title: string;
+  /** What it is worth, in whole units of the pipeline's currency. */
+  readonly value: number;
+  /** The id of a stage of the pipeline. */
+  readonly stage: string;
+  /** The id of the person on the team who looks after it. */
+  readonly ownerId?: string;
+  /** The day it is expected to be settled, as `2026-03-14`. */
+  readonly closeOn?: string;
+  /** When it reached a won or lost stage. Left out while it is open. */
+  readonly closedAt?: Timestamp;
+  /** Starts at 1 and goes up by one on every save. */
+  readonly revision: number;
+  readonly createdAt: Timestamp;
+  readonly updatedAt: Timestamp;
+}
+
+/** What one stage holds in deals. */
+export interface StageForecast {
+  readonly stage: string;
+  readonly count: number;
+  /** What the deals in it are worth together. */
+  readonly value: number;
+  /** That worth times the stage's chance, rounded to whole units. */
+  readonly weighted: number;
+}
+
+/** Where the deals stand: what is open, what it is likely to bring, and what was won and lost. */
+export interface Forecast {
+  readonly currency: string;
+  readonly stages: readonly StageForecast[];
+  /** The worth of every deal in an open stage. */
+  readonly open: number;
+  /** The worth of the open deals, each counted by its stage's chance. */
+  readonly weighted: number;
+  readonly won: number;
+  readonly lost: number;
 }
 
 /** Someone on the team, as far as assigning work to them needs. */

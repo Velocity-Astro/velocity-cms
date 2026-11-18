@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ConflictError } from '../errors.js';
-import type { Contact, ContactNote, ContentTypeDef, Entry, FormDef, MediaFile, Pipeline, Submission } from '../model.js';
-import type { ContactRepository, PipelineStore, EntryRepository, FormRepository, SubmissionRepository, MediaRepository, MediaStore, PluginStore, SchemaRepository, SearchDocument, SearchIndex } from '../ports.js';
+import type { Contact, ContactNote, ContentTypeDef, Entry, FormDef, MediaFile, Deal, Pipeline, Submission } from '../model.js';
+import type { ContactRepository, DealRepository, PipelineStore, EntryRepository, FormRepository, SubmissionRepository, MediaRepository, MediaStore, PluginStore, SchemaRepository, SearchDocument, SearchIndex } from '../ports.js';
 
 /**
  * The contract tests for storage adapters.
@@ -687,13 +687,87 @@ const contact = (overrides: Partial<Contact> = {}): Contact => ({
 });
 const note = (overrides: Partial<ContactNote> = {}): ContactNote => ({ id: 'n1', contactId: 'c1', text: 'Called back.', createdBy: 'u1', createdAt: '2026-02-02T00:00:00.000Z', ...overrides });
 
+const deal = (overrides: Partial<Deal> = {}): Deal => ({
+  id: 'd1',
+  contactId: 'c1',
+  title: 'Sale of 18 Alder Court',
+  value: 450000,
+  stage: 'new',
+  revision: 1,
+  createdAt: '2026-02-01T00:00:00.000Z',
+  updatedAt: '2026-02-01T00:00:00.000Z',
+  ...overrides,
+});
+
+/** Run this against every `DealRepository` adapter. */
+export function dealRepositoryContract(name: string, create: () => Promise<DealRepository>): void {
+  describe(`${name}: DealRepository contract`, () => {
+    let repository: DealRepository;
+    beforeEach(async () => {
+      repository = await create();
+    });
+    const at = (day: number) => `2026-02-0${day}T00:00:00.000Z`;
+    const ids = async (query: Parameters<DealRepository['find']>[0]) => (await repository.find(query)).items.map((item) => item.id);
+
+    it('gives back a deal exactly as it was saved, with or without what is optional, and null for one that is not there', async () => {
+      const full = deal({ id: 'd2', ownerId: 'u1', closeOn: '2026-03-14', closedAt: at(3), stage: 'won' });
+      await repository.save(deal(), null);
+      await repository.save(full, null);
+      expect(await repository.get('d1')).toEqual(deal());
+      expect(Object.keys((await repository.get('d1')) ?? {}).sort()).toEqual(['contactId', 'createdAt', 'id', 'revision', 'stage', 'title', 'updatedAt', 'value']);
+      expect(await repository.get('d2')).toEqual(full);
+      expect(await repository.get('nothing')).toBeNull();
+    });
+
+    it('refuses a save from an old revision and a change to one that is not there', async () => {
+      await repository.save(deal(), null);
+      await expect(repository.save(deal({ revision: 2 }), null)).rejects.toBeInstanceOf(ConflictError);
+      await expect(repository.save(deal({ id: 'd9', revision: 2 }), 1)).rejects.toBeInstanceOf(ConflictError);
+      await repository.save(deal({ value: 460000, revision: 2 }), 1);
+      await expect(repository.save(deal({ revision: 2 }), 1)).rejects.toBeInstanceOf(ConflictError);
+      expect((await repository.get('d1'))?.value).toBe(460000);
+    });
+
+    it('lists the newest first, by contact, stage and who looks after them, and totals each stage', async () => {
+      await repository.save(deal({ id: 'd1', createdAt: at(1), ownerId: 'u1' }), null);
+      await repository.save(deal({ id: 'd2', createdAt: at(2), contactId: 'c2', stage: 'won', value: 1000 }), null);
+      await repository.save(deal({ id: 'd3b', createdAt: at(3), value: 50000 }), null);
+      await repository.save(deal({ id: 'd3a', createdAt: at(3), contactId: 'c2', ownerId: 'u1', value: 0 }), null);
+      expect(await ids({})).toEqual(['d3a', 'd3b', 'd2', 'd1']);
+      expect(await ids({ contactId: 'c1' })).toEqual(['d3b', 'd1']);
+      expect(await ids({ stage: 'won' })).toEqual(['d2']);
+      expect(await ids({ ownerId: 'u1' })).toEqual(['d3a', 'd1']);
+      expect(await ids({ ownerId: null })).toEqual(['d3b', 'd2']);
+      const page = await repository.find({ limit: 2, offset: 1 });
+      expect(page.items.map((item) => item.id)).toEqual(['d3b', 'd2']);
+      expect(page.total).toBe(4);
+      const totals = (await repository.totals()).sort((a, b) => a.stage.localeCompare(b.stage));
+      expect(totals).toEqual([{ stage: 'new', count: 3, value: 500000 }, { stage: 'won', count: 1, value: 1000 }]);
+    });
+
+    it('moves a whole stage, removes one deal, and removes every deal of a contact', async () => {
+      await repository.save(deal({ id: 'd1' }), null);
+      await repository.save(deal({ id: 'd2', stage: 'contacted' }), null);
+      await repository.save(deal({ id: 'd3', contactId: 'c2', stage: 'contacted' }), null);
+      expect(await repository.moveStage('contacted', 'new')).toBe(2);
+      expect((await repository.find({ stage: 'new' })).total).toBe(3);
+      await repository.remove('d2');
+      await repository.remove('nothing');
+      expect(await repository.removeOfContact('c1')).toBe(1);
+      expect(await repository.removeOfContact('c1')).toBe(0);
+      expect(await ids({})).toEqual(['d3']);
+      expect(await repository.totals()).toEqual([{ stage: 'new', count: 1, value: 450000 }]);
+    });
+  });
+}
+
 /** Run this against every `PipelineStore` adapter. */
 export function pipelineStoreContract(name: string, create: () => Promise<PipelineStore>): void {
   describe(`${name}: PipelineStore contract`, () => {
     it('answers null until a pipeline is saved, gives it back as saved, and refuses a save from an old revision', async () => {
       const store = await create();
       expect(await store.get()).toBeNull();
-      const first: Pipeline = { stages: [{ id: 'new', kind: 'open' }, { id: 's1', label: 'Viewing booked', kind: 'open' }, { id: 'won', kind: 'won' }], revision: 1 };
+      const first: Pipeline = { stages: [{ id: 'new', kind: 'open', chance: 10 }, { id: 's1', label: 'Viewing booked', kind: 'open' }, { id: 'won', kind: 'won' }], currency: 'EUR', assignTo: ['u1', 'u2'], revision: 1 };
       await expect(store.save(first, 1)).rejects.toBeInstanceOf(ConflictError);
       expect(await store.save(first, null)).toEqual(first);
       expect(await store.get()).toEqual(first);

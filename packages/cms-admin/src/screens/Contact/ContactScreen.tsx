@@ -15,6 +15,7 @@ import { useClosing } from '../../lib/use-closing.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 import { useSourceOf } from '../Contacts/contact-source.js';
 import { answerText } from '../Form/form-fields.js';
+import { ContactDeals } from './ContactDeals.js';
 import { ContactWork } from './ContactWork.js';
 
 const NO_PROBLEMS: Readonly<Record<string, string>> = {};
@@ -126,7 +127,10 @@ function ContactPage({ contact }: { readonly contact: Contact }) {
             </Stack>
           }
         >
-          <Timeline contact={contact} />
+          <Stack gap={6}>
+            <ContactDeals contact={contact} />
+            <Timeline contact={contact} />
+          </Stack>
         </Split>
       </Stack>
       {isEditing && <EditContactDialog contact={contact} onClose={() => setEditing(false)} />}

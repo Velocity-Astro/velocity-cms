@@ -160,6 +160,25 @@ export const contacts = sqliteTable(
   ],
 );
 
+/** What contacts may buy. As personal as its contact: read only through the deal service. */
+export const deals = sqliteTable(
+  'deals',
+  {
+    id: text('id').primaryKey(),
+    contactId: text('contact_id').notNull(),
+    title: text('title').notNull(),
+    value: integer('value').notNull(),
+    stage: text('stage').notNull(),
+    ownerId: text('owner_id'),
+    closeOn: text('close_on'),
+    closedAt: text('closed_at'),
+    revision: integer('revision').notNull(),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [index('deals_contact').on(table.contactId), index('deals_stage').on(table.stage, table.createdAt)],
+);
+
 /**
  * Small things a site keeps one of, each stored whole as JSON under its name: the pipeline's
  * stages today. `revision` is repeated beside it for the check a save makes.

@@ -1,9 +1,12 @@
 import { ConflictError } from '../errors.js';
-import type { Contact, ContactNote, Pipeline, ContentTypeDef, Entry, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus } from '../model.js';
+import type { Contact, ContactNote, Deal, Pipeline, ContentTypeDef, Entry, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus } from '../model.js';
 import type {
   Clock,
   ContactQuery,
   ContactRepository,
+  DealQuery,
+  DealRepository,
+  StageTotal,
   PipelineStore,
   EntryQuery,
   EntryRepository,
@@ -349,6 +352,58 @@ export class InMemoryPluginStore implements PluginStore {
 }
 
 /** Keeps contacts and their notes in memory. */
+export class InMemoryDealRepository implements DealRepository {
+  readonly #deals = new Map<string, Deal>();
+
+  async get(id: string): Promise<Deal | null> {
+    return this.#deals.get(id) ?? null;
+  }
+
+  async find(query: DealQuery = {}): Promise<Page<Deal>> {
+    const matches = [...this.#deals.values()]
+      .filter((deal) => query.contactId === undefined || deal.contactId === query.contactId)
+      .filter((deal) => query.stage === undefined || deal.stage === query.stage)
+      .filter((deal) => query.ownerId === undefined || (deal.ownerId ?? null) === query.ownerId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
+    const offset = query.offset ?? 0;
+    return { items: matches.slice(offset, offset + (query.limit ?? 50)), total: matches.length };
+  }
+
+  async totals(): Promise<StageTotal[]> {
+    const totals = new Map<string, StageTotal>();
+    for (const deal of this.#deals.values()) {
+      const so = totals.get(deal.stage) ?? { stage: deal.stage, count: 0, value: 0 };
+      totals.set(deal.stage, { stage: deal.stage, count: so.count + 1, value: so.value + deal.value });
+    }
+    return [...totals.values()];
+  }
+
+  async save(deal: Deal, expectedRevision: number | null): Promise<Deal> {
+    const current = this.#deals.get(deal.id);
+    if ((current?.revision ?? null) !== expectedRevision) {
+      throw new ConflictError(current ? 'This deal was saved by someone else. Reload it and try again.' : `Deal "${deal.id}" is not there to change.`);
+    }
+    this.#deals.set(deal.id, deal);
+    return deal;
+  }
+
+  async moveStage(from: string, to: string): Promise<number> {
+    const moving = [...this.#deals.values()].filter((deal) => deal.stage === from);
+    for (const deal of moving) this.#deals.set(deal.id, { ...deal, stage: to });
+    return moving.length;
+  }
+
+  async remove(id: string): Promise<void> {
+    this.#deals.delete(id);
+  }
+
+  async removeOfContact(contactId: string): Promise<number> {
+    const going = [...this.#deals.values()].filter((deal) => deal.contactId === contactId);
+    for (const deal of going) this.#deals.delete(deal.id);
+    return going.length;
+  }
+}
+
 export class InMemoryPipelineStore implements PipelineStore {
   #pipeline: Pipeline | null = null;
 

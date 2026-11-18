@@ -1,5 +1,6 @@
 import type { RouteObject } from 'react-router';
 import { ContactScreen } from '../screens/Contact/ContactScreen.js';
+import { DealsScreen } from '../screens/Deals/DealsScreen.js';
 import { ContactsScreen } from '../screens/Contacts/ContactsScreen.js';
 import { ContentTypeScreen } from '../screens/ContentType/ContentTypeScreen.js';
 import { ContentTypesScreen } from '../screens/ContentTypes/ContentTypesScreen.js';
@@ -35,6 +36,7 @@ export function createRoutes(siteName: string): RouteObject[] {
             { path: 'forms/:formId', element: <FormScreen /> },
             { path: 'contacts', element: <ContactsScreen /> },
             { path: 'contacts/:contactId', element: <ContactScreen /> },
+            { path: 'deals', element: <DealsScreen /> },
             { path: 'plugins', element: <PluginsScreen /> },
             { path: 'plugins/:pluginName/:screenId', element: <PluginScreenScreen /> },
             { path: 'types', element: <ContentTypesScreen /> },
