@@ -44,6 +44,16 @@ for (const story of stories) {
     if (story.tags?.includes('overlay')) await page.waitForSelector('[role=dialog], [role=alertdialog], [role=listbox], [role=menu], [role=tooltip]', { timeout: 10_000 }).catch(() => {
       throw new Error(`${story.title} / ${story.name} (${theme}) is tagged overlay, but nothing opened.`);
     });
+    // Colours on their way from one theme to the other, or a part still fading in, are not what
+    // people read: wait for whatever is moving to arrive (a spinner that never ends is left alone).
+    await page.evaluate(() =>
+      Promise.all(
+        document
+          .getAnimations()
+          .filter((animation) => Number.isFinite(animation.effect?.getComputedTiming().endTime))
+          .map((animation) => animation.finished.catch(() => undefined)),
+      ),
+    );
     await page.addScriptTag({ content: axeSource });
     const violations = await page.evaluate(async () => {
       // The whole page, because dialogs and lists are drawn outside the story's own element.
