@@ -68,6 +68,7 @@ export type {
   ImageLibrary,
   MediaRepository,
   MediaStore,
+  PluginStore,
   SaveOptions,
   SchemaRepository,
   SearchDocument,
@@ -81,12 +82,18 @@ export { PREVIEW_PARAMETER, PreviewLinks } from './preview.js';
 export { pageAddress, urlPatternFor, type AddressedVersion } from './page-address.js';
 export { PreviewService, type PreviewLink, type PreviewServiceOptions } from './services/preview-service.js';
 export { Registry, UnknownTypeError } from './registry.js';
+export { PublishChecks, type PublishCheck, type PublishCheckInput } from './checks.js';
 export {
   PLUGIN_API_VERSION,
   PLUGIN_PERMISSIONS,
   PluginHost,
+  PluginFailedError,
   definePlugin,
   type PluginContext,
+  type PluginRequest,
+  type PluginRouteHandler,
+  type PluginRouteMethod,
+  type PluginSettings,
   type PluginDefinition,
   type PluginFault,
   type PluginInfo,

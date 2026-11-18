@@ -1,4 +1,4 @@
-import type { PluginInfo, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, LocalizedText, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
+import type { PluginSettings, PluginInfo, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, LocalizedText, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
@@ -169,6 +169,12 @@ export interface AdminClient {
   addPasskey(name: string): Promise<void>;
   /** The plugins the site named in its config, running or not, by name. Owners only. */
   listPlugins(): Promise<readonly PluginInfo[]>;
+  /** Switches a plugin on or off, for the whole site. Owners only. */
+  setPluginEnabled(name: string, enabled: boolean): Promise<PluginInfo>;
+  /** A plugin's settings: the fields to draw, and what is set, by field id. Owners only. */
+  getPluginSettings(name: string): Promise<PluginSettings>;
+  /** Saves a plugin's settings. Refused, with the settings to look at, when one is not filled in correctly. */
+  savePluginSettings(name: string, values: EntryData): Promise<PluginSettings>;
   /** The signed-in person's own passkeys, oldest first. */
   listPasskeys(): Promise<readonly Passkey[]>;
   /** Removes one of the signed-in person's own passkeys. That device then signs in with a link. */

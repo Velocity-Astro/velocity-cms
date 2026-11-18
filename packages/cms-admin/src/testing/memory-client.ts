@@ -13,7 +13,9 @@ import {
   type Entry,
   type NewUpload,
   type Page,
+  type EntryData,
   type PluginInfo,
+  type PluginSettings,
   type PreviewLink,
   type Role,
   type SiteImage,
@@ -270,6 +272,18 @@ export class MemoryAdminClient implements AdminClient {
 
   listPlugins(): Promise<readonly PluginInfo[]> {
     return this.#request(async (actor) => this.#cms.plugins.list(actor));
+  }
+
+  setPluginEnabled(name: string, enabled: boolean): Promise<PluginInfo> {
+    return this.#request((actor) => this.#cms.plugins.setEnabled(actor, name, enabled));
+  }
+
+  getPluginSettings(name: string): Promise<PluginSettings> {
+    return this.#request((actor) => this.#cms.plugins.settings(actor, name));
+  }
+
+  savePluginSettings(name: string, values: EntryData): Promise<PluginSettings> {
+    return this.#request((actor) => this.#cms.plugins.saveSettings(actor, name, values));
   }
 
   listPasskeys(): Promise<readonly Passkey[]> {

@@ -1,5 +1,5 @@
 import { MutationCache, QueryCache, QueryClient, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ContentTypeChanges, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, NewUpload, Role } from '@velocity/cms-core';
+import type { ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, NewUpload, Role } from '@velocity/cms-core';
 import type { EntryChanges, EntryListQuery, ImageList, NewEntry, NewPerson, NewType, NewTypeField } from './admin-client.js';
 import { AdminRequestError } from './errors.js';
 import { useClient } from './client-context.js';
@@ -17,6 +17,7 @@ const keys = {
   people: ['people'] as const,
   passkeys: ['passkeys'] as const,
   plugins: ['plugins'] as const,
+  pluginSettings: (name: string) => ['plugins', name, 'settings'] as const,
   /** Every list of entries starts with this, so one call marks them all out of date. */
   entryLists: ['entries'] as const,
   entries: (query: EntryListQuery) => ['entries', query] as const,
@@ -289,6 +290,30 @@ export function useRemovePerson() {
 export function usePlugins() {
   const client = useClient();
   return useQuery({ queryKey: keys.plugins, queryFn: () => client.listPlugins() });
+}
+
+export function useSetPluginEnabled() {
+  const client = useClient();
+  const cache = useQueryClient();
+  return useMutation({
+    mutationFn: ({ name, enabled }: { name: string; enabled: boolean }) => client.setPluginEnabled(name, enabled),
+    // A plugin switched on can bring field types and checks with it, so what was read before may be out of date.
+    onSuccess: () => void cache.invalidateQueries(),
+  });
+}
+
+export function usePluginSettings(name: string) {
+  const client = useClient();
+  return useQuery({ queryKey: keys.pluginSettings(name), queryFn: () => client.getPluginSettings(name) });
+}
+
+export function useSavePluginSettings(name: string) {
+  const client = useClient();
+  const cache = useQueryClient();
+  return useMutation({
+    mutationFn: (values: EntryData) => client.savePluginSettings(name, values),
+    onSuccess: (saved) => cache.setQueryData(keys.pluginSettings(name), saved),
+  });
 }
 
 /** The signed-in person's own passkeys. Asked for only while their window is open. */

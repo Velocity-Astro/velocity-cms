@@ -75,3 +75,19 @@ export const media = sqliteTable(
   },
   (table) => [uniqueIndex('media_key').on(table.key)],
 );
+
+/**
+ * Small values kept per plugin: its settings, whether it is switched on, and what it stores
+ * itself. `value` is JSON as text, written and read by the store, so `null` and `false` are
+ * values like any other.
+ */
+export const pluginData = sqliteTable(
+  'plugin_data',
+  {
+    plugin: text('plugin').notNull(),
+    key: text('key').notNull(),
+    value: text('value').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.plugin, table.key] })],
+);

@@ -120,6 +120,19 @@ export interface ImageLibrary {
   list(): Promise<readonly SiteImage[]>;
 }
 
+/**
+ * Small values kept per plugin: its settings, whether it is switched on, and whatever it chooses
+ * to keep itself. One plugin can never read another's: every call names whose value it is.
+ */
+export interface PluginStore {
+  /** The value as it was set, or `undefined` when nothing is there. */
+  get(plugin: string, key: string): Promise<unknown>;
+  /** Sets a value, replacing what was there. Anything JSON can hold. */
+  set(plugin: string, key: string, value: unknown): Promise<void>;
+  /** Takes a value away. A key nothing is under is ignored. */
+  remove(plugin: string, key: string): Promise<void>;
+}
+
 /** The records of uploaded images. */
 export interface MediaRepository {
   /** Every upload, ordered by name. */

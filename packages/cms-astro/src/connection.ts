@@ -1,5 +1,5 @@
 import { createCms, type Actor, type Cms, type SearchIndex } from '@velocity/cms-core';
-import { openDatabase, SqliteEntryRepository, SqliteMediaRepository, SqliteSchemaRepository, SqliteSearchIndex, type Db } from '@velocity/cms-db';
+import { openDatabase, SqliteEntryRepository, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Db } from '@velocity/cms-db';
 import { mediaStoreFromEnv } from './media-store.js';
 import { siteSecret } from './secret.js';
 import { sitePlugins } from './site-plugins.js';
@@ -40,6 +40,7 @@ export async function connect(options: ConnectionOptions): Promise<Connection> {
     // A secret too short to sign with is the editor's to report, not a reason to read no content.
     ...(secret !== undefined && secret.length >= 32 && { previews: { secret } }),
     ...(store && { media: { storage: { files: new SqliteMediaRepository(database.db), store } } }),
+    pluginStore: new SqlitePluginStore(database.db),
     onPluginFault: (plugin, error) => console.error(`[velocity-cms] The plugin "${plugin}" failed.`, error),
   });
   return { cms, search: new SqliteSearchIndex(database.db), db: database.db, close: () => database.close() };

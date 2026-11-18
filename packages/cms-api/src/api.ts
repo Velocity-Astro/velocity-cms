@@ -37,6 +37,9 @@ type Handler = (call: Call) => Promise<Response>;
 
 /** What an upload may say it is. What it really is, the media service reads from the file. */
 const IMAGE_TYPES: ReadonlySet<string> = new Set(['image/jpeg', 'image/png', 'image/webp']);
+/** A plugin's own address: its name, then at least one more part. */
+const PLUGIN_ADDRESS = /^\/plugins\/([^/]+)\/(.+)$/;
+const PLUGIN_METHODS: ReadonlySet<string> = new Set(['GET', 'POST', 'PUT', 'DELETE']);
 const contentTypeOf = (request: Request): string => (request.headers.get('content-type') ?? '').split(';')[0]?.trim().toLowerCase() ?? '';
 
 const entryList = z.object({
@@ -48,6 +51,9 @@ const entryList = z.object({
 const data = z.record(z.string(), z.unknown());
 const newEntry = z.strictObject({ type: z.string().min(1), locale: z.string().min(1).optional(), slug: z.string(), data });
 const entryChanges = z.strictObject({ slug: z.string(), data, expectedRevision: z.number().int().positive() });
+const pluginSwitch = z.strictObject({ enabled: z.boolean() });
+// What each setting may hold is the plugin's fields' to say, in the service.
+const pluginValues = z.strictObject({ values: z.record(z.string(), z.unknown()) });
 const newPerson = z.strictObject({ email: z.string(), name: z.string(), role: z.string() });
 const roleChange = z.strictObject({ role: z.string() });
 const words = z.record(z.string(), z.string());
@@ -119,7 +125,18 @@ export class CmsApi {
         const body = parse(typeChanges, await this.#body(call.request));
         return json(await schema.update(who, param(call, 'id'), given<ContentTypeChanges>(body)));
       })
-      .add('GET', '/plugins', async (call) => json({ items: plugins.list(actor(call)) }))
+      .add('GET', '/plugins', async (call) => json({ items: await plugins.list(actor(call)) }))
+      .add('PATCH', '/plugins/:name', async (call) => {
+        const who = actor(call);
+        const { enabled } = parse(pluginSwitch, await this.#body(call.request));
+        return json(await plugins.setEnabled(who, param(call, 'name'), enabled));
+      })
+      .add('GET', '/plugin-settings/:name', async (call) => json(await plugins.settings(actor(call), param(call, 'name'))))
+      .add('PUT', '/plugin-settings/:name', async (call) => {
+        const who = actor(call);
+        const { values } = parse(pluginValues, await this.#body(call.request));
+        return json(await plugins.saveSettings(who, param(call, 'name'), values));
+      })
       .add('GET', '/content-types/archived', async (call) => json({ items: await schema.listArchived(actor(call)) }))
       .add('DELETE', '/content-types/:id', async (call) => json(await schema.archive(actor(call), param(call, 'id'))))
       .add('POST', '/content-types/:id/restore', async (call) => json(await schema.restore(actor(call), param(call, 'id'))))
@@ -222,6 +239,9 @@ export class CmsApi {
     try {
       const url = new URL(request.url);
       const inside = url.pathname === this.#basePath || url.pathname.startsWith(`${this.#basePath}/`);
+      // A plugin's own addresses: `/plugins/<name>/<whatever it added>`. Which there are is the plugin's to say.
+      const own = inside ? PLUGIN_ADDRESS.exec(url.pathname.slice(this.#basePath.length)) : null;
+      if (own) return await this.#plugin(request, url, decodeURIComponent(own[1] ?? ''), `/${own[2] ?? ''}`);
       const match = inside ? this.#router.match(request.method, url.pathname.slice(this.#basePath.length)) : { kind: 'none' as const };
       if (match.kind === 'none') throw new ApiError(404, 'not_found', 'There is nothing at this address.');
       if (match.kind === 'wrong-method') {
@@ -235,6 +255,19 @@ export class CmsApi {
       return errorResponse(error);
     }
   };
+
+  /** Hands a request to a plugin, under the rules every address here keeps: a session, and a change only from the site's own pages. */
+  async #plugin(request: Request, url: URL, name: string, path: string): Promise<Response> {
+    if (!PLUGIN_METHODS.has(request.method)) {
+      throw new ApiError(405, 'method_not_allowed', `This address does not take ${request.method}.`, { allow: [...PLUGIN_METHODS].join(', ') });
+    }
+    if (request.method !== 'GET') this.#requireOwnPage(request, url, JSON_ONLY);
+    const session = await this.#options.authenticator.authenticate(request);
+    const who = actor({ request, url, params: {}, session });
+    const body = request.method === 'GET' ? undefined : await this.#body(request);
+    const answer = await this.#options.cms.plugins.call(who, name, request.method, path, { query: Object.fromEntries(url.searchParams), body });
+    return json(answer === undefined ? {} : answer);
+  }
 
   /**
    * Takes one image: the file is the request's body, and `?name=` says what it was called on the

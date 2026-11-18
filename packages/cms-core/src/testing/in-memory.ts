@@ -7,6 +7,7 @@ import type {
   IdGenerator,
   ImageLibrary,
   MediaRepository,
+  PluginStore,
   MediaStore,
   SaveOptions,
   SchemaRepository,
@@ -230,3 +231,21 @@ export const tinyPng = (width = 4, height = 3): Uint8Array<ArrayBuffer> =>
 /** The start of a JPEG of the given size. For tests. */
 export const tinyJpeg = (width = 4, height = 3): Uint8Array<ArrayBuffer> =>
   bytesOf([0xff, 0xd8, 0xff, 0xe0], be(16, 2), 'JFIF', new Array<number>(10).fill(0), [0xff, 0xc0], be(17, 2), [8], be(height, 2), be(width, 2), new Array<number>(12).fill(0));
+
+export class InMemoryPluginStore implements PluginStore {
+  readonly #values = new Map<string, string>();
+
+  async get(plugin: string, key: string): Promise<unknown> {
+    const stored = this.#values.get(JSON.stringify([plugin, key]));
+    return stored === undefined ? undefined : (JSON.parse(stored) as unknown);
+  }
+
+  async set(plugin: string, key: string, value: unknown): Promise<void> {
+    // Kept as text, as a database would keep it, so nobody holds a value they can change in place.
+    this.#values.set(JSON.stringify([plugin, key]), JSON.stringify(value));
+  }
+
+  async remove(plugin: string, key: string): Promise<void> {
+    this.#values.delete(JSON.stringify([plugin, key]));
+  }
+}

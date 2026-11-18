@@ -1,4 +1,4 @@
-import { NotFoundError, createCms, type Actor, type Cms, type ContentTypeDef, type FieldDef, type Entry } from '@velocity/cms-core';
+import { NotFoundError, createCms, definePlugin, type Actor, type Cms, type ContentTypeDef, type FieldDef, type Entry } from '@velocity/cms-core';
 import {
   FakeClock,
   InMemoryEntryRepository,
@@ -404,5 +404,75 @@ describe('people', () => {
   it('has nothing under /people on a site that brings no people service', async () => {
     api = new CmsApi({ cms, authenticator });
     expect((await call('GET', '/people')).status).toBe(404);
+  });
+});
+
+describe('plugins', () => {
+  const seo = definePlugin({
+    name: 'seo',
+    apiVersion: 1,
+    label: { en: 'SEO' },
+    settings: [{ key: 'titleSuffix', type: 'text', label: { en: 'Title ending' }, required: true }],
+    setup(plugin) {
+      plugin.routes.add('GET', '/report/:slug', async ({ params, query }) => ({ slug: params['slug'], suffix: (await plugin.settings.get())['titleSuffix'], full: query['full'] === 'yes' }));
+      plugin.routes.add('POST', '/notes', ({ body }) => plugin.store.set('note', body), { requires: 'entry:publish' });
+      plugin.routes.add('GET', '/broken', () => {
+        throw new Error('The database password is hunter2.');
+      });
+    },
+  });
+
+  beforeEach(async () => {
+    await cms.plugins.load([seo]);
+    authenticator.session = as('owner');
+  });
+
+  it('lists them, switches one off and on, and saves its settings, for owners', async () => {
+    expect((await call('GET', '/plugins')).body['items']).toMatchObject([{ name: 'seo', status: 'on', hasSettings: true }]);
+    expect((await call('PATCH', '/plugins/seo', { enabled: false })).body).toMatchObject({ name: 'seo', status: 'off' });
+    expect((await call('PATCH', '/plugins/seo', { enabled: true })).body).toMatchObject({ status: 'on' });
+
+    const settings = (await call('GET', '/plugin-settings/seo')).body as unknown as { fields: { id: string; key: string }[] };
+    const suffix = settings.fields[0]?.id ?? '';
+    const refused = await call('PUT', '/plugin-settings/seo', { values: {} });
+    expect([refused.status, refused.body.error?.issues]).toEqual([422, [{ path: ['titleSuffix'], message: 'Fill this in.' }]]);
+    expect((await call('PUT', '/plugin-settings/seo', { values: { [suffix]: ' | Lakeshore' } })).body['values']).toEqual({ [suffix]: ' | Lakeshore' });
+
+    authenticator.session = as('editor');
+    expect((await call('GET', '/plugins')).status).toBe(403);
+    expect((await call('PATCH', '/plugins/seo', { enabled: false })).status).toBe(403);
+    expect((await call('GET', '/plugin-settings/seo')).status).toBe(403);
+    authenticator.session = as('owner');
+    expect((await call('PATCH', '/plugins/seo', { enabled: 'yes' })).status).toBe(400);
+    expect((await call('PATCH', '/plugins/nothing', { enabled: true })).status).toBe(404);
+  });
+
+  it('hands a request at a plugin\'s own address to the plugin, as the person who asked', async () => {
+    authenticator.session = as('author');
+    expect((await call('GET', '/plugins/seo/report/lakeshore-farmhouse?full=yes')).body).toEqual({ slug: 'lakeshore-farmhouse', full: true });
+    // What the address requires is asked of the person, whoever wrote the plugin.
+    expect((await call('POST', '/plugins/seo/notes', { text: 'hello' })).status).toBe(403);
+    authenticator.session = as('editor');
+    expect((await call('POST', '/plugins/seo/notes', { text: 'hello' })).status).toBe(200);
+    expect((await call('GET', '/plugins/seo/nowhere')).status).toBe(404);
+    expect((await call('GET', '/plugins/missing/report/x')).status).toBe(404);
+    expect((await call('PATCH', '/plugins/seo/notes', {})).status).toBe(405);
+  });
+
+  it('keeps a plugin\'s addresses under the rules every address has', async () => {
+    authenticator.session = null;
+    expect((await call('GET', '/plugins/seo/report/x')).status).toBe(401);
+    authenticator.session = as('editor');
+    expect((await call('POST', '/plugins/seo/notes', { text: 'x' }, { origin: 'https://evil.test' })).status).toBe(403);
+    expect((await call('POST', '/plugins/seo/notes', 'text=x', { 'content-type': 'application/x-www-form-urlencoded' })).status).toBe(415);
+    expect((await send('GET', '/plugins/seo/report/x')).headers.get('cache-control')).toBe('no-store');
+  });
+
+  it('says nothing of what broke inside a plugin, and notes it for the owner', async () => {
+    const broken = await call('GET', '/plugins/seo/broken');
+    expect(broken.status).toBe(502);
+    expect(JSON.stringify(broken.body)).not.toContain('hunter2');
+    expect(broken.body.error?.message).toBe('The plugin "seo" could not answer. An owner can see what went wrong under Plugins.');
+    expect((await call('GET', '/plugins')).body['items']).toMatchObject([{ faults: 1 }]);
   });
 });

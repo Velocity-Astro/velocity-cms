@@ -22,7 +22,22 @@ const client = new MemoryAdminClient({
   showUploads: true,
   plugins: [
     { name: 'publish-log', apiVersion: 1, label: { en: 'Publish log' }, description: { en: "Notes every publish in the server's log." }, version: '1.0.0', setup: () => undefined },
-    { name: 'seo', apiVersion: 1, label: { en: 'SEO' }, description: { en: 'Titles, descriptions and a check before publishing.' }, version: '0.1.0', permissions: ['entry:read'], setup: () => { throw new Error('SEO_API_KEY is not set.'); } },
+    {
+      name: 'seo',
+      apiVersion: 1,
+      label: { en: 'SEO' },
+      description: { en: 'Titles, descriptions and a check before publishing.' },
+      version: '0.1.0',
+      permissions: ['entry:read'],
+      enabledByDefault: false,
+      settings: [
+        { key: 'titleSuffix', type: 'text', label: { en: 'Title ending' }, help: { en: 'Added to every page title, such as " | Lakeshore Realty".' }, required: true },
+        { key: 'maxLength', type: 'number', label: { en: 'Longest description' }, help: { en: 'In characters. Search engines cut longer ones short.' } },
+        { key: 'requireDescription', type: 'boolean', label: { en: 'Require a description before publishing' } },
+      ],
+      setup: () => undefined,
+    },
+    { name: 'redirects', apiVersion: 1, label: { en: 'Redirects' }, description: { en: 'Send old addresses to new pages.' }, version: '0.1.0', permissions: ['entry:read', 'entry:write'], enabledByDefault: false, setup: () => undefined },
     { name: 'forms', apiVersion: 2, label: { en: 'Forms' }, setup: () => undefined },
   ],
   contentTypes: sampleContentTypes,
