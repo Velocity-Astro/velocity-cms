@@ -53,7 +53,7 @@ describe('starting plugins', () => {
       }),
     ]);
     expect(await cms.plugins.list(owner)).toEqual([
-      { name: 'ratings', label: { en: 'Ratings' }, description: { en: 'Stars for reviews.' }, version: '1.2.0', permissions: [], status: 'on', hasSettings: false, hasEditor: false, adds: { fieldTypes: ['rating'], checks: 0, events: [] }, faults: 0 },
+      { name: 'ratings', label: { en: 'Ratings' }, description: { en: 'Stars for reviews.' }, version: '1.2.0', permissions: [], status: 'on', hasSettings: false, hasEditor: false, adds: { fieldTypes: ['rating'], checks: 0, pageHead: false, events: [] }, faults: 0 },
     ]);
     const reviews = await cms.schema.create(owner, { key: 'reviews', kind: 'collection', label: { en: 'Reviews' }, fields: [{ key: 'stars', type: 'rating', label: { en: 'Stars' } }] });
     expect(reviews.fields[0]?.type).toBe('rating');
@@ -365,5 +365,56 @@ describe('what a plugin adds to the editor', () => {
     expect(await cms.plugins.setEnabled(owner, 'seo', false)).toMatchObject({ adds: { fieldTypes: [], checks: 0, events: [] } });
     // Switched on again, it is counted once, not twice.
     expect(await cms.plugins.setEnabled(owner, 'seo', true)).toMatchObject({ adds: { fieldTypes: ['rating'], checks: 2, events: ['entry.published'] } });
+  });
+});
+
+describe('what a plugin adds to the site\'s pages', () => {
+  const page = { path: '/listings/oak-lane/', locale: 'en' };
+
+  it('changes what a page says about itself, each rule seeing what the one before left', async () => {
+    await cms.plugins.load([
+      definePlugin({ name: 'first', apiVersion: 1, label: { en: 'First' }, setup: (plugin) => void plugin.pages.head((_page, head) => ({ title: `${head.title ?? ''} for sale`, noindex: true })) }),
+      definePlugin({ name: 'second', apiVersion: 1, label: { en: 'Second' }, setup: (plugin) => void plugin.pages.head((_page, head) => ({ fullTitle: `${head.title ?? ''} | Lakeshore` })) }),
+    ]);
+    expect(await cms.pages.run(page, { title: 'Oak Lane', description: 'A house.' })).toEqual({ title: 'Oak Lane for sale', fullTitle: 'Oak Lane for sale | Lakeshore', description: 'A house.', noindex: true });
+    expect((await cms.plugins.list(owner))[0]).toMatchObject({ adds: { pageHead: true } });
+  });
+
+  it('takes only plain text and a yes or no from a rule, so nothing it answers becomes markup or breaks a line', async () => {
+    const answer = { title: ' Two\nlines ', description: 42, noindex: 'yes', fullTitle: '', script: '<script>' };
+    await cms.plugins.load([definePlugin({ name: 'odd', apiVersion: 1, label: { en: 'Odd' }, setup: (plugin) => void plugin.pages.head(() => answer as never) })]);
+    expect(await cms.pages.run(page, { description: 'Kept.' })).toEqual({ title: 'Two lines', description: 'Kept.' });
+  });
+
+  it('draws the page without a rule that fails, or one whose plugin is switched off', async () => {
+    await cms.plugins.load([
+      definePlugin({
+        name: 'broken',
+        apiVersion: 1,
+        label: { en: 'Broken' },
+        setup: (plugin) =>
+          void plugin.pages.head(() => {
+            throw new Error('No API key.');
+          }),
+      }),
+      definePlugin({ name: 'titles', apiVersion: 1, label: { en: 'Titles' }, setup: (plugin) => void plugin.pages.head(() => ({ title: 'Changed' })) }),
+    ]);
+    expect(await cms.pages.run(page, { title: 'Oak Lane' })).toEqual({ title: 'Changed' });
+    expect((await cms.plugins.list(owner))[0]).toMatchObject({ name: 'broken', faults: 1, lastFault: { where: 'page head', message: 'No API key.' } });
+    await cms.plugins.setEnabled(owner, 'titles', false);
+    expect(await cms.pages.run(page, { title: 'Oak Lane' })).toEqual({ title: 'Oak Lane' });
+  });
+
+  it('lists a plugin\'s own values under a prefix, and tells the site when pages changed', async () => {
+    const heard: string[] = [];
+    cms.events.on('pages.changed', ({ plugin }) => void heard.push(plugin));
+    let context: PluginContext | undefined;
+    await cms.plugins.load([definePlugin({ name: 'seo', apiVersion: 1, label: { en: 'SEO' }, setup: (plugin) => void (context = plugin) })]);
+    await context?.store.set('written:e1', { title: 'One' });
+    await context?.store.set('written:e2', { title: 'Two' });
+    await context?.store.set('other', true);
+    expect(await context?.store.list('written:')).toEqual({ 'written:e1': { title: 'One' }, 'written:e2': { title: 'Two' } });
+    await context?.pages.changed();
+    expect(heard).toEqual(['seo']);
   });
 });

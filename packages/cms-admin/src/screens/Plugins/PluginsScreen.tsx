@@ -63,6 +63,7 @@ export function PluginsScreen() {
       ...extensions.panels.filter((panel) => panel.plugin === plugin.name).map((panel) => messages.plugins.addsPanel(panel.title)),
       ...(plugin.adds.fieldTypes.length > 0 ? [messages.plugins.addsFieldTypes(plugin.adds.fieldTypes.length)] : []),
       ...(plugin.adds.checks > 0 ? [messages.plugins.addsChecks(plugin.adds.checks)] : []),
+      ...(plugin.adds.pageHead ? [messages.plugins.addsPageHead] : []),
       ...(plugin.adds.events.length > 0 ? [messages.plugins.addsEvents(plugin.adds.events.map((event) => messages.plugins.events[event] ?? event))] : []),
     ];
     const editorProblem = extensions.problems.get(plugin.name);

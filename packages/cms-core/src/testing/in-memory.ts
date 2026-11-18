@@ -248,4 +248,12 @@ export class InMemoryPluginStore implements PluginStore {
   async remove(plugin: string, key: string): Promise<void> {
     this.#values.delete(JSON.stringify([plugin, key]));
   }
+
+  async list(plugin: string, prefix: string): Promise<[string, unknown][]> {
+    return [...this.#values]
+      .map(([at, value]) => [JSON.parse(at) as [string, string], value] as const)
+      .filter(([[owner, key]]) => owner === plugin && key.startsWith(prefix))
+      .map(([[, key], value]): [string, unknown] => [key, JSON.parse(value) as unknown])
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  }
 }

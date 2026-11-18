@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import type { PluginStore } from '@velocity/cms-core';
 import type { Db } from './database.js';
 import { pluginData } from './tables.js';
@@ -21,6 +21,16 @@ export class SqlitePluginStore implements PluginStore {
 
   async remove(plugin: string, key: string): Promise<void> {
     await this.db.delete(pluginData).where(this.#at(plugin, key));
+  }
+
+  async list(plugin: string, prefix: string): Promise<[string, unknown][]> {
+    // Compared as text from the start, not with LIKE: a prefix may hold `%` or `_`.
+    const rows = await this.db
+      .select({ key: pluginData.key, value: pluginData.value })
+      .from(pluginData)
+      .where(and(eq(pluginData.plugin, plugin), sql`substr(${pluginData.key}, 1, ${prefix.length}) = ${prefix}`))
+      .orderBy(asc(pluginData.key));
+    return rows.map((row) => [row.key, JSON.parse(row.value) as unknown]);
   }
 
   #at(plugin: string, key: string) {

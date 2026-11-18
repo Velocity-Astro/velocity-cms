@@ -83,6 +83,7 @@ export { pageAddress, urlPatternFor, type AddressedVersion } from './page-addres
 export { PreviewService, type PreviewLink, type PreviewServiceOptions } from './services/preview-service.js';
 export { Registry, UnknownTypeError } from './registry.js';
 export { PublishChecks, type PublishCheck, type PublishCheckInput } from './checks.js';
+export { PageHeads, type PageHead, type PageHeadRule, type PageInfo } from './pages.js';
 export {
   PLUGIN_API_VERSION,
   PLUGIN_PERMISSIONS,

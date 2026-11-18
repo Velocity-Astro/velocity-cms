@@ -1,5 +1,5 @@
-import { definePlugin, liveFields, type ContentTypeDef, type Entry, type PluginContext } from '@velocity/cms-core';
-import { analyse, type SeoConfig } from './analyse.js';
+import { ValidationError, definePlugin, liveFields, type ContentTypeDef, type Entry, type PluginContext } from '@velocity/cms-core';
+import { analyse, type SeoConfig, type SeoOverrides } from './analyse.js';
 import { seoEditor, type SeoFinding } from './editor.js';
 
 /** What search engines show before they cut a title or a description short, near enough. */
@@ -11,6 +11,32 @@ const DESCRIPTION_KEYS = ['description', 'summary', 'excerpt', 'intro'];
 const REVIEWED_PER_TYPE = 500;
 
 const textOf = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
+
+/** Where what was written for one entry is kept in the plugin's store. */
+const WRITTEN = 'written:';
+const LONGEST_TITLE = 200;
+const LONGEST_DESCRIPTION = 500;
+
+/** What is kept for an entry, read back with nothing taken on trust. */
+function writtenOf(stored: unknown): SeoOverrides {
+  if (typeof stored !== 'object' || stored === null) return {};
+  const { title, description, hidden } = stored as Record<string, unknown>;
+  return { ...(textOf(title) !== '' && { title: textOf(title) }), ...(textOf(description) !== '' && { description: textOf(description) }), ...(hidden === true && { hidden: true }) };
+}
+
+/** Checks what the editor sent for an entry, and says which part is wrong. */
+function checked(body: unknown): SeoOverrides {
+  const given = typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {};
+  const issues = [
+    ...(given['title'] !== undefined && typeof given['title'] !== 'string' ? [{ path: ['title'], message: 'The search title must be text.' }] : []),
+    ...(textOf(given['title']).length > LONGEST_TITLE ? [{ path: ['title'], message: `The search title can be at most ${LONGEST_TITLE} characters.` }] : []),
+    ...(given['description'] !== undefined && typeof given['description'] !== 'string' ? [{ path: ['description'], message: 'The search description must be text.' }] : []),
+    ...(textOf(given['description']).length > LONGEST_DESCRIPTION ? [{ path: ['description'], message: `The search description can be at most ${LONGEST_DESCRIPTION} characters.` }] : []),
+    ...(given['hidden'] !== undefined && typeof given['hidden'] !== 'boolean' ? [{ path: ['hidden'], message: 'Hiding from search engines is a yes or a no.' }] : []),
+  ];
+  if (issues.length > 0) throw new ValidationError(`This could not be saved: ${issues[0]?.message ?? ''}`, issues);
+  return writtenOf(given);
+}
 
 /** The owner's settings, with what the plugin goes by where one is left empty. */
 async function configOf(cms: PluginContext): Promise<SeoConfig> {
@@ -42,13 +68,18 @@ export const seo = definePlugin({
   name: 'seo',
   apiVersion: 1,
   label: { en: 'SEO' },
-  description: { en: 'A search preview beside every entry, a review of titles and descriptions, and a check before publishing.' },
-  version: '1.0.0',
+  description: { en: 'Titles and descriptions for search engines: write them per entry with a live preview, review the whole site, and check before publishing.' },
+  version: '1.1.0',
   permissions: ['entry:read'],
   // It comes with the CMS, so it waits for an owner to activate it.
   enabledByDefault: false,
   settings: [
-    { key: 'titleSuffix', type: 'text', label: { en: 'Title ending' }, help: { en: 'Added to every page title in the preview, such as " | Lakeshore Realty". Leave empty for none.' } },
+    {
+      key: 'titleSuffix',
+      type: 'text',
+      label: { en: 'Title ending' },
+      help: { en: 'Put after the title of every entry\'s page in place of the site\'s own ending, such as " | Lakeshore Realty". Leave empty to keep the site\'s.' },
+    },
     {
       key: 'descriptionField',
       type: 'text',
@@ -69,21 +100,60 @@ export const seo = definePlugin({
       const field = config.descriptionKeys.map((key) => fields.find((candidate) => candidate.key === key && candidate.type === 'text')).find((candidate) => candidate !== undefined);
       // A type with no description field has nothing to fill in.
       if (!field || textOf(entry.data[field.key]) !== '') return [];
+      // One written for search engines counts.
+      if (writtenOf(await cms.store.get(`${WRITTEN}${entry.id}`)).description !== undefined) return [];
       return [{ path: [field.key], message: 'Write a description before publishing. Search engines show it under the page\'s title.' }];
     });
 
     cms.routes.add('GET', '/config', () => configOf(cms));
 
+    // What the page of an entry says about itself: what was written for it here, and the
+    // owner's title ending. A page that is not an entry's own is left as the template made it.
+    cms.pages.head(async ({ entry }, head) => {
+      if (!entry) return undefined;
+      const written = writtenOf(await cms.store.get(`${WRITTEN}${entry.id}`));
+      const { titleSuffix } = await configOf(cms);
+      const title = written.title ?? head.title;
+      return {
+        ...(written.title !== undefined && { title: written.title }),
+        ...(titleSuffix !== '' && title !== undefined && { fullTitle: `${title}${titleSuffix}` }),
+        ...(written.description !== undefined && { description: written.description }),
+        ...(written.hidden === true && { noindex: true }),
+      };
+    });
+
+    cms.routes.add('GET', '/entries/:id', async ({ actor, params }) => {
+      // Asked as the person, so what is written for an entry is shown only to someone who may open it.
+      const entry = await cms.content.get(actor, params['id'] ?? '');
+      return writtenOf(await cms.store.get(`${WRITTEN}${entry.id}`));
+    });
+
+    // It shows on the live page at once, with no draft, so it takes someone who may publish.
+    cms.routes.add(
+      'PUT',
+      '/entries/:id',
+      async ({ actor, params, body }) => {
+        const entry = await cms.content.get(actor, params['id'] ?? '');
+        const written = checked(body);
+        if (Object.keys(written).length === 0) await cms.store.remove(`${WRITTEN}${entry.id}`);
+        else await cms.store.set(`${WRITTEN}${entry.id}`, written);
+        await cms.pages.changed();
+        return written;
+      },
+      { requires: 'entry:publish' },
+    );
+
     // Read as the person who asked, so nobody is shown an entry they could not open.
     cms.routes.add('GET', '/review', async ({ actor }) => {
       const config = await configOf(cms);
       const items: SeoFinding[] = [];
+      const written = await cms.store.list(WRITTEN);
       let checked = 0;
       for (const type of await cms.schema.list()) {
         const { items: entries } = await cms.content.find(actor, { typeId: type.id, order: 'updated', limit: REVIEWED_PER_TYPE });
         for (const entry of entries) {
           checked += 1;
-          const { problems } = analyse(type, entry.data, config);
+          const { problems } = analyse(type, entry.data, config, writtenOf(written[`${WRITTEN}${entry.id}`]));
           if (problems.length > 0) items.push({ id: entry.id, typeKey: type.key, typeLabel: type.label['en'] ?? type.key, name: nameOf(type, entry), status: entry.status, problems });
         }
       }

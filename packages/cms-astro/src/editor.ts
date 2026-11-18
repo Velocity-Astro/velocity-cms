@@ -110,6 +110,11 @@ export class EditorHost {
         if (offset + page.items.length >= page.total || page.items.length === 0) break;
       }
     };
+    // A plugin changed what pages say about themselves: the copies the site kept are stale.
+    cms.events.on('pages.changed', () => {
+      invalidateLiveContent();
+      this.#published = true;
+    });
     cms.events.on('type.archived', shown);
     cms.events.on('type.restored', shown);
   }

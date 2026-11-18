@@ -131,6 +131,8 @@ export interface PluginStore {
   set(plugin: string, key: string, value: unknown): Promise<void>;
   /** Takes a value away. A key nothing is under is ignored. */
   remove(plugin: string, key: string): Promise<void>;
+  /** One plugin's values whose key starts with `prefix`, as key and value, ordered by key. */
+  list(plugin: string, prefix: string): Promise<[string, unknown][]>;
 }
 
 /** The records of uploaded images. */
