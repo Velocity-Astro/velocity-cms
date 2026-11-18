@@ -505,7 +505,7 @@ export class PluginHost {
       const stored = await this.#parts.store.get(name, FIELDS);
       const previous = Array.isArray(stored) ? (stored as FieldDef[]) : [];
       const keys = new Set(described.map((field) => field.key));
-      const fields = defineFields(described, previous, { fields: this.#parts.fields, ids: this.#parts.ids }).filter((field) => keys.has(field.key));
+      const fields = defineFields(described, previous, { fields: this.#parts.fields, ids: this.#parts.ids, now: this.#parts.clock.now() }).filter((field) => keys.has(field.key));
       if (JSON.stringify(fields) !== JSON.stringify(previous)) await this.#parts.store.set(name, FIELDS, fields);
       held.fields = fields;
     } catch (error) {

@@ -5,6 +5,9 @@ import type { FieldDef } from '../model.js';
 import { Registry } from '../registry.js';
 import { fromPlainText, richTextHtml, richTextParagraphs, richTextSchema, type RichText } from '../rich-text.js';
 import { buildFieldsSchema, toPublicData } from '../schema-builder.js';
+import { BlocksField } from './blocks.js';
+
+export { BlocksField, defineBlock, type NewBlock } from './blocks.js';
 
 const noOptions = z.object({});
 type NoOptions = z.infer<typeof noOptions>;
@@ -250,5 +253,6 @@ export function createFieldRegistry(): Registry<FieldType> {
     .register(new ImageField())
     .register(new RichTextField())
     .register(new GroupField())
-    .register(new ListField());
+    .register(new ListField())
+    .register(new BlocksField());
 }

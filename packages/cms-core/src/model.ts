@@ -89,6 +89,49 @@ export interface ListSummary {
   readonly fieldPaths?: readonly (readonly string[])[];
 }
 
+/**
+ * One kind of section a page can be built from, such as a feature grid: a named set of fields.
+ * The template describes it and has the component that draws it. It is stored in the settings
+ * of the `blocks` field that allows it.
+ */
+export interface BlockDef {
+  /** Permanent. A section says which block it is by this, so renaming a block never loses pages. */
+  readonly id: string;
+  /** The name the template's components are looked up by, e.g. `feature-grid`. */
+  readonly key: string;
+  readonly label: LocalizedText;
+  /** A line in the picker on what the block is for. */
+  readonly description?: LocalizedText;
+  /** A Lucide icon name, for the picker. */
+  readonly icon?: string;
+  /** What the picker files it under, such as `Content`. */
+  readonly group?: string;
+  readonly fields: readonly FieldDef[];
+  /**
+   * Set when the template stopped describing the block. Sections made from it are kept in every
+   * entry and left off the site, and describing it again brings them back.
+   */
+  readonly retiredAt?: Timestamp;
+}
+
+/** One section of a page as it is stored: which block, and that block's values by field id. */
+export interface BlockValue {
+  /** Permanent and unique in its field, so a section can be pointed at and followed through history. */
+  readonly id: string;
+  /** The id of its `BlockDef`. */
+  readonly block: string;
+  readonly data: EntryData;
+  /** True for a section kept in the entry but left off the site. */
+  readonly hidden?: true;
+}
+
+/** One section as the site reads it: the block's key, and its values by field key. */
+export interface PublicBlock {
+  readonly id: string;
+  readonly block: string;
+  readonly data: Readonly<Record<string, unknown>>;
+}
+
 export type EntryStatus = 'draft' | 'scheduled' | 'published';
 
 /** Field values keyed by field id. */

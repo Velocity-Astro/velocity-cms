@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { ValidationError, type ValidationIssue } from './errors.js';
 import type { FieldContext } from './field-type.js';
-import { liveFields, type EntryData, type FieldDef } from './model.js';
+import { liveFields, type BlockDef, type EntryData, type FieldDef } from './model.js';
 
 /**
  * The schema for a set of fields, keyed by field id.
@@ -58,7 +58,7 @@ export function validateData(
   if (result.success) return result.data;
 
   const issues: ValidationIssue[] = result.error.issues.map((issue) => ({
-    path: readablePath(fields, issue.path),
+    path: readablePath(fields, issue.path, data),
     // An empty required field is the commonest problem, and the schema's own words for it
     // ("expected string, received undefined") mean nothing to the person filling in the form.
     message: valueAt(data, issue.path) === undefined ? REQUIRED : issue.message,
@@ -83,21 +83,35 @@ function valueAt(data: unknown, path: readonly PropertyKey[]): unknown {
   return value;
 }
 
-/** Replaces field ids in an issue path with field keys, following groups and lists down. */
+/**
+ * Replaces field ids in an issue path with field keys, following groups, lists and the sections
+ * of a page down. A section's fields depend on which block it is, so the data is followed too.
+ */
 function readablePath(
   fields: readonly FieldDef[],
   path: readonly PropertyKey[],
+  data: unknown,
 ): (string | number)[] {
   const readable: (string | number)[] = [];
   let scope: readonly FieldDef[] = fields;
+  let blocks: readonly BlockDef[] | undefined;
+  let value = data;
   for (const segment of path) {
+    value = valueAt(value, [segment]);
     if (typeof segment === 'number') {
       readable.push(segment);
+      if (blocks) scope = blocks.find((block) => block.id === (value as { block?: unknown } | undefined)?.block)?.fields ?? [];
+      continue;
+    }
+    // Between a section and its values there is only `data`, which means nothing to a person.
+    if (blocks && segment === 'data') {
+      blocks = undefined;
       continue;
     }
     const field = scope.find((candidate) => candidate.id === segment);
     readable.push(field?.key ?? String(segment));
     scope = nestedFields(field);
+    blocks = nestedBlocks(field);
   }
   return readable;
 }
@@ -108,4 +122,10 @@ function nestedFields(field: FieldDef | undefined): readonly FieldDef[] {
   const options = field.options as { fields?: unknown; of?: { options?: { fields?: unknown } } };
   const candidate = options.fields ?? options.of?.options?.fields;
   return Array.isArray(candidate) ? (candidate as FieldDef[]) : [];
+}
+
+/** The blocks a field of sections allows. Nothing for any other field. */
+function nestedBlocks(field: FieldDef | undefined): readonly BlockDef[] | undefined {
+  const candidate = (field?.options as { blocks?: unknown } | undefined)?.blocks;
+  return Array.isArray(candidate) ? (candidate as BlockDef[]) : undefined;
 }
