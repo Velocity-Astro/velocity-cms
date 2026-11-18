@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { connect } from '../packages/cms-astro/dist/connection.js';
 import { convert } from '../prototypes/live-site/convert.mjs';
 import { OWNER, importRecords } from '../prototypes/publish-speed/lib.mjs';
-import { realEstateModel } from './real-estate-model.mjs';
+import { importedTypes, realEstateModel, samplePages } from './real-estate-model.mjs';
 
 const [projectArg] = process.argv.slice(2);
 if (!projectArg) throw new Error('Usage: prepare.mjs <assembled real-estate project>');
@@ -39,11 +39,18 @@ try {
   if (!isNew) {
     console.log('The database already has content: nothing imported.');
   } else {
-    for (const [name, type] of types) {
+    for (const name of importedTypes) {
+      const type = types.get(name);
       const records = JSON.parse(fs.readFileSync(at(`src/content/estate/${name}.json`), 'utf8'));
       await importRecords(connection.cms, type, records);
       console.log(`Imported ${records.length} ${name}.`);
     }
+  }
+  // Pages built in the editor have no file to come from. A site with none gets one to open.
+  const pages = types.get('pages');
+  if ((await connection.cms.content.find(OWNER, { typeId: pages.id, limit: 1 })).total === 0) {
+    await importRecords(connection.cms, pages, samplePages);
+    console.log(`Added ${samplePages.length} sample page${samplePages.length === 1 ? '' : 's'}.`);
   }
 } finally {
   connection.close();

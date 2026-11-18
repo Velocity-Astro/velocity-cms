@@ -65,6 +65,8 @@ export interface PageSources {
   readonly detail: Readonly<Record<string, PageModule>>;
   /** Translated pages, wherever the site keeps them. */
   readonly localized: Readonly<Record<string, PageModule>>;
+  /** The pages people made in the editor, which no file lists: `/our-story/`. */
+  readonly entries?: readonly string[];
   /** Addresses to leave out of the sitemap. */
   readonly unlisted?: readonly string[];
 }
@@ -88,6 +90,8 @@ export async function liveAddresses(sources: PageSources): Promise<LiveAddress[]
       paths.push(rest ? `/${lang}/${rest}/` : `/${lang}/`);
     }
   }
+  // A page the site builds from a file wins over an entry at the same address, as it does when drawn.
+  paths.push(...(sources.entries ?? []));
   const hidden = new Set(sources.unlisted ?? []);
   return [...new Set(paths)].sort().map((path) => ({ path, fixed: fixed.has(path), listed: !hidden.has(path) }));
 }

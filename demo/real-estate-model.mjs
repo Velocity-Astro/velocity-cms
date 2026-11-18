@@ -203,4 +203,122 @@ const reviews = {
   ],
 };
 
-export const realEstateModel = [listings, agents, neighborhoods, reviews];
+/**
+ * The blocks a page can be built from. Each has a component under the same key in the template
+ * (src/cms/blocks.ts), which draws it with the template's own parts. What a block looks like is
+ * a choice among a few named looks, never a free size or colour.
+ */
+const block = (key, label, { description, icon, group: under }, fields) => ({ key, label: en(label), description: en(description), icon, group: under, fields });
+const tone = (choices = { default: 'White', secondary: 'Warm stone' }) => choice('tone', 'Background', choices);
+const heading = [text('eyebrow', 'Small heading', { help: 'A word or two above the title.' }), text('title', 'Title')];
+const ICONS = {
+  check: 'Check', handshake: 'Handshake', map: 'Map', 'map-pin': 'Map pin', 'message-circle': 'Speech bubble', 'shield-check': 'Shield', home: 'Home', key: 'Key',
+  'calendar-check': 'Calendar', 'badge-dollar-sign': 'Price', 'trending-up': 'Rising line', users: 'People', star: 'Star', clock: 'Clock', phone: 'Phone', 'file-text': 'Document',
+};
+const button = (prefix, label) => [
+  text(`${prefix}Label`, `${label} words`),
+  text(`${prefix}Link`, `${label} link`, { help: 'A page of this site, such as /contact/, or a full address starting with https://.' }),
+];
+
+const pageBlocks = [
+  block('page-hero', 'Page opening', { description: 'The page\'s heading, a line under it and a photo beside it.', icon: 'layout-template', group: 'Opening' }, [
+    text('eyebrow', 'Small heading', { help: 'A word or two above the title.' }),
+    text('title', 'Title', { required: true }),
+    long('lead', 'Lead', { help: 'One or two sentences under the title.' }),
+    choice('size', 'Size', { md: 'Standard', lg: 'Large' }),
+    choice('background', 'Background', { glow: 'Soft glow', grain: 'Paper grain', gradient: 'Gradient', plain: 'Plain' }),
+    image('photo', 'Photo', { help: 'Shown beside the title on wide screens.' }),
+    text('photoAlt', 'What the photo shows', { help: 'Read aloud to people who cannot see it.' }),
+  ]),
+  block('text', 'Text', { description: 'A heading with paragraphs, lists and links.', icon: 'text', group: 'Content' }, [
+    text('title', 'Title'),
+    rich('body', 'Text', { required: true }),
+    choice('layout', 'Layout', { beside: 'Title beside the text', stacked: 'Title above the text' }),
+    tone(),
+  ]),
+  block('image', 'Photo', { description: 'One photo across the page, with a line under it.', icon: 'image', group: 'Content' }, [
+    image('photo', 'Photo', { required: true }),
+    text('alt', 'What the photo shows', { help: 'Read aloud to people who cannot see it.' }),
+    text('caption', 'Caption'),
+    choice('shape', 'Shape', { wide: 'Wide', standard: 'Standard' }),
+  ]),
+  block('feature-grid', 'Points', { description: 'A few points side by side, each with an icon.', icon: 'layout-grid', group: 'Content' }, [
+    ...heading,
+    choice('columns', 'Across', { 2: 'Two', 3: 'Three', 4: 'Four' }),
+    tone(),
+    list('items', 'Points', group('item', 'Point', [choice('icon', 'Icon', ICONS), text('title', 'Name', { required: true }), long('text', 'A line about it')]), { required: true }),
+  ]),
+  block('feature-split', 'Photo and text', { description: 'A photo on one side and words with a button on the other.', icon: 'columns-2', group: 'Content' }, [
+    ...heading,
+    rich('body', 'Text'),
+    image('photo', 'Photo'),
+    text('photoAlt', 'What the photo shows', { help: 'Read aloud to people who cannot see it.' }),
+    choice('photoSide', 'Photo on the', { right: 'Right', left: 'Left' }),
+    tone(),
+    ...button('button', 'Button'),
+  ]),
+  block('stats', 'Figures', { description: 'A row of numbers, each with what it counts.', icon: 'hash', group: 'Proof' }, [
+    ...heading,
+    tone({ invert: 'Slate', secondary: 'Warm stone', default: 'White' }),
+    list('items', 'Figures', group('item', 'Figure', [text('value', 'Figure', { required: true, help: 'As it should read: 1,200 or 98%.' }), text('label', 'What it counts', { required: true })]), { required: true }),
+  ]),
+  block('questions', 'Questions', { description: 'Questions people ask, one answer open at a time.', icon: 'circle-help', group: 'Proof' }, [
+    ...heading,
+    tone(),
+    list('items', 'Questions', group('item', 'Question', [text('question', 'Question', { required: true }), long('answer', 'Answer', { required: true })]), { required: true }),
+  ]),
+  block('call-to-action', 'Call to action', { description: 'A closing line with one or two buttons over a photo.', icon: 'megaphone', group: 'Action' }, [
+    text('title', 'Title', { required: true }),
+    long('lead', 'Lead'),
+    image('photo', 'Photo'),
+    ...button('button', 'First button'),
+    ...button('second', 'Second button'),
+  ]),
+];
+
+const pages = {
+  key: 'pages',
+  urlPattern: '/[slug]',
+  localizedUrlPatterns: { es: '/es/[slug]' },
+  kind: 'collection',
+  label: { en: 'Pages', es: 'Páginas' },
+  titleField: 'title',
+  fields: [
+    text('title', 'Title', { required: true, help: 'The page\'s name in the browser tab and in search results.' }),
+    long('description', 'Description', { help: 'One or two sentences for search results and shared links.' }),
+    field('blocks')('body', 'Sections', { options: { blocks: pageBlocks } }),
+  ],
+  sections: [section('sections', 'Sections', ['body']), { ...section('page', 'About this page', ['title', 'description']), aside: true }],
+};
+
+export const realEstateModel = [listings, agents, neighborhoods, reviews, pages];
+
+/** The types whose content comes from the template's own JSON files. Pages start from `samplePages`. */
+export const importedTypes = ['listings', 'agents', 'neighborhoods', 'reviews'];
+
+/** A page to start from, so the editor has one to open: written the way the site would be handed it, by key. */
+export const samplePages = [
+  {
+    locale: 'en',
+    slug: 'why-list-with-us',
+    title: 'Why list with us',
+    description: 'What selling your home with Oakhaven looks like: local agents, honest pricing and a plan for every week on the market.',
+    body: [
+      { block: 'page-hero', data: { eyebrow: 'Selling', title: 'Why list with us', lead: 'A home sells once. We plan every week of it with you, from the first walk-through to the day you hand over the keys.', size: 'lg', background: 'glow', photo: 'home-farmhouse', photoAlt: 'A white farmhouse with a deep front porch' } },
+      { block: 'stats', data: { tone: 'invert', items: [{ value: '18 days', label: 'Median time on the market' }, { value: '101%', label: 'Of asking price, on average' }, { value: '640', label: 'Homes sold since 2012' }, { value: '4.9', label: 'Average review from sellers' }] } },
+      { block: 'feature-grid', data: { eyebrow: 'How we work', title: 'What you can count on', columns: '4', tone: 'secondary', items: [
+        { icon: 'badge-dollar-sign', title: 'A price you can defend', text: 'We show you every comparable sale and how we weighed it.' },
+        { icon: 'calendar-check', title: 'A plan for each week', text: 'Photos, launch, open houses and a review of the offers, on dates you agree to.' },
+        { icon: 'message-circle', title: 'An answer the same day', text: 'Your agent picks up, and tells you what every showing said.' },
+        { icon: 'shield-check', title: 'No surprises at closing', text: 'You see your net proceeds before you list, and again with every offer.' },
+      ] } },
+      { block: 'feature-split', data: { eyebrow: 'Before you list', title: 'We get the house ready with you', body: ['Most homes sell faster after a week of small work: paint, light, and a clear room or two. We walk the house with you, say what is worth doing, and bring the people who do it.', 'Then we photograph it in the right light, and it goes live on a Thursday, when buyers plan their weekend.'], photo: 'room-kitchen-white', photoAlt: 'A bright kitchen with white cabinets', photoSide: 'right', buttonLabel: 'Ask for a walk-through', buttonLink: '/contact/' } },
+      { block: 'questions', data: { title: 'What sellers ask first', items: [
+        { question: 'What does it cost to list?', answer: 'Our fee is a share of the sale price, agreed before you sign and paid at closing. There is nothing to pay up front.' },
+        { question: 'How long is the agreement?', answer: 'Ninety days. If we have not done what the plan says, you can end it sooner.' },
+        { question: 'Do I have to leave for showings?', answer: 'It helps. Buyers stay longer and say more when the owner is out, and we give you a day\'s notice.' },
+      ] } },
+      { block: 'call-to-action', data: { title: 'Find out what your home could sell for', lead: 'A free, written estimate from an agent who knows your street.', photo: 'home-modern', buttonLabel: 'Talk to an agent', buttonLink: '/contact/', secondLabel: 'See recent sales', secondLink: '/homes-for-sale/' } },
+    ],
+  },
+];

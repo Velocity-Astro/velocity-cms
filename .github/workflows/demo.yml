@@ -212,7 +212,7 @@ jobs:
       - name: Check the public pages answer
         run: |
           failed=0
-          for path in / /es/ /homes-for-sale/ /listings/lakeshore-farmhouse/ /agents/; do
+          for path in / /es/ /homes-for-sale/ /listings/lakeshore-farmhouse/ /agents/ /why-list-with-us/; do
             status=$(curl -sS -o body.html -D headers.txt -w '%{http_code}' "$SITE_URL$path" || echo 000)
             echo "$path -> $status ($(wc -c < body.html) bytes)"
             if [ "$status" != "200" ]; then

@@ -71,6 +71,14 @@ export function toStored(fields, object) {
 function convert(type, options, value) {
   if (type === 'group') return toStored(options.fields, value);
   if (type === 'list') return value.map((item) => convert(options.of.type, options.of.options ?? {}, item));
+  // The sections of a page: each names its block by key here, and by id once stored.
+  if (type === 'blocks') {
+    return value.map((section) => {
+      const block = options.blocks.find((candidate) => candidate.key === section.block);
+      if (!block) throw new Error(`No block "${section.block}".`);
+      return { id: section.id ?? randomUUID(), block: block.id, data: toStored(block.fields, section.data) };
+    });
+  }
   return value;
 }
 

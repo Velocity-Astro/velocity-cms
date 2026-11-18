@@ -1,0 +1,23 @@
+---
+/** Questions people ask, one answer open at a time. */
+import Band from '@/components/estate/Band.astro';
+import Faq from '@/components/premium/Faq.astro';
+
+interface Props {
+  eyebrow?: string;
+  title?: string;
+  tone?: 'default' | 'secondary';
+  items?: { question?: string; answer?: string }[];
+}
+
+const { eyebrow, title, tone = 'default', items = [] } = Astro.props;
+const asked = items.flatMap((item) => (item.question && item.answer ? [{ question: item.question, answer: item.answer }] : []));
+---
+
+{
+  asked.length > 0 && (
+    <Band tone={tone} eyebrow={eyebrow} title={title}>
+      <Faq items={asked} />
+    </Band>
+  )
+}

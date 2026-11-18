@@ -1,0 +1,21 @@
+---
+/** One photo across the page, with a line under it. */
+import Band from '@/components/estate/Band.astro';
+import MediaSlot from '@/components/patterns/MediaSlot.astro';
+
+interface Props {
+  photo?: string;
+  alt?: string;
+  caption?: string;
+  shape?: 'wide' | 'standard';
+}
+
+const { photo, alt = '', caption, shape = 'wide' } = Astro.props;
+---
+
+<Band width="wide" pad="sm">
+  <figure class="flex flex-col gap-3">
+    <MediaSlot photo={photo} alt={alt} ratio={shape === 'wide' ? '21/9' : '16/9'} sizes="80rem" class="overflow-hidden rounded-2xl" />
+    {caption && <figcaption class="text-foreground-secondary text-sm">{caption}</figcaption>}
+  </figure>
+</Band>

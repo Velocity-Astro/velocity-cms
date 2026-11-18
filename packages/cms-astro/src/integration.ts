@@ -32,6 +32,12 @@ export interface VelocityCmsOptions {
    * A plugin that cannot start is switched off and listed, with the reason, under Plugins in the editor.
    */
   readonly plugins?: readonly string[];
+  /**
+   * The content types whose entries are pages one route of the site draws, such as the pages
+   * people build in the editor: `['pages']`. Their addresses join the sitemap, search and share
+   * images, which otherwise know only the pages the site has files for.
+   */
+  readonly entryPages?: readonly string[];
 }
 
 /**
@@ -99,7 +105,7 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
                 load: (id: string) => {
                   if (id === `\0${OPTIONS}`) {
                     const editor = { site, siteName: options.siteName ?? 'Velocity CMS', adminPath: ADMIN_PATH };
-                    return `export default ${JSON.stringify({ unlisted: options.unlisted ?? [], clientDir, editor })};`;
+                    return `export default ${JSON.stringify({ unlisted: options.unlisted ?? [], entryPages: options.entryPages ?? [], clientDir, editor })};`;
                   }
                   if (id === `\0${MAILER}`) {
                     return options.mailer

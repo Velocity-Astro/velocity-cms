@@ -1,0 +1,19 @@
+---
+/**
+ * A page built in the editor: the site's frame around its sections.
+ */
+import Blocks from '@/components/cms/Blocks.astro';
+import PageLayout from '@/layouts/PageLayout.astro';
+import siteConfig from '@/config/site.config';
+import type { Section } from '@/cms/blocks';
+
+interface Props {
+  page: { title?: string; description?: string; body?: Section[] };
+}
+
+const { page } = Astro.props;
+---
+
+<PageLayout title={page.title} description={page.description ?? siteConfig.description}>
+  <Blocks sections={page.body} />
+</PageLayout>
