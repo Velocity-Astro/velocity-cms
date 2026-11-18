@@ -146,6 +146,32 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       await expect(client.removePerson('nobody')).rejects.toMatchObject({ code: 'not_found' });
     });
 
+    it('builds a content type: starts it, changes it, and adds, changes, orders, removes and restores fields', async () => {
+      const news = await client.createContentType({ key: 'news', kind: 'collection', label: { en: 'News' }, urlPattern: '/news/[slug]' });
+      expect(news).toMatchObject({ key: 'news', kind: 'collection', label: { en: 'News' }, urlPattern: '/news/[slug]', fields: [] });
+      expect(await client.updateContentType(news.id, { label: { en: 'Stories' }, urlPattern: null })).not.toHaveProperty('urlPattern');
+
+      await client.addField(news.id, { key: 'title', type: 'text', label: { en: 'Title' }, required: true });
+      const withBody = await client.addField(news.id, { key: 'body', type: 'richtext', label: { en: 'Body' } });
+      const [title, body] = withBody.fields.map((field) => field.id) as [string, string];
+      const changed = await client.changeField(news.id, title, { key: 'headline', help: { en: 'Keep it short.' }, options: { maxLength: 90 } });
+      expect(changed.fields[0]).toMatchObject({ id: title, key: 'headline', required: true, help: { en: 'Keep it short.' }, options: { maxLength: 90 } });
+      expect((await client.arrangeFields(news.id, { order: [body, title] })).fields.map((field) => field.key)).toEqual(['body', 'headline']);
+      expect((await client.removeField(news.id, body)).fields[0]?.deletedAt).toBeTypeOf('string');
+      expect((await client.restoreField(news.id, body)).fields[0]).not.toHaveProperty('deletedAt');
+      expect((await client.listContentTypes()).map((type) => type.key)).toEqual(['agents', 'listings', 'news']);
+    });
+
+    it('refuses a content type or a field that could not work, in words for the person', async () => {
+      await expect(client.createContentType({ key: 'listings', kind: 'collection', label: { en: 'Again' } })).rejects.toMatchObject({ code: 'conflict' });
+      await expect(client.createContentType({ key: 'My News', kind: 'collection', label: { en: 'News' } })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['key'] }] });
+      await expect(client.createContentType({ key: 'news', kind: 'collection', label: { en: ' ' } })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['label'] }] });
+      await expect(client.addField('type-agents', { key: 'name', type: 'text', label: { en: 'Name' } })).rejects.toMatchObject({ code: 'conflict' });
+      await expect(client.addField('type-agents', { key: 'age', type: 'number', label: { en: 'Age' }, options: { min: 'young' } })).rejects.toMatchObject({ code: 'validation_failed' });
+      await expect(client.changeField('type-agents', 'nothing', { required: true })).rejects.toMatchObject({ code: 'not_found' });
+      await expect(client.arrangeFields('type-agents', { order: [] })).rejects.toMatchObject({ code: 'validation_failed' });
+    });
+
     it('gives a link to a draft\'s page, and says why when its type has none', async () => {
       const link = await client.previewEntry('e2');
       expect(link.path).toMatch(/^\/listings\/18-alder-court\/\?preview=\d+\.[0-9a-f]{64}$/);

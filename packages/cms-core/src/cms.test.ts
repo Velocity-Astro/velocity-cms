@@ -518,3 +518,89 @@ describe('describing a content type again', () => {
     await expect(cms.schema.define(editor, agents)).rejects.toBeInstanceOf(ForbiddenError);
   });
 });
+
+describe('building a content type by hand', () => {
+  it('changes what a type is called and where its entries live, and nothing else', async () => {
+    const changed = await cms.schema.update(owner, listings.id, { label: { en: 'Homes' }, urlPattern: '/homes/[slug]' });
+    expect(changed).toMatchObject({ key: 'listings', label: { en: 'Homes' }, urlPattern: '/homes/[slug]' });
+    expect(changed.fields).toEqual(listings.fields);
+    expect(await cms.schema.update(owner, listings.id, { urlPattern: null })).not.toHaveProperty('urlPattern');
+    await expect(cms.schema.update(owner, listings.id, { label: { en: '  ' } })).rejects.toThrow('Give the content type a name.');
+    await expect(cms.schema.update(owner, listings.id, { urlPattern: 'https://elsewhere.test/[slug]' })).rejects.toBeInstanceOf(ValidationError);
+    await expect(cms.schema.update(editor, listings.id, { label: { en: 'Homes' } })).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it('refuses a second type with a key that is taken', async () => {
+    await expect(cms.schema.create(owner, { key: 'listings', kind: 'collection', label: { en: 'Again' } })).rejects.toThrow('already a content type with the key "listings"');
+  });
+
+  it('changes a field in place: its id and content stay, its settings are checked', async () => {
+    const headline = id(listings, 'headline');
+    const entry = await cms.content.create(editor, { typeId: listings.id, locale: 'en', slug: 'farmhouse', data: { [headline]: 'Restored farmhouse' } });
+    const changed = await cms.schema.changeField(owner, listings.id, headline, {
+      key: 'title',
+      label: { en: 'Title' },
+      help: { en: 'Shown at the top of the page.' },
+      required: false,
+      translated: false,
+      options: { maxLength: 120 },
+    });
+    expect(changed.fields[0]).toEqual({
+      id: headline,
+      key: 'title',
+      type: 'text',
+      label: { en: 'Title' },
+      help: { en: 'Shown at the top of the page.' },
+      translated: false,
+      required: false,
+      options: { maxLength: 120 },
+    });
+    expect(cms.content.toPublic(changed, entry, 'working').data).toMatchObject({ title: 'Restored farmhouse' });
+    expect((await cms.schema.changeField(owner, listings.id, headline, { help: null })).fields[0]).not.toHaveProperty('help');
+
+    await expect(cms.schema.changeField(owner, listings.id, headline, { options: { maxLength: -1 } })).rejects.toBeInstanceOf(ValidationError);
+    await expect(cms.schema.changeField(owner, listings.id, headline, { key: 'price' })).rejects.toBeInstanceOf(ConflictError);
+    await expect(cms.schema.changeField(owner, listings.id, headline, { label: {} })).rejects.toThrow('Give the field a name.');
+    await cms.schema.removeField(owner, listings.id, headline);
+    await expect(cms.schema.changeField(owner, listings.id, headline, { required: true })).rejects.toThrow('Restore it before changing it.');
+  });
+
+  it('puts fields in order, keeping removed ones, and refuses an order that leaves a field out', async () => {
+    const [headline, price, status, photos] = listings.fields.map((field) => field.id) as [string, string, string, string];
+    await cms.schema.removeField(owner, listings.id, status);
+    const arranged = await cms.schema.arrangeFields(owner, listings.id, { order: [photos, headline, price] });
+    expect(arranged.fields.map((field) => field.key)).toEqual(['photos', 'headline', 'price', 'status']);
+    await expect(cms.schema.arrangeFields(owner, listings.id, { order: [photos, headline] })).rejects.toBeInstanceOf(ValidationError);
+    await expect(cms.schema.arrangeFields(owner, listings.id, { order: [photos, headline, headline] })).rejects.toBeInstanceOf(ValidationError);
+    await expect(cms.schema.arrangeFields(owner, listings.id, { order: [photos, headline, status] })).rejects.toBeInstanceOf(ValidationError);
+    await expect(cms.schema.arrangeFields(editor, listings.id, { order: [photos, headline, price] })).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it('says which section shows which field, and adds a new field to a section', async () => {
+    const type = await cms.schema.define(owner, {
+      key: 'agents',
+      kind: 'collection',
+      label: { en: 'Agents' },
+      fields: [
+        { key: 'name', type: 'text', label: { en: 'Name' } },
+        { key: 'bio', type: 'text', label: { en: 'Bio' } },
+      ],
+      sections: [
+        { key: 'about', label: { en: 'About' }, fields: ['name', 'bio'] },
+        { key: 'contact', label: { en: 'Contact' }, fields: [], aside: true },
+      ],
+    });
+    const [name, bio] = type.fields.map((field) => field.id) as [string, string];
+    const withPhone = await cms.schema.addField(owner, type.id, { key: 'phone', type: 'text', label: { en: 'Phone' } }, 'contact');
+    const phone = id(withPhone, 'phone');
+    expect(withPhone.sections?.[1]).toMatchObject({ key: 'contact', fieldIds: [phone], aside: true });
+
+    const arranged = await cms.schema.arrangeFields(owner, type.id, { order: [bio, name, phone], sections: { about: [bio], contact: [phone, name] } });
+    expect(arranged.sections?.map((section) => section.fieldIds)).toEqual([[bio], [phone, name]]);
+    expect(arranged.sections?.[0]?.label).toEqual({ en: 'About' });
+
+    await expect(cms.schema.addField(owner, type.id, { key: 'email', type: 'text', label: { en: 'Email' } }, 'nowhere')).rejects.toBeInstanceOf(ValidationError);
+    await expect(cms.schema.arrangeFields(owner, type.id, { order: [bio, name, phone], sections: { about: [bio], contact: [bio] } })).rejects.toBeInstanceOf(ValidationError);
+    await expect(cms.schema.arrangeFields(owner, type.id, { order: [bio, name, phone], sections: { nowhere: [bio] } })).rejects.toBeInstanceOf(ValidationError);
+  });
+});

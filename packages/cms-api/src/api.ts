@@ -1,4 +1,4 @@
-import type { Cms, Role } from '@velocity/cms-core';
+import type { Cms, ContentTypeChanges, FieldChanges, NewField, Role } from '@velocity/cms-core';
 import { z } from 'zod';
 import type { ApiSession, Authenticator } from './authenticator.js';
 import { ApiError, errorResponse, isFault, json } from './http.js';
@@ -50,6 +50,30 @@ const newEntry = z.strictObject({ type: z.string().min(1), locale: z.string().mi
 const entryChanges = z.strictObject({ slug: z.string(), data, expectedRevision: z.number().int().positive() });
 const newPerson = z.strictObject({ email: z.string(), name: z.string(), role: z.string() });
 const roleChange = z.strictObject({ role: z.string() });
+const words = z.record(z.string(), z.string());
+const settings = z.record(z.string(), z.unknown());
+const newType = z.strictObject({ key: z.string(), kind: z.enum(['collection', 'single']), label: words, urlPattern: z.string().optional() });
+const typeChanges = z.strictObject({ label: words.optional(), urlPattern: z.string().nullable().optional() });
+const newField = z.strictObject({
+  key: z.string(),
+  type: z.string(),
+  label: words,
+  help: words.optional(),
+  translated: z.boolean().optional(),
+  required: z.boolean().optional(),
+  options: settings.optional(),
+  /** The key of the section that shows the field. */
+  section: z.string().optional(),
+});
+const fieldChanges = z.strictObject({
+  key: z.string().optional(),
+  label: words.optional(),
+  help: words.nullable().optional(),
+  required: z.boolean().optional(),
+  translated: z.boolean().optional(),
+  options: settings.optional(),
+});
+const arrangement = z.strictObject({ order: z.array(z.string()), sections: z.record(z.string(), z.array(z.string())).optional() });
 const publishRequest = z.strictObject({ expectedRevision: z.number().int().positive() });
 
 /**
@@ -76,6 +100,35 @@ export class CmsApi {
         actor(call);
         return json({ items: await schema.list() });
       })
+      .add('POST', '/content-types', async (call) => {
+        const who = actor(call);
+        const body = parse(newType, await this.#body(call.request));
+        return json(await schema.create(who, given(body)), 201);
+      })
+      .add('PATCH', '/content-types/:id', async (call) => {
+        const who = actor(call);
+        const body = parse(typeChanges, await this.#body(call.request));
+        return json(await schema.update(who, param(call, 'id'), given<ContentTypeChanges>(body)));
+      })
+      .add('POST', '/content-types/:id/fields', async (call) => {
+        const who = actor(call);
+        const { section, ...field } = parse(newField, await this.#body(call.request));
+        return json(await schema.addField(who, param(call, 'id'), given<NewField>(field), section), 201);
+      })
+      .add('PUT', '/content-types/:id/fields', async (call) => {
+        const who = actor(call);
+        const { order, sections } = parse(arrangement, await this.#body(call.request));
+        return json(await schema.arrangeFields(who, param(call, 'id'), { order, ...(sections !== undefined && { sections }) }));
+      })
+      .add('PATCH', '/content-types/:id/fields/:fieldId', async (call) => {
+        const who = actor(call);
+        const body = parse(fieldChanges, await this.#body(call.request));
+        return json(await schema.changeField(who, param(call, 'id'), param(call, 'fieldId'), given<FieldChanges>(body)));
+      })
+      .add('DELETE', '/content-types/:id/fields/:fieldId', async (call) => json(await schema.removeField(actor(call), param(call, 'id'), param(call, 'fieldId'))))
+      .add('POST', '/content-types/:id/fields/:fieldId/restore', async (call) =>
+        json(await schema.restoreField(actor(call), param(call, 'id'), param(call, 'fieldId'))),
+      )
       .add('GET', '/field-types', async (call) => {
         actor(call);
         return json({ items: fields.list().map(({ type, editor }) => ({ type, editor })) });
@@ -239,6 +292,11 @@ const JSON_ONLY: ReadonlySet<string> = new Set(['application/json']);
 function actor(call: Call) {
   if (!call.session) throw new ApiError(401, 'unauthenticated', 'Sign in to continue.');
   return call.session.actor;
+}
+
+/** What was sent without the properties that were left out, which a service reads as "not given". */
+function given<T>(body: object): T {
+  return Object.fromEntries(Object.entries(body).filter(([, value]) => value !== undefined)) as T;
 }
 
 function param(call: Call, name: string): string {

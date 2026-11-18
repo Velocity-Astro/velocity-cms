@@ -1,4 +1,4 @@
-import type { ContentTypeDef, Entry, EntryData, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
+import type { ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, LocalizedText, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
@@ -16,6 +16,21 @@ export interface NewPerson {
   readonly email: string;
   readonly name: string;
   readonly role: Role;
+}
+
+/** A content type as someone starts it: fields are added afterwards, one at a time. */
+export interface NewType {
+  /** The name code and addresses use, e.g. `testimonials`. It cannot be changed later. */
+  readonly key: string;
+  readonly kind: ContentTypeKind;
+  readonly label: LocalizedText;
+  /** Where its entries live on the site, e.g. `/news/[slug]`. Left out, it has no page of its own. */
+  readonly urlPattern?: string;
+}
+
+/** A field as someone adds it, and the section that shows it, by key. */
+export interface NewTypeField extends NewField {
+  readonly section?: string;
 }
 
 export interface EntryListQuery {
@@ -82,6 +97,20 @@ export interface AdminClient {
   signOut(): Promise<void>;
   /** Content types ordered by key. */
   listContentTypes(): Promise<readonly ContentTypeDef[]>;
+  /** Starts a content type with no fields. Owners only, like every change to a content type. */
+  createContentType(type: NewType): Promise<ContentTypeDef>;
+  /** Changes what a content type is called, or where its entries live. */
+  updateContentType(id: string, changes: ContentTypeChanges): Promise<ContentTypeDef>;
+  /** Adds a field to a content type. Refused when a field already has its key. */
+  addField(typeId: string, field: NewTypeField): Promise<ContentTypeDef>;
+  /** Changes a field in place. Its content stays. */
+  changeField(typeId: string, fieldId: string, changes: FieldChanges): Promise<ContentTypeDef>;
+  /** Hides a field from the editor and the site. Its content is kept, so it can be restored. */
+  removeField(typeId: string, fieldId: string): Promise<ContentTypeDef>;
+  /** Brings a removed field back, with its content. */
+  restoreField(typeId: string, fieldId: string): Promise<ContentTypeDef>;
+  /** Puts a type's fields in order, and says which section shows which. */
+  arrangeFields(typeId: string, arrangement: FieldArrangement): Promise<ContentTypeDef>;
   /** The working versions of a type's entries, newest first. */
   listEntries(query: EntryListQuery): Promise<Page<Entry>>;
   /** Every field type the site has, built in or from a plugin, with the control that edits it. */

@@ -1,4 +1,6 @@
 import type { RouteObject } from 'react-router';
+import { ContentTypeScreen } from '../screens/ContentType/ContentTypeScreen.js';
+import { ContentTypesScreen } from '../screens/ContentTypes/ContentTypesScreen.js';
 import { ContentListScreen } from '../screens/ContentList/ContentListScreen.js';
 import { EntryEditorScreen } from '../screens/EntryEditor/EntryEditorScreen.js';
 import { HomeScreen } from '../screens/Home/HomeScreen.js';
@@ -19,6 +21,8 @@ export function createRoutes(siteName: string): RouteObject[] {
           children: [
             { index: true, element: <HomeScreen siteName={siteName} /> },
             { path: 'people', element: <PeopleScreen /> },
+            { path: 'types', element: <ContentTypesScreen /> },
+            { path: 'types/:typeKey', element: <ContentTypeScreen /> },
             { path: 'content/:typeKey', element: <ContentListScreen /> },
             // A new entry has this address too, with `NEW_ENTRY` as its id, so saving it for the
             // first time changes the address without starting the screen again.

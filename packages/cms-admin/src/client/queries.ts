@@ -1,6 +1,6 @@
 import { MutationCache, QueryCache, QueryClient, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Entry, NewUpload, Role } from '@velocity/cms-core';
-import type { EntryChanges, EntryListQuery, ImageList, NewEntry, NewPerson } from './admin-client.js';
+import type { ContentTypeChanges, ContentTypeDef, Entry, FieldArrangement, FieldChanges, NewUpload, Role } from '@velocity/cms-core';
+import type { EntryChanges, EntryListQuery, ImageList, NewEntry, NewPerson, NewType, NewTypeField } from './admin-client.js';
 import { AdminRequestError } from './errors.js';
 import { useClient } from './client-context.js';
 
@@ -45,6 +45,66 @@ export function useSession() {
 export function useContentTypes() {
   const client = useClient();
   return useQuery({ queryKey: keys.contentTypes, queryFn: () => client.listContentTypes() });
+}
+
+/** What every change to a content type does afterwards: show the new version everywhere, without asking again. */
+function useTypeChanged() {
+  const cache = useQueryClient();
+  return (type: ContentTypeDef) => {
+    cache.setQueryData<readonly ContentTypeDef[]>(keys.contentTypes, (types) =>
+      types ? [...types.filter((existing) => existing.id !== type.id), type].sort((a, b) => a.key.localeCompare(b.key)) : types,
+    );
+    // A list of entries shows a type's fields as columns.
+    void cache.invalidateQueries({ queryKey: keys.entryLists });
+  };
+}
+
+export function useCreateContentType() {
+  const client = useClient();
+  return useMutation({ mutationFn: (type: NewType) => client.createContentType(type), onSuccess: useTypeChanged() });
+}
+
+export function useUpdateContentType() {
+  const client = useClient();
+  return useMutation({
+    mutationFn: ({ id, changes }: { id: string; changes: ContentTypeChanges }) => client.updateContentType(id, changes),
+    onSuccess: useTypeChanged(),
+  });
+}
+
+export function useAddField() {
+  const client = useClient();
+  return useMutation({ mutationFn: ({ typeId, field }: { typeId: string; field: NewTypeField }) => client.addField(typeId, field), onSuccess: useTypeChanged() });
+}
+
+/** Changes a field and, when `arrangement` says so, where it is shown: one action to the person. */
+export function useChangeField() {
+  const client = useClient();
+  return useMutation({
+    mutationFn: async ({ typeId, fieldId, changes, arrangement }: { typeId: string; fieldId: string; changes: FieldChanges; arrangement?: FieldArrangement }) => {
+      const changed = await client.changeField(typeId, fieldId, changes);
+      return arrangement ? client.arrangeFields(typeId, arrangement) : changed;
+    },
+    onSuccess: useTypeChanged(),
+  });
+}
+
+export function useRemoveField() {
+  const client = useClient();
+  return useMutation({ mutationFn: ({ typeId, fieldId }: { typeId: string; fieldId: string }) => client.removeField(typeId, fieldId), onSuccess: useTypeChanged() });
+}
+
+export function useRestoreField() {
+  const client = useClient();
+  return useMutation({ mutationFn: ({ typeId, fieldId }: { typeId: string; fieldId: string }) => client.restoreField(typeId, fieldId), onSuccess: useTypeChanged() });
+}
+
+export function useArrangeFields() {
+  const client = useClient();
+  return useMutation({
+    mutationFn: ({ typeId, arrangement }: { typeId: string; arrangement: FieldArrangement }) => client.arrangeFields(typeId, arrangement),
+    onSuccess: useTypeChanged(),
+  });
 }
 
 export function useEntries(query: EntryListQuery) {
