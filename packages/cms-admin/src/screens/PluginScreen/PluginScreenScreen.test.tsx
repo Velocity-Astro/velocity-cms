@@ -62,6 +62,9 @@ it('gives a plugin\'s screen a place in the sidebar, and lets it talk to its own
 
   await user.click(await screen.findByRole('link', { name: 'Counter' }));
   expect(await screen.findByRole('heading', { level: 1, name: 'Counter' })).toBeTruthy();
+  // Plugins have a section of their own in the menu, after the site's: their screens, then the way to manage them.
+  const links = within(screen.getByRole('navigation', { name: 'Main' })).getAllByRole('link').map((link) => link.textContent);
+  expect(links.slice(-4)).toEqual(['People', 'Counter', 'Broken screen', 'Manage plugins']);
   expect(screen.getByText('How many times the button was pressed.')).toBeTruthy();
   expect(await screen.findByText('Counted 0')).toBeTruthy();
 

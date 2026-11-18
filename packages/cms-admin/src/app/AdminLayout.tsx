@@ -60,6 +60,16 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
     };
   });
 
+  const pluginNav: AppShellNavItem[] = [
+    ...screens.map((screen) => {
+      const href = paths.pluginScreen(screen.plugin, screen.id);
+      return { id: `plugin:${screen.plugin}:${screen.id}`, label: screen.label, href, icon: Blocks, isCurrent: location.pathname === href };
+    }),
+    ...(session.data.role === 'owner'
+      ? [{ id: 'plugins', label: messages.app.plugins, href: paths.plugins, icon: Puzzle, isCurrent: location.pathname === paths.plugins }]
+      : []),
+  ];
+
   return (
     <>
       <AppShell
@@ -75,12 +85,7 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
             label: messages.app.siteGroup,
             items: [
               { id: 'media', label: messages.app.media, href: paths.media, icon: Images, isCurrent: location.pathname === paths.media },
-              // The screens plugins added, for everyone: what each may do there is the server's to say.
-              ...screens.map((screen) => {
-                const href = paths.pluginScreen(screen.plugin, screen.id);
-                return { id: `plugin:${screen.plugin}:${screen.id}`, label: screen.label, href, icon: Blocks, isCurrent: location.pathname === href };
-              }),
-              // Only owners manage people, plugins and content types, so only they are shown the way there.
+              // Only owners manage people and content types, so only they are shown the way there.
               ...(session.data.role === 'owner'
                 ? [
                     {
@@ -90,12 +95,15 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
                       icon: Shapes,
                       isCurrent: location.pathname === paths.types || location.pathname.startsWith(`${paths.types}/`),
                     },
-                    { id: 'plugins', label: messages.app.plugins, href: paths.plugins, icon: Puzzle, isCurrent: location.pathname === paths.plugins },
                     { id: 'people', label: messages.app.people, href: paths.people, icon: Users, isCurrent: location.pathname === paths.people },
                   ]
                 : []),
             ],
           },
+          // Plugins have a section of their own: the screens they added, for everyone (what each
+          // may do there is the server's to say), then the way to manage them, for owners. With
+          // neither, the section is left out.
+          ...(pluginNav.length > 0 ? [{ id: 'plugins', label: messages.app.pluginsGroup, items: pluginNav }] : []),
         ]}
         account={{
           name: session.data.name,
