@@ -260,6 +260,37 @@ describe('ContentService', () => {
     expect(() => cms.content.toPublic(listings, withdrawn)).toThrow(NotFoundError);
   });
 
+  describe('a copy', () => {
+    it('is a draft of its own with what the original holds now, under a free slug', async () => {
+      const draft = await cms.content.create(editor, { typeId: listings.id, locale: 'en', slug: 'a', data: valid() });
+      const live = await cms.content.publish(editor, draft.id);
+      const copy = await cms.content.duplicate(author, live.id);
+      expect(copy).toMatchObject({ typeId: listings.id, locale: 'en', slug: 'a-copy', status: 'draft', data: live.data, revision: 1 });
+      expect(copy).not.toHaveProperty('published');
+      // A page of its own, not a translation of the original.
+      expect(copy.translationGroup).toBe(copy.id);
+      expect(copy.id).not.toBe(live.id);
+      expect((await cms.content.duplicate(author, live.id)).slug).toBe('a-copy-2');
+      expect((await cms.content.duplicate(author, copy.id)).slug).toBe('a-copy-copy');
+      // The original is as it was.
+      expect(await cms.content.get(editor, live.id)).toEqual(live);
+    });
+
+    it('keeps a long slug within its length', async () => {
+      const long = await cms.content.create(editor, { typeId: listings.id, locale: 'en', slug: 'a'.repeat(200), data: valid() });
+      expect((await cms.content.duplicate(editor, long.id)).slug).toBe(`${'a'.repeat(195)}-copy`);
+    });
+
+    it('is refused for a single page and for an entry in the trash', async () => {
+      const about = await cms.schema.create(owner, { key: 'about', kind: 'single', label: { en: 'About' }, urlPattern: '/about' });
+      const page = await cms.content.create(editor, { typeId: about.id, locale: 'en', slug: 'about', data: {} });
+      await expect(cms.content.duplicate(editor, page.id)).rejects.toThrowError(/single page/);
+      const draft = await cms.content.create(editor, { typeId: listings.id, locale: 'en', slug: 'a', data: valid() });
+      await cms.content.trash(editor, draft.id);
+      await expect(cms.content.duplicate(editor, draft.id)).rejects.toThrowError(/in the trash/);
+    });
+  });
+
   describe('the trash', () => {
     const heard: string[] = [];
     const make = async (slug = 'a') => cms.content.create(editor, { typeId: listings.id, locale: 'en', slug, data: valid() });

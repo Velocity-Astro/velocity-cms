@@ -113,6 +113,8 @@ it('moves a contact to a stage, gives it to someone and sets a day to follow up,
   await user.click(await work.findByRole('button', { name: /Stage$/ }));
   await user.click(await screen.findByRole('option', { name: 'Qualified' }));
   expect(await screen.findByText('Moved to Qualified')).toBeTruthy();
+  // The move is on the timeline, with who made it.
+  expect(await screen.findByText('From New to Qualified, by Dana')).toBeTruthy();
   await waitFor(() => expect(work.getByRole('button', { name: /Looked after by$/ })).toHaveProperty('disabled', false));
   await user.click(work.getByRole('button', { name: /Looked after by$/ }));
   await user.click(await screen.findByRole('option', { name: 'Dana' }));

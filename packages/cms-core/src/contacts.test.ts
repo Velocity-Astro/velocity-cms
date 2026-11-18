@@ -232,6 +232,12 @@ describe('the pipeline', () => {
     ]);
     const renamed = await cms.contacts.update(editor, tom.id, { name: 'Tom', expectedRevision: 2 });
     expect(renamed).toMatchObject({ stage: 'contacted', ownerId: 'daniel', followUpAt: '2026-03-14' });
+    // The move is on the timeline with who made it; a change that moves nothing adds no record.
+    await cms.contacts.addNote(editor, tom.id, 'Called.');
+    expect((await cms.contacts.timeline(editor, tom.id)).filter((item) => item.kind === 'stage')).toEqual([{ kind: 'stage', at: moved.updatedAt, id: expect.any(String) as string, from: 'new', to: 'contacted', by: editor.id }]);
+    const file = JSON.parse(await cms.contacts.export(editor, tom.id)) as { notes: unknown[]; moves: unknown[] };
+    expect(file.notes).toHaveLength(1);
+    expect(file.moves).toEqual([{ at: moved.updatedAt, from: 'new', to: 'contacted' }]);
     const freed = await cms.contacts.update(editor, tom.id, { ownerId: null, followUpAt: null, expectedRevision: 3 });
     expect(freed).not.toHaveProperty('ownerId');
     expect(freed).not.toHaveProperty('followUpAt');

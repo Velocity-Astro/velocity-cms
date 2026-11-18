@@ -490,7 +490,12 @@ export interface ContactNote {
   readonly id: string;
   readonly contactId: string;
   readonly text: string;
-  /** The id of whoever wrote it. */
+  /**
+   * Set on a record the CMS keeps by itself when a contact moves to another stage: the ids of
+   * the stage it left and the one it reached. Such a record has no text.
+   */
+  readonly moved?: { readonly from: string; readonly to: string };
+  /** The id of whoever wrote it, or moved the contact. */
   readonly createdBy: string;
   readonly createdAt: Timestamp;
 }
@@ -502,7 +507,9 @@ export interface SubmissionAnswer {
   readonly value: unknown;
 }
 
-/** One thing that happened with a contact: a form they sent, or a note the team wrote. */
+/** One thing that happened with a contact: a form they sent, a note the team wrote, or a move to another stage. */
 export type TimelineItem =
   | { readonly kind: 'submission'; readonly at: Timestamp; readonly submission: Submission; readonly formLabel?: LocalizedText; readonly answers: readonly SubmissionAnswer[] }
-  | { readonly kind: 'note'; readonly at: Timestamp; readonly note: ContactNote };
+  | { readonly kind: 'note'; readonly at: Timestamp; readonly note: ContactNote }
+  /** The contact moved from one stage to another. `by` is the id of whoever moved it. */
+  | { readonly kind: 'stage'; readonly at: Timestamp; readonly id: string; readonly from: string; readonly to: string; readonly by: string };

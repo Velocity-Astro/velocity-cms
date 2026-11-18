@@ -901,6 +901,10 @@ export function contactRepositoryContract(name: string, create: () => Promise<Co
       await expect(repository.addNote(note())).rejects.toBeInstanceOf(ConflictError);
       expect((await repository.notes('c1')).map((item) => item.id)).toEqual(['n2', 'n1']);
       expect(await repository.notes('c1')).toContainEqual(note());
+      // The record of a move keeps the stage left and the stage reached; a note has neither.
+      const move = note({ id: 'n4', contactId: 'c2', text: '', moved: { from: 'new', to: 'won' }, createdAt: at(4) });
+      await repository.addNote(move);
+      expect(await repository.notes('c2')).toEqual([move, note({ id: 'n3', contactId: 'c2' })]);
       await repository.removeNote('c2', 'n1');
       expect(await repository.notes('c1')).toHaveLength(2);
       await repository.removeNote('c1', 'n1');

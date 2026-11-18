@@ -1,11 +1,11 @@
 import type { ContentTypeDef, Entry, EntryData, FieldDef } from '@velocity/cms-core';
 import { HOME_SLUG, SLUG_PATH, isSlug, isSlugPath, liveFields, takesSlugPath } from '@velocity/cms-core';
 import { Box, Button, Card, ConfirmDialog, Form, IconButton, Menu, SaveBar, Segmented, Split, Stack, Tag, Text, TextField, Workbench, toast } from '@velocity/cms-ui';
-import { Ellipsis, EyeOff, Trash2 } from 'lucide-react';
+import { Copy, Ellipsis, EyeOff, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { paths } from '../../app/paths.js';
 import { AdminRequestError } from '../../client/errors.js';
-import { useCreateEntry, useSession, usePreviewEntry, usePublishEntry, useTrashEntry, useUnpublishEntry, useUpdateEntry } from '../../client/queries.js';
+import { useCreateEntry, useDuplicateEntry, useSession, usePreviewEntry, usePublishEntry, useTrashEntry, useUnpublishEntry, useUpdateEntry } from '../../client/queries.js';
 import { FieldGrid, PageFocusProvider, useControlFor } from '../../fields/index.js';
 import { entryState, entryTitle, languageName, localized, sameData, withValue, type EntryState } from '../../lib/content.js';
 import { openPreviewTab } from '../../lib/preview-tab.js';
@@ -23,7 +23,7 @@ const STATE_TONE = { draft: 'neutral', scheduled: 'info', published: 'success', 
   string
 >;
 
-type Action = 'save' | 'publish' | 'unpublish' | 'preview' | 'trash';
+type Action = 'save' | 'publish' | 'unpublish' | 'preview' | 'trash' | 'duplicate';
 
 const NO_PROBLEMS: ReadonlyMap<string, string> = new Map();
 
@@ -55,6 +55,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   const publish = usePublishEntry();
   const unpublish = useUnpublishEntry();
   const trash = useTrashEntry();
+  const duplicate = useDuplicateEntry();
   const previewLink = usePreviewEntry();
 
   const [data, setData] = useState<EntryData>(entry?.data ?? {});
@@ -189,11 +190,25 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
     }
   }
 
+  /** Copies what was last saved, and opens the copy. */
+  async function makeCopy(id: string) {
+    setRunning('duplicate');
+    try {
+      const copy = await duplicate.mutateAsync(id);
+      toast({ title: messages.editor.duplicated(title ?? messages.contentList.untitled), description: messages.editor.duplicatedDescription, tone: 'success' });
+      onSwitch?.(copy.id);
+    } catch (error) {
+      report(messages.editor.notDuplicated, error);
+    }
+    setRunning(null);
+  }
+
   const isBusy = running !== null;
   // What fewer people come for sits behind one button, so the bar keeps to the main steps.
   const more = [
     ...(entry?.status === 'published' ? [{ id: 'unpublish', label: messages.editor.unpublish, icon: EyeOff }] : []),
-    // A single page is its type's one entry: it is taken off the site, not thrown away.
+    // A single page is its type's one entry: there is no second, and it is taken off the site, not thrown away.
+    ...(entry !== null && !isSingle ? [{ id: 'duplicate', label: messages.editor.duplicate, icon: Copy }] : []),
     ...(entry !== null && !isSingle ? [{ id: 'trash', label: messages.editor.trash, icon: Trash2, tone: 'danger' as const }] : []),
   ];
   // The slug is part of the page's address only when the type's pattern says so. Otherwise it
@@ -291,7 +306,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
               <Menu
                 trigger={<IconButton label={messages.editor.more} icon={Ellipsis} isDisabled={isBusy} />}
                 actions={more}
-                onAction={(id) => (id === 'trash' ? setConfirmingTrash(true) : setConfirmingUnpublish(true))}
+                onAction={(id) => (id === 'trash' ? setConfirmingTrash(true) : id === 'duplicate' && entry ? void makeCopy(entry.id) : setConfirmingUnpublish(true))}
               />
             )}
             {hasPage && (

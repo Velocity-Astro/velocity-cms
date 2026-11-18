@@ -283,6 +283,11 @@ export function useTrash() {
   return useQuery({ queryKey: keys.trash, queryFn: () => client.listTrash({ limit: 200 }) });
 }
 
+export function useDuplicateEntry() {
+  const client = useClient();
+  return useMutation({ mutationFn: (id: string) => client.duplicateEntry(id), onSuccess: useEntryChanged() });
+}
+
 export function useTrashEntry() {
   const client = useClient();
   return useMutation({ mutationFn: (id: string) => client.trashEntry(id), onSuccess: useEntryChanged() });

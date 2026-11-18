@@ -212,6 +212,10 @@ export class ContactService {
       updatedAt: this.clock.now(),
     };
     const saved = await this.contacts.save(contact, current.revision);
+    // The move is kept for the timeline. A record that cannot be kept never undoes the move.
+    if (saved.stage !== current.stage) {
+      await this.contacts.addNote({ id: this.ids.next(), contactId: saved.id, text: '', moved: { from: current.stage, to: saved.stage }, createdBy: actor.id, createdAt: saved.updatedAt }).catch(() => undefined);
+    }
     await this.events.emit('contact.saved', { contact: saved, actor });
     return saved;
   }
@@ -231,7 +235,9 @@ export class ContactService {
       const form = forms.get(submission.formId) ?? null;
       items.push({ kind: 'submission', at: submission.createdAt, submission, ...(form && { formLabel: form.label }), answers: answersOf(form, submission) });
     }
-    for (const note of await this.contacts.notes(id)) items.push({ kind: 'note', at: note.createdAt, note });
+    for (const note of await this.contacts.notes(id)) {
+      items.push(note.moved ? { kind: 'stage', at: note.createdAt, id: note.id, from: note.moved.from, to: note.moved.to, by: note.createdBy } : { kind: 'note', at: note.createdAt, note });
+    }
     return items.sort((a, b) => b.at.localeCompare(a.at));
   }
 
@@ -272,7 +278,9 @@ export class ContactService {
         answers: Object.fromEntries(answersOf(form, submission).map((answer) => [answer.key, answer.value])),
       });
     }
-    const notes = (await this.contacts.notes(id)).map((note) => ({ written: note.createdAt, text: note.text }));
+    const kept = await this.contacts.notes(id);
+    const notes = kept.filter((note) => !note.moved).map((note) => ({ written: note.createdAt, text: note.text }));
+    const moves = kept.flatMap((note) => (note.moved ? [{ at: note.createdAt, from: note.moved.from, to: note.moved.to }] : []));
     const deals = [];
     for (let offset = 0; this.deals; offset += BATCH) {
       const { items } = await this.deals.find({ contactId: id, limit: BATCH, offset });
@@ -282,7 +290,7 @@ export class ContactService {
     const { id: _id, revision: _revision, source: _source, data: held, ...known } = contact;
     // The site's own fields are named by key, as a person would know them.
     const person = { ...known, ...(held !== undefined && this.custom && { fields: await this.custom.byKey('contact', held) }) };
-    return `${JSON.stringify({ contact: person, submissions: sent, notes, deals }, null, 2)}\n`;
+    return `${JSON.stringify({ contact: person, submissions: sent, notes, ...(moves.length > 0 && { moves }), deals }, null, 2)}\n`;
   }
 
   /**
