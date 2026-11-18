@@ -11,6 +11,11 @@ import {
   type FieldChanges,
   type FieldSection,
   type Entry,
+  type FormChanges,
+  type FormDef,
+  type NewForm,
+  type Submission,
+  type SubmissionStatus,
   type NewUpload,
   type Page,
   type EntryData,
@@ -29,7 +34,7 @@ import {
   InMemoryMediaStore,
   InMemorySchemaRepository,
 } from '@velocity/cms-core/in-memory';
-import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, TrashQuery } from '../client/admin-client.js';
+import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from '../client/admin-client.js';
 import { MemoryPeople } from './memory-people.js';
 import { AdminRequestError, type RequestErrorCode } from '../client/errors.js';
 
@@ -44,6 +49,10 @@ export interface MemoryAdminClientOptions {
   readonly images?: readonly SiteImage[];
   /** Whether the site takes uploads. Defaults to `true`. */
   readonly uploads?: boolean;
+  /** The site's forms, made before the first request. */
+  readonly forms?: readonly NewForm[];
+  /** What visitors sent before the first request, oldest first: the form's key and the answers by field key. */
+  readonly submissions?: readonly SeedSubmission[];
   /** The site's plugins, started before the first request. */
   readonly plugins?: readonly unknown[];
   /** Everyone who can sign in. Defaults to the person signed in at the start. */
@@ -54,6 +63,23 @@ export interface MemoryAdminClientOptions {
   readonly showUploads?: boolean;
   /** How long each signed-in request takes, in milliseconds, to see what a screen shows while it waits. Defaults to none. */
   readonly delay?: number;
+}
+
+/** Something a visitor sent, for a test to start with. */
+export interface SeedSubmission {
+  readonly form: string;
+  readonly sent: Readonly<Record<string, unknown>>;
+  readonly page?: string;
+  /** True for one the spam checks caught. */
+  readonly suspected?: boolean;
+}
+
+/** Makes the forms and takes the submissions a test starts with, as the site's own code would. */
+export async function seedForms(cms: Cms, forms: readonly NewForm[] = [], submissions: readonly SeedSubmission[] = []): Promise<void> {
+  for (const form of forms) await cms.forms.create({ kind: 'user', id: 'seed', role: 'owner' }, form);
+  for (const { form, sent, page, suspected } of submissions) {
+    await cms.submissions.submit(form, sent, { ...(page !== undefined && { page }), ...(suspected !== undefined && { suspected }) });
+  }
 }
 
 const KNOWN_CODES: ReadonlySet<string> = new Set<RequestErrorCode>(['validation_failed', 'conflict', 'not_found', 'forbidden']);
@@ -102,6 +128,7 @@ export class MemoryAdminClient implements AdminClient {
     this.#ready = (async () => {
       for (const type of options.contentTypes ?? []) await types.save(type);
       for (const entry of options.entries ?? []) await entries.save(entry, { expectedRevision: null, actorId: 'seed' });
+      await seedForms(cms, options.forms, options.submissions);
       await cms.plugins.load(options.plugins ?? []);
     })();
   }
@@ -177,7 +204,7 @@ export class MemoryAdminClient implements AdminClient {
   }
 
   listFieldTypes(): Promise<readonly FieldTypeInfo[]> {
-    return this.#request(async () => this.#cms.fields.list().map(({ type, editor }) => ({ type, editor })));
+    return this.#request(async () => this.#cms.fields.list().map(({ type, editor, takesSubmissions }) => ({ type, editor, takesSubmissions })));
   }
 
   listImages(): Promise<ImageList> {
@@ -259,6 +286,66 @@ export class MemoryAdminClient implements AdminClient {
 
   deleteEntry(id: string): Promise<void> {
     return this.#request((actor) => this.#cms.content.delete(actor, id));
+  }
+
+  listForms(): Promise<readonly FormDef[]> {
+    return this.#request((actor) => this.#cms.forms.list(actor));
+  }
+
+  createForm(form: NewForm): Promise<FormDef> {
+    return this.#request((actor) => this.#cms.forms.create(actor, form));
+  }
+
+  updateForm(id: string, changes: FormChanges): Promise<FormDef> {
+    return this.#request((actor) => this.#cms.forms.update(actor, id, changes));
+  }
+
+  trashForm(id: string): Promise<FormDef> {
+    return this.#request((actor) => this.#cms.forms.trash(actor, id));
+  }
+
+  restoreForm(id: string): Promise<FormDef> {
+    return this.#request((actor) => this.#cms.forms.restore(actor, id));
+  }
+
+  listTrashedForms(): Promise<readonly FormDef[]> {
+    return this.#request((actor) => this.#cms.forms.listTrashed(actor));
+  }
+
+  deleteForm(id: string): Promise<void> {
+    return this.#request((actor) => this.#cms.forms.delete(actor, id));
+  }
+
+  listSubmissions(query: SubmissionListQuery): Promise<Page<Submission>> {
+    return this.#request((actor) =>
+      this.#cms.submissions.find(actor, { formId: query.formId, limit: query.limit ?? 50, offset: query.offset ?? 0, ...(query.status !== undefined && { status: query.status }) }),
+    );
+  }
+
+  countSubmissions(formId: string): Promise<SubmissionCounts> {
+    return this.#request((actor) => this.#cms.submissions.counts(actor, formId));
+  }
+
+  markSubmission(id: string, status: SubmissionStatus): Promise<Submission> {
+    return this.#request((actor) => this.#cms.submissions.mark(actor, id, status));
+  }
+
+  deleteSubmission(id: string): Promise<void> {
+    return this.#request((actor) => this.#cms.submissions.delete(actor, id));
+  }
+
+  exportSubmissions(formId: string): Promise<string> {
+    return this.#request((actor) => this.#cms.submissions.export(actor, formId));
+  }
+
+  forgetSender(email: string): Promise<number> {
+    return this.#request((actor) => this.#cms.submissions.erase(actor, email));
+  }
+
+  /** Takes what a visitor sends through a form, as the site's public address would. For tests. */
+  async visitorSends(formKey: string, sent: Readonly<Record<string, unknown>>): Promise<Submission> {
+    await this.#ready;
+    return this.#cms.submissions.submit(formKey, sent);
   }
 
   previewEntry(id: string): Promise<PreviewLink> {

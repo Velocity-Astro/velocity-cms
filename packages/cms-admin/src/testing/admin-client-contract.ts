@@ -1,8 +1,9 @@
-import { definePlugin, type ContentTypeDef, type Entry, type SiteImage } from '@velocity/cms-core';
+import { definePlugin, type ContentTypeDef, type Entry, type NewForm, type SiteImage } from '@velocity/cms-core';
 import { tinyJpeg, tinyPng } from '@velocity/cms-core/in-memory';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { AdminClient, Person } from '../client/admin-client.js';
-import { sampleContentTypes, sampleEntries } from './sample-content.js';
+import type { SeedSubmission } from './memory-client.js';
+import { sampleContentTypes, sampleEntries, sampleForms, sampleSubmissions } from './sample-content.js';
 
 export interface AdminClientSeed {
   readonly contentTypes: readonly ContentTypeDef[];
@@ -12,6 +13,8 @@ export interface AdminClientSeed {
   readonly uploads?: boolean;
   /** Everyone who can sign in. Defaults to the person the client is signed in as. */
   readonly people?: readonly Person[];
+  readonly forms?: readonly NewForm[];
+  readonly submissions?: readonly SeedSubmission[];
   /** The site's plugins, as its config would name them. */
   readonly plugins?: readonly unknown[];
 }
@@ -30,6 +33,8 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       client = await make({
         contentTypes: sampleContentTypes,
         entries: sampleEntries(new Date('2026-11-17T12:00:00.000Z')),
+        forms: sampleForms,
+        submissions: sampleSubmissions,
         images: [
           { name: 'porch', url: '/images/porch.jpg' },
           { name: 'kitchen', url: '/images/kitchen.jpg', width: 1200, height: 800 },
@@ -39,7 +44,8 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
 
     it('lists content types by key, and the control for each field type', async () => {
       expect((await client.listContentTypes()).map((type) => type.key)).toEqual(['agents', 'listings']);
-      expect(await client.listFieldTypes()).toContainEqual({ type: 'number', editor: 'number-input' });
+      expect(await client.listFieldTypes()).toContainEqual({ type: 'number', editor: 'number-input', takesSubmissions: true });
+      expect(await client.listFieldTypes()).toContainEqual({ type: 'richtext', editor: 'rich-text', takesSubmissions: false });
     });
 
     it("lists the site's images by name, and says how large an upload may be", async () => {
@@ -156,6 +162,94 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       await client.deleteEntry('e2');
       await expect(client.getEntry('e2')).rejects.toMatchObject({ code: 'not_found' });
       expect((await client.listTrash({ limit: 5 })).items).toEqual([]);
+    });
+
+    it('lists forms, starts one, changes its fields all at once and keeps each field\'s id', async () => {
+      expect((await client.listForms()).map((form) => form.key)).toEqual(['contact', 'tour']);
+      const made = await client.createForm({ key: 'newsletter', label: { en: 'Newsletter' } });
+      expect(made).toMatchObject({ key: 'newsletter', open: true, revision: 1, fields: [], notify: [] });
+      await expect(client.createForm({ key: 'newsletter', label: { en: 'Again' } })).rejects.toMatchObject({ code: 'conflict' });
+
+      const withFields = await client.updateForm(made.id, {
+        fields: [
+          { key: 'email', type: 'email', label: { en: 'Email' }, required: true },
+          { key: 'name', type: 'text', label: { en: 'Name' } },
+        ],
+        notify: [' Office@Example.com '],
+        contact: { email: 'email' },
+        success: { en: 'You are on the list.' },
+        retentionDays: 365,
+        expectedRevision: made.revision,
+      });
+      const [email, name] = withFields.fields;
+      expect(withFields).toMatchObject({ notify: ['office@example.com'], contact: { email: email?.id }, success: { en: 'You are on the list.' }, retentionDays: 365 });
+
+      const reordered = await client.updateForm(made.id, {
+        fields: [
+          { id: name?.id ?? '', key: 'fullName', type: 'text', label: { en: 'Full name' } },
+          { id: email?.id ?? '', key: 'email', type: 'email', label: { en: 'Email' }, required: true },
+        ],
+        success: null,
+        retentionDays: null,
+        open: false,
+        expectedRevision: withFields.revision,
+      });
+      expect(reordered.fields.map((field) => [field.id, field.key])).toEqual([[name?.id, 'fullName'], [email?.id, 'email']]);
+      expect(reordered).toMatchObject({ open: false, contact: { email: email?.id } });
+      expect(reordered).not.toHaveProperty('success');
+      expect(reordered).not.toHaveProperty('retentionDays');
+
+      await expect(client.updateForm(made.id, { open: true, expectedRevision: made.revision })).rejects.toMatchObject({ code: 'conflict' });
+      await expect(client.updateForm(made.id, { fields: [{ key: 'body', type: 'richtext', label: { en: 'Body' } }], expectedRevision: reordered.revision })).rejects.toMatchObject({ code: 'validation_failed' });
+    });
+
+    it('moves a form to the trash and back, and deletes it for good with what it was sent', async () => {
+      const [contact] = await client.listForms();
+      if (!contact) throw new Error('No form');
+      await expect(client.deleteForm(contact.id)).rejects.toMatchObject({ code: 'conflict' });
+      await client.trashForm(contact.id);
+      expect((await client.listForms()).map((form) => form.key)).toEqual(['tour']);
+      expect((await client.listTrashedForms()).map((form) => form.key)).toEqual(['contact']);
+      await client.restoreForm(contact.id);
+      expect((await client.listTrashedForms())).toEqual([]);
+      await client.trashForm(contact.id);
+      await client.deleteForm(contact.id);
+      expect((await client.listTrashedForms())).toEqual([]);
+      expect((await client.listSubmissions({ formId: contact.id })).total).toBe(0);
+    });
+
+    it('lists what a form was sent newest first, counts it by status, and marks and deletes a submission', async () => {
+      const [contact] = await client.listForms();
+      if (!contact) throw new Error('No form');
+      const all = await client.listSubmissions({ formId: contact.id });
+      expect(all.total).toBe(3);
+      expect(await client.countSubmissions(contact.id)).toEqual({ new: 2, handled: 0, spam: 1 });
+      const fresh = await client.listSubmissions({ formId: contact.id, status: 'new', limit: 1 });
+      expect(fresh.total).toBe(2);
+      expect(fresh.items).toHaveLength(1);
+      const [first] = fresh.items;
+      if (!first) throw new Error('No submission');
+
+      const handled = await client.markSubmission(first.id, 'handled');
+      expect(handled).toMatchObject({ status: 'handled', handledBy: 'u1' });
+      expect(await client.countSubmissions(contact.id)).toEqual({ new: 1, handled: 1, spam: 1 });
+      await client.deleteSubmission(first.id);
+      await expect(client.markSubmission(first.id, 'new')).rejects.toMatchObject({ code: 'not_found' });
+      expect((await client.listSubmissions({ formId: contact.id })).total).toBe(2);
+    });
+
+    it('exports what a form was sent as a file, and forgets a sender everywhere', async () => {
+      const [contact, tour] = await client.listForms();
+      if (!contact || !tour) throw new Error('No forms');
+      const [header, ...rows] = (await client.exportSubmissions(contact.id)).trim().split('\r\n');
+      expect(header).toBe('received,status,page,name,email,message');
+      expect(rows).toHaveLength(3);
+      expect(rows.join('\n')).toContain('Ana@Example.com');
+
+      expect(await client.forgetSender(' Ana@Example.com ')).toBe(2);
+      expect((await client.listSubmissions({ formId: contact.id })).total).toBe(2);
+      expect((await client.listSubmissions({ formId: tour.id })).total).toBe(0);
+      await expect(client.forgetSender(' ')).rejects.toMatchObject({ code: 'validation_failed' });
     });
 
     it('lists who can sign in, lets people in, changes what they may do and takes access away', async () => {

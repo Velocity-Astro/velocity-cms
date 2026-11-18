@@ -1,5 +1,5 @@
-import { readImage, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PluginSettings, type PluginEditorInfo, type PluginRouteMethod, type EntryData, type PreviewLink, type SiteImage } from '@velocity/cms-core';
-import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, TrashQuery } from './admin-client.js';
+import { readImage, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PluginSettings, type PluginEditorInfo, type PluginRouteMethod, type EntryData, type FormChanges, type FormDef, type NewForm, type PreviewLink, type SiteImage, type Submission, type SubmissionStatus } from '@velocity/cms-core';
+import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from './admin-client.js';
 import { AdminRequestError, type RequestErrorCode, type RequestIssue } from './errors.js';
 
 /**
@@ -177,6 +177,62 @@ export class HttpAdminClient implements AdminClient {
 
   async deleteEntry(id: string): Promise<void> {
     await this.#send('DELETE', `/trash/${encodeURIComponent(id)}`, {});
+  }
+
+  async listForms(): Promise<readonly FormDef[]> {
+    return (await this.#get<{ items: FormDef[] }>('/forms')).items;
+  }
+
+  createForm(form: NewForm): Promise<FormDef> {
+    return this.#send('POST', '/forms', form);
+  }
+
+  updateForm(id: string, changes: FormChanges): Promise<FormDef> {
+    return this.#send('PATCH', `/forms/${encodeURIComponent(id)}`, changes);
+  }
+
+  trashForm(id: string): Promise<FormDef> {
+    return this.#send('DELETE', `/forms/${encodeURIComponent(id)}`, {});
+  }
+
+  restoreForm(id: string): Promise<FormDef> {
+    return this.#send('POST', `/forms/${encodeURIComponent(id)}/restore`, {});
+  }
+
+  async listTrashedForms(): Promise<readonly FormDef[]> {
+    return (await this.#get<{ items: FormDef[] }>('/forms/trash')).items;
+  }
+
+  async deleteForm(id: string): Promise<void> {
+    await this.#send('DELETE', `/forms/trash/${encodeURIComponent(id)}`, {});
+  }
+
+  listSubmissions(query: SubmissionListQuery): Promise<Page<Submission>> {
+    const search = new URLSearchParams();
+    if (query.status !== undefined) search.set('status', query.status);
+    if (query.limit !== undefined) search.set('limit', String(query.limit));
+    if (query.offset !== undefined) search.set('offset', String(query.offset));
+    return this.#get(`/forms/${encodeURIComponent(query.formId)}/submissions?${search}`);
+  }
+
+  countSubmissions(formId: string): Promise<SubmissionCounts> {
+    return this.#get(`/forms/${encodeURIComponent(formId)}/submission-counts`);
+  }
+
+  markSubmission(id: string, status: SubmissionStatus): Promise<Submission> {
+    return this.#send('PATCH', `/submissions/${encodeURIComponent(id)}`, { status });
+  }
+
+  async deleteSubmission(id: string): Promise<void> {
+    await this.#send('DELETE', `/submissions/${encodeURIComponent(id)}`, {});
+  }
+
+  async exportSubmissions(formId: string): Promise<string> {
+    return (await this.#get<{ csv: string }>(`/forms/${encodeURIComponent(formId)}/export`)).csv;
+  }
+
+  async forgetSender(email: string): Promise<number> {
+    return (await this.#send<{ removed: number }>('POST', '/submissions/forget', { email })).removed;
   }
 
   previewEntry(id: string): Promise<PreviewLink> {

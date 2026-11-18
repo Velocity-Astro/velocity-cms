@@ -1,6 +1,6 @@
 import { MutationCache, QueryCache, QueryClient, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, NewUpload, Role } from '@velocity/cms-core';
-import type { EntryChanges, EntryListQuery, ImageList, NewEntry, NewPerson, NewType, NewTypeField } from './admin-client.js';
+import type { ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity/cms-core';
+import type { EntryChanges, EntryListQuery, ImageList, NewEntry, NewPerson, NewType, NewTypeField, SubmissionListQuery } from './admin-client.js';
 import { AdminRequestError } from './errors.js';
 import { useClient } from './client-context.js';
 
@@ -24,6 +24,12 @@ const keys = {
   trash: ['entries', 'trash'] as const,
   entries: (query: EntryListQuery) => ['entries', query] as const,
   entry: (id: string) => ['entry', id] as const,
+  forms: ['forms'] as const,
+  trashedForms: ['forms', 'trash'] as const,
+  /** Everything about what forms were sent starts with this, so one call marks it all out of date. */
+  submissions: ['submissions'] as const,
+  submissionList: (query: SubmissionListQuery) => ['submissions', 'list', query] as const,
+  submissionCounts: (formId: string) => ['submissions', 'counts', formId] as const,
 };
 
 /**
@@ -284,6 +290,105 @@ export function useDeleteEntry() {
       void cache.invalidateQueries({ queryKey: keys.entryLists });
     },
   });
+}
+
+export function useForms() {
+  const client = useClient();
+  return useQuery({ queryKey: keys.forms, queryFn: () => client.listForms() });
+}
+
+/** The forms in the trash. Asked for only where they are shown. */
+export function useTrashedForms(isAsked = true) {
+  const client = useClient();
+  return useQuery({ queryKey: keys.trashedForms, queryFn: () => client.listTrashedForms(), enabled: isAsked });
+}
+
+/** What every change to a form does afterwards: show the new version everywhere, without asking again. */
+function useFormChanged() {
+  const cache = useQueryClient();
+  return (form: FormDef) => {
+    cache.setQueryData<readonly FormDef[]>(keys.forms, (forms) =>
+      forms ? [...forms.filter((existing) => existing.id !== form.id), form].sort((a, b) => a.key.localeCompare(b.key)) : forms,
+    );
+  };
+}
+
+/** What moving a form to the trash, out of it or away for good does afterwards. */
+function useFormMoved() {
+  const cache = useQueryClient();
+  return () => {
+    void cache.invalidateQueries({ queryKey: keys.forms });
+    void cache.invalidateQueries({ queryKey: keys.submissions });
+  };
+}
+
+export function useCreateForm() {
+  const client = useClient();
+  return useMutation({ mutationFn: (form: NewForm) => client.createForm(form), onSuccess: useFormChanged() });
+}
+
+export function useUpdateForm() {
+  const client = useClient();
+  return useMutation({ mutationFn: ({ id, changes }: { id: string; changes: FormChanges }) => client.updateForm(id, changes), onSuccess: useFormChanged() });
+}
+
+export function useTrashForm() {
+  const client = useClient();
+  return useMutation({ mutationFn: (id: string) => client.trashForm(id), onSuccess: useFormMoved() });
+}
+
+export function useRestoreForm() {
+  const client = useClient();
+  return useMutation({ mutationFn: (id: string) => client.restoreForm(id), onSuccess: useFormMoved() });
+}
+
+export function useDeleteForm() {
+  const client = useClient();
+  return useMutation({ mutationFn: (id: string) => client.deleteForm(id), onSuccess: useFormMoved() });
+}
+
+/** What a form was sent. `isAsked` is false for someone who may not read submissions. */
+export function useSubmissions(query: SubmissionListQuery, isAsked = true) {
+  const client = useClient();
+  return useQuery({ queryKey: keys.submissionList(query), queryFn: () => client.listSubmissions(query), enabled: isAsked });
+}
+
+export function useSubmissionCounts(formId: string, isAsked = true) {
+  const client = useClient();
+  return useQuery({ queryKey: keys.submissionCounts(formId), queryFn: () => client.countSubmissions(formId), enabled: isAsked });
+}
+
+/** The counts of several forms at once, in the order asked, for a list of forms. */
+export function useSubmissionCountsOf(formIds: readonly string[], isAsked = true) {
+  const client = useClient();
+  return useQueries({ queries: formIds.map((formId) => ({ queryKey: keys.submissionCounts(formId), queryFn: () => client.countSubmissions(formId), enabled: isAsked })) });
+}
+
+/** What every change to a submission does afterwards: the lists and the counts are asked for again. */
+function useSubmissionsChanged() {
+  const cache = useQueryClient();
+  return () => void cache.invalidateQueries({ queryKey: keys.submissions });
+}
+
+export function useMarkSubmission() {
+  const client = useClient();
+  return useMutation({ mutationFn: ({ id, status }: { id: string; status: SubmissionStatus }) => client.markSubmission(id, status), onSuccess: useSubmissionsChanged() });
+}
+
+export function useDeleteSubmission() {
+  const client = useClient();
+  return useMutation({ mutationFn: (id: string) => client.deleteSubmission(id), onSuccess: useSubmissionsChanged() });
+}
+
+/** Asks for the file each time it is wanted: it is never kept. */
+export function useExportSubmissions() {
+  const client = useClient();
+  return useMutation({ mutationFn: (formId: string) => client.exportSubmissions(formId) });
+}
+
+export function useForgetSender() {
+  const client = useClient();
+  return useMutation({ mutationFn: (email: string) => client.forgetSender(email), onSuccess: useSubmissionsChanged() });
 }
 
 export function usePreviewEntry() {

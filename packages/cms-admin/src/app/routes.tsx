@@ -3,6 +3,8 @@ import { ContentTypeScreen } from '../screens/ContentType/ContentTypeScreen.js';
 import { ContentTypesScreen } from '../screens/ContentTypes/ContentTypesScreen.js';
 import { ContentListScreen } from '../screens/ContentList/ContentListScreen.js';
 import { EntryEditorScreen } from '../screens/EntryEditor/EntryEditorScreen.js';
+import { FormScreen } from '../screens/Form/FormScreen.js';
+import { FormsScreen } from '../screens/Forms/FormsScreen.js';
 import { HomeScreen } from '../screens/Home/HomeScreen.js';
 import { MediaScreen } from '../screens/Media/MediaScreen.js';
 import { PluginScreenScreen } from '../screens/PluginScreen/PluginScreenScreen.js';
@@ -27,6 +29,8 @@ export function createRoutes(siteName: string): RouteObject[] {
             { path: 'people', element: <PeopleScreen /> },
             { path: 'media', element: <MediaScreen /> },
             { path: 'trash', element: <TrashScreen /> },
+            { path: 'forms', element: <FormsScreen /> },
+            { path: 'forms/:formId', element: <FormScreen /> },
             { path: 'plugins', element: <PluginsScreen /> },
             { path: 'plugins/:pluginName/:screenId', element: <PluginScreenScreen /> },
             { path: 'types', element: <ContentTypesScreen /> },

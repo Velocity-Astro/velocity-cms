@@ -11,6 +11,9 @@ export const paths = {
   people: '/people',
   media: '/media',
   trash: '/trash',
+  forms: '/forms',
+  /** One form: what it was sent, and its fields. */
+  form: (formId: string) => `/forms/${encodeURIComponent(formId)}`,
   plugins: '/plugins',
   /** A screen a plugin added. */
   pluginScreen: (plugin: string, screen: string) => `/plugins/${encodeURIComponent(plugin)}/${encodeURIComponent(screen)}`,

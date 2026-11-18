@@ -1,4 +1,4 @@
-import type { PluginSettings, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, LocalizedText, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
+import type { PluginSettings, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
@@ -65,7 +65,21 @@ export interface FieldTypeInfo {
   readonly type: string;
   /** The name of its control: `text-input`. */
   readonly editor: string;
+  /** Whether a visitor can fill one in, so a form can ask for it. */
+  readonly takesSubmissions: boolean;
 }
+
+export interface SubmissionListQuery {
+  readonly formId: string;
+  /** Left out, submissions of every status. */
+  readonly status?: SubmissionStatus;
+  /** Defaults to 50. */
+  readonly limit?: number;
+  readonly offset?: number;
+}
+
+/** How many of a form's submissions have each status. */
+export type SubmissionCounts = Readonly<Record<SubmissionStatus, number>>;
 
 export interface NewEntry {
   /** The content type's key, e.g. `listings`. */
@@ -166,6 +180,30 @@ export interface AdminClient {
   listTrash(query?: TrashQuery): Promise<Page<Entry>>;
   /** Deletes an entry in the trash for good, with its history. */
   deleteEntry(id: string): Promise<void>;
+  /** The site's forms, by key. */
+  listForms(): Promise<readonly FormDef[]>;
+  /** Starts a form. Refused when another form has its key. */
+  createForm(form: NewForm): Promise<FormDef>;
+  /** Changes a form: its fields all at once, in order, or its settings. Refused if someone saved in between. */
+  updateForm(id: string, changes: FormChanges): Promise<FormDef>;
+  /** Moves a form to the trash: it takes no more submissions, and what was sent is kept. */
+  trashForm(id: string): Promise<FormDef>;
+  restoreForm(id: string): Promise<FormDef>;
+  /** The forms in the trash, by key. */
+  listTrashedForms(): Promise<readonly FormDef[]>;
+  /** Deletes a form in the trash for good, and with it everything that was sent through it. */
+  deleteForm(id: string): Promise<void>;
+  /** What a form was sent, newest first. Only for those who may read submissions. */
+  listSubmissions(query: SubmissionListQuery): Promise<Page<Submission>>;
+  countSubmissions(formId: string): Promise<SubmissionCounts>;
+  /** Marks a submission new, handled or spam. */
+  markSubmission(id: string, status: SubmissionStatus): Promise<Submission>;
+  /** Deletes a submission for good. */
+  deleteSubmission(id: string): Promise<void>;
+  /** Everything a form was sent, as the text of a CSV file. */
+  exportSubmissions(formId: string): Promise<string>;
+  /** Deletes everything one person sent, through every form, for good. Answers with how many went. */
+  forgetSender(email: string): Promise<number>;
   /**
    * A link to the entry's page showing the saved draft, good for a while. Refused when its type
    * has no page of its own, or the site makes no previews.

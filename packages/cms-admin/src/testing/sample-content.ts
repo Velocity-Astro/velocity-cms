@@ -1,3 +1,5 @@
+import type { NewForm } from '@velocity/cms-core';
+import type { SeedSubmission } from './memory-client.js';
 import type { ContentTypeDef, Entry, FieldDef } from '@velocity/cms-core';
 import type { SessionUser } from '../client/admin-client.js';
 
@@ -202,3 +204,36 @@ export function sampleEntries(now: Date = new Date()): readonly Entry[] {
     listing('e4', '', 200),
   ];
 }
+
+/** Two forms a site might have: a contact form with people to tell, and a tour request. */
+export const sampleForms: readonly NewForm[] = [
+  {
+    key: 'contact',
+    label: { en: 'Contact us' },
+    fields: [
+      { key: 'name', type: 'text', label: { en: 'Your name' }, required: true },
+      { key: 'email', type: 'email', label: { en: 'Email' }, required: true },
+      { key: 'message', type: 'text', label: { en: 'Message' }, required: true, options: { multiline: true } },
+    ],
+    notify: ['office@example.com'],
+    contact: { name: 'name', email: 'email' },
+    success: { en: 'Thank you. We will be in touch.' },
+  },
+  {
+    key: 'tour',
+    label: { en: 'Book a tour' },
+    fields: [
+      { key: 'email', type: 'email', label: { en: 'Email' }, required: true },
+      { key: 'day', type: 'date', label: { en: 'Preferred day' } },
+    ],
+    contact: { email: 'email' },
+  },
+];
+
+/** What visitors sent through them, oldest first. */
+export const sampleSubmissions: readonly SeedSubmission[] = [
+  { form: 'contact', sent: { name: 'Ana Ruiz', email: 'Ana@Example.com', message: 'Is the house on Alder still for sale?' }, page: '/contact/' },
+  { form: 'contact', sent: { name: 'Cheap Loans', email: 'win@spam.example', message: 'Click here now' }, suspected: true },
+  { form: 'contact', sent: { name: 'Tom Okafor', email: 'tom@example.com', message: 'We would like to list our home.\nCall any time.' }, page: '/sell/' },
+  { form: 'tour', sent: { email: 'ana@example.com', day: '2026-12-01' }, page: '/listings/18-alder-court/' },
+];

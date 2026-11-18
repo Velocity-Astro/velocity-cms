@@ -11,6 +11,7 @@ import {
 import type { SessionUser } from '../client/admin-client.js';
 import { HttpAdminClient } from '../client/http-client.js';
 import { MemoryPeople } from './memory-people.js';
+import { seedForms } from './memory-client.js';
 import type { AdminClientSeed } from './admin-client-contract.js';
 
 const ORIGIN = 'https://site.test';
@@ -29,6 +30,7 @@ export async function createHttpServer(seed: AdminClientSeed, user: SessionUser)
   const storage = { files: new InMemoryMediaRepository(), store: new InMemoryMediaStore() };
   const cms = createCms({ types, entries, previews: { secret: 'http-test-server-preview-secret-0' }, ...(seed.uploads !== false && { media: { storage } }) });
   cms.media.include(new InMemoryImageLibrary(seed.images));
+  await seedForms(cms, seed.forms, seed.submissions);
   await cms.plugins.load(seed.plugins ?? []);
   const passkeys: { id: string; name: string }[] = [];
   const api = new CmsApi({ cms, authenticator, people: new MemoryPeople(seed.people ?? [user]) });

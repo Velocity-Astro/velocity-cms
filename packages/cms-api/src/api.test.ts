@@ -93,7 +93,7 @@ describe('reading', () => {
     const types = await call('GET', '/content-types');
     expect((types.body['items'] as ContentTypeDef[]).map((type) => type.key)).toEqual(['listings']);
     const fieldTypes = await call('GET', '/field-types');
-    expect(fieldTypes.body['items']).toContainEqual({ type: 'text', editor: 'text-input' });
+    expect(fieldTypes.body['items']).toContainEqual({ type: 'text', editor: 'text-input', takesSubmissions: true });
   });
 
   it('lists a type\'s entries, most recently saved first, a page at a time', async () => {
@@ -504,5 +504,68 @@ describe('plugins', () => {
     expect(JSON.stringify(broken.body)).not.toContain('hunter2');
     expect(broken.body.error?.message).toBe('The plugin "seo" could not answer. An owner can see what went wrong under Plugins.');
     expect((await call('GET', '/plugins')).body['items']).toMatchObject([{ faults: 1 }]);
+  });
+});
+
+describe('forms and what they were sent', () => {
+  const formBody = { key: 'contact', label: { en: 'Contact us' }, fields: [{ key: 'email', type: 'email', label: { en: 'Email' }, required: true }], notify: ['office@example.com'], contact: { email: 'email' } };
+
+  it('starts a form, changes it and lists it, each through the form service', async () => {
+    const made = await call('POST', '/forms', formBody);
+    expect(made.status).toBe(201);
+    expect(made.body).toMatchObject({ key: 'contact', revision: 1, notify: ['office@example.com'] });
+    const id = String(made.body['id']);
+    const changed = await call('PATCH', `/forms/${id}`, { open: false, success: null, expectedRevision: 1 });
+    expect(changed.body).toMatchObject({ open: false, revision: 2 });
+    expect(((await call('GET', '/forms')).body['items'] as unknown[]).length).toBe(1);
+    expect((await call('PATCH', `/forms/${id}`, { open: true, expectedRevision: 1 })).status).toBe(409);
+    expect((await call('PATCH', `/forms/${id}`, { open: true })).status).toBe(400);
+    expect((await call('POST', '/forms', { ...formBody, secret: 'x' })).status).toBe(400);
+  });
+
+  it('moves a form to the trash, lists it there, restores it and deletes it for good', async () => {
+    const id = String((await call('POST', '/forms', formBody)).body['id']);
+    expect((await call('DELETE', `/forms/trash/${id}`)).status).toBe(409);
+    expect((await call('DELETE', `/forms/${id}`)).body).toHaveProperty('deletedAt');
+    expect(((await call('GET', '/forms/trash')).body['items'] as unknown[]).length).toBe(1);
+    expect((await call('POST', `/forms/${id}/restore`)).body).not.toHaveProperty('deletedAt');
+    await call('DELETE', `/forms/${id}`);
+    expect(await call('DELETE', `/forms/trash/${id}`)).toEqual({ status: 200, body: {} });
+    expect((await call('GET', '/forms/trash')).body).toEqual({ items: [] });
+  });
+
+  it('lists, counts, marks, exports and deletes submissions, and forgets a sender', async () => {
+    const id = String((await call('POST', '/forms', formBody)).body['id']);
+    await cms.submissions.submit('contact', { email: 'Ana@Example.com' });
+    await cms.submissions.submit('contact', { email: 'bot@spam.example' }, { suspected: true });
+    const listed = await call('GET', `/forms/${id}/submissions?status=new`);
+    expect(listed.body).toMatchObject({ total: 1 });
+    const [first] = listed.body['items'] as { id: string }[];
+    expect((await call('GET', `/forms/${id}/submission-counts`)).body).toEqual({ new: 1, handled: 0, spam: 1 });
+    expect((await call('GET', `/forms/${id}/submissions?status=old`)).status).toBe(400);
+    expect((await call('PATCH', `/submissions/${first?.id}`, { status: 'handled' })).body).toMatchObject({ status: 'handled', handledBy: 'u1' });
+    expect((await call('PATCH', `/submissions/${first?.id}`, { status: 'done' })).status).toBe(400);
+    expect(String((await call('GET', `/forms/${id}/export`)).body['csv'])).toContain('Ana@Example.com');
+    expect(await call('POST', '/submissions/forget', { email: 'ana@example.com' })).toEqual({ status: 200, body: { removed: 1 } });
+    const [spam] = (await call('GET', `/forms/${id}/submissions`)).body['items'] as { id: string }[];
+    expect(await call('DELETE', `/submissions/${spam?.id}`)).toEqual({ status: 200, body: {} });
+    expect((await call('GET', `/forms/${id}/submissions`)).body).toMatchObject({ total: 0 });
+  });
+
+  it('keeps what visitors sent from an author, who may still see which forms there are', async () => {
+    const id = String((await call('POST', '/forms', formBody)).body['id']);
+    authenticator.session = as('author');
+    expect((await call('GET', '/forms')).status).toBe(200);
+    for (const path of [`/forms/${id}/submissions`, `/forms/${id}/submission-counts`, `/forms/${id}/export`, '/forms/trash']) {
+      expect((await call('GET', path)).status).toBe(403);
+    }
+    expect((await call('POST', '/forms', { ...formBody, key: 'other' })).status).toBe(403);
+    expect((await call('POST', '/submissions/forget', { email: 'ana@example.com' })).status).toBe(403);
+  });
+
+  it('never lets a browser keep what a visitor sent', async () => {
+    const id = String((await call('POST', '/forms', formBody)).body['id']);
+    expect((await send('GET', `/forms/${id}/submissions`)).headers.get('cache-control')).toBe('no-store');
+    expect((await send('GET', `/forms/${id}/export`)).headers.get('cache-control')).toBe('no-store');
   });
 });
