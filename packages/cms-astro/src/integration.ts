@@ -5,6 +5,7 @@ import type { AstroIntegration } from 'astro';
 const PACKAGE = '@velocity/cms-astro';
 const OPTIONS = 'virtual:velocity-cms/options';
 const MAILER = 'virtual:velocity-cms/mailer';
+const PLUGINS = 'virtual:velocity-cms/plugins';
 const IMAGES = 'virtual:velocity-cms/images';
 const IMAGE_FILES = '*.{jpg,jpeg,png,webp,avif,gif}';
 const ADMIN_PATH = '/admin';
@@ -25,6 +26,12 @@ export interface VelocityCmsOptions {
    * `'./src/assets/photos'`. An image is called by its file name without the ending.
    */
   readonly images?: string;
+  /**
+   * The site's plugins, each a package name or a file from the project's root whose default
+   * export is a `definePlugin(...)`: `['@velocity/cms-plugin-seo', './src/cms/ratings.ts']`.
+   * A plugin that cannot start is switched off and listed, with the reason, under Plugins in the editor.
+   */
+  readonly plugins?: readonly string[];
 }
 
 /**
@@ -67,6 +74,8 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
       'astro:config:setup': ({ config, updateConfig, addMiddleware, injectRoute }) => {
         root = fileURLToPath(config.root);
         addMiddleware({ entrypoint: `${PACKAGE}/middleware`, order: 'pre' });
+        // Loaded with the server, so the plugins are known before the first request.
+        if ((options.plugins ?? []).length > 0) addMiddleware({ entrypoint: route('plugins.ts'), order: 'pre' });
         injectRoute({ pattern: '/sitemap-live.xml', entrypoint: route('sitemap-live.xml.ts') });
         injectRoute({ pattern: '/og/[...live].png', entrypoint: route('share-image.png.ts') });
         injectRoute({ pattern: '/api/cms/search.json', entrypoint: route('search.json.ts') });
@@ -86,7 +95,7 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
             plugins: [
               {
                 name: 'velocity-cms:options',
-                resolveId: (id: string) => (id === OPTIONS || id === MAILER || id === IMAGES ? `\0${id}` : undefined),
+                resolveId: (id: string) => (id === OPTIONS || id === MAILER || id === IMAGES || id === PLUGINS ? `\0${id}` : undefined),
                 load: (id: string) => {
                   if (id === `\0${OPTIONS}`) {
                     const editor = { site, siteName: options.siteName ?? 'Velocity CMS', adminPath: ADMIN_PATH };
@@ -96,6 +105,12 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
                     return options.mailer
                       ? `export { default } from ${JSON.stringify(path.resolve(root, options.mailer))};`
                       : 'export default undefined;';
+                  }
+                  if (id === `\0${PLUGINS}`) {
+                    // A path is the project's own file; anything else is a package the site installed.
+                    const from = (plugin: string) => (/^\.{0,2}\//.test(plugin) ? path.resolve(root, plugin) : plugin);
+                    const names = (options.plugins ?? []).map((plugin, index) => `import plugin${index} from ${JSON.stringify(from(plugin))};`);
+                    return [...names, `export default [${names.map((_, index) => `plugin${index}`).join(', ')}];`].join('\n');
                   }
                   if (id === `\0${IMAGES}`) {
                     if (!options.images) return 'export default undefined;';

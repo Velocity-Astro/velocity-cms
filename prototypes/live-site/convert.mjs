@@ -35,7 +35,7 @@ export function convert(project) {
 
   // 1. The integration, and a cache rule for every page rendered on demand.
   edit('astro.config.mjs', (config) => {
-    let next = `import velocityCms from '@velocity/cms-astro';\n${must(config, '  integrations: [', '  integrations: [\n    velocityCms({ unlisted: [...searchPages], images: "./src/assets/photos" }),')}`;
+    let next = `import velocityCms from '@velocity/cms-astro';\n${must(config, '  integrations: [', '  integrations: [\n    velocityCms({ unlisted: [...searchPages], images: "./src/assets/photos", plugins: ["./src/cms/publish-log-plugin.ts"] }),')}`;
     next = must(
       next,
       '  cache: {',
@@ -47,6 +47,7 @@ export function convert(project) {
   // 2. Live collections and the helper that reads them. Search, the sitemap, share images and
   //    the publish notice come with the integration.
   add('src/live.config.ts', 'live.config.ts');
+  add('src/cms/publish-log-plugin.ts', 'publish-log-plugin.ts');
   add('src/lib/live.ts', 'live.ts');
   edit('src/views/SearchView.astro', (view) => must(view, "const url = '/pagefind/pagefind.js';", "const url = '/cms-search.js';"));
 

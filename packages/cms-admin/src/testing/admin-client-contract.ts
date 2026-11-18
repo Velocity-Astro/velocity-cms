@@ -1,4 +1,4 @@
-import type { ContentTypeDef, Entry, SiteImage } from '@velocity/cms-core';
+import { definePlugin, type ContentTypeDef, type Entry, type SiteImage } from '@velocity/cms-core';
 import { tinyJpeg, tinyPng } from '@velocity/cms-core/in-memory';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { AdminClient, Person } from '../client/admin-client.js';
@@ -12,6 +12,8 @@ export interface AdminClientSeed {
   readonly uploads?: boolean;
   /** Everyone who can sign in. Defaults to the person the client is signed in as. */
   readonly people?: readonly Person[];
+  /** The site's plugins, as its config would name them. */
+  readonly plugins?: readonly unknown[];
 }
 
 /**
@@ -142,6 +144,29 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       expect((await client.listPeople()).map((person) => person.name)).toEqual(['Ben', 'Dana']);
       await client.removePerson(ben.id);
       expect(await client.listPeople()).toHaveLength(1);
+    });
+
+    it('lists the site\'s plugins with how each is doing', async () => {
+      expect(await client.listPlugins()).toEqual([]);
+      const withPlugins = await make({
+        contentTypes: [],
+        entries: [],
+        plugins: [
+          definePlugin({ name: 'ratings', apiVersion: 1, label: { en: 'Ratings' }, version: '1.0.0', setup: () => undefined }),
+          definePlugin({
+            name: 'broken',
+            apiVersion: 1,
+            label: { en: 'Broken' },
+            setup: () => {
+              throw new Error('No API key.');
+            },
+          }),
+        ],
+      });
+      expect((await withPlugins.listPlugins()).map(({ name, status, problem }) => ({ name, status, problem }))).toEqual([
+        { name: 'broken', status: 'failed', problem: 'The plugin "broken" could not start, so it is switched off: No API key.' },
+        { name: 'ratings', status: 'on', problem: undefined },
+      ]);
     });
 
     it('keeps the person\'s own passkeys by name, and removes the one asked for', async () => {

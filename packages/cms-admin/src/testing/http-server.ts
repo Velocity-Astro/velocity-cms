@@ -29,6 +29,7 @@ export async function createHttpServer(seed: AdminClientSeed, user: SessionUser)
   const storage = { files: new InMemoryMediaRepository(), store: new InMemoryMediaStore() };
   const cms = createCms({ types, entries, previews: { secret: 'http-test-server-preview-secret-0' }, ...(seed.uploads !== false && { media: { storage } }) });
   cms.media.include(new InMemoryImageLibrary(seed.images));
+  await cms.plugins.load(seed.plugins ?? []);
   const passkeys: { id: string; name: string }[] = [];
   const api = new CmsApi({ cms, authenticator, people: new MemoryPeople(seed.people ?? [user]) });
   const requests: Request[] = [];

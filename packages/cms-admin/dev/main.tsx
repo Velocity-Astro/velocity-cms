@@ -20,6 +20,11 @@ const client = new MemoryAdminClient({
   ...(!options.has('signed-out') && { user: sampleUser }),
   passkeyUser: sampleUser,
   showUploads: true,
+  plugins: [
+    { name: 'publish-log', apiVersion: 1, label: { en: 'Publish log' }, description: { en: "Notes every publish in the server's log." }, version: '1.0.0', setup: () => undefined },
+    { name: 'seo', apiVersion: 1, label: { en: 'SEO' }, description: { en: 'Titles, descriptions and a check before publishing.' }, version: '0.1.0', permissions: ['entry:read'], setup: () => { throw new Error('SEO_API_KEY is not set.'); } },
+    { name: 'forms', apiVersion: 2, label: { en: 'Forms' }, setup: () => undefined },
+  ],
   contentTypes: sampleContentTypes,
   entries: sampleEntries(),
   ...(options.has('slow') && { delay: 1500 }),

@@ -23,6 +23,7 @@ TypeScript (strict) · Zod 4 · web-standard `Request`/`Response` · Better Auth
 - `packages/cms-core/src/model.ts` — the content model as plain data. No methods.
 - `packages/cms-core/src/field-type.ts`, `fields/` — the `FieldType` base class and the built-in types.
 - `packages/cms-core/src/services/` — `SchemaService` and `ContentService`. Every write goes through one of these.
+- `packages/cms-core/src/plugin.ts` — plugins: `definePlugin`, and `PluginHost`, which starts each one, gives it its own actor and switches off one that cannot start. A site names its plugins in `velocityCms({ plugins })`; `cms-astro/routes/plugins.ts` hands them over when the server starts.
 - `packages/cms-core/src/ports.ts` — the interfaces adapters implement.
 - `packages/cms-core/src/testing/` — in-memory adapters and the contract tests for real ones.
 - `packages/cms-db/src/search-index.ts` — search in the same database (FTS5). Its table is a hand-written migration.
@@ -47,6 +48,7 @@ TypeScript (strict) · Zod 4 · web-standard `Request`/`Response` · Better Auth
 - **Drafts never leak.** Anything that shows working versions must check `isPreview()`, must not be cached, and must not feed search, the sitemap or share images.
 - **A template's content types are described in code and applied with `schema.define`.** It may run on every deploy: a field keeps its id by key, so content stays, and fields the description leaves out are kept. A type also names the field its entries are called by (`titlePath`) and the sections the editor shows (`sections`).
 - **Field ids are permanent.** Entry data is keyed by field id, never by key. A rename changes the key only. A removed field is marked `deletedAt` and its data is kept.
+- **A plugin gets the public surface and nothing else.** What `setup` receives is `PluginContext`: add to it deliberately, because every addition is a promise to plugin authors (`PLUGIN_API_VERSION`). A plugin writes through the services as its own actor, with only the permissions it declared, and a failure in one is caught, counted and shown under Plugins; it never stops a save or a publish.
 - **No switch on field type.** Behaviour that differs by field type is a method on `FieldType`.
 - **A new adapter must pass the contract tests** in `@velocity/cms-core/testing`. Add a case there when you find behaviour an adapter could get wrong.
 - **Migrations only move forward.** Never edit a generated migration that has shipped.
