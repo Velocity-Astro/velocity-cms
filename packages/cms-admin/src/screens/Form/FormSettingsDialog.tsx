@@ -2,7 +2,7 @@ import { liveFields, type FormDef } from '@velocity/cms-core';
 import { Button, Dialog, Form, NumberField, Select, Switch, Text, TextArea, TextField, toast } from '@velocity/cms-ui';
 import { useState } from 'react';
 import { AdminRequestError } from '../../client/errors.js';
-import { useUpdateForm } from '../../client/queries.js';
+import { useCustomFields, useUpdateForm } from '../../client/queries.js';
 import { localized } from '../../lib/content.js';
 import { useClosing } from '../../lib/use-closing.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
@@ -36,6 +36,9 @@ export function FormSettingsDialog({ form, onClose }: FormSettingsDialogProps) {
   const [submitLabel, setSubmitLabel] = useState(form.submitLabel ? localized(form.submitLabel, locale) : '');
   const [days, setDays] = useState<number | null>(form.retentionDays ?? null);
   const [startsDeal, setStartsDeal] = useState(form.startsDeal === true);
+  // Which of the form's fields fills each of the site's own fields for contacts, by the custom field's id.
+  const custom = liveFields(useCustomFields().data?.contact ?? []);
+  const [fills, setFills] = useState<Readonly<Record<string, string>>>(() => Object.fromEntries(Object.entries(form.fills ?? {}).map(([fieldId, customId]) => [customId, keyOf(fieldId)])));
   const [problems, setProblems] = useState(NO_PROBLEMS);
 
   // Each mark is offered the fields of the kind that can hold it.
@@ -60,6 +63,7 @@ export function FormSettingsDialog({ form, onClose }: FormSettingsDialogProps) {
           success: words(success, form.success),
           submitLabel: words(submitLabel, form.submitLabel),
           retentionDays: days,
+          fills: Object.fromEntries(Object.entries(fills).flatMap(([customId, key]) => (key === NONE ? [] : [[key, customId]]))),
           startsDeal,
           expectedRevision: form.revision,
         },
@@ -107,6 +111,16 @@ export function FormSettingsDialog({ form, onClose }: FormSettingsDialogProps) {
         <Select label={messages.forms.senderEmail} description={messages.forms.senderHelp} options={choices('email')} value={senderEmail} onChange={setSenderEmail} />
         <Select label={messages.forms.senderName} options={choices('text')} value={senderName} onChange={setSenderName} />
         <Select label={messages.forms.senderPhone} options={choices('phone')} value={senderPhone} onChange={setSenderPhone} />
+        {custom.map((field, index) => (
+          <Select
+            key={field.id}
+            label={messages.forms.fills(localized(field.label, locale))}
+            {...(index === 0 && { description: messages.forms.fillsHelp })}
+            options={choices(field.type)}
+            value={fills[field.id] ?? NONE}
+            onChange={(key) => setFills({ ...fills, [field.id]: key })}
+          />
+        ))}
         <Switch label={messages.forms.startsDeal} isSelected={startsDeal} onChange={setStartsDeal} />
         <Text size="sm" tone="muted">
           {messages.forms.startsDealHelp}

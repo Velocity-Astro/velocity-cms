@@ -495,6 +495,45 @@ describe('custom fields', () => {
     expect((JSON.parse(await cms.contacts.export(editor, tom.id)) as { contact: Record<string, unknown> }).contact).toMatchObject({ email: 'tom@example.com', fields: { goal: 'Swim' } });
   });
 
+  it('are filled from a form\'s answers where the form says, and never over what is already there', async () => {
+    const fields = await cms.customFields.save(editor, { contact: [membership, { key: 'goal', type: 'text', label: { en: 'Goal' } }, { key: 'visits', type: 'number', label: { en: 'Visits' } }], expectedRevision: 0 });
+    const [plan, goal, visits] = ['membership', 'goal', 'visits'].map((key) => idOf(fields.contact, key));
+    const join = await cms.forms.create(editor, {
+      key: 'join',
+      label: { en: 'Join' },
+      fields: [
+        { key: 'email', type: 'email', label: { en: 'Email' } },
+        { key: 'plan', type: 'select', label: { en: 'Plan' }, options: { choices: ['monthly', 'yearly', 'weekly'] } },
+        { key: 'why', type: 'text', label: { en: 'Why' } },
+      ],
+      contact: { email: 'email' },
+      // The last is a text answer for a number field: kept in the form's settings, and left out when it arrives.
+      fills: { plan: plan ?? '', why: goal ?? '', email: visits ?? '' },
+    });
+    const idIn = (key: string) => join.fields.find((field) => field.key === key)?.id ?? '';
+    expect(join.fills).toEqual({ [idIn('plan')]: plan, [idIn('why')]: goal, [idIn('email')]: visits });
+
+    // A new contact gets the answers. One the custom field would not take ("weekly" is no plan here) is left out.
+    await cms.submissions.submit('join', { email: 'ana@example.com', plan: 'weekly', why: 'Run 10k' });
+    const ana = (await cms.contacts.find(editor, { search: 'ana@example.com' })).items[0];
+    expect(ana?.data).toEqual({ [goal ?? '']: 'Run 10k' });
+
+    // Later answers fill only what is still empty.
+    await cms.submissions.submit('join', { email: 'ana@example.com', plan: 'yearly', why: 'Swim' });
+    const later = await cms.contacts.get(editor, ana?.id ?? '');
+    expect(later.data).toEqual({ [goal ?? '']: 'Run 10k', [plan ?? '']: 'yearly' });
+    expect(later.revision).toBe(2);
+    await cms.submissions.submit('join', { email: 'ana@example.com', plan: 'monthly' });
+    expect((await cms.contacts.get(editor, later.id)).revision).toBe(2);
+
+    // Two answers cannot fill one field, a key must be a field of the form, and a choice whose field is removed goes with it.
+    await expect(cms.forms.update(editor, join.id, { fills: { plan: goal ?? '', why: goal ?? '' }, expectedRevision: 1 })).rejects.toThrow(/fill the same field/);
+    await expect(cms.forms.update(editor, join.id, { fills: { nothing: goal ?? '' }, expectedRevision: 1 })).rejects.toThrow(/no field with the key "nothing"/);
+    const fewer = await cms.forms.update(editor, join.id, { fields: join.fields.filter((field) => field.key !== 'why'), expectedRevision: 1 });
+    expect(fewer.fills).toEqual({ [idIn('plan')]: plan, [idIn('email')]: visits });
+    expect((await cms.forms.update(editor, join.id, { fills: {}, expectedRevision: 2 })).fills).toBeUndefined();
+  });
+
   it('are filled in on a deal, and go into the file of the deal\'s contact by key', async () => {
     const fields = await cms.customFields.save(editor, { deal: [seats], expectedRevision: 0 });
     const tom = await cms.contacts.create(editor, { email: 'tom@example.com' });
