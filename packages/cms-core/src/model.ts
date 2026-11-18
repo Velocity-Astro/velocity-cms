@@ -324,3 +324,48 @@ export interface Submission {
   /** The id of whoever marked it handled. */
   readonly handledBy?: string;
 }
+
+/**
+ * A person who wrote to the site, or whom the team added by hand. Personal data about someone
+ * who is not a user of the CMS: read only through the contact service.
+ */
+export interface Contact {
+  readonly id: string;
+  /** In lower case. What makes two submissions the same person; no two contacts share one. */
+  readonly email: string;
+  readonly name?: string;
+  readonly phone?: string;
+  /** Where they first came from: the form they sent and the page it was on. Left out for one added by hand. */
+  readonly source?: ContactSource;
+  /** Starts at 1 and goes up by one on every save. */
+  readonly revision: number;
+  readonly createdAt: Timestamp;
+  readonly updatedAt: Timestamp;
+}
+
+export interface ContactSource {
+  readonly formId: string;
+  readonly page?: string;
+}
+
+/** Something the team wrote down about a contact. */
+export interface ContactNote {
+  readonly id: string;
+  readonly contactId: string;
+  readonly text: string;
+  /** The id of whoever wrote it. */
+  readonly createdBy: string;
+  readonly createdAt: Timestamp;
+}
+
+/** One answer of a submission, with its field's key and label, for showing it to the team. */
+export interface SubmissionAnswer {
+  readonly key: string;
+  readonly label: LocalizedText;
+  readonly value: unknown;
+}
+
+/** One thing that happened with a contact: a form they sent, or a note the team wrote. */
+export type TimelineItem =
+  | { readonly kind: 'submission'; readonly at: Timestamp; readonly submission: Submission; readonly formLabel?: LocalizedText; readonly answers: readonly SubmissionAnswer[] }
+  | { readonly kind: 'note'; readonly at: Timestamp; readonly note: ContactNote };

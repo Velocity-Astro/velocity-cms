@@ -1,6 +1,6 @@
 import type { Actor } from './access.js';
 import type { Permission } from './access.js';
-import type { ContentTypeDef, Entry, FormDef, MediaFile, Submission } from './model.js';
+import type { Contact, ContentTypeDef, Entry, FormDef, MediaFile, Submission } from './model.js';
 
 /** Everything the CMS announces, and what each announcement carries. */
 export interface CmsEvents {
@@ -29,6 +29,10 @@ export interface CmsEvents {
   'submission.changed': { submission: Submission; actor: Actor };
   /** Submissions are gone for good: deleted, erased for a person, or past the time they are kept. */
   'submission.deleted': { formId: string; ids: readonly string[]; actor: Actor };
+  /** A contact was made or changed. Nobody is acting when a submission made it. */
+  'contact.saved': { contact: Contact; actor?: Actor };
+  /** A contact is gone for good, with its notes. `contact` is what it was. */
+  'contact.deleted': { contact: Contact; actor: Actor };
   'media.uploaded': { file: MediaFile; actor: Actor };
   'media.removed': { file: MediaFile; actor: Actor };
   /** A plugin was switched on or off, or its settings were saved. */
@@ -38,12 +42,14 @@ export interface CmsEvents {
 }
 
 /**
- * What a listener must be allowed before it is told of an event. Submissions are personal data,
- * so a plugin hears of them only if it declared that it reads them.
+ * What a listener must be allowed before it is told of an event. Submissions and contacts are
+ * personal data, so a plugin hears of them only if it declared that it reads them.
  */
 export const EVENT_NEEDS: Readonly<Partial<Record<keyof CmsEvents, Permission>>> = {
   'submission.received': 'submission:read',
   'submission.changed': 'submission:read',
+  'contact.saved': 'contact:read',
+  'contact.deleted': 'contact:read',
 };
 
 type Listener<T> = (payload: T) => void | Promise<void>;

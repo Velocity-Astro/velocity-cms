@@ -133,3 +133,33 @@ export const formSubmissions = sqliteTable(
     index('form_submissions_email').on(table.email),
   ],
 );
+
+/** The people who wrote to the site. Personal data: read only through the contact service. */
+export const contacts = sqliteTable(
+  'contacts',
+  {
+    id: text('id').primaryKey(),
+    email: text('email').notNull(),
+    name: text('name'),
+    phone: text('phone'),
+    sourceFormId: text('source_form_id'),
+    sourcePage: text('source_page'),
+    revision: integer('revision').notNull(),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [uniqueIndex('contacts_email').on(table.email), index('contacts_created').on(table.createdAt)],
+);
+
+/** What the team wrote down about a contact. */
+export const contactNotes = sqliteTable(
+  'contact_notes',
+  {
+    id: text('id').primaryKey(),
+    contactId: text('contact_id').notNull(),
+    text: text('text').notNull(),
+    createdBy: text('created_by').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [index('contact_notes_contact').on(table.contactId, table.createdAt)],
+);

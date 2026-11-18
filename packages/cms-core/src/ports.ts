@@ -2,7 +2,7 @@
  * What the core needs from the outside world. The core ships no implementation of these:
  * an adapter package implements each one and proves it with the contract tests in `./testing`.
  */
-import type { ContentTypeDef, Entry, EntryStatus, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus, Timestamp } from './model.js';
+import type { ContentTypeDef, Entry, EntryStatus, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus, Timestamp, Contact, ContactNote } from './model.js';
 
 export interface EntryQuery {
   readonly typeId?: string;
@@ -101,6 +101,36 @@ export interface SubmissionRepository {
   remove(ids: readonly string[]): Promise<void>;
   /** Removes every submission of a form for good. */
   removeOfForm(formId: string): Promise<void>;
+}
+
+export interface ContactQuery {
+  /** Words to find in the name, email or phone, whatever their case. */
+  readonly search?: string;
+  /** Defaults to 50. */
+  readonly limit?: number;
+  readonly offset?: number;
+}
+
+export interface ContactRepository {
+  get(id: string): Promise<Contact | null>;
+  /** The contact with this email, given in lower case. */
+  getByEmail(email: string): Promise<Contact | null>;
+  /** Newest first, then by id, so paging never skips or repeats one. */
+  find(query?: ContactQuery): Promise<Page<Contact>>;
+  /**
+   * Creates or replaces. `expectedRevision` is the revision the caller last saw, or `null` for a
+   * new contact: one that has moved on is refused with a `ConflictError`, and so is an email
+   * another contact has.
+   */
+  save(contact: Contact, expectedRevision: number | null): Promise<Contact>;
+  /** Removes the contact and its notes for good. An id nothing has is ignored. */
+  remove(id: string): Promise<void>;
+  /** A contact's notes, newest first, then by id. */
+  notes(contactId: string): Promise<ContactNote[]>;
+  /** Adds a note. Refuses, with a `ConflictError`, an id another already has. */
+  addNote(note: ContactNote): Promise<ContactNote>;
+  /** Removes one note of a contact. An id nothing has is ignored. */
+  removeNote(contactId: string, noteId: string): Promise<void>;
 }
 
 /** The current time. Passed in so tests can fix it. */

@@ -1,5 +1,5 @@
-import { readImage, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PluginSettings, type PluginEditorInfo, type PluginRouteMethod, type EntryData, type FormChanges, type FormDef, type NewForm, type PreviewLink, type SiteImage, type Submission, type SubmissionStatus } from '@velocity/cms-core';
-import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from './admin-client.js';
+import { readImage, type Contact, type ContactChanges, type ContactNote, type NewContact, type TimelineItem, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PluginSettings, type PluginEditorInfo, type PluginRouteMethod, type EntryData, type FormChanges, type FormDef, type NewForm, type PreviewLink, type SiteImage, type Submission, type SubmissionStatus } from '@velocity/cms-core';
+import type { AdminClient, ContactListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from './admin-client.js';
 import { AdminRequestError, type RequestErrorCode, type RequestIssue } from './errors.js';
 
 /**
@@ -233,6 +233,46 @@ export class HttpAdminClient implements AdminClient {
 
   async forgetSender(email: string): Promise<number> {
     return (await this.#send<{ removed: number }>('POST', '/submissions/forget', { email })).removed;
+  }
+
+  listContacts(query: ContactListQuery = {}): Promise<Page<Contact>> {
+    const search = new URLSearchParams();
+    if (query.search !== undefined && query.search !== '') search.set('search', query.search);
+    if (query.limit !== undefined) search.set('limit', String(query.limit));
+    if (query.offset !== undefined) search.set('offset', String(query.offset));
+    return this.#get(`/contacts?${search}`);
+  }
+
+  getContact(id: string): Promise<Contact> {
+    return this.#get(`/contacts/${encodeURIComponent(id)}`);
+  }
+
+  createContact(input: NewContact): Promise<Contact> {
+    return this.#send('POST', '/contacts', input);
+  }
+
+  updateContact(id: string, changes: ContactChanges): Promise<Contact> {
+    return this.#send('PATCH', `/contacts/${encodeURIComponent(id)}`, changes);
+  }
+
+  async eraseContact(id: string): Promise<number> {
+    return (await this.#send<{ removed: number }>('DELETE', `/contacts/${encodeURIComponent(id)}`, {})).removed;
+  }
+
+  async contactTimeline(id: string): Promise<readonly TimelineItem[]> {
+    return (await this.#get<{ items: readonly TimelineItem[] }>(`/contacts/${encodeURIComponent(id)}/timeline`)).items;
+  }
+
+  addContactNote(id: string, text: string): Promise<ContactNote> {
+    return this.#send('POST', `/contacts/${encodeURIComponent(id)}/notes`, { text });
+  }
+
+  async deleteContactNote(id: string, noteId: string): Promise<void> {
+    await this.#send('DELETE', `/contacts/${encodeURIComponent(id)}/notes/${encodeURIComponent(noteId)}`, {});
+  }
+
+  async exportContact(id: string): Promise<string> {
+    return (await this.#get<{ file: string }>(`/contacts/${encodeURIComponent(id)}/export`)).file;
   }
 
   previewEntry(id: string): Promise<PreviewLink> {

@@ -1,6 +1,6 @@
 import { MutationCache, QueryCache, QueryClient, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity/cms-core';
-import type { EntryChanges, EntryListQuery, ImageList, NewEntry, NewPerson, NewType, NewTypeField, SubmissionListQuery } from './admin-client.js';
+import type { ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, ContactChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity/cms-core';
+import type { ContactListQuery, EntryChanges, EntryListQuery, ImageList, NewEntry, NewPerson, NewType, NewTypeField, SubmissionListQuery } from './admin-client.js';
 import { AdminRequestError } from './errors.js';
 import { useClient } from './client-context.js';
 
@@ -30,6 +30,11 @@ const keys = {
   submissions: ['submissions'] as const,
   submissionList: (query: SubmissionListQuery) => ['submissions', 'list', query] as const,
   submissionCounts: (formId: string) => ['submissions', 'counts', formId] as const,
+  /** Everything about contacts starts with this, so one call marks it all out of date. */
+  contacts: ['contacts'] as const,
+  contactList: (query: ContactListQuery) => ['contacts', 'list', query] as const,
+  contact: (id: string) => ['contacts', 'one', id] as const,
+  contactTimeline: (id: string) => ['contacts', 'timeline', id] as const,
 };
 
 /**
@@ -388,7 +393,79 @@ export function useExportSubmissions() {
 
 export function useForgetSender() {
   const client = useClient();
-  return useMutation({ mutationFn: (email: string) => client.forgetSender(email), onSuccess: useSubmissionsChanged() });
+  const cache = useQueryClient();
+  const changed = useSubmissionsChanged();
+  return useMutation({
+    mutationFn: (email: string) => client.forgetSender(email),
+    onSuccess: () => {
+      changed();
+      // Their contact went with what they sent.
+      void cache.invalidateQueries({ queryKey: keys.contacts });
+    },
+  });
+}
+
+/** The people who wrote to the site. What was on screen stays while the next search is on its way. */
+export function useContacts(query: ContactListQuery = {}) {
+  const client = useClient();
+  return useQuery({ queryKey: keys.contactList(query), queryFn: () => client.listContacts(query), placeholderData: (previous) => previous });
+}
+
+export function useContact(id: string) {
+  const client = useClient();
+  return useQuery({ queryKey: keys.contact(id), queryFn: () => client.getContact(id) });
+}
+
+export function useContactTimeline(id: string) {
+  const client = useClient();
+  return useQuery({ queryKey: keys.contactTimeline(id), queryFn: () => client.contactTimeline(id) });
+}
+
+/** What every change to a contact does afterwards: the lists, the contact and its timeline are asked for again. */
+function useContactsChanged() {
+  const cache = useQueryClient();
+  return () => void cache.invalidateQueries({ queryKey: keys.contacts });
+}
+
+export function useCreateContact() {
+  const client = useClient();
+  return useMutation({ mutationFn: (input: NewContact) => client.createContact(input), onSuccess: useContactsChanged() });
+}
+
+export function useUpdateContact() {
+  const client = useClient();
+  return useMutation({ mutationFn: ({ id, changes }: { id: string; changes: ContactChanges }) => client.updateContact(id, changes), onSuccess: useContactsChanged() });
+}
+
+export function useEraseContact() {
+  const client = useClient();
+  const cache = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => client.eraseContact(id),
+    onSuccess: (_, id) => {
+      cache.removeQueries({ queryKey: keys.contact(id) });
+      cache.removeQueries({ queryKey: keys.contactTimeline(id) });
+      void cache.invalidateQueries({ queryKey: keys.contactList({}).slice(0, 2) });
+      // What they sent went with them.
+      void cache.invalidateQueries({ queryKey: keys.submissions });
+    },
+  });
+}
+
+export function useAddContactNote() {
+  const client = useClient();
+  return useMutation({ mutationFn: ({ id, text }: { id: string; text: string }) => client.addContactNote(id, text), onSuccess: useContactsChanged() });
+}
+
+export function useDeleteContactNote() {
+  const client = useClient();
+  return useMutation({ mutationFn: ({ id, noteId }: { id: string; noteId: string }) => client.deleteContactNote(id, noteId), onSuccess: useContactsChanged() });
+}
+
+/** Asks for the file each time it is wanted: it is never kept. */
+export function useExportContact() {
+  const client = useClient();
+  return useMutation({ mutationFn: (id: string) => client.exportContact(id) });
 }
 
 export function usePreviewEntry() {

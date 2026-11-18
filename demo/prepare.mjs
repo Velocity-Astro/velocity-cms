@@ -86,6 +86,9 @@ try {
     for (const form of sampleForms) await connection.cms.forms.create(OWNER, form);
     console.log(`Added ${sampleForms.length} sample form${sampleForms.length === 1 ? '' : 's'}: ${sampleForms.map((form) => form.key).join(', ')}.`);
   }
+  // Everyone who wrote in before the site kept contacts becomes one. It makes nobody twice.
+  const caughtUp = await connection.cms.contacts.catchUp(OWNER);
+  if (caughtUp > 0) console.log(`Made ${caughtUp} contact${caughtUp === 1 ? '' : 's'} from what was sent before.`);
   const forms = await connection.cms.forms.list(OWNER);
   /** A sample page names its form by key; a section whose form the site does not have is left out. */
   const withForms = (body) =>

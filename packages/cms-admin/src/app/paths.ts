@@ -14,6 +14,9 @@ export const paths = {
   forms: '/forms',
   /** One form: what it was sent, and its fields. */
   form: (formId: string) => `/forms/${encodeURIComponent(formId)}`,
+  contacts: '/contacts',
+  /** One contact: who they are and what happened with them. */
+  contact: (contactId: string) => `/contacts/${encodeURIComponent(contactId)}`,
   plugins: '/plugins',
   /** A screen a plugin added. */
   pluginScreen: (plugin: string, screen: string) => `/plugins/${encodeURIComponent(plugin)}/${encodeURIComponent(screen)}`,

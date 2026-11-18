@@ -1,4 +1,4 @@
-import type { Cms, ContentTypeChanges, FieldArrangement, FieldChanges, FieldSection, FormChanges, NewField, NewForm, Role } from '@velocity/cms-core';
+import type { Cms, ContactChanges, ContentTypeChanges, FieldArrangement, FieldChanges, FieldSection, FormChanges, NewContact, NewField, NewForm, Role } from '@velocity/cms-core';
 import { z } from 'zod';
 import type { ApiSession, Authenticator } from './authenticator.js';
 import { ApiError, errorResponse, isFault, json } from './http.js';
@@ -131,6 +131,19 @@ const submissionList = z.object({
 });
 const submissionMark = z.strictObject({ status: z.enum(['new', 'handled', 'spam']) });
 const forgetRequest = z.strictObject({ email: z.string() });
+const contactList = z.object({
+  search: z.string().max(200).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+const newContact = z.strictObject({ email: z.string(), name: z.string().optional(), phone: z.string().optional() });
+const contactChanges = z.strictObject({
+  email: z.string().optional(),
+  name: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  expectedRevision: z.number().int().positive(),
+});
+const newNote = z.strictObject({ text: z.string() });
 const publishRequest = z.strictObject({ expectedRevision: z.number().int().positive() });
 
 /**
@@ -148,7 +161,7 @@ export class CmsApi {
   constructor(options: CmsApiOptions) {
     this.#options = options;
     this.#basePath = `/${(options.basePath ?? '/api/cms').split('/').filter(Boolean).join('/')}`;
-    const { schema, content, fields, media, previews, plugins, forms, submissions } = options.cms;
+    const { schema, content, fields, media, previews, plugins, forms, submissions, contacts } = options.cms;
     const defaultLocale = options.defaultLocale ?? 'en';
 
     this.#router
@@ -302,6 +315,35 @@ export class CmsApi {
         const who = actor(call);
         const { email } = parse(forgetRequest, await this.#body(call.request));
         return json({ removed: await submissions.erase(who, email) });
+      })
+      .add('GET', '/contacts', async (call) => {
+        const query = parse(contactList, Object.fromEntries(call.url.searchParams));
+        return json(await contacts.find(actor(call), { limit: query.limit, offset: query.offset, ...(query.search !== undefined && { search: query.search }) }));
+      })
+      .add('POST', '/contacts', async (call) => {
+        const who = actor(call);
+        const body = parse(newContact, await this.#body(call.request));
+        return json(await contacts.create(who, deep<NewContact>(body)), 201);
+      })
+      .add('GET', '/contacts/:id', async (call) => json(await contacts.get(actor(call), param(call, 'id'))))
+      .add('PATCH', '/contacts/:id', async (call) => {
+        const who = actor(call);
+        const body = parse(contactChanges, await this.#body(call.request));
+        return json(await contacts.update(who, param(call, 'id'), deep<ContactChanges>(body)));
+      })
+      // Erasing a person: the contact, their notes and everything they sent.
+      .add('DELETE', '/contacts/:id', async (call) => json({ removed: await contacts.erase(actor(call), param(call, 'id')) }))
+      .add('GET', '/contacts/:id/timeline', async (call) => json({ items: await contacts.timeline(actor(call), param(call, 'id')) }))
+      // The file's text inside JSON, as with a form's export: the editor saves it as a file.
+      .add('GET', '/contacts/:id/export', async (call) => json({ file: await contacts.export(actor(call), param(call, 'id')) }))
+      .add('POST', '/contacts/:id/notes', async (call) => {
+        const who = actor(call);
+        const { text } = parse(newNote, await this.#body(call.request));
+        return json(await contacts.addNote(who, param(call, 'id'), text), 201);
+      })
+      .add('DELETE', '/contacts/:id/notes/:note', async (call) => {
+        await contacts.deleteNote(actor(call), param(call, 'id'), param(call, 'note'));
+        return json({});
       });
 
     const { people } = options;

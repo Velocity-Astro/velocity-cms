@@ -5,10 +5,11 @@ import { createFieldRegistry } from './fields/index.js';
 import { PublishChecks } from './checks.js';
 import { PageHeads } from './pages.js';
 import { PluginHost } from './plugin.js';
-import type { Clock, EntryRepository, FormRepository, IdGenerator, PluginStore, SchemaRepository, SubmissionRepository } from './ports.js';
-import { InMemoryFormRepository, InMemoryPluginStore, InMemorySubmissionRepository } from './testing/in-memory.js';
+import type { Clock, ContactRepository, EntryRepository, FormRepository, IdGenerator, PluginStore, SchemaRepository, SubmissionRepository } from './ports.js';
+import { InMemoryContactRepository, InMemoryFormRepository, InMemoryPluginStore, InMemorySubmissionRepository } from './testing/in-memory.js';
 import type { Registry } from './registry.js';
 import { ContentService } from './services/content-service.js';
+import { ContactService } from './services/contact-service.js';
 import { FormService } from './services/form-service.js';
 import { SubmissionService } from './services/submission-service.js';
 import { MediaService, type MediaServiceOptions } from './services/media-service.js';
@@ -30,6 +31,8 @@ export interface CmsOptions {
    */
   readonly forms?: FormRepository;
   readonly submissions?: SubmissionRepository;
+  /** Where contacts and the team's notes about them are kept. Without one, in memory, as above. */
+  readonly contacts?: ContactRepository;
   readonly clock?: Clock;
   readonly ids?: IdGenerator;
   /**
@@ -49,6 +52,8 @@ export interface Cms {
   /** The forms visitors fill in, and what they sent. */
   readonly forms: FormService;
   readonly submissions: SubmissionService;
+  /** The people who wrote to the site, what each sent and what the team noted. */
+  readonly contacts: ContactService;
   readonly previews: PreviewService;
   readonly fields: Registry<FieldType>;
   readonly events: EventBus;
@@ -80,8 +85,9 @@ export function createCms(options: CmsOptions): Cms {
   const formStore = options.forms ?? new InMemoryFormRepository();
   const submissionStore = options.submissions ?? new InMemorySubmissionRepository();
   const forms = new FormService(formStore, submissionStore, fields, access, events, clock, ids);
-  const submissions = new SubmissionService(submissionStore, formStore, fields, access, events, clock, ids);
+  const contacts = new ContactService(options.contacts ?? new InMemoryContactRepository(), submissionStore, formStore, fields, access, events, clock, ids);
+  const submissions = new SubmissionService(submissionStore, formStore, fields, access, events, clock, ids, contacts);
   const previews = new PreviewService(content, schema, clock, options.previews);
   const plugins = new PluginHost({ fields, events, checks, pages, store: options.pluginStore ?? new InMemoryPluginStore(), ids, schema, content, access, clock, ...(options.onPluginFault && { onFault: options.onPluginFault }) });
-  return { schema, content, media, forms, submissions, previews, fields, events, access, plugins, pages };
+  return { schema, content, media, forms, submissions, contacts, previews, fields, events, access, plugins, pages };
 }
