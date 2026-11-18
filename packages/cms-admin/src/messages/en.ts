@@ -459,6 +459,7 @@ export const en = {
       reference: { name: 'Link to an entry', description: 'An entry of another content type, such as a listing\'s agent.' },
       list: { name: 'List', description: 'Several of the same thing, in order: photos, features.' },
       group: { name: 'Group', description: 'Several fields kept together, such as an address.' },
+      blocks: { name: 'Sections', description: 'The sections of a page, in order, each one a block the site\'s template provides.' },
     } as Readonly<Record<string, { readonly name: string; readonly description: string }>>,
 
     textMultiline: 'Several lines',

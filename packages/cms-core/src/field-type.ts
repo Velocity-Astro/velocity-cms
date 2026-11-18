@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import type { FieldDef } from './model.js';
+import type { FieldDef, Timestamp } from './model.js';
 import type { IdGenerator } from './ports.js';
 import type { Registry } from './registry.js';
 
@@ -19,6 +19,8 @@ export interface FieldContext {
 export interface DefineContext {
   readonly fields: Registry<FieldType>;
   readonly ids: IdGenerator;
+  /** The time of the change, for a type that marks what a description no longer has. */
+  readonly now: Timestamp;
 }
 
 /**

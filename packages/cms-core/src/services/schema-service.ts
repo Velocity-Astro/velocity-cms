@@ -335,7 +335,7 @@ export class SchemaService {
   }
 
   private get context() {
-    return { fields: this.fields, ids: this.ids };
+    return { fields: this.fields, ids: this.ids, now: this.clock.now() };
   }
 
   /** A type with a description applied to it: its fields, what entries are called by, and its layout. */

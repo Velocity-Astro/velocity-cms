@@ -11,6 +11,7 @@ export {
 export { EventBus, type CmsEvents } from './events.js';
 export { FieldType, type FieldContext, type ValidationMode } from './field-type.js';
 export {
+  BlocksField,
   BooleanField,
   DateField,
   GroupField,
@@ -23,6 +24,8 @@ export {
   TextField,
   UrlField,
   createFieldRegistry,
+  defineBlock,
+  type NewBlock,
   type PublicRichText,
 } from './fields/index.js';
 export {
@@ -42,6 +45,8 @@ export {
   hasUnpublishedChanges,
   isLiveType,
   liveFields,
+  type BlockDef,
+  type BlockValue,
   type ContentTypeDef,
   type ContentTypeKind,
   type Entry,
@@ -54,6 +59,7 @@ export {
   type LocalizedText,
   type MediaFile,
   type Page,
+  type PublicBlock,
   type PublicEntry,
   type PublishedVersion,
   type Revision,
