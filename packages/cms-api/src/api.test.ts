@@ -73,7 +73,7 @@ describe('who is asking', () => {
 
   it('refuses everything else until someone signs in', async () => {
     authenticator.session = null;
-    for (const [method, path] of [['GET', '/content-types'], ['GET', '/field-types'], ['GET', '/entries?type=listings'], ['GET', '/entries/x'], ['POST', '/entries'], ['PATCH', '/entries/x'], ['POST', '/entries/x/publish'], ['POST', '/entries/x/unpublish'], ['POST', '/entries/x/preview']] as const) {
+    for (const [method, path] of [['GET', '/content-types'], ['GET', '/field-types'], ['GET', '/entries?type=listings'], ['GET', '/entries/x'], ['POST', '/entries'], ['PATCH', '/entries/x'], ['POST', '/entries/x/publish'], ['POST', '/entries/x/unpublish'], ['DELETE', '/entries/x'], ['POST', '/entries/x/restore'], ['GET', '/trash'], ['DELETE', '/trash/x'], ['POST', '/entries/x/preview']] as const) {
       const { status, body } = await call(method, path, method === 'GET' ? undefined : {});
       expect([method, path, status, body.error?.code]).toEqual([method, path, 401, 'unauthenticated']);
     }
@@ -141,6 +141,27 @@ describe('writing', () => {
     const unpublished = await call('POST', `/entries/${draft.id}/unpublish`);
     expect(unpublished.body).toMatchObject({ status: 'draft' });
     expect(unpublished.body).not.toHaveProperty('published');
+  });
+
+  it('moves an entry to the trash, lists the trash, restores from it and deletes for good', async () => {
+    const draft = await create({ [fieldId('title')]: 'Lake house' });
+    const trashed = await call('DELETE', `/entries/${draft.id}`);
+    expect(trashed.status).toBe(200);
+    expect(trashed.body).toMatchObject({ id: draft.id, status: 'draft' });
+    expect(trashed.body).toHaveProperty('deletedAt');
+    expect((await call('GET', '/entries?type=listings')).body).toMatchObject({ total: 0 });
+    expect((await call('GET', '/trash')).body).toMatchObject({ total: 1, items: [{ id: draft.id }] });
+    expect((await call('GET', '/trash?limit=0')).status).toBe(400);
+
+    const restored = await call('POST', `/entries/${draft.id}/restore`);
+    expect(restored.body).not.toHaveProperty('deletedAt');
+    expect((await call('GET', '/trash')).body).toMatchObject({ total: 0 });
+
+    // Only what is in the trash can be deleted for good.
+    expect((await call('DELETE', `/trash/${draft.id}`)).status).toBe(409);
+    await call('DELETE', `/entries/${draft.id}`);
+    expect((await call('DELETE', `/trash/${draft.id}`)).status).toBe(200);
+    expect((await call('GET', `/entries/${draft.id}`)).status).toBe(404);
   });
 
   it('gives a link to a draft\'s page, which an author may ask for too', async () => {
@@ -270,9 +291,9 @@ describe('the edges', () => {
   it('answers 404 outside its routes and 405 for a method an address does not take', async () => {
     expect((await call('GET', '/nothing-here')).status).toBe(404);
     expect((await api.handle(new Request(`${SITE}/elsewhere`))).status).toBe(404);
-    const response = await send('DELETE', '/entries/x');
+    const response = await send('PUT', '/entries/x');
     expect(response.status).toBe(405);
-    expect(response.headers.get('allow')).toBe('GET, PATCH');
+    expect(response.headers.get('allow')).toBe('GET, PATCH, DELETE');
   });
 
   it('never lets an answer be cached', async () => {

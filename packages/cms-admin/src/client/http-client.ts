@@ -1,5 +1,5 @@
 import { readImage, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PluginSettings, type PluginEditorInfo, type PluginRouteMethod, type EntryData, type PreviewLink, type SiteImage } from '@velocity/cms-core';
-import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser } from './admin-client.js';
+import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, TrashQuery } from './admin-client.js';
 import { AdminRequestError, type RequestErrorCode, type RequestIssue } from './errors.js';
 
 /**
@@ -158,6 +158,25 @@ export class HttpAdminClient implements AdminClient {
 
   unpublishEntry(id: string): Promise<Entry> {
     return this.#send('POST', `/entries/${encodeURIComponent(id)}/unpublish`, {});
+  }
+
+  trashEntry(id: string): Promise<Entry> {
+    return this.#send('DELETE', `/entries/${encodeURIComponent(id)}`, {});
+  }
+
+  restoreEntry(id: string): Promise<Entry> {
+    return this.#send('POST', `/entries/${encodeURIComponent(id)}/restore`, {});
+  }
+
+  listTrash(query: TrashQuery = {}): Promise<Page<Entry>> {
+    const search = new URLSearchParams();
+    if (query.limit !== undefined) search.set('limit', String(query.limit));
+    if (query.offset !== undefined) search.set('offset', String(query.offset));
+    return this.#get(`/trash?${search}`);
+  }
+
+  async deleteEntry(id: string): Promise<void> {
+    await this.#send('DELETE', `/trash/${encodeURIComponent(id)}`, {});
   }
 
   previewEntry(id: string): Promise<PreviewLink> {

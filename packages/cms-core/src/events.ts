@@ -11,6 +11,12 @@ export interface CmsEvents {
   /** `before` is the entry as it was, so a listener can tell what visitors saw until now. */
   'entry.published': { entry: Entry; before: Entry; actor: Actor };
   'entry.unpublished': { entry: Entry; before: Entry; actor: Actor };
+  /** The entry went to the trash. One that was on the site is announced as unpublished first. */
+  'entry.trashed': { entry: Entry; before: Entry; actor: Actor };
+  /** The entry came back from the trash, as a draft. */
+  'entry.restored': { entry: Entry; actor: Actor };
+  /** The entry and its history are gone for good. `entry` is what it was. */
+  'entry.deleted': { entry: Entry; actor: Actor };
   'media.uploaded': { file: MediaFile; actor: Actor };
   'media.removed': { file: MediaFile; actor: Actor };
   /** A plugin was switched on or off, or its settings were saved. */

@@ -1,5 +1,6 @@
 import { EmptyState, Link } from '@velocity/cms-ui';
-import { FileQuestion } from 'lucide-react';
+import { isTrashed } from '@velocity/cms-core';
+import { FileQuestion, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useParams } from 'react-router';
 import { useGo } from '../../app/use-go.js';
@@ -59,6 +60,16 @@ export function EntryEditorScreen() {
     }
     // An entry reached through another type's address is not at this address.
     if (entry.data.typeId !== type.id) return notFound;
+    if (isTrashed(entry.data)) {
+      return (
+        <EmptyState
+          icon={Trash2}
+          title={messages.editor.inTrashTitle}
+          description={messages.editor.inTrashDescription}
+          action={<Link href={paths.trash}>{messages.editor.openTrash}</Link>}
+        />
+      );
+    }
   }
 
   return (
@@ -75,6 +86,7 @@ export function EntryEditorScreen() {
               .sort((a, b) => a.locale.localeCompare(b.locale))
       }
       onSwitch={(id) => go(paths.entry(type.key, id))}
+      onTrashed={() => go(paths.contentList(type.key))}
       onCreated={(created) => {
         setCreatedId(created.id);
         go(paths.entry(type.key, created.id), { replace: true, viewTransition: false });

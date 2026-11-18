@@ -167,6 +167,16 @@ export interface Entry {
   readonly publishAt?: Timestamp;
   readonly createdAt: Timestamp;
   readonly updatedAt: Timestamp;
+  /**
+   * Set while the entry is in the trash: it is off the site and out of every list but the trash,
+   * and its slug is free for another entry. Restoring brings it back as a draft.
+   */
+  readonly deletedAt?: Timestamp;
+}
+
+/** Whether an entry is in the trash. */
+export function isTrashed(entry: Entry): boolean {
+  return entry.deletedAt !== undefined;
 }
 
 /** One saved version of an entry, as kept in its history. */

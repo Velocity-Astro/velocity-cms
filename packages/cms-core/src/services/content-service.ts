@@ -3,6 +3,7 @@ import type { AccessControl, Actor } from '../access.js';
 import { ConflictError, NotFoundError, ValidationError } from '../errors.js';
 import type { EventBus } from '../events.js';
 import type { FieldContext, FieldType, ValidationMode } from '../field-type.js';
+import { isTrashed } from '../model.js';
 import type { ContentTypeDef, Entry, EntryData, EntryVersion, Page, PublicEntry, Revision } from '../model.js';
 import type { Clock, EntryQuery, EntryRepository, IdGenerator } from '../ports.js';
 import type { Registry } from '../registry.js';
@@ -102,7 +103,7 @@ export class ContentService {
 
   async update(actor: Actor, id: string, input: UpdateEntryInput): Promise<Entry> {
     this.access.require(actor, 'entry:write');
-    const current = await this.load(id);
+    const current = await this.loadLive(id);
     this.requireRevision(current, input.expectedRevision);
     const type = await this.schema.getLive(current.typeId);
     if (input.slug !== undefined) requireSlug(input.slug, type);
@@ -129,7 +130,7 @@ export class ContentService {
   /** Makes the working version the one visitors see. This is where required fields are enforced. */
   async publish(actor: Actor, id: string, expectedRevision?: number): Promise<Entry> {
     this.access.require(actor, 'entry:publish');
-    const current = await this.load(id);
+    const current = await this.loadLive(id);
     if (expectedRevision !== undefined) this.requireRevision(current, expectedRevision);
     const type = await this.schema.getLive(current.typeId);
     validateData(type.fields, current.data, this.context('publish'));
@@ -156,7 +157,7 @@ export class ContentService {
 
   async unpublish(actor: Actor, id: string): Promise<Entry> {
     this.access.require(actor, 'entry:publish');
-    const current = await this.load(id);
+    const current = await this.loadLive(id);
     if (current.status === 'draft') return current;
     const { published, ...rest } = current;
     const draft = await this.entries.save(
@@ -165,6 +166,63 @@ export class ContentService {
     );
     await this.events.emit('entry.unpublished', { entry: draft, before: current, actor });
     return draft;
+  }
+
+  /**
+   * Moves an entry to the trash. It leaves the site at once and every list but the trash, and its
+   * slug is free for another entry. Nothing is lost: `restore` brings it back as a draft.
+   */
+  async trash(actor: Actor, id: string): Promise<Entry> {
+    this.access.require(actor, 'entry:write');
+    const current = await this.load(id);
+    if (isTrashed(current)) return current;
+    // Taking a page off the site is a publishing decision, whichever button does it.
+    if (current.published) this.access.require(actor, 'entry:publish');
+    const { published, publishAt, ...rest } = current;
+    const now = this.clock.now();
+    const trashed = await this.entries.save(
+      { ...rest, status: 'draft', revision: current.revision + 1, updatedAt: now, deletedAt: now },
+      { expectedRevision: current.revision, actorId: actor.id },
+    );
+    if (published) await this.events.emit('entry.unpublished', { entry: trashed, before: current, actor });
+    await this.events.emit('entry.trashed', { entry: trashed, before: current, actor });
+    return trashed;
+  }
+
+  /** Brings an entry back from the trash, as a draft: it returns to the site when it is published. */
+  async restore(actor: Actor, id: string): Promise<Entry> {
+    this.access.require(actor, 'entry:write');
+    const current = await this.load(id);
+    if (!isTrashed(current)) return current;
+    const type = await this.schema.getLive(current.typeId);
+    // Its slug was free while it was away, and its place too if it is the one entry of a single.
+    const others = async (query: EntryQuery) => (await this.entries.find({ ...query, typeId: type.id, locale: current.locale, limit: 1 })).total > 0;
+    const taken = type.kind === 'single' ? await others({}) : (await others({ slug: current.slug })) || (await others({ publishedSlug: current.slug }));
+    if (taken) {
+      throw new ConflictError(
+        type.kind === 'single'
+          ? `"${type.key}" is a single page and has another entry in this language now. Move that entry to the trash first, then restore this one.`
+          : `Another entry uses the slug "${current.slug}" now. Change that entry's slug first, then restore this one.`,
+      );
+    }
+    const { deletedAt, ...rest } = current;
+    const restored = await this.entries.save(
+      { ...rest, revision: current.revision + 1, updatedAt: this.clock.now() },
+      { expectedRevision: current.revision, actorId: actor.id },
+    );
+    await this.events.emit('entry.restored', { entry: restored, actor });
+    return restored;
+  }
+
+  /** Deletes an entry and its history for good. Only an entry in the trash can go this way. */
+  async delete(actor: Actor, id: string): Promise<void> {
+    this.access.require(actor, 'entry:delete');
+    const current = await this.load(id);
+    if (!isTrashed(current)) {
+      throw new ConflictError('Move this entry to the trash first. Only an entry in the trash can be deleted for good.');
+    }
+    await this.entries.remove(id);
+    await this.events.emit('entry.deleted', { entry: current, actor });
   }
 
   /**
@@ -192,6 +250,13 @@ export class ContentService {
   private async load(id: string): Promise<Entry> {
     const entry = await this.entries.get(id);
     if (!entry) throw new NotFoundError('Entry', id);
+    return entry;
+  }
+
+  /** An entry to change. One in the trash is restored first. */
+  private async loadLive(id: string): Promise<Entry> {
+    const entry = await this.load(id);
+    if (isTrashed(entry)) throw new ConflictError('This entry is in the trash. Restore it to change it.');
     return entry;
   }
 

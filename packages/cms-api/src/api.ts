@@ -48,6 +48,7 @@ const entryList = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
   offset: z.coerce.number().int().min(0).default(0),
 });
+const trashList = entryList.omit({ type: true, locale: true });
 const data = z.record(z.string(), z.unknown());
 const newEntry = z.strictObject({ type: z.string().min(1), locale: z.string().min(1).optional(), slug: z.string(), data });
 const entryChanges = z.strictObject({ slug: z.string(), data, expectedRevision: z.number().int().positive() });
@@ -211,7 +212,17 @@ export class CmsApi {
         return json(await content.publish(who, param(call, 'id'), expectedRevision));
       })
       .add('POST', '/entries/:id/preview', async (call) => json(await previews.link(actor(call), param(call, 'id'))))
-      .add('POST', '/entries/:id/unpublish', async (call) => json(await content.unpublish(actor(call), param(call, 'id'))));
+      .add('POST', '/entries/:id/unpublish', async (call) => json(await content.unpublish(actor(call), param(call, 'id'))))
+      .add('DELETE', '/entries/:id', async (call) => json(await content.trash(actor(call), param(call, 'id'))))
+      .add('POST', '/entries/:id/restore', async (call) => json(await content.restore(actor(call), param(call, 'id'))))
+      .add('GET', '/trash', async (call) => {
+        const query = parse(trashList, Object.fromEntries(call.url.searchParams));
+        return json(await content.find(actor(call), { trashed: true, order: 'updated', limit: query.limit, offset: query.offset }));
+      })
+      .add('DELETE', '/trash/:id', async (call) => {
+        await content.delete(actor(call), param(call, 'id'));
+        return json({});
+      });
 
     const { people } = options;
     if (people) {

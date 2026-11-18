@@ -53,6 +53,12 @@ export interface EntryListQuery {
   readonly offset?: number;
 }
 
+export interface TrashQuery {
+  /** Defaults to 50. */
+  readonly limit?: number;
+  readonly offset?: number;
+}
+
 /** Which editor control a field type is filled in with. */
 export interface FieldTypeInfo {
   /** The field type's name, as a `FieldDef` refers to it: `text`. */
@@ -152,6 +158,14 @@ export interface AdminClient {
   publishEntry(id: string, expectedRevision: number): Promise<Entry>;
   /** Takes the entry off the site. Its content is kept as a draft. */
   unpublishEntry(id: string): Promise<Entry>;
+  /** Moves an entry to the trash: off the site and out of the lists, with nothing lost. */
+  trashEntry(id: string): Promise<Entry>;
+  /** Brings an entry back from the trash, as a draft. */
+  restoreEntry(id: string): Promise<Entry>;
+  /** The entries in the trash, of every content type, the latest to go there first. */
+  listTrash(query?: TrashQuery): Promise<Page<Entry>>;
+  /** Deletes an entry in the trash for good, with its history. */
+  deleteEntry(id: string): Promise<void>;
   /**
    * A link to the entry's page showing the saved draft, good for a while. Refused when its type
    * has no page of its own, or the site makes no previews.

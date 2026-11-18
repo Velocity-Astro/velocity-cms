@@ -260,6 +260,71 @@ describe('ContentService', () => {
     expect(() => cms.content.toPublic(listings, withdrawn)).toThrow(NotFoundError);
   });
 
+  describe('the trash', () => {
+    const heard: string[] = [];
+    const make = async (slug = 'a') => cms.content.create(editor, { typeId: listings.id, locale: 'en', slug, data: valid() });
+    beforeEach(() => {
+      heard.length = 0;
+      for (const event of ['entry.unpublished', 'entry.trashed', 'entry.restored', 'entry.deleted'] as const) {
+        cms.events.on(event, () => void heard.push(event));
+      }
+    });
+
+    it('takes an entry off the site and out of the lists, and brings it back as a draft', async () => {
+      const live = await cms.content.publish(editor, (await make()).id);
+      const trashed = await cms.content.trash(editor, live.id);
+      expect(trashed).toMatchObject({ status: 'draft', slug: 'a', data: live.data, revision: live.revision + 1 });
+      expect(trashed.deletedAt).toBeDefined();
+      expect(trashed).not.toHaveProperty('published');
+      expect(heard).toEqual(['entry.unpublished', 'entry.trashed']);
+      expect((await cms.content.find(editor, { typeId: listings.id })).total).toBe(0);
+      expect((await cms.content.find(editor, { trashed: true })).items).toEqual([trashed]);
+      expect(await cms.content.findBySlug(editor, { typeId: listings.id, locale: 'en', slug: 'a' })).toBeNull();
+      // Asked twice, it is still in the trash and nothing more is said.
+      expect(await cms.content.trash(editor, live.id)).toEqual(trashed);
+
+      const restored = await cms.content.restore(editor, live.id);
+      expect(restored).toMatchObject({ status: 'draft', slug: 'a', data: live.data });
+      expect(restored).not.toHaveProperty('deletedAt');
+      expect(heard).toEqual(['entry.unpublished', 'entry.trashed', 'entry.restored']);
+      expect((await cms.content.find(editor, { typeId: listings.id })).total).toBe(1);
+      expect((await cms.content.history(editor, live.id)).length).toBe(4);
+    });
+
+    it('refuses a change to an entry in the trash', async () => {
+      const trashed = await cms.content.trash(editor, (await make()).id);
+      const refused = /in the trash\. Restore it/;
+      await expect(cms.content.update(editor, trashed.id, { slug: 'b', expectedRevision: trashed.revision })).rejects.toThrowError(refused);
+      await expect(cms.content.publish(editor, trashed.id)).rejects.toThrowError(refused);
+      await expect(cms.content.unpublish(editor, trashed.id)).rejects.toThrowError(refused);
+    });
+
+    it('frees the slug, and says so when a restore finds it taken', async () => {
+      const first = await cms.content.trash(editor, (await make()).id);
+      const second = await make();
+      await expect(cms.content.restore(editor, first.id)).rejects.toThrowError(/Another entry uses the slug "a" now/);
+      await cms.content.update(editor, second.id, { slug: 'b', expectedRevision: second.revision });
+      expect(await cms.content.restore(editor, first.id)).toMatchObject({ slug: 'a' });
+    });
+
+    it('deletes for good only from the trash, and only for someone allowed to', async () => {
+      const draft = await make();
+      await expect(cms.content.delete(editor, draft.id)).rejects.toThrowError(/Move this entry to the trash first/);
+      const trashed = await cms.content.trash(author, draft.id);
+      await expect(cms.content.delete(author, trashed.id)).rejects.toBeInstanceOf(ForbiddenError);
+      await cms.content.delete(editor, trashed.id);
+      expect(heard).toEqual(['entry.trashed', 'entry.deleted']);
+      await expect(cms.content.get(editor, trashed.id)).rejects.toBeInstanceOf(NotFoundError);
+      expect((await cms.content.find(editor, { trashed: true })).total).toBe(0);
+    });
+
+    it('lets an author trash a draft, but not take a page off the site', async () => {
+      const live = await cms.content.publish(editor, (await make()).id);
+      await expect(cms.content.trash(author, live.id)).rejects.toBeInstanceOf(ForbiddenError);
+      expect((await cms.content.get(editor, live.id)).status).toBe('published');
+    });
+  });
+
   it('lets an author write but not publish', async () => {
     const draft = await cms.content.create(author, { typeId: listings.id, locale: 'en', slug: 'a', data: valid() });
     await expect(cms.content.publish(author, draft.id)).rejects.toBeInstanceOf(ForbiddenError);

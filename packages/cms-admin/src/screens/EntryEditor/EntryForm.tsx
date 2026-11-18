@@ -1,10 +1,11 @@
 import type { ContentTypeDef, Entry, EntryData, FieldDef } from '@velocity/cms-core';
 import { HOME_SLUG, SLUG_PATH, isSlug, isSlugPath, liveFields, takesSlugPath } from '@velocity/cms-core';
-import { Box, Button, Card, ConfirmDialog, Form, SaveBar, Segmented, Split, Stack, Tag, Text, TextField, Workbench, toast } from '@velocity/cms-ui';
+import { Box, Button, Card, ConfirmDialog, Form, IconButton, Menu, SaveBar, Segmented, Split, Stack, Tag, Text, TextField, Workbench, toast } from '@velocity/cms-ui';
+import { Ellipsis, EyeOff, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { paths } from '../../app/paths.js';
 import { AdminRequestError } from '../../client/errors.js';
-import { useCreateEntry, usePreviewEntry, usePublishEntry, useUnpublishEntry, useUpdateEntry } from '../../client/queries.js';
+import { useCreateEntry, usePreviewEntry, usePublishEntry, useTrashEntry, useUnpublishEntry, useUpdateEntry } from '../../client/queries.js';
 import { FieldGrid, PageFocusProvider, useControlFor } from '../../fields/index.js';
 import { entryState, entryTitle, languageName, localized, sameData, withValue, type EntryState } from '../../lib/content.js';
 import { openPreviewTab } from '../../lib/preview-tab.js';
@@ -21,7 +22,7 @@ const STATE_TONE = { draft: 'neutral', scheduled: 'info', published: 'success', 
   string
 >;
 
-type Action = 'save' | 'publish' | 'unpublish' | 'preview';
+type Action = 'save' | 'publish' | 'unpublish' | 'preview' | 'trash';
 
 const NO_PROBLEMS: ReadonlyMap<string, string> = new Map();
 
@@ -35,6 +36,8 @@ export interface EntryFormProps {
   readonly versions?: readonly Entry[];
   /** Called with the id of the version the person chose to open instead. */
   readonly onSwitch?: (entryId: string) => void;
+  /** Called once the entry has gone to the trash, so the screen can move on. */
+  readonly onTrashed?: () => void;
 }
 
 /**
@@ -43,13 +46,14 @@ export interface EntryFormProps {
  * It holds what the person has typed. The server holds what is saved, and what is published.
  * Saving sends the first to the second; publishing is a separate step the person chooses.
  */
-export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: EntryFormProps) {
+export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onTrashed }: EntryFormProps) {
   const messages = useMessages();
   const locale = useLocale();
   const create = useCreateEntry();
   const update = useUpdateEntry();
   const publish = usePublishEntry();
   const unpublish = useUnpublishEntry();
+  const trash = useTrashEntry();
   const previewLink = usePreviewEntry();
 
   const [data, setData] = useState<EntryData>(entry?.data ?? {});
@@ -59,6 +63,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
   const [problems, setProblems] = useState(NO_PROBLEMS);
   const [running, setRunning] = useState<Action | null>(null);
   const [isConfirmingUnpublish, setConfirmingUnpublish] = useState(false);
+  const [isConfirmingTrash, setConfirmingTrash] = useState(false);
 
   const typeName = localized(type.label, locale);
   const title = entryTitle(type, data);
@@ -169,7 +174,27 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
     setRunning(null);
   }
 
+  async function moveToTrash(id: string) {
+    setRunning('trash');
+    try {
+      await trash.mutateAsync(id);
+      toast({ title: messages.editor.trashed(title ?? messages.contentList.untitled), description: messages.editor.trashedDescription });
+      // Still running, so the move away is not held up over what was typed.
+      onTrashed?.();
+    } catch (error) {
+      report(messages.editor.notTrashed, error);
+      setConfirmingTrash(false);
+      setRunning(null);
+    }
+  }
+
   const isBusy = running !== null;
+  // What fewer people come for sits behind one button, so the bar keeps to the main steps.
+  const more = [
+    ...(entry?.status === 'published' ? [{ id: 'unpublish', label: messages.editor.unpublish, icon: EyeOff }] : []),
+    // A single page is its type's one entry: it is taken off the site, not thrown away.
+    ...(entry !== null && !isSingle ? [{ id: 'trash', label: messages.editor.trash, icon: Trash2, tone: 'danger' as const }] : []),
+  ];
   // The slug is part of the page's address only when the type's pattern says so. Otherwise it
   // is a name other entries link by.
   const slugName = isDeep ? '[...slug]' : '[slug]';
@@ -256,10 +281,12 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
                 }))}
               />
             )}
-            {entry?.status === 'published' && (
-              <Button variant="ghost" isDisabled={isBusy} onPress={() => setConfirmingUnpublish(true)}>
-                {messages.editor.unpublish}
-              </Button>
+            {more.length > 0 && (
+              <Menu
+                trigger={<IconButton label={messages.editor.more} icon={Ellipsis} isDisabled={isBusy} />}
+                actions={more}
+                onAction={(id) => (id === 'trash' ? setConfirmingTrash(true) : setConfirmingUnpublish(true))}
+              />
             )}
             {hasPage && (
               <Button variant="ghost" isDisabled={isBusy} isPending={running === 'preview'} onPress={() => void preview()}>
@@ -368,6 +395,20 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
           onConfirm={() => void takeOffSite(entry.id)}
         >
           {messages.editor.unpublishDescription}
+        </ConfirmDialog>
+      )}
+      {entry !== null && (
+        <ConfirmDialog
+          isOpen={isConfirmingTrash}
+          onOpenChange={setConfirmingTrash}
+          title={messages.editor.trashTitle}
+          confirmLabel={messages.editor.trash}
+          cancelLabel={messages.editor.cancel}
+          tone="danger"
+          isPending={running === 'trash'}
+          onConfirm={() => void moveToTrash(entry.id)}
+        >
+          {entry.status === 'published' ? messages.editor.trashDescriptionPublished : messages.editor.trashDescription}
         </ConfirmDialog>
       )}
     </Stack>

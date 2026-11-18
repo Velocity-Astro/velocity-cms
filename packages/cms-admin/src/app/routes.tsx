@@ -8,6 +8,7 @@ import { MediaScreen } from '../screens/Media/MediaScreen.js';
 import { PluginScreenScreen } from '../screens/PluginScreen/PluginScreenScreen.js';
 import { PluginsScreen } from '../screens/Plugins/PluginsScreen.js';
 import { PeopleScreen } from '../screens/People/PeopleScreen.js';
+import { TrashScreen } from '../screens/Trash/TrashScreen.js';
 import { SignInScreen } from '../screens/SignIn/SignInScreen.js';
 import { AdminLayout } from './AdminLayout.js';
 import { NavigationBridge } from './NavigationBridge.js';
@@ -25,6 +26,7 @@ export function createRoutes(siteName: string): RouteObject[] {
             { index: true, element: <HomeScreen siteName={siteName} /> },
             { path: 'people', element: <PeopleScreen /> },
             { path: 'media', element: <MediaScreen /> },
+            { path: 'trash', element: <TrashScreen /> },
             { path: 'plugins', element: <PluginsScreen /> },
             { path: 'plugins/:pluginName/:screenId', element: <PluginScreenScreen /> },
             { path: 'types', element: <ContentTypesScreen /> },
