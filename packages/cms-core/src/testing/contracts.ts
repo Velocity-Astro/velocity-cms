@@ -57,6 +57,16 @@ export function entryRepositoryContract(name: string, create: () => Promise<Entr
       expect(await repository.get('e1')).toEqual(scheduled);
     });
 
+    it('finds the entries set to be published by a time, and stores why one was not', async () => {
+      await repository.save(entry({ publishAt: '2026-02-01T09:00:00.000Z' }), fresh);
+      await repository.save(entry({ id: 'e2', translationGroup: 'e2', slug: 'second', publishAt: '2026-02-03T09:00:00.000Z' }), fresh);
+      await repository.save(entry({ id: 'e3', translationGroup: 'e3', slug: 'third', publishProblem: 'The price is missing.' }), fresh);
+      expect((await repository.find({ dueBy: '2026-02-02T00:00:00.000Z' })).items.map((found) => found.id)).toEqual(['e1']);
+      expect((await repository.find({ dueBy: '2026-01-01T00:00:00.000Z' })).total).toBe(0);
+      expect(await repository.get('e3')).toMatchObject({ publishProblem: 'The price is missing.' });
+      expect(await repository.get('e1')).not.toHaveProperty('publishProblem');
+    });
+
     it('replaces an entry when the expected revision matches', async () => {
       await repository.save(entry(), fresh);
       const next = entry({ revision: 2, data: { f1: 'Changed' }, updatedAt: '2026-01-02T00:00:00.000Z' });

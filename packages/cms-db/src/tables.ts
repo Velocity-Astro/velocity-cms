@@ -32,6 +32,8 @@ export const entries = sqliteTable(
     data: text('data', { mode: 'json' }).$type<EntryData>().notNull(),
     revision: integer('revision').notNull(),
     publishAt: text('publish_at'),
+    /** Why it did not go on the site when its time came. */
+    publishProblem: text('publish_problem'),
     publishedSlug: text('published_slug'),
     publishedData: text('published_data', { mode: 'json' }).$type<EntryData>(),
     publishedRevision: integer('published_revision'),

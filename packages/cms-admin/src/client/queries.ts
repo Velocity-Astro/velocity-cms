@@ -247,6 +247,8 @@ function useEntryChanged() {
   return (entry: Entry) => {
     cache.setQueryData(keys.entry(entry.id), entry);
     void cache.invalidateQueries({ queryKey: keys.entryLists });
+    // Every change is a new line in the entry's history.
+    void cache.invalidateQueries({ queryKey: [...keys.entry(entry.id), 'history'] });
   };
 }
 
@@ -286,6 +288,33 @@ export function useTrash() {
 export function useDuplicateEntry() {
   const client = useClient();
   return useMutation({ mutationFn: (id: string) => client.duplicateEntry(id), onSuccess: useEntryChanged() });
+}
+
+export function useScheduleEntry() {
+  const client = useClient();
+  return useMutation({
+    mutationFn: ({ id, ...input }: { readonly id: string; readonly at: string; readonly expectedRevision: number }) => client.scheduleEntry(id, input),
+    onSuccess: useEntryChanged(),
+  });
+}
+
+export function useUnscheduleEntry() {
+  const client = useClient();
+  return useMutation({ mutationFn: (id: string) => client.unscheduleEntry(id), onSuccess: useEntryChanged() });
+}
+
+/** Every save of an entry, the latest first. Asked for only once someone opens its history. */
+export function useEntryHistory(id: string, isAsked = true) {
+  const client = useClient();
+  return useQuery({ queryKey: [...keys.entry(id), 'history'], queryFn: () => client.entryHistory(id), enabled: isAsked });
+}
+
+export function useRevertEntry() {
+  const client = useClient();
+  return useMutation({
+    mutationFn: ({ id, ...input }: { readonly id: string; readonly revision: number; readonly expectedRevision: number }) => client.revertEntry(id, input),
+    onSuccess: useEntryChanged(),
+  });
 }
 
 export function useTrashEntry() {

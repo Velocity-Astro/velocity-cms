@@ -62,6 +62,8 @@ export function entryImage(type: ContentTypeDef, data: EntryData): string | null
 export type EntryState = 'draft' | 'scheduled' | 'published' | 'unpublishedChanges';
 
 export function entryState(entry: Entry): EntryState {
+  // Set to go out at a time, whether or not an earlier version is on the site meanwhile.
+  if (entry.publishAt !== undefined) return 'scheduled';
   if (hasUnpublishedChanges(entry)) return 'unpublishedChanges';
   return entry.status;
 }

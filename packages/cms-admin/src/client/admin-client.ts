@@ -1,4 +1,4 @@
-import type { ContactImportReport, ContactImportRow, CustomFields, CustomFieldsChanges, Contact, ContactChanges, Deal, DealChanges, DealSubject, Forecast, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginTask, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
+import type { ContactImportReport, ContactImportRow, CustomFields, CustomFieldsChanges, Contact, ContactChanges, Deal, DealChanges, DealSubject, Forecast, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginTask, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Revision, Role, SiteImage } from '@velocity/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
@@ -198,9 +198,17 @@ export interface AdminClient {
   publishEntry(id: string, expectedRevision: number): Promise<Entry>;
   /** Takes the entry off the site. Its content is kept as a draft. */
   unpublishEntry(id: string): Promise<Entry>;
-  /** Moves an entry to the trash: off the site and out of the lists, with nothing lost. */
   /** A copy of an entry as a new draft of its own, under the entry's slug with `-copy` after it. */
   duplicateEntry(id: string): Promise<Entry>;
+  /** Sets the working version to go on the site at a time to come (`at`, an ISO time). It must be fit to publish now. */
+  scheduleEntry(id: string, input: { readonly at: string; readonly expectedRevision: number }): Promise<Entry>;
+  /** Takes an entry off the schedule. It stays as it is. */
+  unscheduleEntry(id: string): Promise<Entry>;
+  /** Every save of an entry, the latest first. */
+  entryHistory(id: string): Promise<Revision[]>;
+  /** Brings back what the entry held at an earlier revision, as a new save. What visitors see stays. */
+  revertEntry(id: string, input: { readonly revision: number; readonly expectedRevision: number }): Promise<Entry>;
+  /** Moves an entry to the trash: off the site and out of the lists, with nothing lost. */
   trashEntry(id: string): Promise<Entry>;
   /** Brings an entry back from the trash, as a draft. */
   restoreEntry(id: string): Promise<Entry>;

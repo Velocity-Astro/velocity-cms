@@ -32,6 +32,7 @@ import {
   type SubmissionStatus,
   type NewUpload,
   type Page,
+  type Revision,
   type EntryData,
   type PluginInfo,
   type PluginSettings,
@@ -289,6 +290,22 @@ export class MemoryAdminClient implements AdminClient {
 
   duplicateEntry(id: string): Promise<Entry> {
     return this.#request((actor) => this.#cms.content.duplicate(actor, id));
+  }
+
+  scheduleEntry(id: string, input: { readonly at: string; readonly expectedRevision: number }): Promise<Entry> {
+    return this.#request((actor) => this.#cms.content.schedule(actor, id, input));
+  }
+
+  unscheduleEntry(id: string): Promise<Entry> {
+    return this.#request((actor) => this.#cms.content.unschedule(actor, id));
+  }
+
+  entryHistory(id: string): Promise<Revision[]> {
+    return this.#request((actor) => this.#cms.content.history(actor, id));
+  }
+
+  revertEntry(id: string, input: { readonly revision: number; readonly expectedRevision: number }): Promise<Entry> {
+    return this.#request((actor) => this.#cms.content.revert(actor, id, input));
   }
 
   trashEntry(id: string): Promise<Entry> {

@@ -1,11 +1,13 @@
 import type { ContentTypeDef, Entry, EntryData, FieldDef } from '@velocity/cms-core';
 import { HOME_SLUG, SLUG_PATH, isSlug, isSlugPath, liveFields, takesSlugPath } from '@velocity/cms-core';
 import { Box, Button, Card, ConfirmDialog, Form, IconButton, Menu, SaveBar, Segmented, Split, Stack, Tag, Text, TextField, Workbench, toast } from '@velocity/cms-ui';
-import { Copy, Ellipsis, EyeOff, Trash2 } from 'lucide-react';
+import { CalendarClock, Copy, Ellipsis, EyeOff, History, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { paths } from '../../app/paths.js';
 import { AdminRequestError } from '../../client/errors.js';
 import { useCreateEntry, useDuplicateEntry, useSession, usePreviewEntry, usePublishEntry, useTrashEntry, useUnpublishEntry, useUpdateEntry } from '../../client/queries.js';
+import { HistoryDialog } from './HistoryDialog.js';
+import { ScheduleDialog, scheduledFor } from './ScheduleDialog.js';
 import { FieldGrid, PageFocusProvider, useControlFor } from '../../fields/index.js';
 import { entryState, entryTitle, languageName, localized, sameData, withValue, type EntryState } from '../../lib/content.js';
 import { openPreviewTab } from '../../lib/preview-tab.js';
@@ -57,6 +59,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   const trash = useTrashEntry();
   const duplicate = useDuplicateEntry();
   const previewLink = usePreviewEntry();
+  const session = useSession();
 
   const [data, setData] = useState<EntryData>(entry?.data ?? {});
   // The slug as typed. Until someone types one, a new entry's slug follows its title.
@@ -66,6 +69,8 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   const [running, setRunning] = useState<Action | null>(null);
   const [isConfirmingUnpublish, setConfirmingUnpublish] = useState(false);
   const [isConfirmingTrash, setConfirmingTrash] = useState(false);
+  const [isShowingHistory, setShowingHistory] = useState(false);
+  const [isScheduling, setScheduling] = useState(false);
 
   const typeName = localized(type.label, locale);
   const title = entryTitle(type, data);
@@ -208,6 +213,9 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   const more = [
     ...(entry?.status === 'published' ? [{ id: 'unpublish', label: messages.editor.unpublish, icon: EyeOff }] : []),
     // A single page is its type's one entry: there is no second, and it is taken off the site, not thrown away.
+    // Setting a time is a publishing decision, which an author cannot make.
+    ...(entry !== null && session.data?.role !== 'author' ? [{ id: 'schedule', label: entry.publishAt !== undefined ? messages.editor.scheduleChange : messages.editor.schedule, icon: CalendarClock }] : []),
+    ...(entry !== null ? [{ id: 'history', label: messages.editor.history, icon: History }] : []),
     ...(entry !== null && !isSingle ? [{ id: 'duplicate', label: messages.editor.duplicate, icon: Copy }] : []),
     ...(entry !== null && !isSingle ? [{ id: 'trash', label: messages.editor.trash, icon: Trash2, tone: 'danger' as const }] : []),
   ];
@@ -256,13 +264,18 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
         </PluginBoundary>
       </Card>
     ));
-  const session = useSession();
   // Deals are as personal as contacts: the card is for those who may read them, on a saved entry.
   const showsDeals = type.forDeals === true && entry !== null && session.data !== null && session.data !== undefined && session.data.role !== 'author';
   // Right under the address, where it is seen without scrolling past the fields beside the content.
   const dealsCard = showsDeals ? <EntryDeals type={type} entry={entry} /> : null;
   const savedNote =
-    entry === null ? messages.editor.notSavedYet : hasChanges ? messages.editor.unsavedChanges : messages.editor.saved(relativeTime(entry.updatedAt, locale));
+    entry === null
+      ? messages.editor.notSavedYet
+      : hasChanges
+        ? messages.editor.unsavedChanges
+        : entry.publishAt !== undefined
+          ? messages.editor.goesOut(scheduledFor(entry.publishAt, locale))
+          : messages.editor.saved(relativeTime(entry.updatedAt, locale));
 
   const card = (section: (typeof sections)[number]) => (
     <Card key={section.key} {...(section.title !== undefined && { title: section.title })}>
@@ -283,6 +296,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
         status={
           <>
             <Tag tone={STATE_TONE[state]}>{messages.status[state]}</Tag>
+            {entry?.publishProblem !== undefined && <Tag tone="danger">{messages.editor.missedSchedule}</Tag>}
             <Text as="span" size="sm" tone="muted">
               {savedNote}
             </Text>
@@ -306,7 +320,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
               <Menu
                 trigger={<IconButton label={messages.editor.more} icon={Ellipsis} isDisabled={isBusy} />}
                 actions={more}
-                onAction={(id) => (id === 'trash' ? setConfirmingTrash(true) : id === 'duplicate' && entry ? void makeCopy(entry.id) : setConfirmingUnpublish(true))}
+                onAction={(id) => (id === 'schedule' ? setScheduling(true) : id === 'history' ? setShowingHistory(true) : id === 'trash' ? setConfirmingTrash(true) : id === 'duplicate' && entry ? void makeCopy(entry.id) : setConfirmingUnpublish(true))}
               />
             )}
             {hasPage && (
@@ -393,6 +407,20 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
           )}
         </Form>
       </Box>
+      {isScheduling && entry !== null && <ScheduleDialog entry={entry} hasChanges={hasChanges} onClose={() => setScheduling(false)} />}
+      {isShowingHistory && entry !== null && (
+        <HistoryDialog
+          type={type}
+          entry={entry}
+          hasChanges={hasChanges}
+          onReverted={(reverted) => {
+            // The form starts again from what was brought back.
+            setData(reverted.data);
+            setProblems(NO_PROBLEMS);
+          }}
+          onClose={() => setShowingHistory(false)}
+        />
+      )}
       <ConfirmDialog
         isOpen={guard.isAsking}
         onOpenChange={(isOpen) => {

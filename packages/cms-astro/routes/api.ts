@@ -1,6 +1,5 @@
 import type { APIRoute } from 'astro';
-import { indexPages } from '@velocity/cms-astro';
-import { editor } from './editor.ts';
+import { editor, showPublished } from './editor.ts';
 
 export const prerender = false;
 
@@ -10,12 +9,7 @@ export const ALL: APIRoute = ({ request, cache, url }) => {
   cache.set(false);
   return editor(request, async (host) => {
     const response = await host.api(request);
-    // A publish must be seen at once: drop the cached pages, then read the changed ones for search.
-    const changed = host.takePublished();
-    if (changed) {
-      await cache.invalidate({ tags: ['cms'] });
-      await indexPages(url.origin, changed).catch((error: unknown) => console.error('[velocity-cms] Search was not updated.', error));
-    }
+    await showPublished(host, cache, url.origin);
     return response;
   });
 };

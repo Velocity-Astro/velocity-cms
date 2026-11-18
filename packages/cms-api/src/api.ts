@@ -207,6 +207,8 @@ const dealChanges = z.strictObject({
   expectedRevision: z.number().int().positive(),
 });
 const newNote = z.strictObject({ text: z.string() });
+const scheduleRequest = z.strictObject({ at: z.string().max(40), expectedRevision: z.number().int().positive() });
+const revertRequest = z.strictObject({ revision: z.number().int().positive(), expectedRevision: z.number().int().positive() });
 const publishRequest = z.strictObject({ expectedRevision: z.number().int().positive() });
 
 /**
@@ -339,6 +341,10 @@ export class CmsApi {
       .add('POST', '/entries/:id/unpublish', async (call) => json(await content.unpublish(actor(call), param(call, 'id'))))
       .add('DELETE', '/entries/:id', async (call) => json(await content.trash(actor(call), param(call, 'id'))))
       .add('POST', '/entries/:id/duplicate', async (call) => json(await content.duplicate(actor(call), param(call, 'id')), 201))
+      .add('POST', '/entries/:id/schedule', async (call) => json(await content.schedule(actor(call), param(call, 'id'), parse(scheduleRequest, await this.#body(call.request)))))
+      .add('POST', '/entries/:id/unschedule', async (call) => json(await content.unschedule(actor(call), param(call, 'id'))))
+      .add('GET', '/entries/:id/history', async (call) => json({ items: await content.history(actor(call), param(call, 'id')) }))
+      .add('POST', '/entries/:id/revert', async (call) => json(await content.revert(actor(call), param(call, 'id'), parse(revertRequest, await this.#body(call.request)))))
       .add('POST', '/entries/:id/restore', async (call) => json(await content.restore(actor(call), param(call, 'id'))))
       .add('GET', '/trash', async (call) => {
         const query = parse(trashList, Object.fromEntries(call.url.searchParams));

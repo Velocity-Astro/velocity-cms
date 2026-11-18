@@ -47,6 +47,7 @@ export class InMemoryEntryRepository implements EntryRepository {
           (query.locale === undefined || entry.locale === query.locale) &&
           (query.status === undefined || entry.status === query.status) &&
           (query.translationGroup === undefined || entry.translationGroup === query.translationGroup) &&
+          (query.dueBy === undefined || (entry.publishAt !== undefined && entry.publishAt <= query.dueBy)) &&
           (query.slug === undefined || entry.slug === query.slug) &&
           (query.publishedSlug === undefined || entry.published?.slug === query.publishedSlug),
       )
@@ -207,6 +208,11 @@ export class FakeClock implements Clock {
     const now = new Date(this.#time).toISOString();
     this.#time += 1000;
     return now;
+  }
+
+  /** Moves the clock, for a test about something that happens later. */
+  set(time: string): void {
+    this.#time = Date.parse(time);
   }
 }
 

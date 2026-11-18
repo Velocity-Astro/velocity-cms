@@ -1,10 +1,10 @@
 import { PublishChecks } from '../checks.js';
 import type { AccessControl, Actor } from '../access.js';
-import { ConflictError, NotFoundError, ValidationError } from '../errors.js';
+import { CmsError, ConflictError, NotFoundError, ValidationError } from '../errors.js';
 import type { EventBus } from '../events.js';
 import type { FieldContext, FieldType, ValidationMode } from '../field-type.js';
-import { isTrashed } from '../model.js';
-import type { ContentTypeDef, Entry, EntryData, EntryVersion, Page, PublicEntry, Revision } from '../model.js';
+import { isTrashed, liveFields } from '../model.js';
+import type { ContentTypeDef, Entry, EntryData, EntryVersion, Page, PublicEntry, Revision, Timestamp } from '../model.js';
 import type { Clock, EntryQuery, EntryRepository, IdGenerator } from '../ports.js';
 import type { Registry } from '../registry.js';
 import { toPublicData, validateData } from '../schema-builder.js';
@@ -29,6 +29,10 @@ export interface UpdateEntryInput {
 
 /** How many copies of one entry may sit side by side under its slug. */
 const MAX_COPIES = 50;
+/** How many due entries one look publishes. The next look takes the rest. */
+const DUE_AT_ONCE = 20;
+/** Who publishes an entry whose time has come. */
+const SCHEDULE: Actor = { kind: 'agent', id: 'schedule', role: 'editor' };
 
 /**
  * Owns entries. Every write takes the same four steps, in the same order: check permission,
@@ -157,23 +161,111 @@ export class ContentService {
     );
   }
 
+  /**
+   * Brings back what an entry held at an earlier revision, as a new save of the working version.
+   * Nothing is rewound: the history gains a revision, and what visitors see stays until someone
+   * publishes. The slug stays as it is today. A value today's fields would not take (a choice
+   * that was removed since) is left as it is now, so an old version can always be brought back.
+   */
+  async revert(actor: Actor, id: string, input: { readonly revision: number; readonly expectedRevision: number }): Promise<Entry> {
+    this.access.require(actor, 'entry:write');
+    const current = await this.loadLive(id);
+    this.requireRevision(current, input.expectedRevision);
+    const earlier = (await this.entries.history(id)).find((revision) => revision.revision === input.revision);
+    if (!earlier) throw new NotFoundError(`Revision ${input.revision} of entry`, id);
+    const type = await this.schema.getLive(current.typeId);
+
+    const data: Record<string, unknown> = removedFieldData(type, current.data);
+    for (const field of liveFields(type.fields)) {
+      if (!(field.id in earlier.data)) continue;
+      try {
+        Object.assign(data, validateData([field], { [field.id]: earlier.data[field.id] }, this.context('draft')));
+      } catch (error) {
+        if (!(error instanceof ValidationError)) throw error;
+        if (field.id in current.data) data[field.id] = current.data[field.id];
+      }
+    }
+    return this.save(actor, { ...current, data, revision: current.revision + 1, updatedAt: this.clock.now() }, current.revision);
+  }
+
   /** Makes the working version the one visitors see. This is where required fields are enforced. */
   async publish(actor: Actor, id: string, expectedRevision?: number): Promise<Entry> {
     this.access.require(actor, 'entry:publish');
     const current = await this.loadLive(id);
     if (expectedRevision !== undefined) this.requireRevision(current, expectedRevision);
-    const type = await this.schema.getLive(current.typeId);
+    return this.goLive(actor, current);
+  }
+
+  /**
+   * Sets the working version to go on the site at a time to come. It must be fit to publish now,
+   * so a missing field is heard of today and not when nobody is looking. What goes out is what
+   * the entry holds when the time comes, so it can still be worked on.
+   */
+  async schedule(actor: Actor, id: string, input: { readonly at: Timestamp; readonly expectedRevision: number }): Promise<Entry> {
+    this.access.require(actor, 'entry:publish');
+    const current = await this.loadLive(id);
+    this.requireRevision(current, input.expectedRevision);
+    const at = new Date(input.at);
+    if (Number.isNaN(at.getTime()) || at.toISOString() <= this.clock.now()) {
+      const message = 'Choose a day and time that is still to come.';
+      throw new ValidationError(message, [{ path: ['publishAt'], message }]);
+    }
+    await this.fit(actor, await this.schema.getLive(current.typeId), current);
+    const { publishProblem, ...rest } = current;
+    return this.save(actor, { ...rest, publishAt: at.toISOString(), revision: current.revision + 1, updatedAt: this.clock.now() }, current.revision);
+  }
+
+  /** Takes an entry off the schedule. It stays as it is, on the site or not. */
+  async unschedule(actor: Actor, id: string): Promise<Entry> {
+    this.access.require(actor, 'entry:publish');
+    const current = await this.loadLive(id);
+    if (current.publishAt === undefined && current.publishProblem === undefined) return current;
+    const { publishAt, publishProblem, ...rest } = current;
+    return this.save(actor, { ...rest, revision: current.revision + 1, updatedAt: this.clock.now() }, current.revision);
+  }
+
+  /**
+   * Publishes every entry whose time has come, and answers with how many went out. Nobody is
+   * signed in for this: the host calls it, as often as it likes. An entry that is no longer fit
+   * to publish comes off the schedule with the reason kept on it (`publishProblem`), so it is
+   * neither tried for ever nor lost sight of.
+   */
+  async publishDue(): Promise<number> {
+    const due = await this.entries.find({ dueBy: this.clock.now(), limit: DUE_AT_ONCE });
+    let published = 0;
+    for (const entry of due.items) {
+      try {
+        await this.goLive(SCHEDULE, entry);
+        published += 1;
+      } catch (error) {
+        // Another copy of the site may have seen to it first.
+        const now = await this.entries.get(entry.id);
+        if (!now || now.revision !== entry.revision || now.publishAt === undefined) continue;
+        if (!(error instanceof CmsError)) throw error;
+        const { publishAt, ...rest } = now;
+        await this.save(SCHEDULE, { ...rest, publishProblem: error.message, revision: now.revision + 1, updatedAt: this.clock.now() }, now.revision).catch(() => undefined);
+      }
+    }
+    return published;
+  }
+
+  /** Refuses an entry that cannot go on the site as it is: its fields, then the plugins' checks. */
+  private async fit(actor: Actor, type: ContentTypeDef, current: Entry): Promise<void> {
     validateData(type.fields, current.data, this.context('publish'));
     // Then what the site's plugins ask of an entry before it goes out.
     const issues = await this.checks.run({ entry: this.toPublic(type, current, 'working'), type, actor });
     const [first] = issues;
     if (first) throw new ValidationError(first.message, issues);
+  }
 
+  private async goLive(actor: Actor, current: Entry): Promise<Entry> {
+    await this.fit(actor, await this.schema.getLive(current.typeId), current);
     const now = this.clock.now();
     const revision = current.revision + 1;
+    const { publishAt, publishProblem, ...rest } = current;
     const published = await this.entries.save(
       {
-        ...current,
+        ...rest,
         status: 'published',
         revision,
         updatedAt: now,
@@ -208,7 +300,7 @@ export class ContentService {
     if (isTrashed(current)) return current;
     // Taking a page off the site is a publishing decision, whichever button does it.
     if (current.published) this.access.require(actor, 'entry:publish');
-    const { published, publishAt, ...rest } = current;
+    const { published, publishAt, publishProblem, ...rest } = current;
     const now = this.clock.now();
     const trashed = await this.entries.save(
       { ...rest, status: 'draft', revision: current.revision + 1, updatedAt: now, deletedAt: now },

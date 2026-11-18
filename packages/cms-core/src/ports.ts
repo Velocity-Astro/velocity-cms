@@ -14,6 +14,8 @@ export interface EntryQuery {
   readonly slug?: string;
   /** The slug visitors see. Matches published entries only. */
   readonly publishedSlug?: string;
+  /** Entries set to be published at this time or before it. */
+  readonly dueBy?: Timestamp;
   /** `true` for the entries in the trash and no others. Left out, the trash is left out. */
   readonly trashed?: boolean;
   /**

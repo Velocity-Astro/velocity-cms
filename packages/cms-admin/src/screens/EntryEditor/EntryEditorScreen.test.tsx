@@ -222,6 +222,63 @@ it('duplicates an entry and opens the copy, a draft with what was saved', async 
   expect(original.status).toBe('published');
 });
 
+it('sets an entry to go on the site at a time, shows that, and takes it off the schedule', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/content/listings/e2', signedIn());
+  await more(user, 'Schedule');
+  const dialog = within(await screen.findByRole('dialog', { name: 'Schedule' }));
+  // Tomorrow at nine is offered, in the time zone of whoever is asking.
+  expect(dialog.getByText(/Times are in your time zone/)).toBeTruthy();
+  await user.click(dialog.getByRole('button', { name: 'Schedule' }));
+  expect(await screen.findByText(/^It goes on the site /)).toBeTruthy();
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Schedule' })).toBeNull());
+  const set = await client.getEntry('e2');
+  expect(set.status).toBe('draft');
+  expect(new Date(set.publishAt ?? 0).getTime()).toBeGreaterThan(Date.now());
+  expect(await saveBar().findByText(/^Goes on the site /)).toBeTruthy();
+
+  await more(user, 'Change the schedule');
+  const again = within(await screen.findByRole('dialog', { name: 'Schedule' }));
+  expect(again.getByText(/^Set to go on the site /)).toBeTruthy();
+  await user.click(again.getByRole('button', { name: 'Take off the schedule' }));
+  expect(await screen.findByText('Taken off the schedule')).toBeTruthy();
+  expect(await client.getEntry('e2')).not.toHaveProperty('publishAt');
+});
+
+it('leaves scheduling out for an author, who cannot publish', async () => {
+  const user = userEvent.setup();
+  renderApp('/content/listings/e2', { ...signedIn(), user: { ...sampleUser, role: 'author' } });
+  await user.click(await screen.findByRole('button', { name: 'More actions' }));
+  expect(await screen.findByRole('menuitem', { name: 'History' })).toBeTruthy();
+  expect(screen.queryByRole('menuitem', { name: 'Schedule' })).toBeNull();
+});
+
+it('shows every save of an entry and brings an earlier version back as a new save', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/content/listings/e2', signedIn());
+  const first = await client.getEntry('e2');
+  const headline = await screen.findByRole('textbox', { name: /^Title/ });
+  await user.clear(headline);
+  await user.type(headline, '19 Alder Court');
+  await more(user, 'History');
+  const waiting = within(await screen.findByRole('dialog', { name: 'History' }));
+  // What is typed and not saved would be replaced, so it is dealt with first.
+  expect(await waiting.findByText(/Save or undo what you have typed/)).toBeTruthy();
+  await user.click(waiting.getByRole('button', { name: 'Close' }));
+  await user.click(screen.getByRole('button', { name: 'Save draft' }));
+  expect(await screen.findByText('Draft saved')).toBeTruthy();
+
+  await more(user, 'History');
+  const dialog = within(await screen.findByRole('dialog', { name: 'History' }));
+  expect(await dialog.findByText('Changed Title')).toBeTruthy();
+  expect(dialog.getByText('First saved')).toBeTruthy();
+  await user.click(dialog.getByRole('button', { name: 'Bring back this version' }));
+  expect(await screen.findByText(/^Version from .* brought back$/)).toBeTruthy();
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'History' })).toBeNull());
+  expect(await client.getEntry('e2')).toMatchObject({ revision: 3, data: first.data });
+  expect((screen.getByRole('textbox', { name: /^Title/ }) as HTMLInputElement).value).not.toBe('19 Alder Court');
+});
+
 it('says an entry is in the trash instead of opening it, with the way there', async () => {
   const user = userEvent.setup();
   const { client } = renderApp('/', signedIn());
