@@ -1,0 +1,20 @@
+---
+import { linkTo } from '@velocity/cms-astro';
+import type { Link } from '../blocks';
+
+interface Props {
+  title?: string;
+  buttonLabel?: string;
+  buttonTo?: Link;
+}
+
+const { title, buttonLabel, buttonTo } = Astro.props;
+const button = await linkTo(Astro, buttonTo);
+---
+
+<section class="band strong">
+  <div class="wrap row">
+    <h2>{title}</h2>
+    {button && <a class="button" href={button.href}>{buttonLabel}</a>}
+  </div>
+</section>

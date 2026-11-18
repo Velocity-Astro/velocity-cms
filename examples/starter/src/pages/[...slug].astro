@@ -1,0 +1,20 @@
+---
+/**
+ * Every page built in the editor, the home page among them. The CMS finds the entry whose page
+ * is at this address; this route draws its sections.
+ */
+import { entryPage } from '@velocity/cms-astro';
+import Sections from '@/components/Sections.astro';
+import type { Section } from '@/components/blocks';
+import Layout from '@/layouts/Layout.astro';
+
+export const prerender = false;
+
+const found = await entryPage(Astro, { types: ['pages'] });
+if (!found) return new Response('There is no page here.', { status: 404 });
+const page = found.entry.data as { title?: string; description?: string; body?: Section[] };
+---
+
+<Layout title={page.title} description={page.description}>
+  <Sections sections={page.body} />
+</Layout>

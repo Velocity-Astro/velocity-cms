@@ -1,0 +1,50 @@
+/* A small stylesheet of the starter's own. Replace it with yours. */
+:root {
+  --ink: #16181d;
+  --soft: #5b6270;
+  --line: #e4e6eb;
+  --tint: #f5f6f8;
+  --brand: #2f4bd8;
+  --on-brand: #fff;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 1.0625rem/1.6 system-ui, sans-serif; color: var(--ink); background: #fff; }
+h1, h2, h3 { line-height: 1.15; margin: 0 0 0.5em; letter-spacing: -0.01em; }
+h1 { font-size: clamp(2rem, 5vw, 3.25rem); }
+h2 { font-size: clamp(1.5rem, 3vw, 2rem); }
+h3 { font-size: 1.125rem; }
+p { margin: 0 0 1em; }
+a { color: var(--brand); }
+.wrap { max-width: 68rem; margin: 0 auto; padding: 0 1.25rem; }
+.narrow { max-width: 44rem; }
+.row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; }
+.top { border-bottom: 1px solid var(--line); padding: 1rem 0; }
+.top .name { font-weight: 700; color: var(--ink); text-decoration: none; }
+.top nav { display: flex; gap: 1.25rem; }
+.top nav a { color: var(--ink); text-decoration: none; }
+.top nav a:hover { text-decoration: underline; }
+.band { padding: 4rem 0; }
+.tinted { background: var(--tint); }
+.strong { background: var(--brand); color: var(--on-brand); }
+.strong h2 { margin: 0; }
+.strong .button { background: var(--on-brand); color: var(--brand); }
+.hero { padding: 6rem 0; }
+.eyebrow { color: var(--brand); font-weight: 600; margin-bottom: 0.75rem; }
+.lead { font-size: 1.25rem; color: var(--soft); max-width: 40rem; }
+.button { display: inline-block; border: 0; border-radius: 0.5rem; padding: 0.75rem 1.25rem; background: var(--brand); color: var(--on-brand); font: inherit; font-weight: 600; text-decoration: none; cursor: pointer; }
+.grid { list-style: none; padding: 0; margin: 2rem 0 0; display: grid; gap: 2rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+.grid p { color: var(--soft); margin: 0; }
+.prose :is(ul, ol) { padding-left: 1.25rem; }
+.posts { list-style: none; padding: 0; }
+.posts li { padding: 1.25rem 0; border-top: 1px solid var(--line); }
+.posts a { font-size: 1.25rem; font-weight: 600; }
+time { display: block; color: var(--soft); font-size: 0.9375rem; }
+.form { display: grid; gap: 1.25rem; margin-top: 2rem; }
+.field label { display: block; font-weight: 600; margin-bottom: 0.375rem; }
+.field :is(input:not([type='checkbox']), textarea, select) { width: 100%; font: inherit; padding: 0.625rem 0.75rem; border: 1px solid #b9bec9; border-radius: 0.5rem; background: #fff; color: var(--ink); }
+.hint { color: var(--soft); font-size: 0.9375rem; margin: 0.375rem 0 0; }
+.error { color: #b3261e; font-weight: 600; font-size: 0.9375rem; margin: 0.375rem 0 0; }
+.trap { position: absolute; left: -100vw; }
+.foot { border-top: 1px solid var(--line); padding: 2rem 0; color: var(--soft); font-size: 0.9375rem; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }

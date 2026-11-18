@@ -1,0 +1,37 @@
+---
+import { getLiveCollection } from 'astro:content';
+import Layout from '@/layouts/Layout.astro';
+
+export const prerender = false;
+
+interface Post {
+  slug: string;
+  title?: string;
+  date?: string;
+  excerpt?: string;
+}
+
+const { entries = [], error, cacheHint } = await getLiveCollection('posts');
+if (error) throw error;
+// Kept until a post is published, then drawn again.
+if (cacheHint) Astro.cache.set(cacheHint);
+const posts = entries.map((entry) => entry.data as unknown as Post).sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
+---
+
+<Layout title="Blog" description="Posts from this site.">
+  <section class="band">
+    <div class="wrap narrow">
+      <h1>Blog</h1>
+      {posts.length === 0 && <p class="lead">No posts yet. Write one under Posts in the editor.</p>}
+      <ul class="posts">
+        {posts.map((post) => (
+          <li>
+            <a href={`/blog/${post.slug}/`}>{post.title}</a>
+            {post.date && <time datetime={post.date}>{post.date}</time>}
+            {post.excerpt && <p>{post.excerpt}</p>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
+</Layout>

@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { AstroIntegration } from 'astro';
@@ -48,7 +49,7 @@ export interface VelocityCmsOptions {
  * addresses that go with them:
  *
  * - `/sitemap-live.xml`: the live pages' share of the sitemap
- * - `/og/<page>.png`: a share image for any live page, drawn on first use
+ * - `/og/<page>.png`: a share image for any live page, drawn on first use (on a Velocity site, which has the card drawing)
  * - `/api/cms/search.json` and `/cms-search.js`: search from the CMS database
  * - `/api/cms/submit/<form>` and `/cms-form.js`: where a form posts, and the script that sends it in place
  * - `/api/cms/published`: where a publish is announced
@@ -90,7 +91,8 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
         // Loaded with the server, so the plugins are known before the first request.
         if ((options.plugins ?? []).length > 0) addMiddleware({ entrypoint: route('plugins.ts'), order: 'pre' });
         injectRoute({ pattern: '/sitemap-live.xml', entrypoint: route('sitemap-live.xml.ts') });
-        injectRoute({ pattern: '/og/[...live].png', entrypoint: route('share-image.png.ts') });
+        // Share images are drawn by Velocity's own card drawing. A site without it keeps its own.
+        if (fs.existsSync(path.join(root, 'integrations', 'og-images.mjs'))) injectRoute({ pattern: '/og/[...live].png', entrypoint: route('share-image.png.ts') });
         injectRoute({ pattern: '/api/cms/search.json', entrypoint: route('search.json.ts') });
         injectRoute({ pattern: '/api/cms/published', entrypoint: route('published.ts') });
         injectRoute({ pattern: '/cms-search.js', entrypoint: route('search-client.js.ts') });

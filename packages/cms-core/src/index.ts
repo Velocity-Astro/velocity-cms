@@ -157,7 +157,7 @@ export {
 } from './plugin.js';
 export { HOME_SLUG, MAX_SLUG_LENGTH, MAX_SLUG_PARTS, SLUG_PATH_NAME, isSlug, isSlugPath, takesSlugPath } from './slug.js';
 export { MARK_CLOSE, MARK_OPEN, escapeHtml, markedExcerpt, searchWords } from './search-text.js';
-export { buildFieldsSchema, toPublicData, validateData } from './schema-builder.js';
+export { buildFieldsSchema, toPublicData, toStoredData, validateData } from './schema-builder.js';
 export {
   ContentService,
   SLUG_PATH,

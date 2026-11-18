@@ -1,0 +1,21 @@
+---
+import { entryPage } from '@velocity/cms-astro';
+import type { RichText } from '@/components/blocks';
+import Layout from '@/layouts/Layout.astro';
+
+export const prerender = false;
+
+const found = await entryPage(Astro, { types: ['posts'] });
+if (!found) return new Response('There is no post here.', { status: 404 });
+const post = found.entry.data as { title?: string; date?: string; excerpt?: string; body?: RichText };
+---
+
+<Layout title={post.title} description={post.excerpt}>
+  <article class="band">
+    <div class="wrap narrow">
+      <h1>{post.title}</h1>
+      {post.date && <time datetime={post.date}>{post.date}</time>}
+      <div class="prose" set:html={post.body?.html ?? ''} />
+    </div>
+  </article>
+</Layout>
