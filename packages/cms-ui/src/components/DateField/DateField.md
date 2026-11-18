@@ -24,3 +24,7 @@ parts, and Backspace clears one.
 ```tsx
 <DateField label="Listed on" value={listedOn} onChange={setListedOn} />
 ```
+
+## In a list
+
+Inside a `Repeater`, pass `isLabelHidden`: the list's label is in view above the rows, and each row's own label is still read out. Nowhere else.

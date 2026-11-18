@@ -38,3 +38,8 @@ it('has no accessibility violations', async () => {
   const { container } = render(<DateField label="Listed on" description="Shown on the listing" defaultValue="2026-11-17" />);
   await expectAccessible(container);
 });
+
+it('keeps its label for screen readers when the label is hidden', () => {
+  render(<DateField label="Photo 2" isLabelHidden />);
+  expect(screen.getByText('Photo 2').className).toContain('sr-only');
+});

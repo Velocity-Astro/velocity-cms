@@ -37,6 +37,8 @@ export interface FieldSection {
   readonly label: LocalizedText;
   /** Top-level fields, in the order they are shown. */
   readonly fieldIds: readonly string[];
+  /** True for a section shown beside the content, with its address and status: order, references. */
+  readonly aside?: boolean;
 }
 
 export type ContentTypeKind = 'collection' | 'single';

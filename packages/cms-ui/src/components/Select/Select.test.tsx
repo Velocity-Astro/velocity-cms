@@ -56,3 +56,8 @@ it('has no accessibility violations, closed and open', async () => {
   await user.click(screen.getByRole('button'));
   await expectAccessible(document.body);
 });
+
+it('keeps its label for screen readers when the label is hidden', () => {
+  render(<Select label="Stage" isLabelHidden options={[{ id: 'a', label: 'For sale' }]} />);
+  expect(screen.getByText('Stage').className).toContain('sr-only');
+});

@@ -30,6 +30,8 @@ export interface NewSection {
   readonly key: string;
   readonly label: LocalizedText;
   readonly fields: readonly string[];
+  /** True to show the section beside the content instead of in it. */
+  readonly aside?: boolean;
 }
 
 /**
@@ -145,6 +147,7 @@ export class SchemaService {
       key: section.key,
       label: section.label,
       fieldIds: section.fields.map((key) => this.requireFieldByKey(live, key, `section "${section.key}"`).id),
+      ...(section.aside === true && { aside: true }),
     }));
     return {
       ...rest,

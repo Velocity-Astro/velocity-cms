@@ -471,11 +471,17 @@ describe('describing a content type again', () => {
     const type = await cms.schema.define(owner, {
       ...agents,
       titleField: 'phone.display',
-      sections: [{ key: 'about', label: { en: 'About' }, fields: ['name', 'kind'] }],
+      sections: [
+        { key: 'about', label: { en: 'About' }, fields: ['name', 'kind'] },
+        { key: 'site', label: { en: 'On the site' }, fields: ['phone'], aside: true },
+      ],
     });
     const phone = type.fields.find((field) => field.key === 'phone');
     expect(type.titlePath).toEqual([phone?.id, (phone?.options['fields'] as FieldDef[])[0]?.id]);
-    expect(type.sections).toEqual([{ key: 'about', label: { en: 'About' }, fieldIds: [id(type, 'name'), id(type, 'kind')] }]);
+    expect(type.sections).toEqual([
+      { key: 'about', label: { en: 'About' }, fieldIds: [id(type, 'name'), id(type, 'kind')] },
+      { key: 'site', label: { en: 'On the site' }, fieldIds: [id(type, 'phone')], aside: true },
+    ]);
   });
 
   it('refuses a section or a title that names a field the type does not have', async () => {

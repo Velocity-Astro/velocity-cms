@@ -1,10 +1,15 @@
 import { FieldError, Input, Label, Text, TextField as AriaTextField } from 'react-aria-components';
-import { fieldDescriptionClass, fieldErrorClass, fieldLabelClass, fieldRequiredMarkClass } from '../field.js';
+import { fieldDescriptionClass, fieldErrorClass, fieldHiddenLabelClass, fieldLabelClass, fieldRequiredMarkClass } from '../field.js';
 import { inputClass, textFieldVariants, type TextFieldVariants } from './TextField.variants.js';
 
 export interface TextFieldProps extends TextFieldVariants {
-  /** Always shown. A field with no visible label is not allowed. */
+  /** Always given. It is read out even when it is not shown. */
   readonly label: string;
+  /**
+   * Keeps the label for screen readers only. For a row of a `Repeater`, whose own label is in
+   * view above the rows; anywhere else a field shows its label.
+   */
+  readonly isLabelHidden?: boolean;
   /** Help that stays visible under the field. */
   readonly description?: string;
   /** What is wrong and how to fix it. Setting it marks the field invalid. */
@@ -24,6 +29,7 @@ export interface TextFieldProps extends TextFieldVariants {
 /** One line of text, with its label, help and error. */
 export function TextField({
   label,
+  isLabelHidden = false,
   description,
   errorMessage,
   value,
@@ -52,7 +58,7 @@ export function TextField({
       {...(name !== undefined && { name })}
       {...(autoComplete !== undefined && { autoComplete })}
     >
-      <Label className={fieldLabelClass}>
+      <Label className={isLabelHidden ? fieldHiddenLabelClass : fieldLabelClass}>
         {label}
         {isRequired && (
           <span aria-hidden className={fieldRequiredMarkClass}>

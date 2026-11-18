@@ -37,6 +37,7 @@ export const WithItems: Story = {
           content: (
             <TextField
               label={`Highlight ${index + 1}`}
+              isLabelHidden
               value={item}
               onChange={(next) => setItems(items.map((existing, at) => (at === index ? next : existing)))}
             />

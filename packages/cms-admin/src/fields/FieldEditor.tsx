@@ -12,13 +12,15 @@ export interface FieldEditorProps {
   /** Where the field is in the entry, as field keys: `address.city`. */
   readonly path: string;
   readonly problems: ReadonlyMap<string, string>;
+  /** True for a row of a list. */
+  readonly isLabelHidden?: boolean;
 }
 
 /**
  * One field of an entry, drawn with the control its field type asks for. A field whose control
  * the editor does not have is shown by name, with a note, so nothing disappears silently.
  */
-export function FieldEditor({ field, value, onChange, path, problems }: FieldEditorProps) {
+export function FieldEditor({ field, value, onChange, path, problems, isLabelHidden = false }: FieldEditorProps) {
   const messages = useMessages();
   const locale = useLocale();
   const controls = useFieldControls();
@@ -32,5 +34,5 @@ export function FieldEditor({ field, value, onChange, path, problems }: FieldEdi
 
   const { Component } = controls.get(editor);
   const help = field.help ? localized(field.help, locale) : undefined;
-  return <Component field={field} label={label} help={help} value={value} onChange={onChange} path={path} problem={problems.get(path)} problems={problems} />;
+  return <Component field={field} label={label} help={help} isLabelHidden={isLabelHidden} value={value} onChange={onChange} path={path} problem={problems.get(path)} problems={problems} />;
 }

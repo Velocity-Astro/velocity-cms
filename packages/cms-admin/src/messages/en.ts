@@ -78,6 +78,7 @@ export const en = {
     listMoveDown: (list: string, position: number) => `Move ${list} ${position} down`,
     otherFields: 'Other details',
     addressSection: 'Address on the site',
+    aside: 'Publishing details',
     unsupportedField: 'This kind of field cannot be edited here yet. Its content is kept as it is.',
     saveBar: 'Save and publish',
     language: 'Language',

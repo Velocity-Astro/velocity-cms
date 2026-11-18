@@ -185,6 +185,15 @@
       "uses": ["Button", "IconButton"]
     },
     {
+      "name": "Split",
+      "layer": "pattern",
+      "group": "Page",
+      "description": "A wide column with a narrow one beside it, which stays in view on a wide screen and follows below on a narrow one.",
+      "example": "<Split asideLabel=\"Publishing\" aside={<Card title=\"On the site\">…</Card>}>…</Split>",
+      "useInstead": "Grid for columns of equal weight.",
+      "uses": []
+    },
+    {
       "name": "PageHeader",
       "layer": "pattern",
       "group": "Page",

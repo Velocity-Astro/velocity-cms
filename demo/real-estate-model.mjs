@@ -24,7 +24,7 @@ const group = (key, label, fields, extra = {}) => field('group')(key, label, { .
 const list = (key, label, of, extra = {}) => field('list')(key, label, { ...extra, options: { of: { type: of.type, options: of.options ?? {} } } });
 const section = (key, label, fields) => ({ key, label: en(label), fields });
 
-const onTheSite = (fields) => section('site', 'On the site', fields);
+const onTheSite = (fields) => ({ ...section('site', 'On the site', fields), aside: true });
 const order = number('order', 'Order', { required: true, help: 'Lower numbers come first in lists.' });
 
 const listings = {
@@ -103,7 +103,7 @@ const listings = {
     section('description', 'Description', ['description', 'highlights', 'features']),
     section('visits', 'Open houses', ['openHouses']),
     section('rental', 'Rental', ['rental']),
-    section('agent', 'Agent', ['agent']),
+    { ...section('agent', 'Agent', ['agent']), aside: true },
     onTheSite(['path', 'order']),
   ],
 };
@@ -182,7 +182,7 @@ const reviews = {
   ],
   sections: [
     section('review', 'Review', ['quote', 'author', 'context', 'rating', 'kind']),
-    section('with', 'Shown with', ['agent', 'photo']),
+    { ...section('with', 'Shown with', ['agent', 'photo']), aside: true },
     onTheSite(['reviewId', 'order']),
   ],
 };

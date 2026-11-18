@@ -3,6 +3,8 @@
  * and a select line up when they sit side by side.
  */
 export const fieldLabelClass = 'text-sm font-medium text-foreground';
+/** A label only screen readers get: for a row of a list whose own label is in view. */
+export const fieldHiddenLabelClass = 'sr-only';
 export const fieldRequiredMarkClass = 'text-destructive';
 export const fieldDescriptionClass = 'text-sm text-foreground-muted';
 export const fieldErrorClass = 'text-sm text-destructive';

@@ -9,6 +9,8 @@ export interface FieldControlProps {
   readonly label: string;
   /** A sentence on what to put in the field, in the editor's language, if the field has one. */
   readonly help?: string | undefined;
+  /** True for a row of a list, whose label is in view above the rows. A control that can, hides its own. */
+  readonly isLabelHidden?: boolean;
   /** The stored value, or `undefined` when the field is empty. */
   readonly value: unknown;
   /** Call with the new value, or `undefined` to empty the field. */
