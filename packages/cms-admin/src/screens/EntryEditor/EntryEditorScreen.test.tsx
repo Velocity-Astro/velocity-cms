@@ -284,6 +284,17 @@ it('lays the fields out in the sections the content type names, and calls the en
   expect(within(screen.getByRole('region', { name: 'Address on the site' })).getByRole('textbox', { name: 'Slug' })).toBeTruthy();
 });
 
+it('calls the slug an identifier for a type whose entries have no page of their own', async () => {
+  const [listings, ...others] = sampleContentTypes;
+  if (!listings) throw new Error('No sample types.');
+  const { urlPattern: _address, ...withoutPages } = listings;
+  renderApp('/content/listings/e1', { ...signedIn(), contentTypes: [withoutPages, ...others] });
+  const card = within(await screen.findByRole('region', { name: 'Identifier' }));
+  expect(card.getByRole('textbox', { name: 'Slug' })).toBeTruthy();
+  expect(card.getByText(/other entries link to/)).toBeTruthy();
+  expect(screen.queryByRole('region', { name: 'Address on the site' })).toBeNull();
+});
+
 it('links to an entry of another type by name, and keeps a link it cannot find', async () => {
   const user = userEvent.setup();
   const [listings, agents] = sampleContentTypes;

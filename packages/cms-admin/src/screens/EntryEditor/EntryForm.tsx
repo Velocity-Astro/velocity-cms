@@ -208,7 +208,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
             asideLabel={messages.editor.aside}
             aside={
               <>
-                <Card title={messages.editor.addressSection}>
+                <Card title={type.urlPattern !== undefined ? messages.editor.addressSection : messages.editor.identifierSection}>
                   <TextField
                     label={messages.editor.slug}
                     value={slug}
@@ -217,9 +217,11 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
                       setSlugProblem(null);
                     }}
                     isRequired
-                    {...(type.urlPattern !== undefined && {
-                      description: messages.editor.slugDescription(type.urlPattern.replace('[slug]', slug === '' ? '…' : slug)),
-                    })}
+                    description={
+                      type.urlPattern !== undefined
+                        ? messages.editor.slugDescription(type.urlPattern.replace('[slug]', slug === '' ? '…' : slug))
+                        : messages.editor.slugAsIdentifier
+                    }
                     {...(slugProblem !== null && { errorMessage: slugProblem })}
                   />
                 </Card>

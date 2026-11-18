@@ -57,8 +57,21 @@ export interface ContentTypeDef {
    * group's id and then a field inside it. Left out, the first text field is used.
    */
   readonly titlePath?: readonly string[];
+  /** What a list of entries shows beside each entry's name. */
+  readonly list?: ListSummary;
   /** How the editor lays the fields out. A field in no section is shown after them. */
   readonly sections?: readonly FieldSection[];
+}
+
+/**
+ * What a list of a type's entries shows beside each name. Each path is field ids from the top
+ * down, like `titlePath`.
+ */
+export interface ListSummary {
+  /** The image field whose picture goes before the name. For a list of images, the first is shown. */
+  readonly imagePath?: readonly string[];
+  /** The fields that get a column each, in order. */
+  readonly fieldPaths?: readonly (readonly string[])[];
 }
 
 export type EntryStatus = 'draft' | 'scheduled' | 'published';

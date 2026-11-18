@@ -1,11 +1,27 @@
-import { Box, Button, EmptyState, Inline, PageHeader, SearchField, Segmented, Stack, Table, Tag, Text, type TableColumn, type TableRow } from '@velocity/cms-ui';
+import {
+  Box,
+  Button,
+  EmptyState,
+  Inline,
+  PageHeader,
+  SearchField,
+  Segmented,
+  Stack,
+  Table,
+  Tag,
+  Text,
+  Thumbnail,
+  type TableColumn,
+  type TableRow,
+} from '@velocity/cms-ui';
 import { FileQuestion, Inbox, Plus, SearchX } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { paths } from '../../app/paths.js';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
-import { useContentTypes, useEntries } from '../../client/queries.js';
-import { entryState, entryTitle, groupTranslations, localized, type EntryState } from '../../lib/content.js';
+import { useContentTypes, useEntries, useImages } from '../../client/queries.js';
+import { FieldSummary, useControlFor } from '../../fields/index.js';
+import { entryImage, entryState, entryTitle, fieldAt, groupTranslations, localized, type EntryState } from '../../lib/content.js';
 import { relativeTime } from '../../lib/relative-time.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 
@@ -23,6 +39,9 @@ const SHOWN: Readonly<Record<Filter, (state: EntryState) => boolean>> = {
   changed: (state) => state === 'unpublishedChanges',
 };
 
+/** A picture's address as a prop, left out when there is none. */
+const withSrc = (src: string | undefined) => (src === undefined ? {} : { src });
+
 /** As many entries as one request may carry. Paging comes with search on the server. */
 const PAGE = 200;
 
@@ -34,6 +53,8 @@ export function ContentListScreen() {
   const { typeKey = '' } = useParams();
   const types = useContentTypes();
   const entries = useEntries({ type: typeKey, limit: PAGE });
+  const images = useImages();
+  const controlFor = useControlFor();
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
 
@@ -62,8 +83,17 @@ export function ContentListScreen() {
     return versions.some((entry) => `${entryTitle(type, entry.data) ?? ''} ${entry.slug}`.toLowerCase().includes(words));
   });
 
+  // The columns the type asks for, each named by its field.
+  const summaries = (type.list?.fieldPaths ?? []).flatMap((path, index) => {
+    const at = fieldAt(type, {}, path);
+    return at ? [{ id: `field-${index}`, path, field: at.field }] : [];
+  });
+  const hasPictures = type.list?.imagePath !== undefined;
+  const pictures = new Map((images.data ?? []).map((image) => [image.name, image.url]));
+
   const columns: TableColumn[] = [
     { id: 'title', label: messages.contentList.columnTitle },
+    ...summaries.map(({ id, field }) => ({ id, label: localized(field.label, locale), align: controlFor(field.type)?.summaryAlign ?? ('start' as const) })),
     { id: 'status', label: messages.contentList.columnStatus },
     ...(manyLanguages ? [{ id: 'languages', label: messages.contentList.columnLanguages }] : []),
     { id: 'updated', label: messages.contentList.columnUpdated },
@@ -75,12 +105,18 @@ export function ContentListScreen() {
       id: primary.id,
       cells: {
         title: (
-          <Stack gap={0}>
-            <Text weight="semibold">{entryTitle(type, primary.data) ?? messages.contentList.untitled}</Text>
-            <Text size="sm" tone="muted" mono>
-              {type.urlPattern ? type.urlPattern.replace('[slug]', primary.slug) : primary.slug}
-            </Text>
-          </Stack>
+          <Inline gap={3}>
+            {hasPictures && <Thumbnail {...withSrc(pictures.get(entryImage(type, primary.data) ?? ''))} />}
+            <Stack gap={0}>
+              <Text weight="semibold">{entryTitle(type, primary.data) ?? messages.contentList.untitled}</Text>
+              <Text size="sm" tone="muted" mono>
+                {type.urlPattern ? type.urlPattern.replace('[slug]', primary.slug) : primary.slug}
+              </Text>
+            </Stack>
+          </Inline>
+        ),
+        ...Object.fromEntries(
+          summaries.map(({ id, path, field }) => [id, <FieldSummary key={id} field={field} value={fieldAt(type, primary.data, path)?.value} />]),
         ),
         status: <Tag tone={STATE_TONE[state]}>{messages.status[state]}</Tag>,
         ...(manyLanguages && {

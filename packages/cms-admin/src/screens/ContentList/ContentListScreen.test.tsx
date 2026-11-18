@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it } from 'vitest';
 import { AdminApp } from '../../app/AdminApp.js';
@@ -27,6 +27,32 @@ it('lists a type\'s entries, newest first, with a title, a state and when each w
     ['Untitled/listings/e4', 'Draft', '8 days ago'],
   ]);
   expect(screen.getByText('4 entries')).toBeTruthy();
+});
+
+it('shows the picture and the columns a type asks for, each as its field reads in a list', async () => {
+  const [listings, ...others] = sampleContentTypes;
+  if (!listings) throw new Error('No sample types.');
+  const described = {
+    ...listings,
+    fields: [...listings.fields, { id: 'f-cover', key: 'cover', type: 'image', label: { en: 'Cover' }, required: false, translated: false, options: {} }],
+    list: { imagePath: ['f-cover'], fieldPaths: [['f-price'], ['f-address', 'f-city']] },
+  };
+  const [first, ...rest] = sampleEntries();
+  if (!first) throw new Error('No sample entries.');
+  renderApp('/content/listings', {
+    ...signedIn,
+    contentTypes: [described, ...others],
+    entries: [{ ...first, data: { ...first.data, 'f-cover': 'porch' } }, ...rest],
+    images: [{ name: 'porch', url: '/images/porch.jpg' }],
+  });
+  const table = await screen.findByRole('grid', { name: 'Listings' });
+  expect(within(table).getAllByRole('columnheader').map((header) => header.textContent)).toEqual(['Title', 'Price', 'City', 'Status', 'Updated']);
+  const [row] = within(table).getAllByRole('row').slice(1);
+  if (!row) throw new Error('No rows.');
+  expect(Array.from(row.children, (cell) => cell.textContent).slice(1, 3)).toEqual(['500,000', 'Austin']);
+  await waitFor(() => expect(row.querySelector('img')?.getAttribute('src')).toBe('/images/porch.jpg'));
+  // The other rows keep an empty frame, so the names line up.
+  expect(table.querySelectorAll('img')).toHaveLength(1);
 });
 
 it('shows an entry in two languages as one row that names both', async () => {
