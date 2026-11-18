@@ -2,7 +2,7 @@
  * What the core needs from the outside world. The core ships no implementation of these:
  * an adapter package implements each one and proves it with the contract tests in `./testing`.
  */
-import type { ContentTypeDef, Entry, EntryStatus, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus, Timestamp, Contact, ContactNote } from './model.js';
+import type { ContentTypeDef, Entry, EntryStatus, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus, Timestamp, Contact, ContactNote, Pipeline, TeamMember } from './model.js';
 
 export interface EntryQuery {
   readonly typeId?: string;
@@ -106,6 +106,15 @@ export interface SubmissionRepository {
 export interface ContactQuery {
   /** Words to find in the name, email or phone, whatever their case. */
   readonly search?: string;
+  /** Only contacts in this stage. */
+  readonly stage?: string;
+  /** Only contacts this person looks after, or with `null`, the ones nobody does. */
+  readonly ownerId?: string | null;
+  /**
+   * Only contacts to get back to on or before this day (`2026-03-14`). They come soonest first
+   * rather than newest first.
+   */
+  readonly followUpBy?: string;
   /** Defaults to 50. */
   readonly limit?: number;
   readonly offset?: number;
@@ -117,6 +126,8 @@ export interface ContactRepository {
   getByEmail(email: string): Promise<Contact | null>;
   /** Newest first, then by id, so paging never skips or repeats one. */
   find(query?: ContactQuery): Promise<Page<Contact>>;
+  /** Puts every contact of one stage in another, as it is. Answers with how many moved. */
+  moveStage(from: string, to: string): Promise<number>;
   /**
    * Creates or replaces. `expectedRevision` is the revision the caller last saw, or `null` for a
    * new contact: one that has moved on is refused with a `ConflictError`, and so is an email
@@ -131,6 +142,23 @@ export interface ContactRepository {
   addNote(note: ContactNote): Promise<ContactNote>;
   /** Removes one note of a contact. An id nothing has is ignored. */
   removeNote(contactId: string, noteId: string): Promise<void>;
+}
+
+/** Where the site's pipeline is kept, once someone has changed the one the CMS comes with. */
+export interface PipelineStore {
+  /** The pipeline as it was saved, or `null` when nobody has changed it. */
+  get(): Promise<Pipeline | null>;
+  /**
+   * Replaces it. `expectedRevision` is the revision the caller last saw, or `null` when none was
+   * saved before: one that has moved on is refused with a `ConflictError`.
+   */
+  save(pipeline: Pipeline, expectedRevision: number | null): Promise<Pipeline>;
+}
+
+/** Who is on the team. Sign-in belongs to the host, so the host says. */
+export interface Team {
+  /** Everyone who can sign in, by name. */
+  members(): Promise<TeamMember[]>;
 }
 
 /** The current time. Passed in so tests can fix it. */

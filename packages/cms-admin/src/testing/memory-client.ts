@@ -16,6 +16,9 @@ import {
   type NewForm,
   type Submission,
   type Contact,
+  type Pipeline,
+  type PipelineChanges,
+  type TeamMember,
   type ContactChanges,
   type ContactNote,
   type NewContact,
@@ -127,7 +130,7 @@ export class MemoryAdminClient implements AdminClient {
     const types = new InMemorySchemaRepository();
     const entries = new InMemoryEntryRepository();
     const storage = { files: new InMemoryMediaRepository(), store: new InMemoryMediaStore() };
-    const cms = createCms({ types, entries, previews: { secret: PREVIEW_SECRET }, ...(options.uploads !== false && { media: { storage } }) });
+    const cms = createCms({ types, entries, team: this.#people, previews: { secret: PREVIEW_SECRET }, ...(options.uploads !== false && { media: { storage } }) });
     this.#cms = cms;
     cms.media.include(new InMemoryImageLibrary(options.images));
     this.#ready = (async () => {
@@ -349,8 +352,27 @@ export class MemoryAdminClient implements AdminClient {
 
   listContacts(query: ContactListQuery = {}): Promise<Page<Contact>> {
     return this.#request((actor) =>
-      this.#cms.contacts.find(actor, { limit: query.limit ?? 50, offset: query.offset ?? 0, ...(query.search !== undefined && query.search !== '' && { search: query.search }) }),
+      this.#cms.contacts.find(actor, {
+        limit: query.limit ?? 50,
+        offset: query.offset ?? 0,
+        ...(query.search !== undefined && query.search !== '' && { search: query.search }),
+        ...(query.stage !== undefined && { stage: query.stage }),
+        ...(query.ownerId !== undefined && { ownerId: query.ownerId }),
+        ...(query.followUpBy !== undefined && { followUpBy: query.followUpBy }),
+      }),
     );
+  }
+
+  getPipeline(): Promise<Pipeline> {
+    return this.#request((actor) => this.#cms.pipeline.get(actor));
+  }
+
+  savePipeline(changes: PipelineChanges): Promise<Pipeline> {
+    return this.#request((actor) => this.#cms.pipeline.save(actor, changes));
+  }
+
+  listTeam(): Promise<readonly TeamMember[]> {
+    return this.#request((actor) => this.#cms.contacts.owners(actor));
   }
 
   getContact(id: string): Promise<Contact> {

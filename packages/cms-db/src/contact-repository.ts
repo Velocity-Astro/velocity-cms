@@ -1,15 +1,17 @@
-import { and, asc, count, desc, eq, ne, or, sql, type SQL, type SQLWrapper } from 'drizzle-orm';
+import { and, asc, count, desc, eq, isNull, lte, ne, or, sql, type SQL, type SQLWrapper } from 'drizzle-orm';
 import { ConflictError, type Contact, type ContactNote, type ContactQuery, type ContactRepository, type Page } from '@velocity/cms-core';
 import type { Db } from './database.js';
 import { contactNotes, contacts } from './tables.js';
 
 type Row = typeof contacts.$inferSelect;
 
-const toContact = ({ name, phone, sourceFormId, sourcePage, ...row }: Row): Contact => ({
+const toContact = ({ name, phone, sourceFormId, sourcePage, ownerId, followUpAt, ...row }: Row): Contact => ({
   ...row,
   ...(name !== null && { name }),
   ...(phone !== null && { phone }),
   ...(sourceFormId !== null && { source: { formId: sourceFormId, ...(sourcePage !== null && { page: sourcePage }) } }),
+  ...(ownerId !== null && { ownerId }),
+  ...(followUpAt !== null && { followUpAt }),
 });
 
 const toRow = ({ source, ...contact }: Contact): Row => ({
@@ -18,6 +20,8 @@ const toRow = ({ source, ...contact }: Contact): Row => ({
   phone: contact.phone ?? null,
   sourceFormId: source?.formId ?? null,
   sourcePage: source?.page ?? null,
+  ownerId: contact.ownerId ?? null,
+  followUpAt: contact.followUpAt ?? null,
 });
 
 /** The words as a pattern that matches them anywhere, with nothing in them read as a wildcard. */
@@ -38,17 +42,22 @@ export class SqliteContactRepository implements ContactRepository {
 
   async find(query: ContactQuery = {}): Promise<Page<Contact>> {
     const words = (query.search ?? '').trim();
-    let where: SQL | undefined;
+    const conditions: (SQL | undefined)[] = [];
     if (words !== '') {
       const pattern = containing(words);
       const like = (column: SQLWrapper) => sql`lower(${column}) like ${pattern} escape '\\'`;
-      where = or(like(contacts.name), like(contacts.email), like(contacts.phone));
+      conditions.push(or(like(contacts.name), like(contacts.email), like(contacts.phone)));
     }
+    if (query.stage !== undefined) conditions.push(eq(contacts.stage, query.stage));
+    if (query.ownerId !== undefined) conditions.push(query.ownerId === null ? isNull(contacts.ownerId) : eq(contacts.ownerId, query.ownerId));
+    if (query.followUpBy !== undefined) conditions.push(lte(contacts.followUpAt, query.followUpBy));
+    const where = and(...conditions);
+    const order = query.followUpBy === undefined ? [desc(contacts.createdAt), asc(contacts.id)] : [asc(contacts.followUpAt), asc(contacts.id)];
     const rows = await this.db
       .select()
       .from(contacts)
       .where(where)
-      .orderBy(desc(contacts.createdAt), asc(contacts.id))
+      .orderBy(...order)
       .limit(query.limit ?? 50)
       .offset(query.offset ?? 0);
     const [counted] = await this.db.select({ total: count() }).from(contacts).where(where);
@@ -72,6 +81,11 @@ export class SqliteContactRepository implements ContactRepository {
       await tx.insert(contacts).values(row).onConflictDoUpdate({ target: contacts.id, set: row });
     });
     return contact;
+  }
+
+  async moveStage(from: string, to: string): Promise<number> {
+    const moved = await this.db.update(contacts).set({ stage: to }).where(eq(contacts.stage, from)).returning({ id: contacts.id });
+    return moved.length;
   }
 
   async remove(id: string): Promise<void> {

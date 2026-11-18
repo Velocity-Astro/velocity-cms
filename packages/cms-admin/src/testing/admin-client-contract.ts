@@ -252,6 +252,29 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       await expect(client.forgetSender(' ')).rejects.toMatchObject({ code: 'validation_failed' });
     });
 
+    it('keeps a pipeline of stages, and places a contact in it with someone to look after it and a day to follow up', async () => {
+      const pipeline = await client.getPipeline();
+      expect(pipeline.stages.map((stage) => stage.id)).toEqual(['new', 'contacted', 'qualified', 'won', 'lost']);
+      const [me] = await client.listTeam();
+      if (!me) throw new Error('Nobody on the team');
+      expect(me).toEqual({ id: 'u1', name: 'Dana', role: 'owner' });
+      const [ana] = (await client.listContacts({ search: 'ana' })).items;
+      if (!ana) throw new Error('No contact for Ana');
+      expect(ana.stage).toBe('new');
+      const moved = await client.updateContact(ana.id, { stage: 'qualified', ownerId: me.id, followUpAt: '2026-03-14', expectedRevision: ana.revision });
+      expect(moved).toMatchObject({ stage: 'qualified', ownerId: 'u1', followUpAt: '2026-03-14' });
+      await expect(client.updateContact(ana.id, { stage: 'nowhere', expectedRevision: moved.revision })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['stage'] }] });
+      expect((await client.listContacts({ stage: 'qualified' })).items.map((contact) => contact.id)).toEqual([ana.id]);
+      expect((await client.listContacts({ ownerId: null })).total).toBe(1);
+      expect((await client.listContacts({ ownerId: 'u1', followUpBy: '2026-03-14' })).total).toBe(1);
+      expect((await client.listContacts({ followUpBy: '2026-03-13' })).total).toBe(0);
+      const saved = await client.savePipeline({ stages: [{ id: 'new', label: 'Fresh', kind: 'open' }, { label: 'Viewing booked', kind: 'open' }, { id: 'won', kind: 'won' }], expectedRevision: 0 });
+      expect(saved.stages.map((stage) => stage.label)).toEqual(['Fresh', 'Viewing booked', undefined]);
+      expect((await client.getContact(ana.id)).stage).toBe('new');
+      await expect(client.savePipeline({ stages: [], expectedRevision: 1 })).rejects.toMatchObject({ code: 'validation_failed' });
+      await expect(client.savePipeline({ stages: [{ id: 'new', kind: 'open' }], expectedRevision: 0 })).rejects.toMatchObject({ code: 'conflict' });
+    });
+
     it('keeps a contact for everyone who wrote in, and adds, changes, notes, exports and erases one', async () => {
       const listed = await client.listContacts();
       expect(listed.items.map((contact) => contact.email).sort()).toEqual(['ana@example.com', 'tom@example.com']);

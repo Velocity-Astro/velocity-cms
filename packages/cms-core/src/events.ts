@@ -1,6 +1,6 @@
 import type { Actor } from './access.js';
 import type { Permission } from './access.js';
-import type { Contact, ContentTypeDef, Entry, FormDef, MediaFile, Submission } from './model.js';
+import type { Contact, ContentTypeDef, Entry, FormDef, MediaFile, Pipeline, Submission } from './model.js';
 
 /** Everything the CMS announces, and what each announcement carries. */
 export interface CmsEvents {
@@ -33,6 +33,8 @@ export interface CmsEvents {
   'contact.saved': { contact: Contact; actor?: Actor };
   /** A contact is gone for good, with its notes. `contact` is what it was. */
   'contact.deleted': { contact: Contact; actor: Actor };
+  /** The stages contacts move through were changed. */
+  'pipeline.saved': { pipeline: Pipeline; actor: Actor };
   'media.uploaded': { file: MediaFile; actor: Actor };
   'media.removed': { file: MediaFile; actor: Actor };
   /** A plugin was switched on or off, or its settings were saved. */

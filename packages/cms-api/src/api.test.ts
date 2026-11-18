@@ -46,6 +46,7 @@ beforeEach(async () => {
     clock: new FakeClock(),
     ids: new SequentialIds(),
     previews: { secret: 'p'.repeat(32) },
+    team: { members: async () => [{ id: 'u1', name: 'Dana', role: 'owner' }, { id: 'u2', name: 'Ben', role: 'author' }] },
     media: { storage: { files: new InMemoryMediaRepository(), store: new InMemoryMediaStore() }, maxBytes: 2000 },
   });
   cms.media.include(new InMemoryImageLibrary([{ name: 'porch', url: '/_astro/porch.jpg' }]));
@@ -587,6 +588,28 @@ describe('forms and what they were sent', () => {
     expect(await call('DELETE', `/contacts/${ana}`)).toEqual({ status: 200, body: { removed: 1 } });
     expect((await call('GET', `/contacts/${ana}`)).status).toBe(404);
     expect((await call('GET', '/contacts')).body).toMatchObject({ total: 1 });
+  });
+
+  it('reads and changes the pipeline, and places a contact in it with an owner and a day to follow up', async () => {
+    expect((await call('GET', '/pipeline')).body).toMatchObject({ revision: 0, stages: [{ id: 'new' }, { id: 'contacted' }, { id: 'qualified' }, { id: 'won' }, { id: 'lost' }] });
+    expect((await call('GET', '/team')).body).toEqual({ items: [{ id: 'u1', name: 'Dana', role: 'owner' }] });
+    const tom = String((await call('POST', '/contacts', { email: 'tom@example.com' })).body['id']);
+    await call('POST', '/contacts', { email: 'ana@example.com' });
+    expect((await call('PATCH', `/contacts/${tom}`, { stage: 'contacted', ownerId: 'u1', followUpAt: '2026-03-14', expectedRevision: 1 })).body).toMatchObject({ stage: 'contacted', ownerId: 'u1', followUpAt: '2026-03-14' });
+    expect((await call('PATCH', `/contacts/${tom}`, { ownerId: 'u2', expectedRevision: 2 })).status).toBe(422);
+    expect((await call('GET', '/contacts?stage=contacted')).body).toMatchObject({ total: 1 });
+    expect((await call('GET', '/contacts?owner=none')).body).toMatchObject({ total: 1 });
+    expect((await call('GET', '/contacts?owner=u1&due=2026-03-14')).body).toMatchObject({ total: 1 });
+    expect((await call('GET', '/contacts?due=2026-03-13')).body).toMatchObject({ total: 0 });
+    const saved = await call('PUT', '/pipeline', { stages: [{ id: 'new', kind: 'open' }, { label: 'Viewing booked', kind: 'open' }, { id: 'won', kind: 'won' }], expectedRevision: 0 });
+    expect(saved).toMatchObject({ status: 200, body: { revision: 1 } });
+    expect((await call('GET', `/contacts/${tom}`)).body).toMatchObject({ stage: 'new' });
+    expect((await call('PUT', '/pipeline', { stages: [{ id: 'new', kind: 'open' }], expectedRevision: 0 })).status).toBe(409);
+    expect((await call('PUT', '/pipeline', { stages: [{ id: 'new', kind: 'paused' }], expectedRevision: 1 })).status).toBe(400);
+    expect((await call('PUT', '/pipeline', { stages: [{ kind: 'open' }], expectedRevision: 1 })).status).toBe(422);
+    authenticator.session = as('author');
+    expect((await call('GET', '/pipeline')).status).toBe(403);
+    expect((await call('GET', '/team')).status).toBe(403);
   });
 
   it('keeps contacts from an author, and never lets a browser keep one', async () => {

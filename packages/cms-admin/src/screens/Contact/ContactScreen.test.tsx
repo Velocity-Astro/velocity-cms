@@ -1,4 +1,4 @@
-import { act, screen, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { dismissToasts } from '@velocity/cms-ui';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -104,4 +104,38 @@ it('says so for a contact that is not there', async () => {
   renderApp('/contacts/nobody', site);
   expect(await screen.findByRole('heading', { level: 2, name: 'No such contact' })).toBeTruthy();
   expect(screen.getByRole('link', { name: 'All contacts' })).toBeTruthy();
+});
+
+it('moves a contact to a stage, gives it to someone and sets a day to follow up, each saved as it is chosen', async () => {
+  const user = userEvent.setup();
+  const { client } = await openAna(user);
+  const work = within(screen.getByRole('region', { name: 'Follow-up' }));
+  await user.click(await work.findByRole('button', { name: /Stage$/ }));
+  await user.click(await screen.findByRole('option', { name: 'Qualified' }));
+  expect(await screen.findByText('Moved to Qualified')).toBeTruthy();
+  await waitFor(() => expect(work.getByRole('button', { name: /Looked after by$/ })).toHaveProperty('disabled', false));
+  await user.click(work.getByRole('button', { name: /Looked after by$/ }));
+  await user.click(await screen.findByRole('option', { name: 'Dana' }));
+  expect(await screen.findByText('Now looked after by Dana')).toBeTruthy();
+  const [ana] = (await client.listContacts({ search: 'ana' })).items;
+  expect(ana).toMatchObject({ stage: 'qualified', ownerId: 'u1' });
+  await waitFor(() => expect(work.getByRole('button', { name: /Looked after by$/ }).textContent).toContain('Dana'));
+});
+
+it('lists on Home the contacts a person looks after that are due, and opens one', async () => {
+  const user = userEvent.setup();
+  const { client } = await openAna(user);
+  const all = (await client.listContacts()).items;
+  const ana = all.find((contact) => contact.email === 'ana@example.com');
+  const tom = all.find((contact) => contact.email !== 'ana@example.com');
+  if (!ana || !tom) throw new Error('Contacts are missing');
+  await client.updateContact(ana.id, { ownerId: 'u1', followUpAt: '2020-01-01', expectedRevision: ana.revision });
+  // Tom is due later, so he is not listed.
+  await client.updateContact(tom.id, { ownerId: 'u1', followUpAt: '2999-01-01', expectedRevision: tom.revision });
+  await user.click(screen.getByRole('link', { name: 'Home' }));
+  const due = within(await screen.findByRole('grid', { name: 'Follow-ups' }));
+  expect(due.getAllByRole('row')).toHaveLength(2);
+  expect(within(due.getByRole('row', { name: /Ana Ruiz/ })).getByText('Overdue')).toBeTruthy();
+  await user.click(due.getByRole('rowheader', { name: 'Ana Ruiz' }));
+  expect(await screen.findByRole('heading', { level: 1, name: 'Ana Ruiz' })).toBeTruthy();
 });

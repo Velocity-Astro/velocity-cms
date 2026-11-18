@@ -4,9 +4,10 @@ import { createCms, type Cms } from './cms.js';
 import { ForbiddenError, NotFoundError, ValidationError } from './errors.js';
 import type { FormDef } from './model.js';
 import { definePlugin } from './plugin.js';
-import { FakeClock, InMemoryContactRepository, InMemoryEntryRepository, InMemorySchemaRepository, SequentialIds, contactRepositoryContract } from './testing/index.js';
+import { FakeClock, InMemoryContactRepository, InMemoryEntryRepository, InMemoryPipelineStore, InMemorySchemaRepository, SequentialIds, contactRepositoryContract, pipelineStoreContract } from './testing/index.js';
 
 contactRepositoryContract('InMemoryContactRepository', async () => new InMemoryContactRepository());
+pipelineStoreContract('InMemoryPipelineStore', async () => new InMemoryPipelineStore());
 
 const owner: Actor = { kind: 'user', id: 'maya', role: 'owner' };
 const editor: Actor = { kind: 'user', id: 'daniel', role: 'editor' };
@@ -200,5 +201,81 @@ describe('ContactService', () => {
       definePlugin({ name: 'nosy', apiVersion: 1, label: { en: 'Nosy' }, enabledByDefault: true, setup: (plugin) => void plugin.events.on('contact.saved', () => undefined) }),
     ]);
     expect((await cms.plugins.list(owner)).find((plugin) => plugin.name === 'nosy')).toMatchObject({ status: 'failed' });
+  });
+});
+
+describe('the pipeline', () => {
+  const team = { members: async () => [{ id: 'maya', name: 'Maya', role: 'owner' as const }, { id: 'daniel', name: 'Daniel', role: 'editor' as const }, { id: 'priya', name: 'Priya', role: 'author' as const }] };
+  beforeEach(() => {
+    cms = createCms({ entries: new InMemoryEntryRepository(), types: new InMemorySchemaRepository(), clock: new FakeClock(), ids: new SequentialIds(), team });
+  });
+
+  it('comes with five stages, and starts every contact in the first', async () => {
+    const pipeline = await cms.pipeline.get(editor);
+    expect(pipeline.revision).toBe(0);
+    expect(pipeline.stages.map((stage) => [stage.id, stage.kind])).toEqual([['new', 'open'], ['contacted', 'open'], ['qualified', 'open'], ['won', 'won'], ['lost', 'lost']]);
+    expect((await cms.contacts.create(editor, { email: 'tom@example.com' })).stage).toBe('new');
+    await cms.forms.create(editor, { key: 'contact', label: { en: 'Contact' }, fields: [{ key: 'email', type: 'email', label: { en: 'Email' } }], contact: { email: 'email' } });
+    await cms.submissions.submit('contact', { email: 'ana@example.com' });
+    expect((await cms.contacts.find(editor, { stage: 'new' })).total).toBe(2);
+  });
+
+  it('moves a contact to a stage, gives it to someone and sets a day to follow up, refusing what is not there', async () => {
+    const tom = await cms.contacts.create(editor, { email: 'tom@example.com' });
+    const moved = await cms.contacts.update(editor, tom.id, { stage: 'contacted', ownerId: 'daniel', followUpAt: '2026-03-14', expectedRevision: 1 });
+    expect(moved).toMatchObject({ stage: 'contacted', ownerId: 'daniel', followUpAt: '2026-03-14', revision: 2 });
+    expect(await issuesOf(cms.contacts.update(editor, tom.id, { stage: 'nowhere', ownerId: 'priya', followUpAt: '2026-02-30', expectedRevision: 2 }))).toEqual([
+      ['stage', 'This stage is no longer in the pipeline. Choose another.'],
+      ['ownerId', 'Choose someone on the team who may read contacts.'],
+      ['followUpAt', 'Enter a day, such as 2026-03-14.'],
+    ]);
+    const renamed = await cms.contacts.update(editor, tom.id, { name: 'Tom', expectedRevision: 2 });
+    expect(renamed).toMatchObject({ stage: 'contacted', ownerId: 'daniel', followUpAt: '2026-03-14' });
+    const freed = await cms.contacts.update(editor, tom.id, { ownerId: null, followUpAt: null, expectedRevision: 3 });
+    expect(freed).not.toHaveProperty('ownerId');
+    expect(freed).not.toHaveProperty('followUpAt');
+    expect((await cms.contacts.owners(editor)).map((member) => member.id)).toEqual(['maya', 'daniel']);
+    expect((await cms.contacts.find(editor, { ownerId: 'daniel' })).total).toBe(0);
+  });
+
+  it('is renamed, reordered and added to with every stage keeping its id, and tells of the change', async () => {
+    cms.events.on('pipeline.saved', () => void heard.push('pipeline.saved'));
+    heard = [];
+    const saved = await cms.pipeline.save(editor, {
+      stages: [{ id: 'new', label: ' Fresh ', kind: 'open' }, { label: 'Viewing booked', kind: 'open' }, { id: 'contacted', kind: 'open' }, { id: 'won', kind: 'won' }, { id: 'lost', label: '', kind: 'lost' }, { id: 'qualified', kind: 'open' }],
+      expectedRevision: 0,
+    });
+    expect(saved.revision).toBe(1);
+    expect(saved.stages.map((stage) => stage.label)).toEqual(['Fresh', 'Viewing booked', undefined, undefined, undefined, undefined]);
+    expect(saved.stages.map((stage) => stage.id).filter((id) => ['new', 'contacted', 'qualified', 'won', 'lost'].includes(id))).toEqual(['new', 'contacted', 'won', 'lost', 'qualified']);
+    expect(await cms.pipeline.get(editor)).toEqual(saved);
+    expect(heard).toEqual(['pipeline.saved']);
+    await expect(cms.pipeline.save(editor, { stages: [{ id: 'new', kind: 'open' }], expectedRevision: 0 })).rejects.toThrowError(/changed by someone else/);
+  });
+
+  it('moves the contacts of a removed stage to the first stage', async () => {
+    const tom = await cms.contacts.create(editor, { email: 'tom@example.com', stage: 'qualified' });
+    const ana = await cms.contacts.create(editor, { email: 'ana@example.com', stage: 'won' });
+    await cms.pipeline.save(editor, { stages: [{ id: 'contacted', kind: 'open' }, { id: 'won', kind: 'won' }], expectedRevision: 0 });
+    expect((await cms.contacts.get(editor, tom.id)).stage).toBe('contacted');
+    expect((await cms.contacts.get(editor, ana.id)).stage).toBe('won');
+    expect((await cms.contacts.create(editor, { email: 'li@example.com' })).stage).toBe('contacted');
+  });
+
+  it('refuses stages that cannot work, naming each, and is closed to an author', async () => {
+    expect(await issuesOf(cms.pipeline.save(editor, { stages: [], expectedRevision: 0 }))).toEqual([['stages', 'A pipeline needs at least one stage.']]);
+    expect(
+      await issuesOf(
+        cms.pipeline.save(editor, { stages: [{ id: 'won', kind: 'won' }, { kind: 'open' }, { id: 'gone', kind: 'open' }, { id: 'won', kind: 'won' }, { label: 'x'.repeat(41), kind: 'open' }], expectedRevision: 0 }),
+      ),
+    ).toEqual([
+      ['stages.1.label', 'Give the stage a name.'],
+      ['stages.2.id', 'This stage is not one of the pipeline. Reload the stages and try again.'],
+      ['stages.3.id', 'This stage is not one of the pipeline. Reload the stages and try again.'],
+      ['stages.4.label', "Keep a stage's name under 40 characters."],
+      ['stages.0.kind', 'The first stage is where a new contact starts, so it must be open.'],
+    ]);
+    await expect(cms.pipeline.get(author)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(cms.pipeline.save(author, { stages: [{ id: 'new', kind: 'open' }], expectedRevision: 0 })).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

@@ -5,6 +5,8 @@
  * editor. They carry no behaviour: anything that acts on them lives in a service or a field type.
  */
 
+import type { Role } from './access.js';
+
 /** Text per locale, e.g. `{ en: 'Listings', es: 'Propiedades' }`. */
 export type LocalizedText = Readonly<Record<string, string>>;
 
@@ -337,10 +339,42 @@ export interface Contact {
   readonly phone?: string;
   /** Where they first came from: the form they sent and the page it was on. Left out for one added by hand. */
   readonly source?: ContactSource;
+  /** Where they stand: the id of a stage of the site's pipeline. */
+  readonly stage: string;
+  /** The id of the person on the team who looks after them. Left out while nobody does. */
+  readonly ownerId?: string;
+  /** The day to get back to them, as `2026-03-14`. Left out when nothing is planned. */
+  readonly followUpAt?: string;
   /** Starts at 1 and goes up by one on every save. */
   readonly revision: number;
   readonly createdAt: Timestamp;
   readonly updatedAt: Timestamp;
+}
+
+/** Whether contacts in a stage are still being worked with, or the matter is settled one way or the other. */
+export type StageKind = 'open' | 'won' | 'lost';
+
+/** One step of the pipeline, such as "Contacted". */
+export interface PipelineStage {
+  /** Permanent: contacts hold it. */
+  readonly id: string;
+  /** What the team called it. A stage the CMS came with has none until it is renamed, and the editor names it. */
+  readonly label?: string;
+  readonly kind: StageKind;
+}
+
+/** The steps a contact moves through, in order. The first is where a new contact starts, and is always open. */
+export interface Pipeline {
+  readonly stages: readonly PipelineStage[];
+  /** 0 for the pipeline the CMS comes with, before anyone changed it; then up by one on every save. */
+  readonly revision: number;
+}
+
+/** Someone on the team, as far as assigning work to them needs. */
+export interface TeamMember {
+  readonly id: string;
+  readonly name: string;
+  readonly role: Role;
 }
 
 export interface ContactSource {
