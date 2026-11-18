@@ -24,14 +24,26 @@ const page = async (locale: string, slug: string, title: string, extra: { transl
   return extra.publish === false ? entry : cms.content.publish(owner, entry.id);
 };
 
+interface Described {
+  readonly id: string;
+  readonly key: string;
+  readonly type: string;
+  readonly options: Record<string, unknown>;
+}
+
+/** Values written by key, as stored: by field id, following groups and lists down. */
+const stored = (fields: readonly Described[], values: Record<string, unknown>): Record<string, unknown> =>
+  Object.fromEntries(fields.filter((field) => values[field.key] !== undefined).map((field) => [field.id, storedValue(field.type, field.options, values[field.key])]));
+const storedValue = (type: string, options: Record<string, unknown>, value: unknown): unknown => {
+  if (type === 'group') return stored(options['fields'] as Described[], value as Record<string, unknown>);
+  const of = options['of'] as { type: string; options: Record<string, unknown> } | undefined;
+  return type === 'list' && of ? (value as unknown[]).map((item) => storedValue(of.type, of.options, item)) : value;
+};
+
 /** Saves the header menu from links written by key, as the editor's form would send them. */
-const setMenu = async (locale: string, items: readonly { label: string; link: unknown }[], publish = true) => {
+const setMenu = async (locale: string, items: readonly { label: string; link: unknown; columns?: unknown }[], publish = true) => {
   const { cms } = connection;
-  const header = navigation.fields.find((field) => field.key === 'header');
-  const of = (header?.options['of'] as { options: { fields: { id: string; key: string }[] } } | undefined)?.options.fields;
-  const id = (key: string) => of?.find((field) => field.key === key)?.id ?? key;
-  if (!header) throw new Error('The navigation type is not as described.');
-  const data = { [header.id]: items.map((item) => ({ [id('label')]: item.label, [id('link')]: item.link })) };
+  const data = stored(navigation.fields as unknown as Described[], { header: items });
   const entry = await cms.content.create(owner, { typeId: navigation.id, locale, slug: `menus-${locale}`, data });
   return publish ? cms.content.publish(owner, entry.id) : entry;
 };
@@ -63,6 +75,38 @@ beforeEach(async () => {
               fields: [
                 { key: 'label', type: 'text', label: { en: 'Label' }, required: true },
                 { key: 'link', type: 'link', label: { en: 'Link' }, required: true },
+                {
+                  key: 'columns',
+                  type: 'list',
+                  label: { en: 'Columns' },
+                  options: {
+                    of: {
+                      type: 'group',
+                      options: {
+                        fields: [
+                          { key: 'title', type: 'text', label: { en: 'Heading' } },
+                          { key: 'show', type: 'select', label: { en: 'Shows' }, options: { choices: ['links', 'neighborhoods'] } },
+                          {
+                            key: 'links',
+                            type: 'list',
+                            label: { en: 'Links' },
+                            options: {
+                              of: {
+                                type: 'group',
+                                options: {
+                                  fields: [
+                                    { key: 'label', type: 'text', label: { en: 'Label' }, required: true },
+                                    { key: 'link', type: 'link', label: { en: 'Link' }, required: true },
+                                  ],
+                                },
+                              },
+                            },
+                          },
+                        ],
+                      },
+                    },
+                  },
+                },
               ],
             },
           },
@@ -128,6 +172,38 @@ describe('a menu edited in the CMS', () => {
     expect(await menuLinksFrom(cms, 'en', menu, true)).toMatchObject([{ label: 'Soon', href: '/coming-soon/' }, { label: 'Contact' }]);
     await cms.content.publish(owner, saved.id);
     expect(await menuLinksFrom(cms, 'en', menu)).toEqual([{ label: 'Contact', href: '/contact/', external: false }]);
+  });
+
+  it('gives a link its columns, each with its own links, for a menu that opens under it', async () => {
+    const draft = await page('en', 'coming-soon', 'Coming soon', { publish: false });
+    const to = (entry: Entry) => ({ kind: 'entry', type: 'pages', entry: entry.translationGroup });
+    await setMenu('en', [
+      {
+        label: 'Buy',
+        link: { kind: 'address', href: '/homes-for-sale/' },
+        columns: [
+          { title: 'Search', show: 'links', links: [{ label: 'Our story', link: to(story) }, { label: 'Soon', link: to(draft) }] },
+          { title: 'Neighborhoods', show: 'neighborhoods' },
+          { title: 'Nothing yet', links: [{ label: 'Soon', link: to(draft) }] },
+        ],
+      },
+      { label: 'About', link: to(story) },
+    ]);
+    expect(await menuLinksFrom(connection.cms, 'en', menu)).toEqual([
+      {
+        label: 'Buy',
+        href: '/homes-for-sale/',
+        external: false,
+        columns: [
+          // A link to a page that is not published is left out, here as anywhere.
+          { title: 'Search', links: [{ label: 'Our story', href: '/our-story/', external: false }] },
+          // A column the template fills says which, and needs no links of its own.
+          { title: 'Neighborhoods', links: [], show: 'neighborhoods' },
+          // A column with nothing to show is left out.
+        ],
+      },
+      { label: 'About', href: '/our-story/', external: false },
+    ]);
   });
 
   it('has no links when the site has no such menu', async () => {
