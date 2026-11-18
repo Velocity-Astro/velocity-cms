@@ -3,7 +3,7 @@ import type { AccessControl, Actor } from '../access.js';
 import { ConflictError, NotFoundError, ValidationError } from '../errors.js';
 import type { EventBus } from '../events.js';
 import type { FieldContext, FieldType, ValidationMode } from '../field-type.js';
-import { isTrashed } from '../model.js';
+import { isTrashed, liveFields } from '../model.js';
 import type { ContentTypeDef, Entry, EntryData, EntryVersion, Page, PublicEntry, Revision } from '../model.js';
 import type { Clock, EntryQuery, EntryRepository, IdGenerator } from '../ports.js';
 import type { Registry } from '../registry.js';
@@ -155,6 +155,33 @@ export class ContentService {
       },
       current.revision,
     );
+  }
+
+  /**
+   * Brings back what an entry held at an earlier revision, as a new save of the working version.
+   * Nothing is rewound: the history gains a revision, and what visitors see stays until someone
+   * publishes. The slug stays as it is today. A value today's fields would not take (a choice
+   * that was removed since) is left as it is now, so an old version can always be brought back.
+   */
+  async revert(actor: Actor, id: string, input: { readonly revision: number; readonly expectedRevision: number }): Promise<Entry> {
+    this.access.require(actor, 'entry:write');
+    const current = await this.loadLive(id);
+    this.requireRevision(current, input.expectedRevision);
+    const earlier = (await this.entries.history(id)).find((revision) => revision.revision === input.revision);
+    if (!earlier) throw new NotFoundError(`Revision ${input.revision} of entry`, id);
+    const type = await this.schema.getLive(current.typeId);
+
+    const data: Record<string, unknown> = removedFieldData(type, current.data);
+    for (const field of liveFields(type.fields)) {
+      if (!(field.id in earlier.data)) continue;
+      try {
+        Object.assign(data, validateData([field], { [field.id]: earlier.data[field.id] }, this.context('draft')));
+      } catch (error) {
+        if (!(error instanceof ValidationError)) throw error;
+        if (field.id in current.data) data[field.id] = current.data[field.id];
+      }
+    }
+    return this.save(actor, { ...current, data, revision: current.revision + 1, updatedAt: this.clock.now() }, current.revision);
   }
 
   /** Makes the working version the one visitors see. This is where required fields are enforced. */

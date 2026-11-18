@@ -291,6 +291,33 @@ describe('ContentService', () => {
     });
   });
 
+  describe('an earlier version', () => {
+    it('is brought back as a new save, and what visitors see stays', async () => {
+      const first = await cms.content.create(editor, { typeId: listings.id, locale: 'en', slug: 'a', data: valid() });
+      const live = await cms.content.publish(editor, first.id);
+      const changed = await cms.content.update(author, first.id, { slug: 'b', data: { ...valid(), [id(listings, 'price')]: 1 }, expectedRevision: live.revision });
+      const back = await cms.content.revert(author, first.id, { revision: 1, expectedRevision: changed.revision });
+      expect(back).toMatchObject({ revision: changed.revision + 1, slug: 'b', status: 'published', data: first.data });
+      expect(back.published).toEqual(live.published);
+      expect((await cms.content.history(editor, first.id)).length).toBe(4);
+      await expect(cms.content.revert(author, first.id, { revision: 1, expectedRevision: changed.revision })).rejects.toBeInstanceOf(ConflictError);
+      await expect(cms.content.revert(author, first.id, { revision: 99, expectedRevision: back.revision })).rejects.toBeInstanceOf(NotFoundError);
+    });
+
+    it('leaves out a field added since, and keeps what a removed field holds', async () => {
+      const first = await cms.content.create(editor, { typeId: listings.id, locale: 'en', slug: 'a', data: valid() });
+      const grown = await cms.schema.addField(owner, listings.id, { key: 'note', type: 'text', label: { en: 'Note' } });
+      const note = grown.fields.find((field) => field.key === 'note')?.id ?? '';
+      const noted = await cms.content.update(editor, first.id, { data: { ...valid(), [note]: 'Call first' }, expectedRevision: 1 });
+      const back = await cms.content.revert(editor, first.id, { revision: 1, expectedRevision: noted.revision });
+      expect(back.data).toEqual(first.data);
+      // Removed, the field's value is nobody's to change: a revert keeps it as a save does.
+      const again = await cms.content.update(editor, first.id, { data: { ...valid(), [note]: 'Call first' }, expectedRevision: back.revision });
+      await cms.schema.removeField(owner, listings.id, note);
+      expect((await cms.content.revert(editor, first.id, { revision: 1, expectedRevision: again.revision })).data).toEqual({ ...first.data, [note]: 'Call first' });
+    });
+  });
+
   describe('the trash', () => {
     const heard: string[] = [];
     const make = async (slug = 'a') => cms.content.create(editor, { typeId: listings.id, locale: 'en', slug, data: valid() });

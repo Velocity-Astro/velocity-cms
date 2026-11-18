@@ -152,6 +152,19 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       await expect(client.duplicateEntry('nothing')).rejects.toMatchObject({ code: 'not_found' });
     });
 
+    it('lists every save of an entry and brings an earlier one back as a new save', async () => {
+      const created = await client.createEntry({ type: 'agents', slug: 'maria-ortiz', data: { 'f-name': 'María Ortiz' } });
+      const saved = await client.updateEntry(created.id, { slug: 'maria', data: { 'f-name': 'María' }, expectedRevision: 1 });
+      const history = await client.entryHistory(created.id);
+      expect(history.map((revision) => [revision.revision, revision.data['f-name']])).toEqual([[2, 'María'], [1, 'María Ortiz']]);
+      const back = await client.revertEntry(created.id, { revision: 1, expectedRevision: saved.revision });
+      // What it held then, under the slug it has now.
+      expect(back).toMatchObject({ revision: 3, slug: 'maria', status: 'draft', data: { 'f-name': 'María Ortiz' } });
+      expect((await client.entryHistory(created.id)).length).toBe(3);
+      await expect(client.revertEntry(created.id, { revision: 1, expectedRevision: 2 })).rejects.toMatchObject({ code: 'conflict' });
+      await expect(client.revertEntry(created.id, { revision: 9, expectedRevision: 3 })).rejects.toMatchObject({ code: 'not_found' });
+    });
+
     it('moves an entry to the trash, brings it back as a draft, and deletes one for good', async () => {
       await client.publishEntry('e2', 1);
       const before = (await client.listEntries({ type: 'listings' })).total;

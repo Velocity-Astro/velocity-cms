@@ -222,6 +222,32 @@ it('duplicates an entry and opens the copy, a draft with what was saved', async 
   expect(original.status).toBe('published');
 });
 
+it('shows every save of an entry and brings an earlier version back as a new save', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/content/listings/e2', signedIn());
+  const first = await client.getEntry('e2');
+  const headline = await screen.findByRole('textbox', { name: /^Title/ });
+  await user.clear(headline);
+  await user.type(headline, '19 Alder Court');
+  await more(user, 'History');
+  const waiting = within(await screen.findByRole('dialog', { name: 'History' }));
+  // What is typed and not saved would be replaced, so it is dealt with first.
+  expect(await waiting.findByText(/Save or undo what you have typed/)).toBeTruthy();
+  await user.click(waiting.getByRole('button', { name: 'Close' }));
+  await user.click(screen.getByRole('button', { name: 'Save draft' }));
+  expect(await screen.findByText('Draft saved')).toBeTruthy();
+
+  await more(user, 'History');
+  const dialog = within(await screen.findByRole('dialog', { name: 'History' }));
+  expect(await dialog.findByText('Changed Title')).toBeTruthy();
+  expect(dialog.getByText('First saved')).toBeTruthy();
+  await user.click(dialog.getByRole('button', { name: 'Bring back this version' }));
+  expect(await screen.findByText(/^Version from .* brought back$/)).toBeTruthy();
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'History' })).toBeNull());
+  expect(await client.getEntry('e2')).toMatchObject({ revision: 3, data: first.data });
+  expect((screen.getByRole('textbox', { name: /^Title/ }) as HTMLInputElement).value).not.toBe('19 Alder Court');
+});
+
 it('says an entry is in the trash instead of opening it, with the way there', async () => {
   const user = userEvent.setup();
   const { client } = renderApp('/', signedIn());
