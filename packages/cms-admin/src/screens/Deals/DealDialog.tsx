@@ -1,4 +1,4 @@
-import type { Deal, Pipeline, TeamMember } from '@velocity/cms-core';
+import type { Deal, DealSubject, Pipeline, TeamMember } from '@velocity/cms-core';
 import { Button, DateField, Dialog, Form, Grid, NumberField, Select, TextField, toast } from '@velocity/cms-ui';
 import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
@@ -8,6 +8,7 @@ import { CustomValueFields, useCustomValues } from '../../fields/custom-values.j
 import { useClosing } from '../../lib/use-closing.js';
 import { useMessages } from '../../messages/messages-context.js';
 import { useStageName } from '../Contacts/pipeline.js';
+import { DealSubjectFields, useDealSubjects } from './deal-subject.js';
 
 const NOBODY = 'nobody';
 const NO_PROBLEMS: Readonly<Record<string, string>> = {};
@@ -32,6 +33,8 @@ export function DealDialog({ deal, contact, pipeline, team, onClose }: DealDialo
   const update = useUpdateDeal();
   const remove = useDeleteDeal();
   const [title, setTitle] = useState(deal?.title ?? '');
+  const [about, setAbout] = useState<DealSubject | undefined>(deal?.about);
+  const subjects = useDealSubjects();
   const [value, setValue] = useState<number | null>(deal?.value ?? null);
   const [stage, setStage] = useState(deal?.stage ?? pipeline.stages[0]?.id ?? '');
   const [owner, setOwner] = useState(deal ? (deal.ownerId ?? NOBODY) : (contact.ownerId ?? NOBODY));
@@ -52,7 +55,7 @@ export function DealDialog({ deal, contact, pipeline, team, onClose }: DealDialo
     const worth = value ?? 0;
     if (deal) {
       update.mutate(
-        { id: deal.id, changes: { title, value: worth, stage, ownerId: owner === NOBODY ? null : owner, closeOn, ...custom.toSend(), expectedRevision: deal.revision } },
+        { id: deal.id, changes: { title, about: about ?? null, value: worth, stage, ownerId: owner === NOBODY ? null : owner, closeOn, ...custom.toSend(), expectedRevision: deal.revision } },
         {
           onSuccess: (saved) => {
             toast({ title: messages.deals.saved(saved.title), tone: 'success' });
@@ -63,7 +66,7 @@ export function DealDialog({ deal, contact, pipeline, team, onClose }: DealDialo
       );
     } else {
       create.mutate(
-        { contactId: contact.id, title, value: worth, stage, ...(owner !== NOBODY && { ownerId: owner }), ...(closeOn !== null && { closeOn }), ...custom.toSend() },
+        { contactId: contact.id, title, ...(about && { about }), value: worth, stage, ...(owner !== NOBODY && { ownerId: owner }), ...(closeOn !== null && { closeOn }), ...custom.toSend() },
         {
           onSuccess: (saved) => {
             toast({ title: messages.deals.created(saved.title), tone: 'success' });
@@ -126,6 +129,16 @@ export function DealDialog({ deal, contact, pipeline, team, onClose }: DealDialo
           autoFocus
           autoComplete="off"
           {...(problems['title'] !== undefined && { errorMessage: problems['title'] })}
+        />
+        <DealSubjectFields
+          subjects={subjects}
+          about={about}
+          problem={problems['about']}
+          onChange={(next, name) => {
+            setAbout(next);
+            // A deal with no words of its own yet is called by what it is about.
+            if (name !== undefined && title.trim() === '') setTitle(name);
+          }}
         />
         <Grid columns={2} gap={3}>
           <NumberField label={messages.deals.value(currency)} value={value} onChange={setValue} minValue={0} isInteger {...(problems['value'] !== undefined && { errorMessage: problems['value'] })} />

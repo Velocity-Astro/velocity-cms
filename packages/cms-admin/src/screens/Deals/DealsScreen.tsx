@@ -9,6 +9,7 @@ import { CustomFieldsDialog } from '../../fields/CustomFieldsDialog.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 import { STAGE_TONE, dayText, useMoney, useStageName } from '../Contacts/pipeline.js';
 import { DealDialog } from './DealDialog.js';
+import { useDealSubjects } from './deal-subject.js';
 
 /** As many cards as a column shows. The rest are counted in the column's worth. */
 const COLUMN = 50;
@@ -54,6 +55,7 @@ function DealBoard({ pipeline }: { readonly pipeline: Pipeline }) {
   // Whose deal each is, by name. A site with more contacts than this shows the rest without one.
   const contacts = useContacts({ limit: 200 });
   const lists = useDealLists(pipeline.stages.map((stage) => ({ stage: stage.id, limit: COLUMN })));
+  const subjects = useDealSubjects();
   const move = useUpdateDeal();
   const [open, setOpen] = useState<Deal | null>(null);
 
@@ -87,11 +89,12 @@ function DealBoard({ pipeline }: { readonly pipeline: Pipeline }) {
       tone: STAGE_TONE[stage.kind],
       items: items.map((deal) => {
         const who = nameOf.get(deal.contactId);
+        const subject = subjects.nameOf(deal.about);
         return {
           id: deal.id,
           title: deal.title,
           ...(who !== undefined && { detail: who }),
-          notes: [{ text: money(deal.value) }, ...(deal.closeOn !== undefined && stage.kind === 'open' ? [{ text: messages.deals.closes(dayText(deal.closeOn, locale)) }] : [])],
+          notes: [{ text: money(deal.value) }, ...(subject !== undefined && subject !== deal.title ? [{ text: subject }] : []), ...(deal.closeOn !== undefined && stage.kind === 'open' ? [{ text: messages.deals.closes(dayText(deal.closeOn, locale)) }] : [])],
         };
       }),
       ...(count > listed.length && { more: messages.deals.boardMore(count - listed.length) }),

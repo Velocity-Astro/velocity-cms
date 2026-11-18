@@ -107,6 +107,14 @@ export function entryRepositoryContract(name: string, create: () => Promise<Entr
       expect(await repository.get('e1')).not.toHaveProperty('published');
     });
 
+    it('finds the versions of one entry in its languages', async () => {
+      await repository.save(entry(), fresh);
+      await repository.save(entry({ id: 'e1-es', locale: 'es', slug: 'primero' }), fresh);
+      await repository.save(entry({ id: 'e2', translationGroup: 'e2', slug: 'second' }), fresh);
+      expect((await repository.find({ translationGroup: 'e1' })).items.map((item) => item.id).sort()).toEqual(['e1', 'e1-es']);
+      expect((await repository.find({ typeId: 't1', translationGroup: 'nothing' })).total).toBe(0);
+    });
+
     it('finds an entry by its working slug or by the slug visitors see', async () => {
       await repository.save(entry({ status: 'published', slug: 'renamed', published: live }), fresh);
       await repository.save(entry({ id: 'e2', slug: 'second' }), fresh);
@@ -717,6 +725,18 @@ export function dealRepositoryContract(name: string, create: () => Promise<DealR
       expect(Object.keys((await repository.get('d1')) ?? {}).sort()).toEqual(['contactId', 'createdAt', 'id', 'revision', 'stage', 'title', 'updatedAt', 'value']);
       expect(await repository.get('d2')).toEqual(full);
       expect(await repository.get('nothing')).toBeNull();
+    });
+
+    it('keeps the entry a deal is about, and finds the deals about one', async () => {
+      const about = { typeId: 't1', entry: 'e1' };
+      await repository.save(deal({ about }), null);
+      await repository.save(deal({ id: 'd2', about: { typeId: 't1', entry: 'e2' } }), null);
+      await repository.save(deal({ id: 'd3' }), null);
+      expect((await repository.get('d1'))?.about).toEqual(about);
+      expect(await ids({ about })).toEqual(['d1']);
+      expect(await ids({ about: { typeId: 't2', entry: 'e1' } })).toEqual([]);
+      await repository.save(deal({ revision: 2 }), 1);
+      expect((await repository.get('d1'))?.about).toBeUndefined();
     });
 
     it('refuses a save from an old revision and a change to one that is not there', async () => {

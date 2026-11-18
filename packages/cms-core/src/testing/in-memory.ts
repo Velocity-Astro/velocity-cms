@@ -46,6 +46,7 @@ export class InMemoryEntryRepository implements EntryRepository {
           (query.typeId === undefined || entry.typeId === query.typeId) &&
           (query.locale === undefined || entry.locale === query.locale) &&
           (query.status === undefined || entry.status === query.status) &&
+          (query.translationGroup === undefined || entry.translationGroup === query.translationGroup) &&
           (query.slug === undefined || entry.slug === query.slug) &&
           (query.publishedSlug === undefined || entry.published?.slug === query.publishedSlug),
       )
@@ -365,6 +366,7 @@ export class InMemoryDealRepository implements DealRepository {
       .filter((deal) => query.contactId === undefined || deal.contactId === query.contactId)
       .filter((deal) => query.stage === undefined || deal.stage === query.stage)
       .filter((deal) => query.ownerId === undefined || (deal.ownerId ?? null) === query.ownerId)
+      .filter((deal) => query.about === undefined || (deal.about?.typeId === query.about.typeId && deal.about.entry === query.about.entry))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
     const offset = query.offset ?? 0;
     return { items: matches.slice(offset, offset + (query.limit ?? 50)), total: matches.length };

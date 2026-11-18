@@ -5,7 +5,7 @@ import { Ellipsis, EyeOff, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { paths } from '../../app/paths.js';
 import { AdminRequestError } from '../../client/errors.js';
-import { useCreateEntry, usePreviewEntry, usePublishEntry, useTrashEntry, useUnpublishEntry, useUpdateEntry } from '../../client/queries.js';
+import { useCreateEntry, useSession, usePreviewEntry, usePublishEntry, useTrashEntry, useUnpublishEntry, useUpdateEntry } from '../../client/queries.js';
 import { FieldGrid, PageFocusProvider, useControlFor } from '../../fields/index.js';
 import { entryState, entryTitle, languageName, localized, sameData, withValue, type EntryState } from '../../lib/content.js';
 import { openPreviewTab } from '../../lib/preview-tab.js';
@@ -15,6 +15,7 @@ import { useLeaveGuard } from '../../lib/use-leave-guard.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 import { PluginBoundary } from '../../plugins/PluginBoundary.js';
 import { usePluginExtensions } from '../../plugins/plugin-editor.js';
+import { EntryDeals } from './EntryDeals.js';
 import { PagePane } from './PagePane.js';
 
 const STATE_TONE = { draft: 'neutral', scheduled: 'info', published: 'success', unpublishedChanges: 'warning' } as const satisfies Record<
@@ -240,6 +241,11 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
         </PluginBoundary>
       </Card>
     ));
+  const session = useSession();
+  // Deals are as personal as contacts: the card is for those who may read them, on a saved entry.
+  const showsDeals = type.forDeals === true && entry !== null && session.data !== null && session.data !== undefined && session.data.role !== 'author';
+  // Right under the address, where it is seen without scrolling past the fields beside the content.
+  const dealsCard = showsDeals ? <EntryDeals type={type} entry={entry} /> : null;
   const savedNote =
     entry === null ? messages.editor.notSavedYet : hasChanges ? messages.editor.unsavedChanges : messages.editor.saved(relativeTime(entry.updatedAt, locale));
 
@@ -328,11 +334,12 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
                     />
                   </Card>
                 )}
-                {sections.filter((section) => section.aside).map(card)}
+                {dealsCard}
+                  {sections.filter((section) => section.aside).map(card)}
                 {panels}
               </Workbench>
             </PageFocusProvider>
-          ) : isSingle && panels.length === 0 && !sections.some((section) => section.aside) ? (
+          ) : isSingle && panels.length === 0 && !showsDeals && !sections.some((section) => section.aside) ? (
 
             // Nothing to show beside the content, so the content has the page.
             <Stack gap={6}>{sections.map(card)}</Stack>
@@ -360,6 +367,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
                       />
                     </Card>
                   )}
+                  {dealsCard}
                   {sections.filter((section) => section.aside).map(card)}
                   {panels}
                 </>

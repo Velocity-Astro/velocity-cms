@@ -25,6 +25,7 @@ export function SettingsDialog({ type, onClose }: { readonly type: ContentTypeDe
   const [title, setTitle] = useState(type.titlePath ? wordOf(type.titlePath) : AUTOMATIC);
   const [image, setImage] = useState(type.list?.imagePath ? wordOf(type.list.imagePath) : AUTOMATIC);
   const [columns, setColumns] = useState<readonly string[]>((type.list?.fieldPaths ?? []).map(wordOf));
+  const [forDeals, setForDeals] = useState(type.forDeals === true);
   const [problems, setProblems] = useState<Readonly<Record<string, string>>>({});
 
   const own = liveFields([...type.fields]);
@@ -57,6 +58,7 @@ export function SettingsDialog({ type, onClose }: { readonly type: ContentTypeDe
           urlPattern: address.trim() === '' ? null : address.trim(),
           titlePath: title === AUTOMATIC ? null : title.split('/'),
           list: image === AUTOMATIC && columns.length === 0 ? null : { ...(image !== AUTOMATIC && { imagePath: image.split('/') }), ...(columns.length > 0 && { fieldPaths: columns.map((word) => word.split('/')) }) },
+          forDeals,
         },
       },
       {
@@ -125,6 +127,9 @@ export function SettingsDialog({ type, onClose }: { readonly type: ContentTypeDe
               onChange={(isSelected) => setColumns((all) => (isSelected ? [...all, choice.id] : all.filter((word) => word !== choice.id)))}
             />
           ))}
+        </Fieldset>
+        <Fieldset legend={messages.builder.crm} description={messages.builder.forDealsHelp}>
+          <Checkbox label={messages.builder.forDeals} isSelected={forDeals} onChange={setForDeals} />
         </Fieldset>
       </Form>
     </Dialog>

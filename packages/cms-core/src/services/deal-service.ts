@@ -2,8 +2,8 @@ import type { AccessControl, Actor } from '../access.js';
 import { isDay } from '../day.js';
 import { ConflictError, NotFoundError, ValidationError, type ValidationIssue } from '../errors.js';
 import type { EventBus } from '../events.js';
-import type { Deal, Forecast, Page, PipelineStage } from '../model.js';
-import type { Clock, ContactRepository, DealQuery, DealRepository, IdGenerator } from '../ports.js';
+import { isLiveType, type Deal, type DealSubject, type Forecast, type Page, type PipelineStage } from '../model.js';
+import type { Clock, ContactRepository, DealQuery, DealRepository, EntryRepository, IdGenerator, SchemaRepository } from '../ports.js';
 import type { ContactService } from './contact-service.js';
 import type { CustomFieldsService } from './custom-fields-service.js';
 import { DEFAULT_CURRENCY, chanceOf, type PipelineService } from './pipeline-service.js';
@@ -12,6 +12,8 @@ export interface NewDeal {
   readonly contactId: string;
   readonly title: string;
   readonly value: number;
+  /** The entry of the site it is about. */
+  readonly about?: DealSubject;
   /** The stage to start in. Left out, the pipeline's first. */
   readonly stage?: string;
   /** Left out, whoever looks after the contact. */
@@ -24,6 +26,8 @@ export interface NewDeal {
 /** What to change in a deal. Anything left out stays as it is; `null` clears it. */
 export interface DealChanges {
   readonly title?: string;
+  /** The entry of the site it is about. `null` says it is about none. */
+  readonly about?: DealSubject | null;
   readonly value?: number;
   readonly stage?: string;
   readonly ownerId?: string | null;
@@ -32,6 +36,12 @@ export interface DealChanges {
   readonly data?: Readonly<Record<string, unknown>>;
   /** The revision the editor loaded. The update is refused if someone saved in between. */
   readonly expectedRevision: number;
+}
+
+/** Where a deal's subject is looked up: the site's content types and their entries. */
+export interface DealSubjects {
+  readonly types: SchemaRepository;
+  readonly entries: EntryRepository;
 }
 
 export const MAX_DEAL_TITLE_LENGTH = 200;
@@ -53,6 +63,7 @@ export class DealService {
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
     private readonly custom?: CustomFieldsService,
+    private readonly subjects?: DealSubjects,
   ) {}
 
   async find(actor: Actor, query: DealQuery = {}): Promise<Page<Deal>> {
@@ -75,11 +86,13 @@ export class DealService {
     if (!stage || checked.title === undefined || checked.value === undefined) throw new ConflictError('The pipeline has no stages.');
     const ownerId = checked.ownerId ?? contact.ownerId;
     const data = await this.custom?.values('deal', input.data, undefined);
+    const about = input.about && (await this.subject(input.about));
     const now = this.clock.now();
     const deal: Deal = {
       id: this.ids.next(),
       contactId: contact.id,
       title: checked.title,
+      ...(about && { about }),
       value: checked.value,
       stage: stage.id,
       ...(ownerId !== undefined && { ownerId }),
@@ -102,7 +115,10 @@ export class DealService {
     const stages = (await this.pipeline.current()).stages;
     const checked = await this.checked(actor, stages, { title: changes.title, value: changes.value, stage: changes.stage, ownerId: changes.ownerId ?? undefined, closeOn: changes.closeOn ?? undefined });
     const data = this.custom ? await this.custom.values('deal', changes.data, current.data) : current.data;
-    const { ownerId: _ownerId, closeOn: _closeOn, closedAt: _closedAt, data: _data, ...kept } = current;
+    // A subject that is not changed is not looked up again: its entry may have gone since, and the deal keeps it.
+    const same = changes.about && current.about?.typeId === changes.about.typeId && current.about.entry === changes.about.entry;
+    const about = changes.about === undefined || same ? current.about : changes.about === null ? undefined : await this.subject(changes.about);
+    const { ownerId: _ownerId, closeOn: _closeOn, closedAt: _closedAt, data: _data, about: _about, ...kept } = current;
     const stageId = checked.stage ?? current.stage;
     const isOpen = (stages.find((candidate) => candidate.id === stageId)?.kind ?? 'open') === 'open';
     const ownerId = changes.ownerId === null ? undefined : (checked.ownerId ?? current.ownerId);
@@ -113,6 +129,7 @@ export class DealService {
     const deal: Deal = {
       ...kept,
       title: checked.title ?? current.title,
+      ...(about && { about }),
       value: checked.value ?? current.value,
       stage: stageId,
       ...(ownerId !== undefined && { ownerId }),
@@ -176,6 +193,17 @@ export class DealService {
       ...(input.ownerId !== undefined && { ownerId: input.ownerId }),
       ...(input.closeOn !== undefined && { closeOn: input.closeOn }),
     };
+  }
+
+  /** The subject as it is stored, once its type takes deals and its entry is there. */
+  private async subject(about: DealSubject): Promise<DealSubject> {
+    const type = await this.subjects?.types.get(about.typeId);
+    if (!type || !isLiveType(type) || type.forDeals !== true) {
+      throw problems([{ path: ['about'], message: 'Deals cannot be about this kind of content. Choose another, or turn it on for the content type.' }]);
+    }
+    const found = await this.subjects?.entries.find({ typeId: type.id, translationGroup: about.entry, limit: 1 });
+    if (!found || found.total === 0) throw problems([{ path: ['about'], message: 'This entry is no longer here. Choose another.' }]);
+    return { typeId: type.id, entry: about.entry };
   }
 
   private async load(id: string): Promise<Deal> {

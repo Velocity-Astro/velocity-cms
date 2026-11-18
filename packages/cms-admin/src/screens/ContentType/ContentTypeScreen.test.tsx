@@ -307,6 +307,16 @@ it('chooses what entries are called by and what the list of entries shows', asyn
   expect(within(table).getByRole('columnheader', { name: 'Stage' })).toBeTruthy();
 });
 
+it('lets deals be about a type\'s entries', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/types/listings', signedIn);
+  await user.click(await screen.findByRole('button', { name: 'Settings' }));
+  const dialog = within(await screen.findByRole('dialog', { name: 'Settings for Listings' }));
+  await user.click(dialog.getByRole('checkbox', { name: 'Deals can be about these' }));
+  await user.click(dialog.getByRole('button', { name: 'Save settings' }));
+  await waitFor(async () => expect((await client.listContentTypes()).find((type) => type.key === 'listings')?.forDeals).toBe(true));
+});
+
 it('archives a content type after asking, and restores it from the list of archived ones', async () => {
   const user = userEvent.setup();
   const { client } = renderApp('/types/agents', signedIn);

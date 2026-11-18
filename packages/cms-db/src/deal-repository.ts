@@ -5,15 +5,16 @@ import { deals } from './tables.js';
 
 type Row = typeof deals.$inferSelect;
 
-const toDeal = ({ ownerId, closeOn, closedAt, data, ...row }: Row): Deal => ({
+const toDeal = ({ ownerId, closeOn, closedAt, data, aboutType, aboutEntry, ...row }: Row): Deal => ({
   ...row,
+  ...(aboutType !== null && aboutEntry !== null && { about: { typeId: aboutType, entry: aboutEntry } }),
   ...(ownerId !== null && { ownerId }),
   ...(closeOn !== null && { closeOn }),
   ...(closedAt !== null && { closedAt }),
   ...(data !== null && { data }),
 });
 
-const toRow = (deal: Deal): Row => ({ ...deal, ownerId: deal.ownerId ?? null, closeOn: deal.closeOn ?? null, closedAt: deal.closedAt ?? null, data: deal.data ?? null });
+const toRow = ({ about, ...deal }: Deal): Row => ({ ...deal, aboutType: about?.typeId ?? null, aboutEntry: about?.entry ?? null, ownerId: deal.ownerId ?? null, closeOn: deal.closeOn ?? null, closedAt: deal.closedAt ?? null, data: deal.data ?? null });
 
 export class SqliteDealRepository implements DealRepository {
   constructor(private readonly db: Db) {}
@@ -28,6 +29,7 @@ export class SqliteDealRepository implements DealRepository {
     if (query.contactId !== undefined) conditions.push(eq(deals.contactId, query.contactId));
     if (query.stage !== undefined) conditions.push(eq(deals.stage, query.stage));
     if (query.ownerId !== undefined) conditions.push(query.ownerId === null ? isNull(deals.ownerId) : eq(deals.ownerId, query.ownerId));
+    if (query.about !== undefined) conditions.push(eq(deals.aboutType, query.about.typeId), eq(deals.aboutEntry, query.about.entry));
     const where = and(...conditions);
     const rows = await this.db
       .select()

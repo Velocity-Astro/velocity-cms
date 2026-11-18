@@ -169,6 +169,8 @@ export const deals = sqliteTable(
     id: text('id').primaryKey(),
     contactId: text('contact_id').notNull(),
     title: text('title').notNull(),
+    aboutType: text('about_type'),
+    aboutEntry: text('about_entry'),
     value: integer('value').notNull(),
     stage: text('stage').notNull(),
     ownerId: text('owner_id'),
@@ -179,7 +181,7 @@ export const deals = sqliteTable(
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },
-  (table) => [index('deals_contact').on(table.contactId), index('deals_stage').on(table.stage, table.createdAt)],
+  (table) => [index('deals_contact').on(table.contactId), index('deals_stage').on(table.stage, table.createdAt), index('deals_about').on(table.aboutEntry)],
 );
 
 /**

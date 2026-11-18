@@ -68,6 +68,7 @@ const typeChanges = z.strictObject({
   urlPattern: z.string().nullable().optional(),
   titlePath: path.nullable().optional(),
   list: z.strictObject({ imagePath: path.optional(), fieldPaths: z.array(path).optional() }).nullable().optional(),
+  forDeals: z.boolean().optional(),
 });
 const sectionList = z.strictObject({
   sections: z.array(z.strictObject({ key: z.string(), label: words, fieldIds: z.array(z.string()), aside: z.boolean().optional() })),
@@ -166,8 +167,12 @@ const pipelineChanges = z.strictObject({
   assignTo: z.array(z.string()).max(100).optional(),
   expectedRevision: z.number().int().min(0),
 });
+const dealSubject = z.strictObject({ typeId: z.string().max(100), entry: z.string().max(100) });
 const dealList = z.object({
   contact: z.string().max(100).optional(),
+  /** With `aboutEntry`, only deals about that entry. */
+  aboutType: z.string().max(100).optional(),
+  aboutEntry: z.string().max(100).optional(),
   stage: z.string().max(100).optional(),
   /** A person's id, or `none` for the deals nobody looks after. */
   owner: z.string().max(100).optional(),
@@ -177,6 +182,7 @@ const dealList = z.object({
 const newDeal = z.strictObject({
   contactId: z.string(),
   title: z.string(),
+  about: dealSubject.optional(),
   value: z.number(),
   stage: z.string().optional(),
   ownerId: z.string().optional(),
@@ -185,6 +191,7 @@ const newDeal = z.strictObject({
 });
 const dealChanges = z.strictObject({
   title: z.string().optional(),
+  about: dealSubject.nullable().optional(),
   value: z.number().optional(),
   stage: z.string().optional(),
   ownerId: z.string().nullable().optional(),
@@ -391,6 +398,7 @@ export class CmsApi {
             limit: query.limit,
             offset: query.offset,
             ...(query.contact !== undefined && { contactId: query.contact }),
+            ...(query.aboutType !== undefined && query.aboutEntry !== undefined && { about: { typeId: query.aboutType, entry: query.aboutEntry } }),
             ...(query.stage !== undefined && { stage: query.stage }),
             ...(query.owner !== undefined && { ownerId: query.owner === 'none' ? null : query.owner }),
           }),

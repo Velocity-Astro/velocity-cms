@@ -388,6 +388,22 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       expect((await site.getPluginSettings('seo')).values).toEqual({ [suffix]: ' | Lakeshore' });
     });
 
+    it('lets a content type take deals, and keeps and finds the entry a deal is about', async () => {
+      const listings = (await client.listContentTypes()).find((type) => type.key === 'listings');
+      const [ana] = (await client.listContacts({ search: 'ana' })).items;
+      const [listing] = (await client.listEntries({ type: 'listings' })).items;
+      if (!listings || !ana || !listing) throw new Error('No listing or contact to start from');
+      const about = { typeId: listings.id, entry: listing.translationGroup };
+      await expect(client.createDeal({ contactId: ana.id, title: 'Sale', value: 1, about })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['about'] }] });
+      expect((await client.updateContentType(listings.id, { forDeals: true })).forDeals).toBe(true);
+      const deal = await client.createDeal({ contactId: ana.id, title: 'Sale', value: 1, about });
+      await client.createDeal({ contactId: ana.id, title: 'Other', value: 1 });
+      expect(deal.about).toEqual(about);
+      expect((await client.listDeals({ about })).items.map((item) => item.id)).toEqual([deal.id]);
+      expect((await client.updateDeal(deal.id, { about: null, expectedRevision: 1 })).about).toBeUndefined();
+      expect((await client.listDeals({ about })).total).toBe(0);
+    });
+
     it('keeps the site\'s own fields for contacts and deals, and what is filled in under them', async () => {
       expect(await client.getCustomFields()).toEqual({ contact: [], deal: [], revision: 0 });
       const saved = await client.saveCustomFields({
