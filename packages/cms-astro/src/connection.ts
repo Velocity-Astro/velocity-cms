@@ -1,5 +1,6 @@
 import { createCms, type Actor, type Cms, type SearchIndex } from '@velocity/cms-core';
-import { openDatabase, SqliteEntryRepository, SqliteSchemaRepository, SqliteSearchIndex, type Db } from '@velocity/cms-db';
+import { openDatabase, SqliteEntryRepository, SqliteMediaRepository, SqliteSchemaRepository, SqliteSearchIndex, type Db } from '@velocity/cms-db';
+import { mediaStoreFromEnv } from './media-store.js';
 
 export interface ConnectionOptions {
   /**
@@ -27,10 +28,13 @@ export interface Connection {
 
 export async function connect(options: ConnectionOptions): Promise<Connection> {
   const authToken = options.authToken ?? (process.env.VELOCITY_CMS_DATABASE_TOKEN || undefined);
-  const database = await openDatabase({ url: resolveUrl(options), ...(authToken !== undefined && { authToken }) });
+  const url = resolveUrl(options);
+  const database = await openDatabase({ url, ...(authToken !== undefined && { authToken }) });
+  const store = mediaStoreFromEnv(url);
   const cms = createCms({
     entries: new SqliteEntryRepository(database.db),
     types: new SqliteSchemaRepository(database.db),
+    ...(store && { media: { storage: { files: new SqliteMediaRepository(database.db), store } } }),
   });
   return { cms, search: new SqliteSearchIndex(database.db), db: database.db, close: () => database.close() };
 }

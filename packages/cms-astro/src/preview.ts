@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import type { MiddlewareHandler } from 'astro';
 import { PreviewLinks } from '@velocity/cms-core';
 import { siteSecret } from './secret.js';
+import { refreshUploadedImages } from './site-media.js';
 
 const PARAMETER = 'preview';
 const previewing = new AsyncLocalStorage<boolean>();
@@ -30,6 +31,12 @@ export function keepPreviewInLinks(html: string, token: string): string {
   );
 }
 
+const NOT_PAGES = /^\/(?:api|media|admin|og|_image|_astro|_server-islands|_actions)(?:\/|$)|\.[a-z0-9]+$/;
+
+/** Whether a request is for a page rendered now, which may show uploaded images. */
+export const showsContent = (request: Request, pathname: string, isPrerendered: boolean): boolean =>
+  !isPrerendered && request.method === 'GET' && !NOT_PAGES.test(pathname);
+
 /**
  * Turns a request with a valid preview token (`?preview=<token>`) into a preview. Without
  * `VELOCITY_CMS_SECRET` there are no previews at all.
@@ -42,6 +49,10 @@ export function keepPreviewInLinks(html: string, token: string): string {
  * exactly as if this middleware were not there.
  */
 export const onRequest: MiddlewareHandler = async (context, next) => {
+  if (showsContent(context.request, context.url.pathname, context.isPrerendered)) {
+    // A page without its newest images is still a page, so a failure here is only logged.
+    await refreshUploadedImages().catch((error: unknown) => console.error('[velocity-cms] Uploaded images were not read.', error));
+  }
   const signer = previewLinks();
   const token = context.url.searchParams.get(PARAMETER);
   if (!signer || token === null || !(await signer.verify(token))) return next();

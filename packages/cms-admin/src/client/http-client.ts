@@ -1,5 +1,5 @@
-import type { ContentTypeDef, Entry, Page, SiteImage } from '@velocity/cms-core';
-import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, NewEntry, SessionUser } from './admin-client.js';
+import { readImage, type ContentTypeDef, type Entry, type NewUpload, type Page, type SiteImage } from '@velocity/cms-core';
+import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, SessionUser } from './admin-client.js';
 import { AdminRequestError, type RequestErrorCode, type RequestIssue } from './errors.js';
 
 /**
@@ -55,8 +55,18 @@ export class HttpAdminClient implements AdminClient {
     return (await this.#get<{ items: FieldTypeInfo[] }>('/field-types')).items;
   }
 
-  async listImages(): Promise<readonly SiteImage[]> {
-    return (await this.#get<{ items: SiteImage[] }>('/images')).items;
+  listImages(): Promise<ImageList> {
+    return this.#get('/images');
+  }
+
+  uploadImage(upload: NewUpload): Promise<SiteImage> {
+    // The file travels as it is. If it is no image at all, the server says so in its own words.
+    const type = readImage(upload.bytes)?.contentType ?? 'image/jpeg';
+    return this.#request(`/images?${new URLSearchParams({ name: upload.fileName })}`, {
+      method: 'POST',
+      headers: { accept: 'application/json', 'content-type': type },
+      body: upload.bytes as BodyInit,
+    });
   }
 
   listEntries(query: EntryListQuery): Promise<Page<Entry>> {

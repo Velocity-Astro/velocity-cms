@@ -36,6 +36,7 @@ export {
   type FieldSection,
   type ListSummary,
   type LocalizedText,
+  type MediaFile,
   type Page,
   type PublicEntry,
   type PublishedVersion,
@@ -49,6 +50,8 @@ export type {
   EntryRepository,
   IdGenerator,
   ImageLibrary,
+  MediaRepository,
+  MediaStore,
   SaveOptions,
   SchemaRepository,
   SearchDocument,
@@ -56,6 +59,7 @@ export type {
   SearchIndex,
   SearchQuery,
   SearchResults,
+  StoredFile,
 } from './ports.js';
 export { PreviewLinks } from './preview.js';
 export { Registry, UnknownTypeError } from './registry.js';
@@ -68,6 +72,12 @@ export {
   type CreateEntryInput,
   type UpdateEntryInput,
 } from './services/content-service.js';
-export { MediaService } from './services/media-service.js';
+export { readImage, type ImageFacts } from './image-file.js';
+export {
+  MediaService,
+  type MediaServiceOptions,
+  type MediaStorage,
+  type NewUpload,
+} from './services/media-service.js';
 export { SchemaService, type NewContentType, type NewSection } from './services/schema-service.js';
 export type { NewField } from './define-fields.js';

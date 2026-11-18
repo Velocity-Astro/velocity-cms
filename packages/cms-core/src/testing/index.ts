@@ -1,2 +1,19 @@
-export { entryRepositoryContract, schemaRepositoryContract, searchIndexContract } from './contracts.js';
-export { FakeClock, InMemoryEntryRepository, InMemoryImageLibrary, InMemorySchemaRepository, InMemorySearchIndex, SequentialIds } from './in-memory.js';
+export {
+  entryRepositoryContract,
+  mediaRepositoryContract,
+  mediaStoreContract,
+  schemaRepositoryContract,
+  searchIndexContract,
+} from './contracts.js';
+export {
+  FakeClock,
+  InMemoryEntryRepository,
+  InMemoryImageLibrary,
+  InMemoryMediaRepository,
+  InMemoryMediaStore,
+  InMemorySchemaRepository,
+  InMemorySearchIndex,
+  SequentialIds,
+  tinyJpeg,
+  tinyPng,
+} from './in-memory.js';

@@ -1,6 +1,6 @@
-import { ImageOff } from 'lucide-react';
+import { ImageOff, Upload } from 'lucide-react';
 import { useId, useState } from 'react';
-import { ListBox, ListBoxItem } from 'react-aria-components';
+import { FileTrigger, ListBox, ListBoxItem } from 'react-aria-components';
 import { Button } from '../../components/Button/index.js';
 import { Dialog } from '../../components/Dialog/index.js';
 import {
@@ -19,6 +19,9 @@ import {
   imagePickerRequiredMarkClass,
   imagePickerRowClass,
   imagePickerThumbClass,
+  imagePickerUploadClass,
+  imagePickerUploadErrorClass,
+  imagePickerUploadHintClass,
 } from './ImagePicker.variants.js';
 
 export interface PickableImage {
@@ -53,7 +56,22 @@ export interface ImagePickerProps {
   readonly closeLabel: string;
   /** Shown in the window when there are no images, such as "This site has no photos yet." */
   readonly emptyText: string;
+  /**
+   * Takes a file the person picked from their computer. Give it and the window offers an upload.
+   * Resolve once the image is in `images` and chosen, and the window closes; reject and it
+   * stays open, for `uploadError` to say why.
+   */
+  readonly onUpload?: (file: File) => Promise<void>;
+  /** The upload button's words, such as "Upload a photo". Needed with `onUpload`. */
+  readonly uploadLabel?: string;
+  /** Shown beside the upload button, such as "JPEG, PNG or WebP". */
+  readonly uploadHint?: string;
+  /** Why the last upload did not work. */
+  readonly uploadError?: string;
 }
+
+/** The kinds of file the file chooser offers. What a file really is, the server decides. */
+const IMAGE_FILES = ['image/jpeg', 'image/png', 'image/webp'];
 
 /** Shows the image a field holds and lets a person choose another from the site's images. */
 export function ImagePicker({
@@ -71,9 +89,26 @@ export function ImagePicker({
   dialogTitle,
   closeLabel,
   emptyText,
+  onUpload,
+  uploadLabel,
+  uploadHint,
+  uploadError,
 }: ImagePickerProps) {
   const labelId = useId();
   const [isOpen, setOpen] = useState(false);
+  const [isUploading, setUploading] = useState(false);
+  const upload = async (file: File | undefined) => {
+    if (!file || !onUpload) return;
+    setUploading(true);
+    try {
+      await onUpload(file);
+      setOpen(false);
+    } catch {
+      // The window stays open. Whoever gave `onUpload` says what went wrong, in `uploadError`.
+    } finally {
+      setUploading(false);
+    }
+  };
   const chosen = images.find((image) => image.name === value);
 
   return (
@@ -102,6 +137,22 @@ export function ImagePicker({
       {description !== undefined && <p className={imagePickerDescriptionClass}>{description}</p>}
       {errorMessage !== undefined && <p className={imagePickerErrorClass}>{errorMessage}</p>}
       <Dialog isOpen={isOpen} onOpenChange={setOpen} title={dialogTitle} closeLabel={closeLabel} size="lg">
+        {onUpload && uploadLabel !== undefined && (
+          <div className={imagePickerUploadClass}>
+            <FileTrigger acceptedFileTypes={IMAGE_FILES} onSelect={(files) => void upload(files?.[0])}>
+              <Button variant="secondary" size="sm" icon={Upload} isPending={isUploading}>
+                {uploadLabel}
+              </Button>
+            </FileTrigger>
+            {uploadError !== undefined ? (
+              <p role="alert" className={imagePickerUploadErrorClass}>
+                {uploadError}
+              </p>
+            ) : (
+              uploadHint !== undefined && <p className={imagePickerUploadHintClass}>{uploadHint}</p>
+            )}
+          </div>
+        )}
         <ListBox
           aria-label={dialogTitle}
           layout="grid"

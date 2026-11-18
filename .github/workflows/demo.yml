@@ -29,6 +29,12 @@ jobs:
       VELOCITY_CMS_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
       VELOCITY_CMS_DATABASE_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
       VELOCITY_CMS_SECRET: ${{ secrets.VELOCITY_CMS_SECRET }}
+      # Where uploaded photos are kept: a private Cloudflare R2 bucket. Optional; without all
+      # four the demo deploys as before and the editor offers no upload.
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
     steps:
       - name: Check that every secret is there
         run: |
@@ -42,6 +48,19 @@ jobs:
           fi
           if [ "${#VELOCITY_CMS_SECRET}" -lt 32 ]; then
             echo "::error::VELOCITY_CMS_SECRET must be at least 32 characters."
+            exit 1
+          fi
+          given=0
+          for name in R2_ACCOUNT_ID R2_BUCKET R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY; do
+            [ -z "${!name}" ] || given=$((given + 1))
+          done
+          if [ "$given" = 4 ]; then
+            echo "UPLOADS=on" >> "$GITHUB_ENV"
+          elif [ "$given" = 0 ]; then
+            echo "UPLOADS=off" >> "$GITHUB_ENV"
+            echo "::notice::No R2 secrets, so the editor will offer no photo upload."
+          else
+            echo "::error::Photo uploads need all four of R2_ACCOUNT_ID, R2_BUCKET, R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY. $given of them are set."
             exit 1
           fi
 
@@ -102,6 +121,17 @@ jobs:
               | curl -fsS -o /dev/null -X POST -H "$auth" -H 'Content-Type: application/json' -d @- \
                 "$api/v10/projects/$project/env?slug=$team&upsert=true"
           done
+          if [ "$UPLOADS" = on ]; then
+            export VELOCITY_CMS_S3_ENDPOINT="https://$R2_ACCOUNT_ID.r2.cloudflarestorage.com"
+            export VELOCITY_CMS_S3_BUCKET="$R2_BUCKET"
+            export VELOCITY_CMS_S3_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
+            export VELOCITY_CMS_S3_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+            for name in VELOCITY_CMS_S3_ENDPOINT VELOCITY_CMS_S3_BUCKET VELOCITY_CMS_S3_ACCESS_KEY_ID VELOCITY_CMS_S3_SECRET_ACCESS_KEY; do
+              jq -n --arg key "$name" --arg value "${!name}" '{key: $key, value: $value, type: "encrypted", target: ["production"]}' \
+                | curl -fsS -o /dev/null -X POST -H "$auth" -H 'Content-Type: application/json' -d @- \
+                  "$api/v10/projects/$project/env?slug=$team&upsert=true"
+            done
+          fi
           # The project's own address, which sign-in links and passkeys are made for.
           site="${{ vars.CMS_DEMO_URL }}"
           [ -n "$site" ] || site="https://$VERCEL_PROJECT.vercel.app"
@@ -129,6 +159,17 @@ jobs:
           done
           echo "::error::$SITE_URL/api/cms/session did not answer. If the project has another address, set the CMS_DEMO_URL variable to it and run again."
           exit 1
+
+      - name: Check the site can read the bucket of uploads
+        if: env.UPLOADS == 'on'
+        run: |
+          # A photo that does not exist: 404 means the bucket was asked and said so. Anything
+          # else means the site could not read the bucket (a wrong key, name or account id).
+          status=$(curl -sS -o body.txt -w '%{http_code}' "$SITE_URL/media/not-uploaded-$GITHUB_RUN_ID.jpg" || echo 000)
+          if [ "$status" != "404" ]; then
+            echo "::error::$SITE_URL could not read the R2 bucket (answered $status). Check the four R2 secrets, and that the token may read and write objects in that bucket."
+            exit 1
+          fi
 
       - name: Check the public pages answer
         run: |

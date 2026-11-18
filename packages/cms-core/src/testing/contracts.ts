@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ConflictError } from '../errors.js';
-import type { ContentTypeDef, Entry } from '../model.js';
-import type { EntryRepository, SchemaRepository, SearchDocument, SearchIndex } from '../ports.js';
+import type { ContentTypeDef, Entry, MediaFile } from '../model.js';
+import type { EntryRepository, MediaRepository, MediaStore, SchemaRepository, SearchDocument, SearchIndex } from '../ports.js';
 
 /**
  * The contract tests for storage adapters.
@@ -321,6 +321,92 @@ export function searchIndexContract(name: string, create: () => Promise<SearchIn
       await index.remove(['en:/agents/', 'nothing']);
       expect(await index.count()).toBe(2);
       expect((await index.search({ text: 'maya' })).total).toBe(0);
+    });
+  });
+}
+
+const mediaFile = (overrides: Partial<MediaFile> = {}): MediaFile => ({
+  name: 'kitchen',
+  key: 'kitchen.jpg',
+  contentType: 'image/jpeg',
+  width: 1600,
+  height: 1200,
+  size: 204_800,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  createdBy: 'u1',
+  ...overrides,
+});
+
+export function mediaRepositoryContract(name: string, create: () => Promise<MediaRepository>): void {
+  describe(`${name}: MediaRepository contract`, () => {
+    let files: MediaRepository;
+    beforeEach(async () => {
+      files = await create();
+    });
+
+    it('gives back a record exactly as it was added', async () => {
+      await files.add(mediaFile());
+      expect(await files.get('kitchen')).toEqual(mediaFile());
+    });
+
+    it('answers null for a name nothing has', async () => {
+      expect(await files.get('missing')).toBeNull();
+    });
+
+    it('lists records ordered by name', async () => {
+      await files.add(mediaFile({ name: 'porch', key: 'porch.png' }));
+      await files.add(mediaFile());
+      expect((await files.list()).map((file) => file.name)).toEqual(['kitchen', 'porch']);
+    });
+
+    it('refuses a name another record has', async () => {
+      await files.add(mediaFile());
+      await expect(files.add(mediaFile({ key: 'kitchen.png' }))).rejects.toBeInstanceOf(ConflictError);
+    });
+
+    it('refuses a key another record has', async () => {
+      await files.add(mediaFile());
+      await expect(files.add(mediaFile({ name: 'other' }))).rejects.toBeInstanceOf(ConflictError);
+    });
+
+    it('removes a record, and ignores a name nothing has', async () => {
+      await files.add(mediaFile());
+      await files.remove('kitchen');
+      await files.remove('kitchen');
+      expect(await files.list()).toEqual([]);
+    });
+  });
+}
+
+export function mediaStoreContract(name: string, create: () => Promise<MediaStore>): void {
+  describe(`${name}: MediaStore contract`, () => {
+    let store: MediaStore;
+    const bytes = Uint8Array.from([0, 255, 1, 254, 13, 10, 0]);
+    beforeEach(async () => {
+      store = await create();
+    });
+
+    it('gives back the same bytes and content type', async () => {
+      await store.put('kitchen.jpg', { bytes, contentType: 'image/jpeg' });
+      const file = await store.get('kitchen.jpg');
+      expect(file?.contentType).toBe('image/jpeg');
+      expect([...(file?.bytes ?? [])]).toEqual([...bytes]);
+    });
+
+    it('answers null for a key nothing is kept under', async () => {
+      expect(await store.get('missing.jpg')).toBeNull();
+    });
+
+    it('answers null for a key that reaches outside the store', async () => {
+      expect(await store.get('../kitchen.jpg')).toBeNull();
+      expect(await store.get('a/b.jpg')).toBeNull();
+    });
+
+    it('removes a file, and ignores a key nothing is kept under', async () => {
+      await store.put('kitchen.jpg', { bytes, contentType: 'image/jpeg' });
+      await store.remove('kitchen.jpg');
+      await store.remove('kitchen.jpg');
+      expect(await store.get('kitchen.jpg')).toBeNull();
     });
   });
 }

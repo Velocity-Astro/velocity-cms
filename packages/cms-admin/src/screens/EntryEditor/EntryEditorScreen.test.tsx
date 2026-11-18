@@ -4,6 +4,7 @@ import { TextField, dismissToasts } from '@velocity/cms-ui';
 import { afterEach, expect, it } from 'vitest';
 import { AdminApp } from '../../app/AdminApp.js';
 import { createFieldControlRegistry, createFieldControls } from '../../fields/index.js';
+import { tinyPng } from '@velocity/cms-core/in-memory';
 import { MemoryAdminClient } from '../../testing/memory-client.js';
 import { renderApp } from '../../testing/render-app.js';
 import { sampleContentTypes, sampleEntries, sampleUser } from '../../testing/sample-content.js';
@@ -346,4 +347,64 @@ it('links to an entry of another type by name, and keeps a link it cannot find',
   await user.click(screen.getByRole('button', { name: 'Save draft' }));
   expect(await screen.findByText('Draft saved')).toBeTruthy();
   expect((await client.getEntry(first.id)).data['f-agent']).toBe('maya-ellison');
+});
+
+/** The sample listings with a cover photo, an image field. */
+const withCover = (options: { uploads?: boolean } = {}) => {
+  const contentTypes = sampleContentTypes.map((type) =>
+    type.key === 'listings'
+      ? { ...type, fields: [...type.fields, { id: 'f-cover', key: 'cover', type: 'image', label: { en: 'Cover photo' }, required: false, translated: false, options: {} }] }
+      : type,
+  );
+  return new MemoryAdminClient({ ...signedIn(), contentTypes, images: [{ name: 'porch', url: '/images/porch.jpg' }], ...options });
+};
+const fileInput = () => document.querySelector<HTMLInputElement>('input[type="file"]') as HTMLInputElement;
+
+it('uploads a photo from the computer, chooses it and saves it with the entry', async () => {
+  const user = userEvent.setup();
+  const client = withCover();
+  render(<AdminApp client={client} siteName="Lakeshore" initialPath="/content/listings/e2" />);
+  const cover = within(await screen.findByRole('group', { name: 'Cover photo' }));
+  await user.click(cover.getByRole('button', { name: 'Choose an image' }));
+  const dialog = within(await screen.findByRole('dialog', { name: 'Choose an image' }));
+  expect(dialog.getByText('JPEG, PNG or WebP, up to 4 MB. Larger photos are made smaller first.')).toBeTruthy();
+
+  await user.upload(fileInput(), new File([tinyPng(1600, 900)], 'Front Porch.png', { type: 'image/png' }));
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Choose an image' })).toBeNull());
+  expect(cover.getByText('front-porch')).toBeTruthy();
+  expect(cover.getByRole('button', { name: 'Change' })).toBeTruthy();
+
+  await user.click(screen.getByRole('button', { name: 'Save draft' }));
+  expect(await screen.findByText('Draft saved')).toBeTruthy();
+  expect((await client.getEntry('e2')).data['f-cover']).toBe('front-porch');
+  // The new photo is there to choose for the next field, without loading the page again.
+  await user.click(cover.getByRole('button', { name: 'Change' }));
+  expect(await screen.findByRole('option', { name: 'front-porch' })).toBeTruthy();
+});
+
+it('says why a file was not taken, and leaves the window open to try another', async () => {
+  const user = userEvent.setup();
+  render(<AdminApp client={withCover()} siteName="Lakeshore" initialPath="/content/listings/e2" />);
+  const cover = within(await screen.findByRole('group', { name: 'Cover photo' }));
+  await user.click(cover.getByRole('button', { name: 'Choose an image' }));
+  await screen.findByRole('dialog', { name: 'Choose an image' });
+
+  await user.upload(fileInput(), new File(['not a picture'], 'notes.png', { type: 'image/png' }));
+  const dialog = within(screen.getByRole('dialog', { name: 'Choose an image' }));
+  expect((await dialog.findByRole('alert')).textContent).toBe('The file is not an image this site can show. Upload a JPEG, PNG or WebP.');
+  expect(cover.getByText('No image chosen')).toBeTruthy();
+
+  await user.upload(fileInput(), new File([tinyPng()], 'porch.png', { type: 'image/png' }));
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Choose an image' })).toBeNull());
+  expect(cover.getByText('porch-2')).toBeTruthy();
+});
+
+it('offers no upload on a site that has nowhere to keep one', async () => {
+  const user = userEvent.setup();
+  render(<AdminApp client={withCover({ uploads: false })} siteName="Lakeshore" initialPath="/content/listings/e2" />);
+  const cover = within(await screen.findByRole('group', { name: 'Cover photo' }));
+  await user.click(cover.getByRole('button', { name: 'Choose an image' }));
+  const dialog = within(await screen.findByRole('dialog', { name: 'Choose an image' }));
+  expect(dialog.getByRole('option', { name: 'porch' })).toBeTruthy();
+  expect(dialog.queryByRole('button', { name: 'Upload an image' })).toBeNull();
 });

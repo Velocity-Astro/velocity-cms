@@ -59,3 +59,19 @@ export const revisions = sqliteTable(
   },
   (table) => [primaryKey({ columns: [table.entryId, table.revision] })],
 );
+
+/** The record of every uploaded image. The files themselves are kept in a `MediaStore`. */
+export const media = sqliteTable(
+  'media',
+  {
+    name: text('name').primaryKey(),
+    key: text('key').notNull(),
+    contentType: text('content_type').notNull(),
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+    size: integer('size').notNull(),
+    createdAt: text('created_at').notNull(),
+    createdBy: text('created_by').notNull(),
+  },
+  (table) => [uniqueIndex('media_key').on(table.key)],
+);

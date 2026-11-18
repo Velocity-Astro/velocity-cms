@@ -1,6 +1,6 @@
 import { MutationCache, QueryCache, QueryClient, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Entry } from '@velocity/cms-core';
-import type { EntryChanges, EntryListQuery, NewEntry } from './admin-client.js';
+import type { Entry, NewUpload } from '@velocity/cms-core';
+import type { EntryChanges, EntryListQuery, ImageList, NewEntry } from './admin-client.js';
 import { AdminRequestError } from './errors.js';
 import { useClient } from './client-context.js';
 
@@ -65,10 +65,30 @@ export function useFieldTypes() {
   return useQuery({ queryKey: keys.fieldTypes, queryFn: () => client.listFieldTypes(), staleTime: Infinity });
 }
 
-/** The site's images change only when the site is redeployed, so they are fetched once. */
+/** The site's images change only when someone here uploads one, so they are fetched once. */
 export function useImages() {
   const client = useClient();
-  return useQuery({ queryKey: keys.images, queryFn: () => client.listImages(), staleTime: Infinity });
+  return useQuery({ queryKey: keys.images, queryFn: () => client.listImages(), staleTime: Infinity, select: (list) => list.items });
+}
+
+/** Whether the site takes uploads, and how large one may be. `null` when it takes none. */
+export function useUploadRules() {
+  const client = useClient();
+  return useQuery({ queryKey: keys.images, queryFn: () => client.listImages(), staleTime: Infinity, select: (list) => list.upload });
+}
+
+/** Adds an image, which then shows among the others without asking the server again. */
+export function useUploadImage() {
+  const client = useClient();
+  const cache = useQueryClient();
+  return useMutation({
+    mutationFn: (upload: NewUpload) => client.uploadImage(upload),
+    onSuccess: (image) => {
+      cache.setQueryData<ImageList>(keys.images, (list) =>
+        list ? { ...list, items: [...list.items, image].sort((a, b) => a.name.localeCompare(b.name)) } : list,
+      );
+    },
+  });
 }
 
 /** One entry. Not fetched while `id` is `null`, which is how a new entry's screen asks. */

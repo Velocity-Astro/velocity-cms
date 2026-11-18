@@ -37,6 +37,7 @@ export interface VelocityCmsOptions {
  * - `/og/<page>.png`: a share image for any live page, drawn on first use
  * - `/api/cms/search.json` and `/cms-search.js`: search from the CMS database
  * - `/api/cms/published`: where a publish is announced
+ * - `/media/<file>`: the images people upload in the editor
  * - preview links, through a middleware
  *
  * And it switches the editor on:
@@ -44,6 +45,10 @@ export interface VelocityCmsOptions {
  * - `/admin`: the editor, whose image fields choose from the folder named by `images`
  * - `/api/cms/*`: the API the editor calls
  * - `/api/cms/auth/*`: sign-in with an email link or a passkey
+ *
+ * Uploads are kept in a folder beside a database that is a file, or in an S3-compatible bucket
+ * named by the `VELOCITY_CMS_S3_*` environment variables (see `mediaStoreFromEnv`). A host with
+ * neither takes no uploads, and image fields choose from the `images` folder alone.
  *
  * The editor needs `VELOCITY_CMS_SECRET` and the site's address (`site` in the Astro config).
  * The first owner is made with `npx velocity-cms owner <email> <name>`.
@@ -67,6 +72,7 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
         injectRoute({ pattern: '/api/cms/search.json', entrypoint: route('search.json.ts') });
         injectRoute({ pattern: '/api/cms/published', entrypoint: route('published.ts') });
         injectRoute({ pattern: '/cms-search.js', entrypoint: route('search-client.js.ts') });
+        injectRoute({ pattern: '/media/[file]', entrypoint: route('media.ts') });
         injectRoute({ pattern: '/api/cms/auth/[...path]', entrypoint: route('auth.ts') });
         injectRoute({ pattern: '/api/cms/[...path]', entrypoint: route('api.ts') });
         injectRoute({ pattern: `${ADMIN_PATH}/[...path]`, entrypoint: route('admin.ts') });

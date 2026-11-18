@@ -1,4 +1,4 @@
-import type { ContentTypeDef, Entry, EntryData, Page, SiteImage } from '@velocity/cms-core';
+import type { ContentTypeDef, Entry, EntryData, NewUpload, Page, SiteImage } from '@velocity/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
@@ -42,6 +42,14 @@ export interface EntryChanges {
   readonly expectedRevision: number;
 }
 
+/** The images an image field chooses from, and whether the site takes new ones. */
+export interface ImageList {
+  /** Ordered by name. */
+  readonly items: readonly SiteImage[];
+  /** `null` when the site has nowhere to keep uploads. */
+  readonly upload: { /** The largest file the site takes, in bytes. */ readonly maxBytes: number } | null;
+}
+
 /**
  * Everything the editor asks of the server. The screens know only this interface: the real
  * implementation talks to the CMS over HTTP, and `MemoryAdminClient` in `./testing` stands in
@@ -67,8 +75,10 @@ export interface AdminClient {
   listEntries(query: EntryListQuery): Promise<Page<Entry>>;
   /** Every field type the site has, built in or from a plugin, with the control that edits it. */
   listFieldTypes(): Promise<readonly FieldTypeInfo[]>;
-  /** The site's images, ordered by name, for an image field to choose from. */
-  listImages(): Promise<readonly SiteImage[]>;
+  /** The site's images, for an image field to choose from, and whether more can be uploaded. */
+  listImages(): Promise<ImageList>;
+  /** Adds an image. Refused unless the file is a JPEG, PNG or WebP the site has room for. */
+  uploadImage(upload: NewUpload): Promise<SiteImage>;
   getEntry(id: string): Promise<Entry>;
   /** Creates a draft. Required fields may still be empty: they are checked on publish. */
   createEntry(entry: NewEntry): Promise<Entry>;
