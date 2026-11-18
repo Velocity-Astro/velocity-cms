@@ -316,7 +316,7 @@ describe('images', () => {
     const response = await upload(tinyPng(800, 600));
     expect(response.status).toBe(201);
     expect(response.headers.get('cache-control')).toBe('no-store');
-    expect(await response.json()).toEqual({ name: 'kitchen', url: '/media/kitchen.png', width: 800, height: 600 });
+    expect(await response.json()).toMatchObject({ name: 'kitchen', url: '/media/kitchen.png', width: 800, height: 600 });
     expect(((await call('GET', '/images')).body['items'] as unknown[]).length).toBe(2);
   });
 

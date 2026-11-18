@@ -19,6 +19,7 @@ document.documentElement.classList.toggle('dark', options.has('dark'));
 const client = new MemoryAdminClient({
   ...(!options.has('signed-out') && { user: sampleUser }),
   passkeyUser: sampleUser,
+  showUploads: true,
   contentTypes: sampleContentTypes,
   entries: sampleEntries(),
   ...(options.has('slow') && { delay: 1500 }),

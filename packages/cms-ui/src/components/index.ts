@@ -5,6 +5,7 @@ export * from './Checkbox/index.js';
 export * from './DateField/index.js';
 export * from './Dialog/index.js';
 export * from './Fieldset/index.js';
+export * from './FileButton/index.js';
 export * from './Form/index.js';
 export * from './Grid/index.js';
 export * from './Heading/index.js';

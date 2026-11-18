@@ -90,3 +90,25 @@ it('adds a passkey under the name the person gave it', async () => {
   await createAuthClient({ fetch }).registerPasskey('Work laptop');
   expect(calls[1]).toEqual({ url: '/api/cms/auth/passkey/verify-registration', method: 'POST', body: { response: { id: 'new' }, name: 'Work laptop' } });
 });
+
+it('lists the person\'s own passkeys by name, oldest first, with nothing secret in them', async () => {
+  const { fetch, calls } = server(
+    Response.json([
+      { id: 'p2', name: 'Phone', createdAt: '2026-11-02T10:00:00.000Z', publicKey: 'secret', credentialID: 'c2' },
+      { id: 'p1', name: null, createdAt: '2026-10-01T10:00:00.000Z', publicKey: 'secret', credentialID: 'c1' },
+    ]),
+  );
+  expect(await createAuthClient({ fetch }).listPasskeys()).toEqual([
+    { id: 'p1', name: '', createdAt: '2026-10-01T10:00:00.000Z' },
+    { id: 'p2', name: 'Phone', createdAt: '2026-11-02T10:00:00.000Z' },
+  ]);
+  expect(calls).toEqual([{ url: '/api/cms/auth/passkey/list-user-passkeys', method: 'GET', body: undefined }]);
+});
+
+it('removes a passkey by id, and says so in its own words when the server refuses', async () => {
+  const { fetch, calls } = server(Response.json({ status: true }), Response.json({}, { status: 401 }));
+  const client = createAuthClient({ fetch });
+  await client.removePasskey('p1');
+  expect(calls[0]).toEqual({ url: '/api/cms/auth/passkey/delete-passkey', method: 'POST', body: { id: 'p1' } });
+  await expect(client.removePasskey('someone-elses')).rejects.toThrow('The passkey could not be removed. Try again.');
+});

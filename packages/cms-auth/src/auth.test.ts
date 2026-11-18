@@ -143,6 +143,16 @@ describe('signing in by email link', () => {
     expect(session?.actor.id).toBe(session?.user.id);
   });
 
+  it('shows someone as only invited until the first link they use', async () => {
+    const invited = async () => (await auth.listUsers(owner)).map(({ name, hasSignedIn }) => ({ name, hasSignedIn }));
+    expect(await invited()).toEqual([{ name: 'Dana', hasSignedIn: false }]);
+    // Asking for a link is not signing in: anyone can type an address.
+    await askForLink('dana@example.com');
+    expect(await invited()).toEqual([{ name: 'Dana', hasSignedIn: false }]);
+    await open(mailer.sent[0]?.url ?? '');
+    expect(await invited()).toEqual([{ name: 'Dana', hasSignedIn: true }]);
+  });
+
   it('sends a stranger nothing, and answers them the same way', async () => {
     const known = await askForLink('dana@example.com');
     const stranger = await askForLink('stranger@example.com');

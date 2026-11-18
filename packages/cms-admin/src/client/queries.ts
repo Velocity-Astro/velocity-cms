@@ -15,6 +15,7 @@ const keys = {
   fieldTypes: ['field-types'] as const,
   images: ['images'] as const,
   people: ['people'] as const,
+  passkeys: ['passkeys'] as const,
   /** Every list of entries starts with this, so one call marks them all out of date. */
   entryLists: ['entries'] as const,
   entries: (query: EntryListQuery) => ['entries', query] as const,
@@ -183,6 +184,17 @@ export function useUploadRules() {
 }
 
 /** Adds an image, which then shows among the others without asking the server again. */
+export function useRemoveImage() {
+  const client = useClient();
+  const cache = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => client.removeImage(name),
+    onSuccess: (_nothing, name) => {
+      cache.setQueryData<ImageList>(keys.images, (list) => (list ? { ...list, items: list.items.filter((image) => image.name !== name) } : list));
+    },
+  });
+}
+
 export function useUploadImage() {
   const client = useClient();
   const cache = useQueryClient();
@@ -273,9 +285,25 @@ export function useRemovePerson() {
   return useMutation({ mutationFn: (id: string) => client.removePerson(id), onSuccess: usePeopleChanged() });
 }
 
+/** The signed-in person's own passkeys. Asked for only while their window is open. */
+export function usePasskeys() {
+  const client = useClient();
+  return useQuery({ queryKey: keys.passkeys, queryFn: () => client.listPasskeys() });
+}
+
+function usePasskeysChanged() {
+  const cache = useQueryClient();
+  return () => void cache.invalidateQueries({ queryKey: keys.passkeys });
+}
+
 export function useAddPasskey() {
   const client = useClient();
-  return useMutation({ mutationFn: (name: string) => client.addPasskey(name) });
+  return useMutation({ mutationFn: (name: string) => client.addPasskey(name), onSuccess: usePasskeysChanged() });
+}
+
+export function useRemovePasskey() {
+  const client = useClient();
+  return useMutation({ mutationFn: (id: string) => client.removePasskey(id), onSuccess: usePasskeysChanged() });
 }
 
 export function useRequestSignInLink() {

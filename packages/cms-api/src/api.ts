@@ -157,6 +157,10 @@ export class CmsApi {
         return json({ items, upload: media.takesUploads ? { maxBytes: media.maxUploadBytes } : null });
       })
       .add('POST', '/images', this.#upload)
+      .add('DELETE', '/images/:name', async (call) => {
+        await media.remove(actor(call), param(call, 'name'));
+        return json({});
+      })
       .add('GET', '/entries', async (call) => {
         const query = parse(entryList, Object.fromEntries(call.url.searchParams));
         const type = await schema.getByKey(query.type);

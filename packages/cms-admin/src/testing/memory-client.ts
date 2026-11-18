@@ -1,5 +1,6 @@
 import {
   CmsError,
+  NotFoundError,
   ValidationError,
   createCms,
   type Actor,
@@ -23,7 +24,7 @@ import {
   InMemoryMediaStore,
   InMemorySchemaRepository,
 } from '@velocity/cms-core/in-memory';
-import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Person, SessionUser } from '../client/admin-client.js';
+import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, SessionUser } from '../client/admin-client.js';
 import { MemoryPeople } from './memory-people.js';
 import { AdminRequestError, type RequestErrorCode } from '../client/errors.js';
 
@@ -42,6 +43,8 @@ export interface MemoryAdminClientOptions {
   readonly people?: readonly Person[];
   /** The language new entries are written in. Defaults to `en`. */
   readonly defaultLocale?: string;
+  /** Gives each upload an address the browser can show, for the preview: nothing serves the files here. Defaults to `false`. */
+  readonly showUploads?: boolean;
   /** How long each signed-in request takes, in milliseconds, to see what a screen shows while it waits. Defaults to none. */
   readonly delay?: number;
 }
@@ -60,8 +63,8 @@ const PREVIEW_SECRET = 'memory-admin-client-preview-secret';
 export class MemoryAdminClient implements AdminClient {
   /** Every address a sign-in link was asked for, in order. */
   readonly linkRequests: string[] = [];
-  /** The name of every passkey that was added, in order. */
-  readonly passkeys: string[] = [];
+  readonly #passkeys: Passkey[] = [];
+  #passkeysMade = 0;
   /** Set to make the next request fail with this message. */
   failNextWith: string | null = null;
 
@@ -73,12 +76,15 @@ export class MemoryAdminClient implements AdminClient {
   /** Settles once the content given to the constructor is in place. Every request waits for it. */
   readonly #ready: Promise<void>;
   readonly #delay: number;
+  /** Where the browser can show each upload, by name, when `showUploads` is on. */
+  readonly #shown: Map<string, string> | null;
 
   constructor(options: MemoryAdminClientOptions = {}) {
     this.#user = options.user ?? null;
     this.#passkeyUser = options.passkeyUser ?? null;
     this.#defaultLocale = options.defaultLocale ?? 'en';
     this.#delay = options.delay ?? 0;
+    this.#shown = options.showUploads === true ? new Map() : null;
     this.#people = new MemoryPeople(options.people ?? (options.user ? [options.user] : []));
     const types = new InMemorySchemaRepository();
     const entries = new InMemoryEntryRepository();
@@ -168,13 +174,23 @@ export class MemoryAdminClient implements AdminClient {
   listImages(): Promise<ImageList> {
     const { media } = this.#cms;
     return this.#request(async (actor) => ({
-      items: await media.images(actor),
+      items: (await media.images(actor)).map((image) => ({ ...image, url: this.#shown?.get(image.name) ?? image.url })),
       upload: media.takesUploads ? { maxBytes: media.maxUploadBytes } : null,
     }));
   }
 
   uploadImage(upload: NewUpload): Promise<SiteImage> {
-    return this.#request((actor) => this.#cms.media.upload(actor, upload));
+    return this.#request(async (actor) => {
+      const image = await this.#cms.media.upload(actor, upload);
+      if (!this.#shown) return image;
+      const url = URL.createObjectURL(new Blob([new Uint8Array(upload.bytes)]));
+      this.#shown.set(image.name, url);
+      return { ...image, url };
+    });
+  }
+
+  removeImage(name: string): Promise<void> {
+    return this.#request((actor) => this.#cms.media.remove(actor, name));
   }
 
   listEntries(query: EntryListQuery): Promise<Page<Entry>> {
@@ -238,8 +254,25 @@ export class MemoryAdminClient implements AdminClient {
     return this.#request((actor) => this.#people.remove(actor, id));
   }
 
+  /** The name of every passkey the person has, in the order they were added. */
+  get passkeys(): readonly string[] {
+    return this.#passkeys.map((passkey) => passkey.name);
+  }
+
   addPasskey(name: string): Promise<void> {
-    return this.#request(async () => void this.passkeys.push(name));
+    return this.#request(async () => void this.#passkeys.push({ id: `passkey-${++this.#passkeysMade}`, name, createdAt: new Date().toISOString() }));
+  }
+
+  listPasskeys(): Promise<readonly Passkey[]> {
+    return this.#request(async () => [...this.#passkeys]);
+  }
+
+  removePasskey(id: string): Promise<void> {
+    return this.#request(async () => {
+      const index = this.#passkeys.findIndex((passkey) => passkey.id === id);
+      if (index < 0) throw new NotFoundError('Passkey', id);
+      this.#passkeys.splice(index, 1);
+    });
   }
 
   /** Runs one signed-in request against the CMS, and reports a refusal the way a server would. */

@@ -137,6 +137,27 @@ export class MediaService {
   }
 
   /**
+   * Removes an uploaded image: its file and its record. This cannot be undone, and an entry that
+   * shows the image shows nothing in its place afterwards, so only people who may publish may do
+   * it. An image the site came with is not ours to remove.
+   */
+  async remove(actor: Actor, name: string): Promise<void> {
+    this.access.require(actor, 'entry:publish');
+    const storage = this.options.storage;
+    const file = await storage?.files.get(name);
+    if (!storage || !file) {
+      if ((await this.#included()).some((image) => image.name === name)) {
+        throw new ConflictError(`"${name}" comes with the site, so it can't be removed here. Take it out of the site's image folder instead.`);
+      }
+      throw new NotFoundError('Image', name);
+    }
+    // The record goes first: once it is gone nothing offers the image, even if the file lingers.
+    await storage.files.remove(name);
+    await storage.store.remove(file.key);
+    await this.events.emit('media.removed', { file, actor });
+  }
+
+  /**
    * An uploaded file by its key, for the site to serve. Anyone may see it: an upload is public
    * from the moment it exists, as a file in the site's image folder is.
    */
@@ -159,7 +180,7 @@ export class MediaService {
   }
 
   #asImage(file: MediaFile): SiteImage {
-    return { name: file.name, url: `${this.#basePath}/${file.key}`, width: file.width, height: file.height };
+    return { name: file.name, url: `${this.#basePath}/${file.key}`, width: file.width, height: file.height, uploadedAt: file.createdAt, size: file.size };
   }
 }
 

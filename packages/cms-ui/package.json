@@ -12,6 +12,10 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./rich-text": {
+      "types": "./dist/components/RichTextEditor/index.d.ts",
+      "default": "./dist/components/RichTextEditor/index.js"
+    },
     "./styles.css": "./src/styles.css",
     "./tokens.css": "./src/tokens/tokens.css",
     "./registry.json": "./component-registry.json"

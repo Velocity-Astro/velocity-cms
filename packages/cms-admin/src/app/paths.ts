@@ -9,6 +9,7 @@ export const paths = {
   home: '/',
   signIn: '/sign-in',
   people: '/people',
+  media: '/media',
   types: '/types',
   /** A content type's fields, or with `within` (field ids from the top down) the fields a group holds. */
   type: (typeKey: string, within: readonly string[] = []) =>

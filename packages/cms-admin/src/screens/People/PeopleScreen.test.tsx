@@ -44,7 +44,9 @@ it('invites someone, showing what the server says about each field', async () =>
   await user.click(dialog.getByRole('button', { name: 'Send invitation' }));
   await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Invite someone' })).toBeNull());
   expect(await screen.findByText('Maya was invited')).toBeTruthy();
-  expect(await names()).toContain('Mayamaya@example.com');
+  // Until Maya uses a sign-in link she is marked as invited. Dana, who is signed in, is not.
+  expect(await names()).toContain('MayaInvitedmaya@example.com · Has not signed in yet.');
+  expect((await names()).filter((name) => name.includes('Invited'))).toHaveLength(1);
   expect((await client.listPeople()).find((person) => person.name === 'Maya')).toMatchObject({ email: 'maya@example.com', role: 'editor' });
 });
 
@@ -82,8 +84,9 @@ it('adds a passkey from the account menu, and says so when the browser makes non
   const user = userEvent.setup();
   const { client } = renderApp('/', site());
   await user.click(await screen.findByRole('button', { name: /Account/ }));
-  await user.click(await screen.findByRole('menuitem', { name: 'Add a passkey' }));
-  const dialog = within(await screen.findByRole('dialog', { name: 'Add a passkey' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Passkeys' }));
+  const dialog = within(await screen.findByRole('dialog', { name: 'Passkeys' }));
+  expect(await dialog.findByText('You have no passkeys yet.')).toBeTruthy();
   const name = dialog.getByRole('textbox', { name: /Name for this passkey/ });
   await user.clear(name);
   await user.type(name, 'Work laptop');
@@ -93,4 +96,10 @@ it('adds a passkey from the account menu, and says so when the browser makes non
   await user.click(dialog.getByRole('button', { name: 'Add passkey' }));
   expect(await screen.findByText('Passkey added')).toBeTruthy();
   expect(client.passkeys).toEqual(['Work laptop']);
+
+  // The new one is listed at once, and can be taken away again.
+  await user.click(await dialog.findByRole('button', { name: 'Remove Work laptop' }));
+  expect(await screen.findByText('Work laptop removed')).toBeTruthy();
+  expect(await dialog.findByText('You have no passkeys yet.')).toBeTruthy();
+  expect(client.passkeys).toEqual([]);
 });

@@ -29,7 +29,7 @@ export async function createHttpServer(seed: AdminClientSeed, user: SessionUser)
   const storage = { files: new InMemoryMediaRepository(), store: new InMemoryMediaStore() };
   const cms = createCms({ types, entries, previews: { secret: 'http-test-server-preview-secret-0' }, ...(seed.uploads !== false && { media: { storage } }) });
   cms.media.include(new InMemoryImageLibrary(seed.images));
-  const passkeys: string[] = [];
+  const passkeys: { id: string; name: string }[] = [];
   const api = new CmsApi({ cms, authenticator, people: new MemoryPeople(seed.people ?? [user]) });
   const requests: Request[] = [];
   const client = new HttpAdminClient({
@@ -37,7 +37,9 @@ export async function createHttpServer(seed: AdminClientSeed, user: SessionUser)
       requestSignInLink: async () => undefined,
       signInWithPasskey: async () => user,
       signOut: async () => void (authenticator.session = null),
-      registerPasskey: async (name) => void passkeys.push(name),
+      registerPasskey: async (name) => void passkeys.push({ id: `passkey-${passkeys.length + 1}-${name}`, name }),
+      listPasskeys: async () => [...passkeys],
+      removePasskey: async (id) => void passkeys.splice(passkeys.findIndex((passkey) => passkey.id === id), 1),
     },
     fetch: (input, init) => {
       // A browser adds the page's origin to every request that changes something.

@@ -5,6 +5,8 @@ const variants = {
     sm: 'h-8 w-8',
     md: 'h-10 w-14',
     lg: 'h-14 w-20',
+    /** As wide as the space it is given: a preview, with words beside or under it that say what it is. */
+    full: 'aspect-video w-full',
   },
   shape: {
     rounded: 'rounded-md',
