@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import { expectAccessible } from '../../testing/accessible.js';
@@ -26,6 +26,7 @@ const props = (changes: Partial<SectionListProps> = {}): SectionListProps => ({
   moveUpLabel: (position) => `Move section ${position} up`,
   moveDownLabel: (position) => `Move section ${position} down`,
   moreLabel: (position) => `More for section ${position}`,
+  dragLabel: (position) => `Drag section ${position}`,
   ...changes,
 });
 
@@ -88,6 +89,37 @@ it('says so when it is empty, shows what is wrong, adds, and stops adding when f
   expect(all.onAdd).toHaveBeenCalledOnce();
   rerender(<SectionList {...all} isFull />);
   expect(screen.getByRole('button', { name: 'Add section' })).toHaveProperty('disabled', true);
+});
+
+/** Picks a section up by its handle with the keyboard, goes to the section `tabs` places on, and puts it down there. */
+async function carry(handle: string, tabs: number) {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTime(ms) });
+  screen.getByRole('button', { name: handle }).focus();
+  await user.keyboard('{Enter}');
+  act(() => void vi.runAllTimers());
+  for (let tab = 0; tab < tabs; tab += 1) await user.tab();
+  await user.keyboard('{Enter}');
+  await act(async () => {
+    vi.runAllTimers();
+    await Promise.resolve();
+  });
+  vi.useRealTimers();
+}
+
+it('has a handle on each section, and moves a section picked up with the keyboard to the place of the one it is put down on', async () => {
+  const onMove = vi.fn();
+  render(<SectionList {...props({ onMove })} />);
+  expect(screen.getAllByRole('button', { name: /^Drag section/ })).toHaveLength(3);
+  await carry('Drag section 1', 2);
+  expect(onMove).toHaveBeenCalledWith(0, 2);
+});
+
+it('moves a section up the same way', async () => {
+  const onMove = vi.fn();
+  render(<SectionList {...props({ onMove })} />);
+  await carry('Drag section 3', 1);
+  expect(onMove).toHaveBeenCalledWith(2, 0);
 });
 
 it('has no accessibility violations', async () => {

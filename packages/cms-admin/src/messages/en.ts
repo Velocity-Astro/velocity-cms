@@ -127,6 +127,7 @@ export const en = {
     sectionMoveUp: (kind: string, position: number) => `Move section ${position}, ${kind}, up`,
     sectionMoveDown: (kind: string, position: number) => `Move section ${position}, ${kind}, down`,
     sectionMore: (kind: string, position: number) => `More for section ${position}, ${kind}`,
+    sectionDrag: (kind: string, position: number) => `Drag section ${position}, ${kind}`,
     sectionDuplicate: 'Duplicate',
     sectionHide: 'Hide from the site',
     sectionShow: 'Show on the site',

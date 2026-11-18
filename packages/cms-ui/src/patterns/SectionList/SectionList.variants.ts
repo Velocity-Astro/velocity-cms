@@ -14,12 +14,24 @@ export const sectionVariants = cva('motion-rise min-w-0 rounded-lg border bg-car
     state: {
       default: 'border-border',
       problem: 'border-destructive',
+      /** Being dragged: it stays in its place, faded, until it is dropped. */
+      dragging: 'border-border opacity-50',
+      /** A section is held over it with the keyboard, and would take its place. */
+      target: 'border-ring ring-2 ring-ring',
     },
   },
   defaultVariants: { state: 'default' },
 });
 
 export const sectionHeaderClass = 'flex items-center gap-1 py-1 pr-2 pl-1';
+/** The handle a section is dragged by. */
+export const sectionGripClass = [
+  'grid h-8 w-6 shrink-0 cursor-grab place-items-center rounded-md text-foreground-subtle outline-none',
+  'transition-colors motion-fast data-hovered:bg-secondary data-hovered:text-foreground data-pressed:cursor-grabbing',
+  'data-focus-visible:ring-2 data-focus-visible:ring-input-focus',
+].join(' ');
+/** Where a dragged section would land, between two others. */
+export const sectionDropLineClass = 'my-1 h-0.5 rounded-full bg-ring';
 export const sectionHeadingClass = 'min-w-0 flex-1';
 export const sectionTriggerClass = [
   'flex w-full min-w-0 cursor-default items-center gap-3 rounded-md px-2 py-2 text-left outline-none',

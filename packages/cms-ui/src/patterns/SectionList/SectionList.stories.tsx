@@ -32,6 +32,7 @@ const meta = {
     moveUpLabel: (position: number) => `Move section ${position} up`,
     moveDownLabel: (position: number) => `Move section ${position} down`,
     moreLabel: (position: number) => `More for section ${position}`,
+    dragLabel: (position: number) => `Drag section ${position}`,
   },
 } satisfies Meta<typeof SectionList>;
 

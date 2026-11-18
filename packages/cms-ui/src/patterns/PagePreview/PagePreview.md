@@ -17,6 +17,7 @@ of the page is drawn by the editor.
 
 - `draft` is posted to `address` in a form field named `draft`, into the frame. The first page is
   asked for at once; after that, half a second after the last change.
+- The form that posts it is put at the end of the page, so the preview can sit inside a form of the screen's own.
 - `address` must be on this site. The frame listens only to this site's own page, and only in
   this frame.
 - A page that says which of its sections was pressed has it passed to `onSectionPress`.
