@@ -2,7 +2,7 @@
  * What the core needs from the outside world. The core ships no implementation of these:
  * an adapter package implements each one and proves it with the contract tests in `./testing`.
  */
-import type { ContentTypeDef, Entry, EntryStatus, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus, Timestamp, Contact, ContactNote, Deal, Pipeline, TeamMember } from './model.js';
+import type { ContentTypeDef, Entry, EntryStatus, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus, Timestamp, Contact, ContactNote, Deal, Pipeline, TeamMember, CustomFields } from './model.js';
 
 export interface EntryQuery {
   readonly typeId?: string;
@@ -189,6 +189,17 @@ export interface PipelineStore {
    * saved before: one that has moved on is refused with a `ConflictError`.
    */
   save(pipeline: Pipeline, expectedRevision: number | null): Promise<Pipeline>;
+}
+
+/** Where the fields a site adds to its contacts and deals are kept. */
+export interface CustomFieldsStore {
+  /** The fields as they were saved, or `null` when none ever were. */
+  get(): Promise<CustomFields | null>;
+  /**
+   * Replaces them. `expectedRevision` is the revision the caller last saw, or `null` when none
+   * were saved before: fields that have moved on are refused with a `ConflictError`.
+   */
+  save(fields: CustomFields, expectedRevision: number | null): Promise<CustomFields>;
 }
 
 /** Who is on the team. Sign-in belongs to the host, so the host says. */

@@ -4,6 +4,7 @@ import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { AdminRequestError } from '../../client/errors.js';
 import { useCreateDeal, useDeleteDeal, useUpdateDeal } from '../../client/queries.js';
+import { CustomValueFields, useCustomValues } from '../../fields/custom-values.js';
 import { useClosing } from '../../lib/use-closing.js';
 import { useMessages } from '../../messages/messages-context.js';
 import { useStageName } from '../Contacts/pipeline.js';
@@ -36,11 +37,13 @@ export function DealDialog({ deal, contact, pipeline, team, onClose }: DealDialo
   const [owner, setOwner] = useState(deal ? (deal.ownerId ?? NOBODY) : (contact.ownerId ?? NOBODY));
   const [closeOn, setCloseOn] = useState<string | null>(deal?.closeOn ?? null);
   const [problems, setProblems] = useState(NO_PROBLEMS);
+  const custom = useCustomValues('deal', deal?.data);
   const currency = pipeline.currency ?? 'USD';
 
   const failed = (error: unknown) => {
     // What was typed stays; each problem goes to the field it names.
     if (error instanceof AdminRequestError) setProblems(Object.fromEntries(error.issues.map((issue) => [String(issue.path[0]), issue.message])));
+    custom.refused(error);
     toast({ title: messages.deals.notSaved, description: messageOf(error), tone: 'danger' });
   };
   const send = () => {
@@ -49,7 +52,7 @@ export function DealDialog({ deal, contact, pipeline, team, onClose }: DealDialo
     const worth = value ?? 0;
     if (deal) {
       update.mutate(
-        { id: deal.id, changes: { title, value: worth, stage, ownerId: owner === NOBODY ? null : owner, closeOn, expectedRevision: deal.revision } },
+        { id: deal.id, changes: { title, value: worth, stage, ownerId: owner === NOBODY ? null : owner, closeOn, ...custom.toSend(), expectedRevision: deal.revision } },
         {
           onSuccess: (saved) => {
             toast({ title: messages.deals.saved(saved.title), tone: 'success' });
@@ -60,7 +63,7 @@ export function DealDialog({ deal, contact, pipeline, team, onClose }: DealDialo
       );
     } else {
       create.mutate(
-        { contactId: contact.id, title, value: worth, stage, ...(owner !== NOBODY && { ownerId: owner }), ...(closeOn !== null && { closeOn }) },
+        { contactId: contact.id, title, value: worth, stage, ...(owner !== NOBODY && { ownerId: owner }), ...(closeOn !== null && { closeOn }), ...custom.toSend() },
         {
           onSuccess: (saved) => {
             toast({ title: messages.deals.created(saved.title), tone: 'success' });
@@ -136,6 +139,7 @@ export function DealDialog({ deal, contact, pipeline, team, onClose }: DealDialo
           <Select label={messages.deals.owner} options={owners} value={owner} onChange={setOwner} {...(problems['ownerId'] !== undefined && { errorMessage: problems['ownerId'] })} />
           <DateField label={messages.deals.closeOn} value={closeOn} onChange={setCloseOn} {...(problems['closeOn'] !== undefined && { errorMessage: problems['closeOn'] })} />
         </Grid>
+        <CustomValueFields custom={custom} />
       </Form>
     </Dialog>
   );

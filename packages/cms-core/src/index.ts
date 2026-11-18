@@ -75,6 +75,7 @@ export {
   type Contact,
   type ContactNote,
   type Pipeline,
+  type CustomFields,
   type Deal,
   type Forecast,
   type StageForecast,
@@ -107,6 +108,7 @@ export type {
   ContactQuery,
   ContactRepository,
   PipelineStore,
+  CustomFieldsStore,
   DealRepository,
   DealQuery,
   StageTotal,
@@ -171,5 +173,6 @@ export type { NewField } from './define-fields.js';
 export { FormService, MAX_FORM_FIELDS, MAX_RETENTION_DAYS, type FormChanges, type FormContactKeys, type NewForm } from './services/form-service.js';
 export { SubmissionService, MAX_ANSWER_LENGTH, type SenderBook, type SubmissionSource } from './services/submission-service.js';
 export { DealService, MAX_DEAL_TITLE_LENGTH, MAX_DEAL_VALUE, type DealChanges, type NewDeal } from './services/deal-service.js';
+export { CustomFieldsService, CUSTOM_FIELDS_OF, MAX_CUSTOM_FIELDS, type CustomFieldInput, type CustomFieldsChanges, type CustomFieldsOf } from './services/custom-fields-service.js';
 export { PipelineService, DEFAULT_CURRENCY, chanceOf, DEFAULT_STAGES, MAX_STAGES, MAX_STAGE_LABEL_LENGTH, type PipelineChanges, type StageInput } from './services/pipeline-service.js';
 export { ContactService, MAX_CONTACT_NAME_LENGTH, MAX_NOTE_LENGTH, type ContactChanges, type NewContact } from './services/contact-service.js';

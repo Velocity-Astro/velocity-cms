@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Actor } from './access.js';
 import { createCms, type Cms } from './cms.js';
-import { ForbiddenError, NotFoundError, ValidationError } from './errors.js';
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from './errors.js';
 import type { FormDef } from './model.js';
 import { definePlugin } from './plugin.js';
 import { FakeClock, InMemoryContactRepository, InMemoryDealRepository, InMemoryEntryRepository, InMemoryPipelineStore, InMemorySchemaRepository, SequentialIds, contactRepositoryContract, dealRepositoryContract, pipelineStoreContract } from './testing/index.js';
@@ -379,5 +379,64 @@ describe('deals', () => {
     expect([await owners('a@example.com'), await owners('b@example.com'), await owners('c@example.com')]).toEqual(['maya', 'daniel', 'maya']);
     await cms.pipeline.save(editor, { stages: [{ id: 'new', kind: 'open' }], assignTo: [], expectedRevision: 1 });
     expect(await cms.pipeline.get(editor)).not.toHaveProperty('assignTo');
+  });
+});
+
+describe('custom fields', () => {
+  const membership = { key: 'membership', type: 'select', label: { en: 'Membership' }, options: { choices: ['monthly', 'yearly'] } };
+  const seats = { key: 'seats', type: 'number', label: { en: 'Seats' }, options: { integer: true } };
+  const idOf = (fields: readonly { id: string; key: string }[], key: string) => fields.find((field) => field.key === key)?.id ?? '';
+
+  it('are none until someone adds some, keep their ids by id or key, and mark a removed one', async () => {
+    expect(await cms.customFields.get(editor)).toEqual({ contact: [], deal: [], revision: 0 });
+    const first = await cms.customFields.save(editor, { contact: [membership, { key: 'joined', type: 'date', label: { en: 'Joined' }, required: true }], deal: [seats], expectedRevision: 0 });
+    expect(first.contact.map((field) => [field.key, field.type, field.required, field.translated])).toEqual([['membership', 'select', false, false], ['joined', 'date', false, false]]);
+    expect(first.revision).toBe(1);
+    await expect(cms.customFields.save(editor, { contact: [], expectedRevision: 0 })).rejects.toBeInstanceOf(ConflictError);
+
+    // Renamed by id, reordered, and one left out: the deal fields are not named, so they stay.
+    const second = await cms.customFields.save(editor, { contact: [{ ...membership, id: idOf(first.contact, 'membership'), key: 'plan', label: { en: 'Plan' } }], expectedRevision: 1 });
+    expect(idOf(second.contact, 'plan')).toBe(idOf(first.contact, 'membership'));
+    expect(second.contact.find((field) => field.key === 'joined')?.deletedAt).toBeDefined();
+    expect(second.deal).toEqual(first.deal);
+  });
+
+  it('refuse a kind that is not simple, a key used twice, too many, and someone who may not change contacts', async () => {
+    await expect(cms.customFields.save(editor, { contact: [{ key: 'body', type: 'richtext', label: { en: 'Body' } }], expectedRevision: 0 })).rejects.toThrow(/cannot be a richtext field/);
+    await expect(cms.customFields.save(editor, { deal: [seats, seats], expectedRevision: 0 })).rejects.toBeInstanceOf(ConflictError);
+    const many = Array.from({ length: 31 }, (_, index) => ({ key: `field${index}`, type: 'text', label: { en: `Field ${index}` } }));
+    await expect(cms.customFields.save(editor, { contact: many, expectedRevision: 0 })).rejects.toThrow(/30 custom fields at most/);
+    await expect(cms.customFields.save(author, { contact: [], expectedRevision: 0 })).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it('are filled in on a contact, checked by their kind, cleared when emptied and kept when not named', async () => {
+    const fields = await cms.customFields.save(editor, { contact: [membership, { key: 'goal', type: 'text', label: { en: 'Goal' } }], expectedRevision: 0 });
+    const plan = idOf(fields.contact, 'membership');
+    const goal = idOf(fields.contact, 'goal');
+    const tom = await cms.contacts.create(editor, { email: 'tom@example.com', data: { [plan]: 'yearly', [goal]: 'Run 10k', unknown: 'dropped' } });
+    expect(tom.data).toEqual({ [plan]: 'yearly', [goal]: 'Run 10k' });
+
+    await expect(cms.contacts.update(editor, tom.id, { data: { [plan]: 'weekly' }, expectedRevision: 1 })).rejects.toMatchObject({ issues: [{ path: ['data', 'membership'] }] });
+    const changed = await cms.contacts.update(editor, tom.id, { data: { [goal]: '' }, expectedRevision: 1 });
+    expect(changed.data).toEqual({ [plan]: 'yearly' });
+    // A change that names no custom field leaves them alone.
+    expect((await cms.contacts.update(editor, tom.id, { name: 'Tom', expectedRevision: 2 })).data).toEqual({ [plan]: 'yearly' });
+
+    // A removed field's value stays with the contact, and is no longer handed out by key.
+    await cms.customFields.save(editor, { contact: [{ key: 'goal', type: 'text', label: { en: 'Goal' }, id: goal }], expectedRevision: 1 });
+    const later = await cms.contacts.update(editor, tom.id, { data: { [goal]: 'Swim', [plan]: 'monthly' }, expectedRevision: 3 });
+    expect(later.data).toEqual({ [plan]: 'yearly', [goal]: 'Swim' });
+    expect((JSON.parse(await cms.contacts.export(editor, tom.id)) as { contact: Record<string, unknown> }).contact).toMatchObject({ email: 'tom@example.com', fields: { goal: 'Swim' } });
+  });
+
+  it('are filled in on a deal, and go into the file of the deal\'s contact by key', async () => {
+    const fields = await cms.customFields.save(editor, { deal: [seats], expectedRevision: 0 });
+    const tom = await cms.contacts.create(editor, { email: 'tom@example.com' });
+    const deal = await cms.deals.create(editor, { contactId: tom.id, title: 'Team plan', value: 900, data: { [idOf(fields.deal, 'seats')]: 12 } });
+    expect(deal.data).toEqual({ [idOf(fields.deal, 'seats')]: 12 });
+    await expect(cms.deals.update(editor, deal.id, { data: { [idOf(fields.deal, 'seats')]: 'many' }, expectedRevision: 1 })).rejects.toBeInstanceOf(ValidationError);
+    expect((await cms.deals.update(editor, deal.id, { data: { [idOf(fields.deal, 'seats')]: null }, expectedRevision: 1 })).data).toBeUndefined();
+    await cms.deals.update(editor, deal.id, { data: { [idOf(fields.deal, 'seats')]: 20 }, expectedRevision: 2 });
+    expect((JSON.parse(await cms.contacts.export(editor, tom.id)) as { deals: unknown[] }).deals).toMatchObject([{ title: 'Team plan', fields: { seats: 20 } }]);
   });
 });

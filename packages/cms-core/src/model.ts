@@ -345,6 +345,8 @@ export interface Contact {
   readonly ownerId?: string;
   /** The day to get back to them, as `2026-03-14`. Left out when nothing is planned. */
   readonly followUpAt?: string;
+  /** What the site's own fields for contacts hold, by field id. See `CustomFields`. */
+  readonly data?: EntryData;
   /** Starts at 1 and goes up by one on every save. */
   readonly revision: number;
   readonly createdAt: Timestamp;
@@ -352,6 +354,16 @@ export interface Contact {
 }
 
 /** Whether contacts in a stage are still being worked with, or the matter is settled one way or the other. */
+/**
+ * The fields a site adds to its contacts and its deals. Each has a permanent id, and a removed
+ * one is marked `deletedAt` and its values are kept. `revision` 0 means none were ever saved.
+ */
+export interface CustomFields {
+  readonly contact: readonly FieldDef[];
+  readonly deal: readonly FieldDef[];
+  readonly revision: number;
+}
+
 export type StageKind = 'open' | 'won' | 'lost';
 
 /** One step of the pipeline, such as "Contacted". */
@@ -401,6 +413,8 @@ export interface Deal {
   readonly closeOn?: string;
   /** When it reached a won or lost stage. Left out while it is open. */
   readonly closedAt?: Timestamp;
+  /** What the site's own fields for deals hold, by field id. See `CustomFields`. */
+  readonly data?: EntryData;
   /** Starts at 1 and goes up by one on every save. */
   readonly revision: number;
   readonly createdAt: Timestamp;

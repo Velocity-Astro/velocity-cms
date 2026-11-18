@@ -1,33 +1,32 @@
-import type { FieldDef, FormDef } from '@velocity/cms-core';
+import type { FieldDef } from '@velocity/cms-core';
 import { Button, Checkbox, Dialog, Form, Select, Text, TextField, toast } from '@velocity/cms-ui';
 import { useState } from 'react';
-import { AdminRequestError } from '../../client/errors.js';
-import { useFieldTypes, useUpdateForm } from '../../client/queries.js';
-import { fieldSettings, type FieldOptions } from '../../fields/settings.js';
-import { localized } from '../../lib/content.js';
-import { fieldKeyFrom } from '../../lib/keys.js';
-import { useClosing } from '../../lib/use-closing.js';
-import { useLocale, useMessages } from '../../messages/messages-context.js';
-import { inputsOf, toInput, type FormFieldInput } from './form-fields.js';
+import { AdminRequestError } from '../client/errors.js';
+import { useFieldTypes } from '../client/queries.js';
+import { fieldSettings, type FieldOptions } from './settings.js';
+import { localized } from '../lib/content.js';
+import { fieldKeyFrom } from '../lib/keys.js';
+import { useClosing } from '../lib/use-closing.js';
+import { useLocale, useMessages } from '../messages/messages-context.js';
+import { toInput, type FieldInput, type FieldSet } from './field-set.js';
 
 const NO_PROBLEMS: Readonly<Record<string, string>> = {};
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
-export interface FormFieldDialogProps {
-  readonly form: FormDef;
+export interface FieldSetDialogProps {
+  readonly set: FieldSet;
   /** The field to change. Left out, the window adds a new one. */
   readonly field?: FieldDef;
   readonly onClose: () => void;
 }
 
-/** The panel a form's field is added or changed in: what it asks, its kind and its rules. */
-export function FormFieldDialog({ form, field, onClose }: FormFieldDialogProps) {
+/** The panel a field of a set is added or changed in: what it is called, its kind and its rules. */
+export function FieldSetDialog({ set, field, onClose }: FieldSetDialogProps) {
   const { close, dialog } = useClosing(onClose);
   const messages = useMessages();
   const locale = useLocale();
   const language = locale.split('-')[0] ?? locale;
   const fieldTypes = useFieldTypes();
-  const update = useUpdateForm();
 
   const [kind, setKind] = useState(field?.type ?? 'text');
   const [name, setName] = useState(field ? localized(field.label, locale) : '');
@@ -54,29 +53,26 @@ export function FormFieldDialog({ form, field, onClose }: FormFieldDialogProps) 
     if (Object.keys(missing).length > 0) return;
     const said = help.trim();
     const { help: _was, ...kept } = field ? toInput(field) : { key, type: kind, label: {} };
-    const described: FormFieldInput = {
+    const described: FieldInput = {
       ...kept,
       key,
       label: { ...field?.label, [language]: name.trim() },
       ...(said !== '' && { help: { ...field?.help, [language]: said } }),
-      required: isRequired,
+      required: set.canRequire && isRequired,
       options,
     };
-    const fields = field ? inputsOf(form).map((existing) => (existing.id === field.id ? described : existing)) : [...inputsOf(form), described];
-    update.mutate(
-      { id: form.id, changes: { fields, expectedRevision: form.revision } },
-      {
-        onSuccess: () => {
-          toast({ title: field ? messages.forms.fieldSaved(name.trim()) : messages.forms.fieldAdded(name.trim()), tone: 'success' });
-          close();
-        },
-        onError: (error) => {
-          // A key another field has is about the key. Anything else is about the settings.
-          setProblems({ [error instanceof AdminRequestError && error.code === 'conflict' ? 'key' : 'options']: messageOf(error) });
-          toast({ title: messages.forms.fieldNotSaved, description: messageOf(error), tone: 'danger' });
-        },
+    const inputs = set.fields.map(toInput);
+    set.save(field ? inputs.map((existing) => (existing.id === field.id ? described : existing)) : [...inputs, described], {
+      onSuccess: () => {
+        toast({ title: field ? messages.forms.fieldSaved(name.trim()) : messages.forms.fieldAdded(name.trim()), tone: 'success' });
+        close();
       },
-    );
+      onError: (error) => {
+        // A key another field has is about the key. Anything else is about the settings.
+        setProblems({ [error instanceof AdminRequestError && error.code === 'conflict' ? 'key' : 'options']: messageOf(error) });
+        toast({ title: messages.forms.fieldNotSaved, description: messageOf(error), tone: 'danger' });
+      },
+    });
   };
 
   const title = field ? messages.forms.editFieldTitle(localized(field.label, locale)) : messages.forms.addFieldTitle;
@@ -91,7 +87,7 @@ export function FormFieldDialog({ form, field, onClose }: FormFieldDialogProps) 
           <Button variant="secondary" onPress={close}>
             {messages.editor.cancel}
           </Button>
-          <Button isPending={update.isPending} onPress={send}>
+          <Button isPending={set.isPending} onPress={send}>
             {field ? messages.forms.fieldSave : messages.forms.fieldAdd}
           </Button>
         </>
@@ -117,7 +113,7 @@ export function FormFieldDialog({ form, field, onClose }: FormFieldDialogProps) 
         )}
         <TextField
           label={messages.forms.fieldName}
-          description={messages.forms.fieldNameHelp}
+          description={set.words.nameHelp}
           value={name}
           onChange={setName}
           isRequired
@@ -137,7 +133,7 @@ export function FormFieldDialog({ form, field, onClose }: FormFieldDialogProps) 
         <TextField label={messages.forms.fieldHelp} description={messages.forms.fieldHelpHelp} value={help} onChange={setHelp} autoComplete="off" />
         {settings?.Component && <settings.Component options={options} onChange={setOptions} isExisting={field !== undefined} problem={problems['options']} />}
         {!settings?.Component && problems['options'] !== undefined && <Text tone="danger">{problems['options']}</Text>}
-        <Checkbox label={messages.forms.fieldRequired} isSelected={isRequired} onChange={setRequired} />
+        {set.canRequire && <Checkbox label={messages.forms.fieldRequired} isSelected={isRequired} onChange={setRequired} />}
       </Form>
     </Dialog>
   );

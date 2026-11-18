@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ConflictError } from '../errors.js';
-import type { Contact, ContactNote, ContentTypeDef, Entry, FormDef, MediaFile, Deal, Pipeline, Submission } from '../model.js';
-import type { ContactRepository, DealRepository, PipelineStore, EntryRepository, FormRepository, SubmissionRepository, MediaRepository, MediaStore, PluginStore, SchemaRepository, SearchDocument, SearchIndex } from '../ports.js';
+import type { Contact, ContactNote, ContentTypeDef, Entry, FormDef, MediaFile, Deal, Pipeline, Submission, CustomFields, FieldDef } from '../model.js';
+import type { ContactRepository, CustomFieldsStore, DealRepository, PipelineStore, EntryRepository, FormRepository, SubmissionRepository, MediaRepository, MediaStore, PluginStore, SchemaRepository, SearchDocument, SearchIndex } from '../ports.js';
 
 /**
  * The contract tests for storage adapters.
@@ -773,6 +773,26 @@ export function pipelineStoreContract(name: string, create: () => Promise<Pipeli
       expect(await store.get()).toEqual(first);
       await expect(store.save({ ...first, revision: 2 }, null)).rejects.toBeInstanceOf(ConflictError);
       const second: Pipeline = { stages: [{ id: 'new', label: 'Fresh', kind: 'open' }], revision: 2 };
+      await store.save(second, 1);
+      await expect(store.save({ ...second, revision: 3 }, 1)).rejects.toBeInstanceOf(ConflictError);
+      expect(await store.get()).toEqual(second);
+    });
+  });
+}
+
+/** Run this against every `CustomFieldsStore` adapter. */
+export function customFieldsStoreContract(name: string, create: () => Promise<CustomFieldsStore>): void {
+  describe(`${name}: CustomFieldsStore contract`, () => {
+    it('answers null until fields are saved, gives them back as saved, and refuses a save from an old revision', async () => {
+      const store = await create();
+      expect(await store.get()).toBeNull();
+      const field: FieldDef = { id: 'f1', key: 'membership', type: 'select', label: { en: 'Membership' }, translated: false, required: false, options: { choices: ['monthly', 'yearly'] } };
+      const first: CustomFields = { contact: [field], deal: [], revision: 1 };
+      await expect(store.save(first, 1)).rejects.toBeInstanceOf(ConflictError);
+      expect(await store.save(first, null)).toEqual(first);
+      expect(await store.get()).toEqual(first);
+      await expect(store.save({ ...first, revision: 2 }, null)).rejects.toBeInstanceOf(ConflictError);
+      const second: CustomFields = { contact: [{ ...field, deletedAt: '2026-02-01T00:00:00.000Z' }], deal: [{ ...field, id: 'f2', key: 'plan' }], revision: 2 };
       await store.save(second, 1);
       await expect(store.save({ ...second, revision: 3 }, 1)).rejects.toBeInstanceOf(ConflictError);
       expect(await store.get()).toEqual(second);

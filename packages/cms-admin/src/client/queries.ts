@@ -1,5 +1,5 @@
 import { MutationCache, QueryCache, QueryClient, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, DealChanges, NewDeal, Page, PipelineChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity/cms-core';
+import type { ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, DealChanges, NewDeal, Page, PipelineChanges, CustomFieldsChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity/cms-core';
 import type { ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, ImageList, NewEntry, NewPerson, NewType, NewTypeField, SubmissionListQuery } from './admin-client.js';
 import { AdminRequestError } from './errors.js';
 import { useClient } from './client-context.js';
@@ -37,6 +37,7 @@ const keys = {
   contact: (id: string) => ['contacts', 'one', id] as const,
   contactTimeline: (id: string) => ['contacts', 'timeline', id] as const,
   pipeline: ['contacts', 'pipeline'] as const,
+  customFields: ['contacts', 'custom-fields'] as const,
   /** Everything about deals starts with this. A change to contacts or the pipeline marks it out of date too. */
   deals: ['contacts', 'deals'] as const,
   dealList: (query: DealListQuery) => ['contacts', 'deals', 'list', query] as const,
@@ -485,6 +486,18 @@ export function usePipeline() {
 export function useSavePipeline() {
   const client = useClient();
   return useMutation({ mutationFn: (changes: PipelineChanges) => client.savePipeline(changes), onSuccess: useContactsChanged() });
+}
+
+/** The fields this site adds to its contacts and deals. */
+export function useCustomFields() {
+  const client = useClient();
+  return useQuery({ queryKey: keys.customFields, queryFn: () => client.getCustomFields() });
+}
+
+export function useSaveCustomFields() {
+  const client = useClient();
+  const cache = useQueryClient();
+  return useMutation({ mutationFn: (changes: CustomFieldsChanges) => client.saveCustomFields(changes), onSuccess: (saved) => cache.setQueryData(keys.customFields, saved) });
 }
 
 /** Who a contact can be given to. */

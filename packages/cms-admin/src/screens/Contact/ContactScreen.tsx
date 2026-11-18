@@ -1,4 +1,4 @@
-import type { Contact, TimelineItem } from '@velocity/cms-core';
+import { liveFields, type Contact, type TimelineItem } from '@velocity/cms-core';
 import { Box, Button, Card, ConfirmDialog, Dialog, EmptyState, Form, Inline, Link, PageHeader, Split, Stack, Tag, Text, TextArea, TextField, toast } from '@velocity/cms-ui';
 import { Contact as ContactIcon, Download, Pencil, UserX } from 'lucide-react';
 import { useState } from 'react';
@@ -7,7 +7,8 @@ import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { paths } from '../../app/paths.js';
 import { useGo } from '../../app/use-go.js';
 import { AdminRequestError } from '../../client/errors.js';
-import { useAddContactNote, useContact, useContactTimeline, useDeleteContactNote, useEraseContact, useExportContact, useForms, useSession, useUpdateContact } from '../../client/queries.js';
+import { useAddContactNote, useContact, useContactTimeline, useCustomFields, useDeleteContactNote, useEraseContact, useExportContact, useForms, useSession, useUpdateContact } from '../../client/queries.js';
+import { CustomValueFields, useCustomValues } from '../../fields/custom-values.js';
 import { localized } from '../../lib/content.js';
 import { downloadText } from '../../lib/download.js';
 import { relativeTime } from '../../lib/relative-time.js';
@@ -19,6 +20,7 @@ import { ContactDeals } from './ContactDeals.js';
 import { ContactWork } from './ContactWork.js';
 
 const NO_PROBLEMS: Readonly<Record<string, string>> = {};
+const NO_VALUES: Readonly<Record<string, unknown>> = {};
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /** One contact: who they are, what they sent and what the team noted. */
@@ -64,12 +66,16 @@ function ContactPage({ contact }: { readonly contact: Contact }) {
   const [isEditing, setEditing] = useState(false);
   const [isErasing, setErasing] = useState(false);
   const name = contact.name ?? contact.email;
-  const facts = [
+  const customFields = useCustomFields();
+  const held = contact.data ?? NO_VALUES;
+  const facts: readonly (readonly [string, string])[] = [
     [messages.contacts.email, contact.email],
     [messages.contacts.phone, contact.phone ?? messages.contacts.notGiven],
+    // The site's own fields, each shown as text whether or not it is filled in.
+    ...liveFields(customFields.data?.contact ?? []).map((field) => [localized(field.label, locale), answerText(held[field.id], messages.forms.yes) || messages.contacts.notGiven] as const),
     [messages.contacts.firstCameFrom, sourceOf(contact)],
     [messages.contacts.added, relativeTime(contact.createdAt, locale)],
-  ] as const;
+  ];
 
   return (
     <Box paddingX={12} paddingY={10}>
@@ -285,12 +291,13 @@ function EditContactDialog({ contact, onClose }: { readonly contact: Contact; re
   const [email, setEmail] = useState(contact.email);
   const [phone, setPhone] = useState(contact.phone ?? '');
   const [problems, setProblems] = useState(NO_PROBLEMS);
+  const custom = useCustomValues('contact', contact.data);
 
   const send = () => {
     if (email.trim() === '') return setProblems({ email: messages.contacts.emailNeeded });
     setProblems(NO_PROBLEMS);
     update.mutate(
-      { id: contact.id, changes: { email, name: name.trim() === '' ? null : name, phone: phone.trim() === '' ? null : phone, expectedRevision: contact.revision } },
+      { id: contact.id, changes: { email, name: name.trim() === '' ? null : name, phone: phone.trim() === '' ? null : phone, ...custom.toSend(), expectedRevision: contact.revision } },
       {
         onSuccess: (saved) => {
           toast({ title: messages.contacts.saved(saved.name ?? saved.email), tone: 'success' });
@@ -298,6 +305,7 @@ function EditContactDialog({ contact, onClose }: { readonly contact: Contact; re
         },
         onError: (error) => {
           if (error instanceof AdminRequestError) setProblems(Object.fromEntries(error.issues.map((issue) => [String(issue.path[0]), issue.message])));
+          custom.refused(error);
           toast({ title: messages.contacts.notSaved, description: messageOf(error), tone: 'danger' });
         },
       },
@@ -324,6 +332,7 @@ function EditContactDialog({ contact, onClose }: { readonly contact: Contact; re
         <TextField label={messages.contacts.name} value={name} onChange={setName} autoFocus autoComplete="off" {...(problems['name'] !== undefined && { errorMessage: problems['name'] })} />
         <TextField label={messages.contacts.email} type="email" value={email} onChange={setEmail} isRequired autoComplete="off" {...(problems['email'] !== undefined && { errorMessage: problems['email'] })} />
         <TextField label={messages.contacts.phone} type="tel" value={phone} onChange={setPhone} autoComplete="off" {...(problems['phone'] !== undefined && { errorMessage: problems['phone'] })} />
+        <CustomValueFields custom={custom} />
       </Form>
     </Dialog>
   );

@@ -625,6 +625,24 @@ export const en = {
     removed: (name: string) => `${name} was removed`,
     notRemoved: 'The image was not removed',
   },
+  customFields: {
+    button: 'Custom fields',
+    close: 'Close',
+    nameHelp: 'What the team reads above the field.',
+    removeDescription: 'The field is no longer shown or exported. What was filled in under it is kept.',
+    contact: {
+      name: 'Contacts',
+      title: 'Custom fields for contacts',
+      help: 'What you keep about each contact beyond their name, email and phone, such as a membership type or a budget.',
+      emptyDescription: 'Add what you want to know about each contact. It shows on every contact, ready to fill in.',
+    },
+    deal: {
+      name: 'Deals',
+      title: 'Custom fields for deals',
+      help: 'What you keep about each deal beyond its name, value and stage, such as a product or a number of seats.',
+      emptyDescription: 'Add what you want to know about each deal. It shows in every deal, ready to fill in.',
+    },
+  },
   plugins: {
     title: 'Plugins',
     description: 'What you can add to this site. Activate a plugin to switch it on, and switch it off again at any time.',

@@ -77,3 +77,19 @@ it('is closed to an author', async () => {
   expect(await screen.findByText('Deals are for owners and editors.')).toBeTruthy();
   expect(screen.queryByRole('link', { name: 'Deals' })).toBeNull();
 });
+
+it('adds a field of the site\'s own to deals, and fills it in on a new deal', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/deals', signedIn());
+  await user.click(await screen.findByRole('button', { name: 'Custom fields' }));
+  const fields = within(await screen.findByRole('dialog', { name: 'Custom fields for deals' }));
+  await user.click(await fields.findByRole('button', { name: 'Add field' }));
+  const adding = within(await screen.findByRole('dialog', { name: 'Add a field' }));
+  await user.type(adding.getByRole('textbox', { name: /^Label/ }), 'Product');
+  await user.click(adding.getByRole('button', { name: 'Add field' }));
+  expect(await fields.findByRole('row', { name: /Product/ })).toBeTruthy();
+  const [product] = (await client.getCustomFields()).deal;
+  const { items } = await client.listContacts({});
+  const deal = await client.createDeal({ contactId: items[0]?.id ?? '', title: 'Sale on Alder', value: 100, data: { [product?.id ?? '']: 'Listing' } });
+  expect(deal.data).toEqual({ [product?.id ?? '']: 'Listing' });
+});

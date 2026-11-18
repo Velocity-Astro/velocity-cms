@@ -5,14 +5,15 @@ import { deals } from './tables.js';
 
 type Row = typeof deals.$inferSelect;
 
-const toDeal = ({ ownerId, closeOn, closedAt, ...row }: Row): Deal => ({
+const toDeal = ({ ownerId, closeOn, closedAt, data, ...row }: Row): Deal => ({
   ...row,
   ...(ownerId !== null && { ownerId }),
   ...(closeOn !== null && { closeOn }),
   ...(closedAt !== null && { closedAt }),
+  ...(data !== null && { data }),
 });
 
-const toRow = (deal: Deal): Row => ({ ...deal, ownerId: deal.ownerId ?? null, closeOn: deal.closeOn ?? null, closedAt: deal.closedAt ?? null });
+const toRow = (deal: Deal): Row => ({ ...deal, ownerId: deal.ownerId ?? null, closeOn: deal.closeOn ?? null, closedAt: deal.closedAt ?? null, data: deal.data ?? null });
 
 export class SqliteDealRepository implements DealRepository {
   constructor(private readonly db: Db) {}

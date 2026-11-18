@@ -1,6 +1,6 @@
 import type { Contact } from '@velocity/cms-core';
 import { Box, Button, Dialog, EmptyState, Form, Inline, PageHeader, SearchField, Segmented, Select, Stack, Table, Tag, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity/cms-ui';
-import { Contact as ContactIcon, ListFilter, Plus, SearchX, Settings2 } from 'lucide-react';
+import { Contact as ContactIcon, ListFilter, ListPlus, Plus, SearchX, Settings2 } from 'lucide-react';
 import { useDeferredValue, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
@@ -8,6 +8,7 @@ import { paths } from '../../app/paths.js';
 import { useGo } from '../../app/use-go.js';
 import { AdminRequestError } from '../../client/errors.js';
 import { useContacts, useCreateContact, useForms, usePipeline, useSession, useTeam } from '../../client/queries.js';
+import { CustomFieldsDialog } from '../../fields/CustomFieldsDialog.js';
 import { relativeTime } from '../../lib/relative-time.js';
 import { useClosing } from '../../lib/use-closing.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
@@ -55,6 +56,7 @@ function ContactList() {
   const followUp = useFollowUp();
   const [isCreating, setCreating] = useState(false);
   const [isEditingStages, setEditingStages] = useState(false);
+  const [isEditingFields, setEditingFields] = useState(false);
   const stages = pipeline.data?.stages ?? [];
   const isNarrowed = stage !== ALL || owner !== ALL;
 
@@ -122,6 +124,9 @@ function ContactList() {
                 selected={view}
                 onChange={(next) => setAddress(next === 'board' ? { view: 'board' } : {}, { replace: true })}
               />
+              <Button variant="secondary" icon={ListPlus} onPress={() => setEditingFields(true)}>
+                {messages.customFields.button}
+              </Button>
               {create}
             </Inline>
           }
@@ -176,6 +181,7 @@ function ContactList() {
         {contacts.isSuccess && rows.length > 0 && <Table label={messages.contacts.title} columns={columns} rows={rows} onRowAction={(id) => go(paths.contact(id))} />}
         </>}
       </Stack>
+      {isEditingFields && <CustomFieldsDialog of="contact" onClose={() => setEditingFields(false)} />}
       {isEditingStages && pipeline.data && <StagesDialog pipeline={pipeline.data} team={team.data ?? []} onClose={() => setEditingStages(false)} />}
       {/* Made anew each time it opens, so it never shows what was typed last time. */}
       {isCreating && <NewContactDialog onClose={() => setCreating(false)} />}
