@@ -1,4 +1,4 @@
-import type { Cms, ContactChanges, DealChanges, NewDeal, PipelineChanges, CustomFieldsChanges, ContentTypeChanges, FieldArrangement, FieldChanges, FieldSection, FormChanges, NewContact, NewField, NewForm, Role } from '@velocity/cms-core';
+import type { Cms, ContactChanges, ContactImportRow, DealChanges, NewDeal, PipelineChanges, CustomFieldsChanges, ContentTypeChanges, FieldArrangement, FieldChanges, FieldSection, FormChanges, NewContact, NewField, NewForm, Role } from '@velocity/cms-core';
 import { z } from 'zod';
 import type { ApiSession, Authenticator } from './authenticator.js';
 import { ApiError, errorResponse, isFault, json } from './http.js';
@@ -150,6 +150,9 @@ const contactList = z.object({
 // What each custom field may hold is its field type's to say, in the service.
 const customValues = z.record(z.string(), z.unknown());
 const newContact = z.strictObject({ email: z.string(), name: z.string().optional(), phone: z.string().optional(), data: customValues.optional() });
+const contactImport = z.strictObject({
+  rows: z.array(z.strictObject({ email: z.string(), name: z.string().optional(), phone: z.string().optional(), data: z.record(z.string(), z.string()).optional() })),
+});
 const contactChanges = z.strictObject({
   email: z.string().optional(),
   name: z.string().nullable().optional(),
@@ -443,6 +446,11 @@ export class CmsApi {
         const who = actor(call);
         const body = parse(newContact, await this.#body(call.request));
         return json(await contacts.create(who, deep<NewContact>(body)), 201);
+      })
+      .add('POST', '/contacts/import', async (call) => {
+        const who = actor(call);
+        const { rows } = parse(contactImport, await this.#body(call.request));
+        return json(await contacts.import(who, deep<ContactImportRow[]>(rows)));
       })
       .add('GET', '/contacts/:id', async (call) => json(await contacts.get(actor(call), param(call, 'id'))))
       .add('PATCH', '/contacts/:id', async (call) => {

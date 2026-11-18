@@ -81,9 +81,9 @@ export const slack = definePlugin({
       const who = person && submission.email !== undefined ? ` by ${plain(submission.email)}` : '';
       await cms.tasks.add(POST, { text: `:incoming_envelope: *${name}* was sent${from}${who}.` }, { label: `A form sent, to Slack` });
     });
-    cms.events.on('contact.saved', async ({ contact }) => {
-      // Only the first save is news: later ones are the team's own changes.
-      if (contact.revision !== 1) return;
+    cms.events.on('contact.saved', async ({ contact, imported }) => {
+      // Only the first save is news: later ones are the team's own changes, and a file of contacts is not news line by line.
+      if (contact.revision !== 1 || imported === true) return;
       const { asked, person } = await wants('contacts');
       if (!asked) return;
       const who = person ? `: ${plain(contact.name ?? contact.email)}${contact.name !== undefined ? ` (${plain(contact.email)})` : ''}` : '';

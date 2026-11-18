@@ -1,5 +1,5 @@
 import { MutationCache, QueryCache, QueryClient, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, DealChanges, NewDeal, Page, PipelineChanges, CustomFieldsChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity/cms-core';
+import type { ContactImportReport, ContactImportRow, ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, DealChanges, NewDeal, Page, PipelineChanges, CustomFieldsChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity/cms-core';
 import type { ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, ImageList, NewEntry, NewPerson, NewType, NewTypeField, SubmissionListQuery } from './admin-client.js';
 import { AdminRequestError } from './errors.js';
 import { useClient } from './client-context.js';
@@ -525,6 +525,33 @@ function useContactsChanged() {
 export function useCreateContact() {
   const client = useClient();
   return useMutation({ mutationFn: (input: NewContact) => client.createContact(input), onSuccess: useContactsChanged() });
+}
+
+/** How many rows of a file go in one request: few enough that each is answered soon. */
+const IMPORT_PART = 50;
+
+/**
+ * Adds the contacts of a file, a part at a time, and answers with what became of all its rows.
+ * A problem is given by the row's place in the whole file. If a part fails, the parts before it
+ * are in, and the lists are read again all the same.
+ */
+export function useImportContacts() {
+  const client = useClient();
+  const changed = useContactsChanged();
+  return useMutation({
+    mutationFn: async (rows: readonly ContactImportRow[]): Promise<ContactImportReport> => {
+      const whole = { added: 0, filled: 0, unchanged: 0, problems: [] as { row: number; message: string }[] };
+      for (let start = 0; start < rows.length; start += IMPORT_PART) {
+        const part = await client.importContacts(rows.slice(start, start + IMPORT_PART));
+        whole.added += part.added;
+        whole.filled += part.filled;
+        whole.unchanged += part.unchanged;
+        whole.problems.push(...part.problems.map((problem) => ({ ...problem, row: problem.row + start })));
+      }
+      return whole;
+    },
+    onSettled: changed,
+  });
 }
 
 export function useUpdateContact() {

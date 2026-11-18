@@ -69,6 +69,9 @@ describe('the Slack plugin', () => {
     const [ana] = (await cms.contacts.find(editor)).items;
     await cms.contacts.update(editor, ana?.id ?? '', { phone: '512 555 0142', expectedRevision: 1 });
     expect(sent).toHaveLength(1);
+    // A file of contacts is not news line by line.
+    expect((await cms.contacts.import(editor, [{ email: 'omar@example.com' }, { email: 'li@example.com' }])).added).toBe(2);
+    expect(sent).toHaveLength(1);
     // Once posted, nothing of the person stays with the plugin.
     expect(JSON.stringify(await store.list('slack', 'task:'))).not.toContain('ana@example.com');
   });

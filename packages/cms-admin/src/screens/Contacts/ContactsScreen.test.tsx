@@ -172,3 +172,36 @@ it('sets each open stage\'s chance, the currency and who new contacts go to', as
   expect(saved).toMatchObject({ currency: 'EUR', assignTo: ['u1'] });
   expect(saved.stages[0]).toMatchObject({ id: 'new', chance: 25 });
 });
+
+it('brings in a file of contacts: the columns are matched, and what came of each row is said', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/contacts', signedIn());
+  await user.click(await screen.findByRole('button', { name: 'Import' }));
+  const dialog = within(await screen.findByRole('dialog', { name: 'Import contacts' }));
+  const input = document.querySelector('input[type="file"]');
+  if (!(input instanceof HTMLInputElement)) throw new Error('No file input');
+
+  // A file with headings and nothing under them is refused in words.
+  await user.upload(input, new File(['Name,Email\n'], 'empty.csv', { type: 'text/csv' }));
+  expect(await dialog.findByText(/has no rows under its headings/)).toBeTruthy();
+
+  const file = 'Full name,E-mail address,Mobile,Notes\n"Haddad, Omar",omar@example.com,512 555 0142,met at the open house\nAna Again,ana@example.com,,\nNo Address,nowhere,,\n';
+  await user.upload(input, new File([file], 'contacts.csv', { type: 'text/csv' }));
+  expect(await dialog.findByText('3 rows found. Say what each column holds.')).toBeTruthy();
+  // Each column is guessed from its heading, and one that is nothing known is left out.
+  expect(dialog.getByRole('button', { name: /Column "Full name"/ }).textContent).toContain('Name');
+  expect(dialog.getByRole('button', { name: /Column "E-mail address"/ }).textContent).toContain('Email');
+  expect(dialog.getByRole('button', { name: /Column "Mobile"/ }).textContent).toContain('Phone');
+  expect(dialog.getByRole('button', { name: /Column "Notes"/ }).textContent).toContain('Leave it out');
+  expect(dialog.getByText('For example: Haddad, Omar')).toBeTruthy();
+
+  await user.click(dialog.getByRole('button', { name: 'Import 3 rows' }));
+  expect(await dialog.findByText('1 contact was added.')).toBeTruthy();
+  expect(dialog.getByText('1 you already had were left as they are.')).toBeTruthy();
+  expect(dialog.getByText('1 row was left out:')).toBeTruthy();
+  expect(dialog.getByText('Row 4: email: Enter an email address, such as ana@example.com.')).toBeTruthy();
+  expect((await client.listContacts({ search: 'omar@example.com' })).items[0]).toMatchObject({ name: 'Haddad, Omar', phone: '512 555 0142' });
+
+  await user.click(dialog.getByRole('button', { name: 'Done' }));
+  expect(await within(await screen.findByRole('grid', { name: 'Contacts' })).findByRole('row', { name: /Haddad, Omar/ })).toBeTruthy();
+});
