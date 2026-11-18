@@ -1,4 +1,4 @@
-import { MediaService, type Cms, type ImageLibrary } from '@velocity/cms-core';
+import type { Cms } from '@velocity/cms-core';
 import { z } from 'zod';
 import type { ApiSession, Authenticator } from './authenticator.js';
 import { ApiError, errorResponse, isFault, json } from './http.js';
@@ -7,8 +7,6 @@ import { Router } from './router.js';
 export interface CmsApiOptions {
   readonly cms: Cms;
   readonly authenticator: Authenticator;
-  /** The site's images, for image fields to choose from. Without it there are none to offer. */
-  readonly images?: ImageLibrary;
   /** Where the API is mounted on the site. Defaults to `/api/cms`. */
   readonly basePath?: string;
   /** The language an entry is written in when the request names none. Defaults to `en`. */
@@ -33,6 +31,10 @@ interface Call {
 }
 
 type Handler = (call: Call) => Promise<Response>;
+
+/** What an upload may say it is. What it really is, the media service reads from the file. */
+const IMAGE_TYPES: ReadonlySet<string> = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const contentTypeOf = (request: Request): string => (request.headers.get('content-type') ?? '').split(';')[0]?.trim().toLowerCase() ?? '';
 
 const entryList = z.object({
   type: z.string().min(1),
@@ -60,9 +62,8 @@ export class CmsApi {
   constructor(options: CmsApiOptions) {
     this.#options = options;
     this.#basePath = `/${(options.basePath ?? '/api/cms').split('/').filter(Boolean).join('/')}`;
-    const { schema, content, fields } = options.cms;
+    const { schema, content, fields, media } = options.cms;
     const defaultLocale = options.defaultLocale ?? 'en';
-    const media = new MediaService(options.cms.access, options.images);
 
     this.#router
       .add('GET', '/session', async ({ session }) => json({ user: session?.user ?? null }))
@@ -74,7 +75,11 @@ export class CmsApi {
         actor(call);
         return json({ items: fields.list().map(({ type, editor }) => ({ type, editor })) });
       })
-      .add('GET', '/images', async (call) => json({ items: await media.images(actor(call)) }))
+      .add('GET', '/images', async (call) => {
+        const items = await media.images(actor(call));
+        return json({ items, upload: media.takesUploads ? { maxBytes: media.maxUploadBytes } : null });
+      })
+      .add('POST', '/images', this.#upload)
       .add('GET', '/entries', async (call) => {
         const query = parse(entryList, Object.fromEntries(call.url.searchParams));
         const type = await schema.getByKey(query.type);
@@ -118,7 +123,7 @@ export class CmsApi {
       if (match.kind === 'wrong-method') {
         throw new ApiError(405, 'method_not_allowed', `This address does not take ${request.method}.`, { allow: match.allowed.join(', ') });
       }
-      if (request.method !== 'GET') this.#requireOwnPage(request, url);
+      if (request.method !== 'GET') this.#requireOwnPage(request, url, match.handler === this.#upload ? IMAGE_TYPES : JSON_ONLY);
       const session = await this.#options.authenticator.authenticate(request);
       return await match.handler({ request, url, params: match.params, session });
     } catch (error) {
@@ -128,19 +133,61 @@ export class CmsApi {
   };
 
   /**
-   * Refuses a change that another site's page is trying to make with the person's session. A
-   * browser always says where such a request comes from, and cannot be made to send JSON across
-   * sites without asking first, so both are checked.
+   * Takes one image: the file is the request's body, and `?name=` says what it was called on the
+   * person's computer. The one route that is not JSON, since a file inside JSON grows by a third.
    */
-  #requireOwnPage(request: Request, url: URL): void {
+  readonly #upload: Handler = async (call) => {
+    const who = actor(call);
+    const limit = this.#options.cms.media.maxUploadBytes;
+    const bytes = await this.#bytes(call.request, limit);
+    const image = await this.#options.cms.media.upload(who, { fileName: call.url.searchParams.get('name') ?? '', bytes });
+    return json(image, 201);
+  };
+
+  /**
+   * Refuses a change that another site's page is trying to make with the person's session. A
+   * browser always says where such a request comes from, and cannot be made to send JSON or an
+   * image as the body across sites without asking first, so both are checked.
+   */
+  #requireOwnPage(request: Request, url: URL, accepted: ReadonlySet<string>): void {
     const origin = request.headers.get('origin');
     if (origin !== null && origin !== url.origin && !(this.#options.trustedOrigins ?? []).includes(origin)) {
       throw new ApiError(403, 'forbidden', 'This request came from another site, so it was refused.');
     }
-    const type = request.headers.get('content-type') ?? '';
-    if (type.split(';')[0]?.trim().toLowerCase() !== 'application/json') {
-      throw new ApiError(415, 'unsupported_media_type', 'Send the request as JSON, with the content type application/json.');
+    if (!accepted.has(contentTypeOf(request))) {
+      throw new ApiError(
+        415,
+        'unsupported_media_type',
+        accepted === IMAGE_TYPES
+          ? 'Send the image itself as the request, with the content type image/jpeg, image/png or image/webp.'
+          : 'Send the request as JSON, with the content type application/json.',
+      );
     }
+  }
+
+  /** The request's body as it is. Stops reading as soon as it is more than the limit. */
+  async #bytes(request: Request, limit: number): Promise<Uint8Array> {
+    const megabytes = (limit / 1_000_000).toFixed(1).replace(/\.0$/, '');
+    const tooLarge = new ApiError(413, 'too_large', `The file is more than the ${megabytes} MB an upload can be. Make it smaller first.`);
+    if (Number(request.headers.get('content-length') ?? 0) > limit) throw tooLarge;
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    const reader = request.body?.getReader();
+    for (let part = await reader?.read(); part && !part.done; part = await reader?.read()) {
+      size += part.value.length;
+      if (size > limit) {
+        await reader?.cancel();
+        throw tooLarge;
+      }
+      chunks.push(part.value);
+    }
+    const bytes = new Uint8Array(size);
+    let at = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, at);
+      at += chunk.length;
+    }
+    return bytes;
   }
 
   /** The request's JSON, or `{}` when it sent none. */
@@ -158,6 +205,8 @@ export class CmsApi {
     }
   }
 }
+
+const JSON_ONLY: ReadonlySet<string> = new Set(['application/json']);
 
 /** Who is asking, for the services to check. Refuses a request nobody is signed in for. */
 function actor(call: Call) {

@@ -95,5 +95,24 @@ export function convert(project) {
     edit(`src/pages/${name}`, (source) => source.replace(/^---\n/, '---\nexport const prerender = false;\n'));
   }
 
+  // 7. Photos people upload in the editor: looked up where the project's own photos are, and
+  //    fetched by the site's image service from the site itself.
+  add('src/lib/uploads.ts', 'uploads.ts');
+  edit('src/content/estate/index.ts', (source) => {
+    const next = must(
+      source,
+      "  Object.entries(photoFiles).find(([file]) => file.split('/').pop()?.split('.')[0] === name)?.[1].default;",
+      "  Object.entries(photoFiles).find(([file]) => file.split('/').pop()?.split('.')[0] === name)?.[1].default ?? uploadedPhoto(name);",
+    );
+    return must(next, "import { liveCollection } from '@/lib/live';", "import { liveCollection } from '@/lib/live';\nimport { uploadedPhoto } from '@/lib/uploads';");
+  });
+  edit('src/components/patterns/MediaSlot.astro', (source) => {
+    const next = must(source, ')?.[1].default;\n', ')?.[1].default ?? uploadedPhoto(photo);\n');
+    return must(next, "import { cn } from '@/lib/cn';", "import { cn } from '@/lib/cn';\nimport { uploadedPhoto } from '@/lib/uploads';");
+  });
+  edit('astro.config.mjs', (config) =>
+    must(config, "  image: {\n", "  image: {\n    // Uploaded photos are served by this site, and resized by it like any other.\n    domains: [new URL(process.env.SITE_URL || 'https://example.com').hostname],\n"),
+  );
+
   return changes;
 }

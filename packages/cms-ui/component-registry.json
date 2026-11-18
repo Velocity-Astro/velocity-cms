@@ -197,7 +197,7 @@
       "name": "ImagePicker",
       "layer": "pattern",
       "group": "Forms",
-      "description": "Shows the image a field holds and lets a person choose another from the site's images, in a window.",
+      "description": "Shows the image a field holds and lets a person choose another from the site's images, or upload a new one, in a window.",
       "example": "<ImagePicker label=\"Cover photo\" value={photo} images={images} onChange={setPhoto} chooseLabel=\"Choose a photo\" changeLabel=\"Change\" noneText=\"No photo chosen\" dialogTitle=\"Choose a photo\" closeLabel=\"Close\" emptyText=\"No photos yet\" />",
       "useInstead": "Select to choose from a short list of words.",
       "uses": ["Button", "Dialog"]

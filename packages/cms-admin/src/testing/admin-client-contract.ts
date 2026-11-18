@@ -1,4 +1,5 @@
 import type { ContentTypeDef, Entry, SiteImage } from '@velocity/cms-core';
+import { tinyJpeg, tinyPng } from '@velocity/cms-core/in-memory';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { AdminClient } from '../client/admin-client.js';
 import { sampleContentTypes, sampleEntries } from './sample-content.js';
@@ -7,6 +8,8 @@ export interface AdminClientSeed {
   readonly contentTypes: readonly ContentTypeDef[];
   readonly entries: readonly Entry[];
   readonly images?: readonly SiteImage[];
+  /** Whether the site takes uploads. Defaults to `true`. */
+  readonly uploads?: boolean;
 }
 
 /**
@@ -35,11 +38,36 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       expect(await client.listFieldTypes()).toContainEqual({ type: 'number', editor: 'number-input' });
     });
 
-    it("lists the site's images by name", async () => {
-      expect(await client.listImages()).toEqual([
-        { name: 'kitchen', url: '/images/kitchen.jpg', width: 1200, height: 800 },
-        { name: 'porch', url: '/images/porch.jpg' },
-      ]);
+    it("lists the site's images by name, and says how large an upload may be", async () => {
+      expect(await client.listImages()).toEqual({
+        items: [
+          { name: 'kitchen', url: '/images/kitchen.jpg', width: 1200, height: 800 },
+          { name: 'porch', url: '/images/porch.jpg' },
+        ],
+        upload: { maxBytes: 4_000_000 },
+      });
+    });
+
+    it('takes an uploaded image, names it after its file and lists it with the others', async () => {
+      const image = await client.uploadImage({ fileName: 'Front Porch.PNG', bytes: tinyPng(1600, 900) });
+      expect(image).toEqual({ name: 'front-porch', url: '/media/front-porch.png', width: 1600, height: 900 });
+      // A name the site already has is not taken twice.
+      expect((await client.uploadImage({ fileName: 'kitchen.jpg', bytes: tinyJpeg() })).name).toBe('kitchen-2');
+      expect((await client.listImages()).items.map((item) => item.name)).toEqual(['front-porch', 'kitchen', 'kitchen-2', 'porch']);
+    });
+
+    it('refuses a file that is not an image, in words for the person', async () => {
+      const notAnImage = new TextEncoder().encode('<script>alert(1)</script>');
+      await expect(client.uploadImage({ fileName: 'photo.jpg', bytes: notAnImage })).rejects.toMatchObject({
+        code: 'validation_failed',
+        message: 'The file is not an image this site can show. Upload a JPEG, PNG or WebP.',
+      });
+    });
+
+    it('says so when the site takes no uploads', async () => {
+      const closed = await make({ contentTypes: [], entries: [], uploads: false });
+      expect((await closed.listImages()).upload).toBeNull();
+      await expect(closed.uploadImage({ fileName: 'porch.png', bytes: tinyPng() })).rejects.toMatchObject({ code: 'conflict' });
     });
 
     it('lists entries most recently saved first, a page at a time', async () => {

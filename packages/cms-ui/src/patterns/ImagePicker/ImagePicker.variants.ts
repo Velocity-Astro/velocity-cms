@@ -29,3 +29,8 @@ export const imagePickerChoiceClass = [
 export const imagePickerChoiceImageClass = 'aspect-video w-full rounded-sm bg-background-secondary object-cover';
 export const imagePickerChoiceNameClass = 'truncate px-0.5 text-sm text-foreground';
 export const imagePickerEmptyClass = 'py-6 text-center text-sm text-foreground-muted';
+
+/** The upload button with its note, above the images. */
+export const imagePickerUploadClass = 'flex min-w-0 flex-wrap items-center gap-3 pt-2';
+export const imagePickerUploadHintClass = 'min-w-0 text-sm text-foreground-muted';
+export const imagePickerUploadErrorClass = 'min-w-0 text-sm text-destructive';

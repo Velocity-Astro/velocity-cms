@@ -67,11 +67,11 @@ export class EditorHost {
       adminPath,
       access: cms.access,
     });
+    if (options.images) cms.media.include(options.images);
     this.#api = new CmsApi({
       cms,
       authenticator: this.auth,
       basePath: apiPath,
-      ...(options.images && { images: options.images }),
       ...(options.onFault && { onFault: options.onFault }),
     });
     this.#files = new AdminFiles(options.editorDirectory ?? builtEditorDirectory(), { siteName: options.siteName, adminPath, apiPath, authPath });

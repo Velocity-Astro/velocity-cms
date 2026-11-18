@@ -1,7 +1,8 @@
 import { liveFields, type FieldDef } from '@velocity/cms-core';
 import { DateField, Fieldset, ImagePicker, NumberField, Repeater, Select, Switch, Text, TextArea, TextField } from '@velocity/cms-ui';
 import { useState } from 'react';
-import { useContentTypes, useEntries, useImages } from '../client/queries.js';
+import { useContentTypes, useEntries, useImages, useUploadImage, useUploadRules } from '../client/queries.js';
+import { prepareImage } from '../lib/prepare-image.js';
 import { entryTitle, groupTranslations, localized, sameData, withValue } from '../lib/content.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
 import { createFieldControlRegistry, type FieldControlProps, type FieldControls, type FieldSummaryProps } from './field-control.js';
@@ -160,6 +161,8 @@ function ReferenceControl({ field, label, help, isLabelHidden = false, value, on
   );
 }
 
+const megabytes = (bytes: number): string => String(Math.round(bytes / 100_000) / 10);
+
 /**
  * One of the site's images, shown as a picture and chosen from the site's images. What is stored
  * is the image's name. A name with no image is still shown, so opening and saving never drops it.
@@ -167,6 +170,21 @@ function ReferenceControl({ field, label, help, isLabelHidden = false, value, on
 function ImageControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {
   const messages = useMessages();
   const images = useImages();
+  const rules = useUploadRules().data ?? null;
+  const uploading = useUploadImage();
+  const [notRead, setNotRead] = useState(false);
+  const upload = async (file: File) => {
+    setNotRead(false);
+    uploading.reset();
+    const prepared = await prepareImage(file, rules?.maxBytes ?? 0).catch(() => null);
+    if (!prepared) {
+      setNotRead(true);
+      throw new Error(messages.editor.imageNotRead);
+    }
+    const image = await uploading.mutateAsync(prepared);
+    onChange(image.name);
+  };
+  const uploadError = notRead ? messages.editor.imageNotRead : uploading.error?.message;
   const current = typeof value === 'string' && value !== '' ? value : null;
   const missing = current !== null && images.isSuccess && !images.data.some((image) => image.name === current);
   const wrong = problem ?? (images.isError ? messages.editor.imagesNotLoaded : missing ? messages.editor.imageMissing : undefined);
@@ -184,6 +202,12 @@ function ImageControl({ field, label, help, isLabelHidden = false, value, onChan
       dialogTitle={messages.editor.imageChoose}
       closeLabel={messages.editor.close}
       emptyText={images.isPending ? messages.editor.imagesLoading : messages.editor.imagesEmpty}
+      {...(rules && {
+        onUpload: upload,
+        uploadLabel: messages.editor.imageUpload,
+        uploadHint: messages.editor.imageUploadHint(megabytes(rules.maxBytes)),
+      })}
+      {...(uploadError !== undefined && { uploadError })}
       {...(help !== undefined && { description: help })}
       {...(wrong !== undefined && { errorMessage: wrong })}
     />

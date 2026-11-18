@@ -1,17 +1,20 @@
 import { ConflictError } from '../errors.js';
-import type { ContentTypeDef, Entry, Page, Revision, SiteImage } from '../model.js';
+import type { ContentTypeDef, Entry, MediaFile, Page, Revision, SiteImage } from '../model.js';
 import type {
   Clock,
   EntryQuery,
   EntryRepository,
   IdGenerator,
   ImageLibrary,
+  MediaRepository,
+  MediaStore,
   SaveOptions,
   SchemaRepository,
   SearchDocument,
   SearchIndex,
   SearchQuery,
   SearchResults,
+  StoredFile,
 } from '../ports.js';
 import { MARK_CLOSE, MARK_OPEN, markedExcerpt, searchWords } from '../search-text.js';
 
@@ -171,3 +174,59 @@ export class InMemoryImageLibrary implements ImageLibrary {
     return this.images;
   }
 }
+
+export class InMemoryMediaRepository implements MediaRepository {
+  readonly #files = new Map<string, MediaFile>();
+
+  async list(): Promise<MediaFile[]> {
+    return [...this.#files.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  async get(name: string): Promise<MediaFile | null> {
+    return this.#files.get(name) ?? null;
+  }
+
+  async add(file: MediaFile): Promise<MediaFile> {
+    for (const other of this.#files.values()) {
+      if (other.name === file.name || other.key === file.key) {
+        throw new ConflictError(`Another image is already called "${file.name}".`);
+      }
+    }
+    this.#files.set(file.name, file);
+    return file;
+  }
+
+  async remove(name: string): Promise<void> {
+    this.#files.delete(name);
+  }
+}
+
+/** Keeps files in memory. */
+export class InMemoryMediaStore implements MediaStore {
+  readonly #files = new Map<string, StoredFile>();
+
+  async put(key: string, file: StoredFile): Promise<void> {
+    this.#files.set(key, { bytes: file.bytes.slice(), contentType: file.contentType });
+  }
+
+  async get(key: string): Promise<StoredFile | null> {
+    return this.#files.get(key) ?? null;
+  }
+
+  async remove(key: string): Promise<void> {
+    this.#files.delete(key);
+  }
+}
+
+const bytesOf = (...parts: (number[] | string)[]): Uint8Array<ArrayBuffer> =>
+  Uint8Array.from(parts.flatMap((part) => (typeof part === 'string' ? [...part].map((letter) => letter.charCodeAt(0)) : part)));
+const be = (value: number, length: number): number[] =>
+  Array.from({ length }, (_, index) => (value >>> (8 * (length - 1 - index))) & 0xff);
+
+/** The start of a PNG of the given size: enough to be recognised, not a picture. For tests. */
+export const tinyPng = (width = 4, height = 3): Uint8Array<ArrayBuffer> =>
+  bytesOf([0x89], 'PNG', [0x0d, 0x0a, 0x1a, 0x0a], be(13, 4), 'IHDR', be(width, 4), be(height, 4), [8, 6, 0, 0, 0]);
+
+/** The start of a JPEG of the given size. For tests. */
+export const tinyJpeg = (width = 4, height = 3): Uint8Array<ArrayBuffer> =>
+  bytesOf([0xff, 0xd8, 0xff, 0xe0], be(16, 2), 'JFIF', new Array<number>(10).fill(0), [0xff, 0xc0], be(17, 2), [8], be(height, 2), be(width, 2), new Array<number>(12).fill(0));

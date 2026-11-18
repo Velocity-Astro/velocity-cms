@@ -1,5 +1,5 @@
 import type { Actor } from './access.js';
-import type { ContentTypeDef, Entry } from './model.js';
+import type { ContentTypeDef, Entry, MediaFile } from './model.js';
 
 /** Everything the CMS announces, and what each announcement carries. */
 export interface CmsEvents {
@@ -8,6 +8,7 @@ export interface CmsEvents {
   /** `before` is the entry as it was, so a listener can tell what visitors saw until now. */
   'entry.published': { entry: Entry; before: Entry; actor: Actor };
   'entry.unpublished': { entry: Entry; before: Entry; actor: Actor };
+  'media.uploaded': { file: MediaFile; actor: Actor };
 }
 
 type Listener<T> = (payload: T) => void | Promise<void>;

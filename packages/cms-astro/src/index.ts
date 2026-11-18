@@ -25,6 +25,8 @@ export {
   type PageSources,
   type StaticPath,
 } from './live-pages.js';
+export { FolderMediaStore, S3MediaStore, mediaStoreFromEnv, type S3MediaStoreOptions } from './media-store.js';
 export { hasSiteSecret } from './secret.js';
+export { refreshUploadedImages, uploadedFile, uploadedImage } from './site-media.js';
 export { folderImages, type ImageFile } from './site-images.js';
 export { indexPages, indexSite, searchSite, toSearchDocument } from './site-search.js';

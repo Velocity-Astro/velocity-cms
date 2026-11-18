@@ -1,5 +1,14 @@
 import { createCms, type Actor, type Cms, type ContentTypeDef, type Entry } from '@velocity/cms-core';
-import { FakeClock, InMemoryEntryRepository, InMemorySchemaRepository, SequentialIds } from '@velocity/cms-core/in-memory';
+import {
+  FakeClock,
+  InMemoryEntryRepository,
+  InMemoryImageLibrary,
+  InMemoryMediaRepository,
+  InMemoryMediaStore,
+  InMemorySchemaRepository,
+  SequentialIds,
+  tinyPng,
+} from '@velocity/cms-core/in-memory';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { CmsApi } from './api.js';
 import { FixedAuthenticator } from './testing/index.js';
@@ -30,7 +39,14 @@ const call = async (method: string, path: string, body?: unknown, headers?: Reco
 const fieldId = (key: string) => listings.fields.find((field) => field.key === key)?.id ?? '';
 
 beforeEach(async () => {
-  cms = createCms({ entries: new InMemoryEntryRepository(), types: new InMemorySchemaRepository(), clock: new FakeClock(), ids: new SequentialIds() });
+  cms = createCms({
+    entries: new InMemoryEntryRepository(),
+    types: new InMemorySchemaRepository(),
+    clock: new FakeClock(),
+    ids: new SequentialIds(),
+    media: { storage: { files: new InMemoryMediaRepository(), store: new InMemoryMediaStore() }, maxBytes: 2000 },
+  });
+  cms.media.include(new InMemoryImageLibrary([{ name: 'porch', url: '/_astro/porch.jpg' }]));
   listings = await cms.schema.create(as('owner').actor, {
     key: 'listings',
     kind: 'collection',
@@ -216,5 +232,57 @@ describe('the edges', () => {
     expect(status).toBe(500);
     expect(body.error).toEqual({ code: 'internal', message: 'Something went wrong on the server. Try again in a moment.' });
     expect(faults).toHaveLength(1);
+  });
+});
+
+describe('images', () => {
+  const upload = (bytes: Uint8Array, headers: Record<string, string> = {}, name = 'Kitchen.png') =>
+    api.handle(
+      new Request(`${SITE}/api/cms/images?name=${encodeURIComponent(name)}`, {
+        method: 'POST',
+        headers: { 'content-type': 'image/png', origin: SITE, ...headers },
+        body: bytes,
+      }),
+    );
+
+  it("lists the site's images and says how large an upload may be", async () => {
+    expect((await call('GET', '/images')).body).toEqual({ items: [{ name: 'porch', url: '/_astro/porch.jpg' }], upload: { maxBytes: 2000 } });
+  });
+
+  it('takes an image as the body of the request', async () => {
+    const response = await upload(tinyPng(800, 600));
+    expect(response.status).toBe(201);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(await response.json()).toEqual({ name: 'kitchen', url: '/media/kitchen.png', width: 800, height: 600 });
+    expect(((await call('GET', '/images')).body['items'] as unknown[]).length).toBe(2);
+  });
+
+  it('refuses an upload from another site, one that is not sent as an image, and one nobody is signed in for', async () => {
+    expect((await upload(tinyPng(), { origin: 'https://evil.test' })).status).toBe(403);
+    // A form on another site can send text or a form without asking first, so neither is taken.
+    expect((await upload(tinyPng(), { 'content-type': 'text/plain' })).status).toBe(415);
+    expect((await upload(tinyPng(), { 'content-type': 'multipart/form-data; boundary=x' })).status).toBe(415);
+    authenticator.session = null;
+    expect((await upload(tinyPng())).status).toBe(401);
+    expect(await cms.media.uploads(as('owner').actor)).toEqual([]);
+  });
+
+  it('refuses a file that is too heavy before reading all of it, and one that is not an image', async () => {
+    const heavy = await upload(new Uint8Array(2001));
+    expect(heavy.status).toBe(413);
+    expect(((await heavy.json()) as { error: { message: string } }).error.message).toContain('an upload can be');
+
+    const fake = await upload(new TextEncoder().encode('<script>alert(1)</script>'));
+    expect(fake.status).toBe(422);
+    expect(((await fake.json()) as { error: { code: string; issues: unknown } }).error).toMatchObject({
+      code: 'validation_failed',
+      issues: [{ path: ['file'] }],
+    });
+    expect(faults).toEqual([]);
+  });
+
+  it('still takes only JSON everywhere else', async () => {
+    const response = await send('POST', '/entries', 'x', { 'content-type': 'image/png' });
+    expect(response.status).toBe(415);
   });
 });

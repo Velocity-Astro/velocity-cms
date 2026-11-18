@@ -2,7 +2,7 @@
  * What the core needs from the outside world. The core ships no implementation of these:
  * an adapter package implements each one and proves it with the contract tests in `./testing`.
  */
-import type { ContentTypeDef, Entry, EntryStatus, Page, Revision, SiteImage, Timestamp } from './model.js';
+import type { ContentTypeDef, Entry, EntryStatus, MediaFile, Page, Revision, SiteImage, Timestamp } from './model.js';
 
 export interface EntryQuery {
   readonly typeId?: string;
@@ -118,4 +118,33 @@ export interface SearchIndex {
 export interface ImageLibrary {
   /** Every image, ordered by name. */
   list(): Promise<readonly SiteImage[]>;
+}
+
+/** The records of uploaded images. */
+export interface MediaRepository {
+  /** Every upload, ordered by name. */
+  list(): Promise<MediaFile[]>;
+  get(name: string): Promise<MediaFile | null>;
+  /** Adds a record. Refuses, with a `ConflictError`, a name or a key another upload already has. */
+  add(file: MediaFile): Promise<MediaFile>;
+  /** Removes a record. A name nothing has is ignored. */
+  remove(name: string): Promise<void>;
+}
+
+/** A file as a store hands it back. */
+export interface StoredFile {
+  readonly bytes: Uint8Array;
+  readonly contentType: string;
+}
+
+/**
+ * Where uploaded files are kept: a folder on a server that has a disk, a bucket on a host that
+ * does not. A key is a file name with no folders in it, and is never reused for another file.
+ */
+export interface MediaStore {
+  put(key: string, file: StoredFile): Promise<void>;
+  /** The file, or `null` when nothing is kept under the key. */
+  get(key: string): Promise<StoredFile | null>;
+  /** Removes a file. A key nothing is kept under is ignored. */
+  remove(key: string): Promise<void>;
 }

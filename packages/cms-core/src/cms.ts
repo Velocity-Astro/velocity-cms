@@ -5,6 +5,7 @@ import { createFieldRegistry } from './fields/index.js';
 import type { Clock, EntryRepository, IdGenerator, SchemaRepository } from './ports.js';
 import type { Registry } from './registry.js';
 import { ContentService } from './services/content-service.js';
+import { MediaService, type MediaServiceOptions } from './services/media-service.js';
 import { SchemaService } from './services/schema-service.js';
 
 export interface CmsOptions {
@@ -12,6 +13,8 @@ export interface CmsOptions {
   readonly types: SchemaRepository;
   /** Defaults to the built-in field types. */
   readonly fields?: Registry<FieldType>;
+  /** Where uploaded images are kept, and where they are served from. Without storage there are no uploads. */
+  readonly media?: MediaServiceOptions;
   readonly clock?: Clock;
   readonly ids?: IdGenerator;
 }
@@ -20,6 +23,7 @@ export interface CmsOptions {
 export interface Cms {
   readonly schema: SchemaService;
   readonly content: ContentService;
+  readonly media: MediaService;
   readonly fields: Registry<FieldType>;
   readonly events: EventBus;
   readonly access: AccessControl;
@@ -40,5 +44,6 @@ export function createCms(options: CmsOptions): Cms {
   const events = new EventBus();
   const schema = new SchemaService(options.types, fields, access, events, clock, ids);
   const content = new ContentService(options.entries, schema, fields, access, events, clock, ids);
-  return { schema, content, fields, events, access };
+  const media = new MediaService(access, events, clock, options.media);
+  return { schema, content, media, fields, events, access };
 }

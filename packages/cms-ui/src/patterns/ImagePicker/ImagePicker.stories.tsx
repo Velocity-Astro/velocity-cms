@@ -45,6 +45,25 @@ export const Default: Story = {};
 export const NothingChosen: Story = { args: { value: null, isRequired: true, description: 'The first photo is the cover.' } };
 /** The name is kept and shown when its file is gone. */
 export const ImageNotFound: Story = { args: { value: 'removed-photo', errorMessage: 'This photo is no longer on the site.' } };
+/** With `onUpload`, the window also takes a file from the person's computer. */
+export const WithUpload: Story = {
+  tags: ['!autodocs', 'overlay'],
+  args: { onUpload: async () => undefined, uploadLabel: 'Upload a photo', uploadHint: 'JPEG, PNG or WebP, up to 4 MB.' },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole('button', { name: 'Change' }));
+  },
+};
+export const UploadFailed: Story = {
+  tags: ['!autodocs', 'overlay'],
+  args: {
+    onUpload: async () => undefined,
+    uploadLabel: 'Upload a photo',
+    uploadError: 'The file is not an image this site can show. Upload a JPEG, PNG or WebP.',
+  },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole('button', { name: 'Change' }));
+  },
+};
 export const Choosing: Story = {
   tags: ['!autodocs', 'overlay'],
   play: async ({ canvas, userEvent }) => {

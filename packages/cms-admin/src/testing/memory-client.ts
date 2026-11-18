@@ -1,17 +1,23 @@
 import {
   CmsError,
-  MediaService,
   ValidationError,
   createCms,
   type Actor,
   type Cms,
   type ContentTypeDef,
   type Entry,
+  type NewUpload,
   type Page,
   type SiteImage,
 } from '@velocity/cms-core';
-import { InMemoryEntryRepository, InMemoryImageLibrary, InMemorySchemaRepository } from '@velocity/cms-core/in-memory';
-import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, NewEntry, SessionUser } from '../client/admin-client.js';
+import {
+  InMemoryEntryRepository,
+  InMemoryImageLibrary,
+  InMemoryMediaRepository,
+  InMemoryMediaStore,
+  InMemorySchemaRepository,
+} from '@velocity/cms-core/in-memory';
+import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, SessionUser } from '../client/admin-client.js';
 import { AdminRequestError, type RequestErrorCode } from '../client/errors.js';
 
 export interface MemoryAdminClientOptions {
@@ -23,6 +29,8 @@ export interface MemoryAdminClientOptions {
   readonly entries?: readonly Entry[];
   /** The site's images, for image fields. */
   readonly images?: readonly SiteImage[];
+  /** Whether the site takes uploads. Defaults to `true`. */
+  readonly uploads?: boolean;
   /** The language new entries are written in. Defaults to `en`. */
   readonly defaultLocale?: string;
 }
@@ -45,7 +53,6 @@ export class MemoryAdminClient implements AdminClient {
   readonly #passkeyUser: SessionUser | null;
   readonly #defaultLocale: string;
   readonly #cms: Cms;
-  readonly #media: MediaService;
   /** Settles once the content given to the constructor is in place. Every request waits for it. */
   readonly #ready: Promise<void>;
 
@@ -55,8 +62,9 @@ export class MemoryAdminClient implements AdminClient {
     this.#defaultLocale = options.defaultLocale ?? 'en';
     const types = new InMemorySchemaRepository();
     const entries = new InMemoryEntryRepository();
-    this.#cms = createCms({ types, entries });
-    this.#media = new MediaService(this.#cms.access, new InMemoryImageLibrary(options.images));
+    const storage = { files: new InMemoryMediaRepository(), store: new InMemoryMediaStore() };
+    this.#cms = createCms({ types, entries, ...(options.uploads !== false && { media: { storage } }) });
+    this.#cms.media.include(new InMemoryImageLibrary(options.images));
     this.#ready = (async () => {
       for (const type of options.contentTypes ?? []) await types.save(type);
       for (const entry of options.entries ?? []) await entries.save(entry, { expectedRevision: null, actorId: 'seed' });
@@ -93,8 +101,16 @@ export class MemoryAdminClient implements AdminClient {
     return this.#request(async () => this.#cms.fields.list().map(({ type, editor }) => ({ type, editor })));
   }
 
-  listImages(): Promise<readonly SiteImage[]> {
-    return this.#request((actor) => this.#media.images(actor));
+  listImages(): Promise<ImageList> {
+    const { media } = this.#cms;
+    return this.#request(async (actor) => ({
+      items: await media.images(actor),
+      upload: media.takesUploads ? { maxBytes: media.maxUploadBytes } : null,
+    }));
+  }
+
+  uploadImage(upload: NewUpload): Promise<SiteImage> {
+    return this.#request((actor) => this.#cms.media.upload(actor, upload));
   }
 
   listEntries(query: EntryListQuery): Promise<Page<Entry>> {

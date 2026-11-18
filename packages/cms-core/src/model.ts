@@ -157,3 +157,19 @@ export interface SiteImage {
   readonly width?: number;
   readonly height?: number;
 }
+
+/** An image someone uploaded. The record says what the file is; the file itself is in a `MediaStore`. */
+export interface MediaFile {
+  /** What an image field stores. Unique among uploads, and made from the file's own name. */
+  readonly name: string;
+  /** What the file is kept and served under: the name with the ending of its kind, `kitchen.jpg`. */
+  readonly key: string;
+  readonly contentType: string;
+  readonly width: number;
+  readonly height: number;
+  /** In bytes. */
+  readonly size: number;
+  readonly createdAt: Timestamp;
+  /** The id of whoever uploaded it. */
+  readonly createdBy: string;
+}
