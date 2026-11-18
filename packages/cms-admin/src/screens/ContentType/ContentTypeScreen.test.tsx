@@ -188,3 +188,121 @@ it('says so when the address names no content type', async () => {
   expect(await screen.findByRole('heading', { name: 'This content type does not exist' })).toBeTruthy();
   expect(screen.getByRole('link', { name: 'All content types' })).toBeTruthy();
 });
+
+const optionsOf = async (client: { listContentTypes(): Promise<readonly ContentTypeDef[]> }, typeKey: string, fieldKey: string) =>
+  (await client.listContentTypes()).find((type) => type.key === typeKey)?.fields.find((field) => field.key === fieldKey)?.options as { fields: { key: string; deletedAt?: string }[] };
+
+it('opens a group to add, change, move and remove the fields it holds', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/types/listings', signedIn);
+  expect(within(await screen.findByRole('row', { name: /^Address/ })).getByText('address · Holds 2 fields')).toBeTruthy();
+  await user.click(screen.getByRole('button', { name: 'Fields inside Address' }));
+
+  expect(await screen.findByRole('heading', { level: 1, name: 'Address' })).toBeTruthy();
+  expect(screen.getByText('The fields each Address of Listings is made of.')).toBeTruthy();
+  const table = screen.getByRole('grid', { name: 'Fields' });
+  expect(fieldNames(table)).toEqual([expect.stringContaining('Street'), expect.stringContaining('City')]);
+  // A group has no sections or settings of its own.
+  expect(screen.queryByRole('button', { name: 'Sections' })).toBeNull();
+
+  await user.click(screen.getByRole('button', { name: 'Add field' }));
+  const dialog = within(await screen.findByRole('dialog', { name: 'Add a field' }));
+  await user.type(dialog.getByRole('textbox', { name: /^Name/ }), 'ZIP code');
+  expect(dialog.queryByRole('button', { name: /Section/ })).toBeNull();
+  await user.click(dialog.getByRole('button', { name: 'Add field' }));
+  expect(await screen.findByRole('alertdialog', { name: 'ZIP code was added' })).toBeTruthy();
+
+  await user.click(await screen.findByRole('button', { name: 'Move ZIP code up' }));
+  await waitFor(async () => expect((await optionsOf(client, 'listings', 'address')).fields.map((field) => field.key)).toEqual(['street', 'zipCode', 'city']));
+
+  await user.click(screen.getByRole('button', { name: 'Remove Street' }));
+  await user.click(within(await screen.findByRole('alertdialog', { name: 'Remove Street?' })).getByRole('button', { name: 'Remove field' }));
+  await user.click(await within(await screen.findByRole('grid', { name: 'Removed fields' })).findByRole('button', { name: 'Restore Street' }));
+  await waitFor(async () => expect((await optionsOf(client, 'listings', 'address')).fields.every((field) => field.deletedAt === undefined)).toBe(true));
+
+  await user.click(screen.getByRole('link', { name: 'Back to Listings' }));
+  expect(await screen.findByRole('heading', { level: 1, name: 'Listings' })).toBeTruthy();
+  expect(within(screen.getByRole('row', { name: /^Address/ })).getByText('address · Holds 3 fields')).toBeTruthy();
+});
+
+it('adds a group, and a list of groups, ready to be given fields', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/types/agents', signedIn);
+  await user.click(await screen.findByRole('button', { name: 'Add field' }));
+  const dialog = within(await screen.findByRole('dialog', { name: 'Add a field' }));
+  await user.type(dialog.getByRole('textbox', { name: /^Name/ }), 'Offices');
+  await user.click(dialog.getByRole('button', { name: /Kind of field/ }));
+  await user.click(await screen.findByRole('option', { name: 'List' }));
+  await user.click(dialog.getByRole('button', { name: /Each item is/ }));
+  await user.click(await screen.findByRole('option', { name: 'Group' }));
+  await user.click(dialog.getByRole('button', { name: 'Add field' }));
+
+  await user.click(await screen.findByRole('button', { name: 'Fields inside Offices' }));
+  expect(await screen.findByRole('heading', { name: 'No fields yet' })).toBeTruthy();
+  await user.click(screen.getAllByRole('button', { name: 'Add field' })[0] as HTMLElement);
+  const inner = within(await screen.findByRole('dialog', { name: 'Add a field' }));
+  await user.type(inner.getByRole('textbox', { name: /^Name/ }), 'City');
+  await user.click(inner.getByRole('button', { name: 'Add field' }));
+  await waitFor(async () => {
+    const offices = (await client.listContentTypes()).find((type) => type.key === 'agents')?.fields.find((field) => field.key === 'offices');
+    expect(offices?.options).toMatchObject({ of: { type: 'group', options: { fields: [{ key: 'city', type: 'text' }] } } });
+  });
+});
+
+it('says so when the address leads into a field that holds none', async () => {
+  renderApp('/types/listings?in=f-title', signedIn);
+  expect(await screen.findByRole('heading', { name: 'This content type does not exist' })).toBeTruthy();
+});
+
+it('names, adds, orders and removes sections, without removing a field', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/types/agents', { user: sampleUser, contentTypes: [agentsWithSections] });
+  await user.click(await screen.findByRole('button', { name: 'Sections' }));
+  const dialog = within(await screen.findByRole('dialog', { name: 'Sections' }));
+  const first = dialog.getByRole('textbox', { name: 'Name of section 1' });
+  await user.clear(first);
+  await user.type(first, 'Profile');
+  await user.click(dialog.getByRole('button', { name: 'Add section' }));
+  await user.click(dialog.getByRole('button', { name: 'Save sections' }));
+  expect(dialog.getByText('Give every section a name.')).toBeTruthy();
+
+  await user.type(dialog.getByRole('textbox', { name: 'Name of section 3' }), 'Social media');
+  await user.click(dialog.getByRole('button', { name: 'Move section 3 up' }));
+  await user.click(dialog.getByRole('button', { name: 'Save sections' }));
+  expect(await screen.findByRole('alertdialog', { name: 'Sections saved' })).toBeTruthy();
+  expect((await client.listContentTypes())[0]?.sections).toEqual([
+    { key: 'about', label: { en: 'Profile' }, fieldIds: ['f-name', 'f-bio'] },
+    { key: 'social-media', label: { en: 'Social media' }, fieldIds: [] },
+    { key: 'contact', label: { en: 'Contact' }, fieldIds: ['f-phone'], aside: true },
+  ]);
+  expect(await screen.findByRole('grid', { name: 'Fields in Profile' })).toBeTruthy();
+  expect(within(screen.getByRole('grid', { name: 'Fields in Social media' })).getByText('No fields here yet.')).toBeTruthy();
+
+  await user.click(screen.getByRole('button', { name: 'Sections' }));
+  const again = within(await screen.findByRole('dialog', { name: 'Sections' }));
+  await user.click(again.getByRole('button', { name: 'Remove section 3' }));
+  await user.click(again.getByRole('button', { name: 'Save sections' }));
+  await waitFor(async () => expect((await client.listContentTypes())[0]?.sections?.map((section) => section.key)).toEqual(['about', 'social-media']));
+  // Its field is still there, after the sections.
+  expect(fieldNames(await screen.findByRole('grid', { name: 'Fields in Other fields' }))).toEqual([expect.stringContaining('Phone')]);
+});
+
+it('chooses what entries are called by and what the list of entries shows', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/types/listings', signedIn);
+  await user.click(await screen.findByRole('button', { name: 'Settings' }));
+  const dialog = within(await screen.findByRole('dialog', { name: 'Settings for Listings' }));
+  await user.click(dialog.getByRole('button', { name: /Entries are called by/ }));
+  await user.click(await screen.findByRole('option', { name: 'Description' }));
+  const columns = within(dialog.getByRole('group', { name: /Columns in lists/ }));
+  await user.click(columns.getByRole('checkbox', { name: 'Price' }));
+  await user.click(columns.getByRole('checkbox', { name: 'Stage' }));
+  await user.click(dialog.getByRole('button', { name: 'Save settings' }));
+  expect(await screen.findByRole('alertdialog', { name: 'Settings saved' })).toBeTruthy();
+  expect((await client.listContentTypes()).find((type) => type.key === 'listings')).toMatchObject({ titlePath: ['f-description'], list: { fieldPaths: [['f-price'], ['f-stage']] } });
+
+  await user.click(screen.getByRole('link', { name: 'View entries' }));
+  const table = await screen.findByRole('grid', { name: 'Listings' });
+  expect(within(table).getByRole('columnheader', { name: 'Price' })).toBeTruthy();
+  expect(within(table).getByRole('columnheader', { name: 'Stage' })).toBeTruthy();
+});

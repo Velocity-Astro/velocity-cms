@@ -591,7 +591,7 @@ describe('building a content type by hand', () => {
       ],
     });
     const [name, bio] = type.fields.map((field) => field.id) as [string, string];
-    const withPhone = await cms.schema.addField(owner, type.id, { key: 'phone', type: 'text', label: { en: 'Phone' } }, 'contact');
+    const withPhone = await cms.schema.addField(owner, type.id, { key: 'phone', type: 'text', label: { en: 'Phone' } }, { section: 'contact' });
     const phone = id(withPhone, 'phone');
     expect(withPhone.sections?.[1]).toMatchObject({ key: 'contact', fieldIds: [phone], aside: true });
 
@@ -599,8 +599,98 @@ describe('building a content type by hand', () => {
     expect(arranged.sections?.map((section) => section.fieldIds)).toEqual([[bio], [phone, name]]);
     expect(arranged.sections?.[0]?.label).toEqual({ en: 'About' });
 
-    await expect(cms.schema.addField(owner, type.id, { key: 'email', type: 'text', label: { en: 'Email' } }, 'nowhere')).rejects.toBeInstanceOf(ValidationError);
+    await expect(cms.schema.addField(owner, type.id, { key: 'email', type: 'text', label: { en: 'Email' } }, { section: 'nowhere' })).rejects.toBeInstanceOf(ValidationError);
     await expect(cms.schema.arrangeFields(owner, type.id, { order: [bio, name, phone], sections: { about: [bio], contact: [bio] } })).rejects.toBeInstanceOf(ValidationError);
     await expect(cms.schema.arrangeFields(owner, type.id, { order: [bio, name, phone], sections: { nowhere: [bio] } })).rejects.toBeInstanceOf(ValidationError);
+  });
+});
+
+describe('building what a group holds, and a type\'s sections and lists', () => {
+  let agents: ContentTypeDef;
+  const inner = (type: ContentTypeDef, key: string) => type.fields.find((field) => field.key === key)?.options as { fields?: FieldDef[]; of?: { options: { fields: FieldDef[] } } };
+
+  beforeEach(async () => {
+    agents = await cms.schema.define(owner, {
+      key: 'agents',
+      kind: 'collection',
+      label: { en: 'Agents' },
+      fields: [
+        { key: 'name', type: 'text', label: { en: 'Name' } },
+        { key: 'phone', type: 'group', label: { en: 'Phone' }, options: { fields: [{ key: 'display', type: 'text', label: { en: 'Number' } }] } },
+        { key: 'offices', type: 'list', label: { en: 'Offices' }, options: { of: { type: 'group', options: { fields: [{ key: 'city', type: 'text', label: { en: 'City' } }] } } } },
+        { key: 'photo', type: 'image', label: { en: 'Photo' } },
+      ],
+    });
+  });
+
+  it('adds, changes, orders, removes and restores a field inside a group, keeping ids and content', async () => {
+    const phone = id(agents, 'phone');
+    const display = inner(agents, 'phone').fields?.[0]?.id as string;
+    const entry = await cms.content.create(editor, { typeId: agents.id, locale: 'en', slug: 'maya', data: { [phone]: { [display]: '555 0100' } } });
+
+    const added = await cms.schema.addField(owner, agents.id, { key: 'href', type: 'url', label: { en: 'Link' } }, { within: [phone] });
+    const href = inner(added, 'phone').fields?.[1]?.id as string;
+    expect(inner(added, 'phone').fields?.map((field) => field.key)).toEqual(['display', 'href']);
+    await expect(cms.schema.addField(owner, agents.id, { key: 'display', type: 'text', label: { en: 'Again' } }, { within: [phone] })).rejects.toBeInstanceOf(ConflictError);
+
+    const changed = await cms.schema.changeField(owner, agents.id, display, { key: 'number', required: true }, [phone]);
+    expect(inner(changed, 'phone').fields?.[0]).toMatchObject({ id: display, key: 'number', required: true });
+    expect(cms.content.toPublic(changed, entry, 'working').data).toMatchObject({ phone: { number: '555 0100' } });
+
+    const ordered = await cms.schema.arrangeFields(owner, agents.id, { order: [href, display], within: [phone] });
+    expect(inner(ordered, 'phone').fields?.map((field) => field.key)).toEqual(['href', 'number']);
+    await expect(cms.schema.arrangeFields(owner, agents.id, { order: [href], within: [phone] })).rejects.toBeInstanceOf(ValidationError);
+
+    const removed = await cms.schema.removeField(owner, agents.id, href, [phone]);
+    expect(inner(removed, 'phone').fields?.[0]?.deletedAt).toBeTypeOf('string');
+    // Changing the group itself sends its settings back whole, and must not bring the field back.
+    const renamed = await cms.schema.changeField(owner, agents.id, phone, { label: { en: 'Telephone' }, options: removed.fields[1]?.options ?? {} });
+    expect(inner(renamed, 'phone').fields?.find((field) => field.id === href)?.deletedAt).toBeTypeOf('string');
+    const restored = await cms.schema.restoreField(owner, agents.id, href, [phone]);
+    expect(inner(restored, 'phone').fields?.every((field) => field.deletedAt === undefined)).toBe(true);
+  });
+
+  it('reaches the fields of a list of groups the same way, and refuses a field that holds none', async () => {
+    const offices = id(agents, 'offices');
+    const added = await cms.schema.addField(owner, agents.id, { key: 'street', type: 'text', label: { en: 'Street' } }, { within: [offices] });
+    expect(inner(added, 'offices').of?.options.fields.map((field) => field.key)).toEqual(['city', 'street']);
+    await expect(cms.schema.addField(owner, agents.id, { key: 'x', type: 'text', label: { en: 'X' } }, { within: [id(agents, 'name')] })).rejects.toThrow('does not hold other fields');
+    await expect(cms.schema.addField(owner, agents.id, { key: 'x', type: 'text', label: { en: 'X' } }, { within: ['nothing'] })).rejects.toBeInstanceOf(NotFoundError);
+    await expect(cms.schema.addField(editor, agents.id, { key: 'x', type: 'text', label: { en: 'X' } }, { within: [offices] })).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it('sets the sections the editor shows, and removes them without removing a field', async () => {
+    const [name, phone, offices, photo] = agents.fields.map((field) => field.id) as [string, string, string, string];
+    const set = await cms.schema.setSections(owner, agents.id, [
+      { key: 'about', label: { en: 'About' }, fieldIds: [name, photo] },
+      { key: 'contact', label: { en: 'Contact' }, fieldIds: [phone], aside: true },
+    ]);
+    expect(set.sections).toEqual([
+      { key: 'about', label: { en: 'About' }, fieldIds: [name, photo] },
+      { key: 'contact', label: { en: 'Contact' }, fieldIds: [phone], aside: true },
+    ]);
+    await expect(cms.schema.setSections(owner, agents.id, [{ key: 'a', label: { en: 'A' }, fieldIds: [name] }, { key: 'a', label: { en: 'B' }, fieldIds: [] }])).rejects.toBeInstanceOf(ConflictError);
+    await expect(cms.schema.setSections(owner, agents.id, [{ key: 'a', label: { en: 'A' }, fieldIds: [name] }, { key: 'b', label: { en: 'B' }, fieldIds: [name] }])).rejects.toBeInstanceOf(ValidationError);
+    await expect(cms.schema.setSections(owner, agents.id, [{ key: 'a', label: { en: '' }, fieldIds: [] }])).rejects.toThrow('Give the section a name.');
+    await expect(cms.schema.setSections(owner, agents.id, [{ key: 'Not A Key', label: { en: 'A' }, fieldIds: [] }])).rejects.toBeInstanceOf(ValidationError);
+    await expect(cms.schema.setSections(editor, agents.id, [])).rejects.toBeInstanceOf(ForbiddenError);
+
+    const none = await cms.schema.setSections(owner, agents.id, []);
+    expect(none).not.toHaveProperty('sections');
+    expect(none.fields.map((field) => field.id)).toEqual([name, phone, offices, photo]);
+  });
+
+  it('chooses what entries are called by and what a list shows, by field id', async () => {
+    const [name, phone, , photo] = agents.fields.map((field) => field.id) as [string, string, string, string];
+    const display = inner(agents, 'phone').fields?.[0]?.id as string;
+    const chosen = await cms.schema.update(owner, agents.id, { titlePath: [name], list: { imagePath: [photo], fieldPaths: [[phone, display]] } });
+    expect(chosen).toMatchObject({ titlePath: [name], list: { imagePath: [photo], fieldPaths: [[phone, display]] } });
+    // What is not named stays as it was.
+    expect(await cms.schema.update(owner, agents.id, { label: { en: 'Team' } })).toMatchObject({ titlePath: [name], list: { imagePath: [photo] } });
+    const cleared = await cms.schema.update(owner, agents.id, { titlePath: null, list: null });
+    expect(cleared).not.toHaveProperty('titlePath');
+    expect(cleared).not.toHaveProperty('list');
+    await expect(cms.schema.update(owner, agents.id, { titlePath: ['nothing'] })).rejects.toBeInstanceOf(ValidationError);
+    await expect(cms.schema.update(owner, agents.id, { list: { fieldPaths: [[name, display]] } })).rejects.toBeInstanceOf(ValidationError);
   });
 });

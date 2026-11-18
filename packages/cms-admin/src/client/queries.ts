@@ -1,5 +1,5 @@
 import { MutationCache, QueryCache, QueryClient, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ContentTypeChanges, ContentTypeDef, Entry, FieldArrangement, FieldChanges, NewUpload, Role } from '@velocity/cms-core';
+import type { ContentTypeChanges, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, NewUpload, Role } from '@velocity/cms-core';
 import type { EntryChanges, EntryListQuery, ImageList, NewEntry, NewPerson, NewType, NewTypeField } from './admin-client.js';
 import { AdminRequestError } from './errors.js';
 import { useClient } from './client-context.js';
@@ -74,15 +74,18 @@ export function useUpdateContentType() {
 
 export function useAddField() {
   const client = useClient();
-  return useMutation({ mutationFn: ({ typeId, field }: { typeId: string; field: NewTypeField }) => client.addField(typeId, field), onSuccess: useTypeChanged() });
+  return useMutation({
+    mutationFn: ({ typeId, field, within }: { typeId: string; field: NewTypeField; within?: readonly string[] }) => client.addField(typeId, field, within),
+    onSuccess: useTypeChanged(),
+  });
 }
 
 /** Changes a field and, when `arrangement` says so, where it is shown: one action to the person. */
 export function useChangeField() {
   const client = useClient();
   return useMutation({
-    mutationFn: async ({ typeId, fieldId, changes, arrangement }: { typeId: string; fieldId: string; changes: FieldChanges; arrangement?: FieldArrangement }) => {
-      const changed = await client.changeField(typeId, fieldId, changes);
+    mutationFn: async ({ typeId, fieldId, changes, arrangement, within }: { typeId: string; fieldId: string; changes: FieldChanges; arrangement?: FieldArrangement; within?: readonly string[] }) => {
+      const changed = await client.changeField(typeId, fieldId, changes, within);
       return arrangement ? client.arrangeFields(typeId, arrangement) : changed;
     },
     onSuccess: useTypeChanged(),
@@ -91,12 +94,26 @@ export function useChangeField() {
 
 export function useRemoveField() {
   const client = useClient();
-  return useMutation({ mutationFn: ({ typeId, fieldId }: { typeId: string; fieldId: string }) => client.removeField(typeId, fieldId), onSuccess: useTypeChanged() });
+  return useMutation({
+    mutationFn: ({ typeId, fieldId, within }: { typeId: string; fieldId: string; within?: readonly string[] }) => client.removeField(typeId, fieldId, within),
+    onSuccess: useTypeChanged(),
+  });
 }
 
 export function useRestoreField() {
   const client = useClient();
-  return useMutation({ mutationFn: ({ typeId, fieldId }: { typeId: string; fieldId: string }) => client.restoreField(typeId, fieldId), onSuccess: useTypeChanged() });
+  return useMutation({
+    mutationFn: ({ typeId, fieldId, within }: { typeId: string; fieldId: string; within?: readonly string[] }) => client.restoreField(typeId, fieldId, within),
+    onSuccess: useTypeChanged(),
+  });
+}
+
+export function useSetSections() {
+  const client = useClient();
+  return useMutation({
+    mutationFn: ({ typeId, sections }: { typeId: string; sections: readonly FieldSection[] }) => client.setSections(typeId, sections),
+    onSuccess: useTypeChanged(),
+  });
 }
 
 export function useArrangeFields() {

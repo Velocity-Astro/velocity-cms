@@ -255,6 +255,7 @@ describe('building content types', () => {
       ['PATCH', `/content-types/${listings.id}`, { label: { en: 'Homes' } }],
       ['POST', `/content-types/${listings.id}/fields`, { key: 'beds', type: 'number', label: { en: 'Beds' } }],
       ['PUT', `/content-types/${listings.id}/fields`, { order: [] }],
+      ['PUT', `/content-types/${listings.id}/sections`, { sections: [] }],
       ['PATCH', `/content-types/${listings.id}/fields/${fieldId('title')}`, { required: false }],
       ['DELETE', `/content-types/${listings.id}/fields/${fieldId('title')}`, {}],
       ['POST', `/content-types/${listings.id}/fields/${fieldId('title')}/restore`, {}],

@@ -16,11 +16,13 @@ export interface FieldDialogProps {
   readonly type: ContentTypeDef;
   /** The field to change. Left out, the window adds a new one. */
   readonly field?: FieldDef;
+  /** The fields that hold this one, by id from the top down. Empty for one of the type's own. */
+  readonly within: readonly string[];
   readonly onClose: () => void;
 }
 
 /** The panel a field is added or changed in: what it is called, its kind, its rules and its settings. */
-export function FieldDialog({ type, field, onClose }: FieldDialogProps) {
+export function FieldDialog({ type, field, within, onClose }: FieldDialogProps) {
   const messages = useMessages();
   const locale = useLocale();
   const language = locale.split('-')[0] ?? locale;
@@ -35,6 +37,8 @@ export function FieldDialog({ type, field, onClose }: FieldDialogProps) {
   const [help, setHelp] = useState(field?.help ? localized(field.help, locale) : '');
   const [isRequired, setRequired] = useState(field?.required ?? false);
   const [isTranslated, setTranslated] = useState(field?.translated ?? true);
+  // Sections lay out a type's own fields. What a group holds is shown in the group.
+  const isInside = within.length > 0;
   const [section, setSection] = useState(field ? placeOf(type, field.id) : (type.sections?.[0]?.key ?? NO_SECTION));
   const [options, setOptions] = useState<FieldOptions>(field?.options ?? fieldSettings.get('text').initial);
   const [problems, setProblems] = useState(NO_PROBLEMS);
@@ -68,6 +72,7 @@ export function FieldDialog({ type, field, onClose }: FieldDialogProps) {
       add.mutate(
         {
           typeId: type.id,
+          within,
           field: {
             key,
             type: kind,
@@ -76,7 +81,7 @@ export function FieldDialog({ type, field, onClose }: FieldDialogProps) {
             required: isRequired,
             translated: isTranslated,
             options,
-            ...(section !== NO_SECTION && { section }),
+            ...(!isInside && section !== NO_SECTION && { section }),
           },
         },
         {
@@ -93,6 +98,7 @@ export function FieldDialog({ type, field, onClose }: FieldDialogProps) {
       {
         typeId: type.id,
         fieldId: field.id,
+        within,
         changes: {
           key,
           label: { ...field.label, [language]: name.trim() },
@@ -101,7 +107,7 @@ export function FieldDialog({ type, field, onClose }: FieldDialogProps) {
           translated: isTranslated,
           options,
         },
-        ...(section !== placeOf(type, field.id) && { arrangement: placed(type, field.id, section) }),
+        ...(!isInside && section !== placeOf(type, field.id) && { arrangement: placed(type, field.id, section) }),
       },
       {
         onSuccess: () => {
@@ -179,7 +185,7 @@ export function FieldDialog({ type, field, onClose }: FieldDialogProps) {
         )}
         <Checkbox label={messages.builder.fieldRequired} isSelected={isRequired} onChange={setRequired} />
         <Checkbox label={messages.builder.fieldTranslated} isSelected={isTranslated} onChange={setTranslated} />
-        {sections.length > 1 && <Select label={messages.builder.section} description={messages.builder.sectionHelp} options={sections} value={section} onChange={setSection} />}
+        {!isInside && sections.length > 1 && <Select label={messages.builder.section} description={messages.builder.sectionHelp} options={sections} value={section} onChange={setSection} />}
       </Form>
     </Dialog>
   );
