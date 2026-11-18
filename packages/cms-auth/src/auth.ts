@@ -1,7 +1,7 @@
 import { passkey } from '@better-auth/passkey';
-import type { ApiSession, Authenticator } from '@velocity/cms-api';
-import { AccessControl, CmsError, ConflictError, NotFoundError, ROLES, ValidationError, type Actor, type Role } from '@velocity/cms-core';
-import { authAccount, authPasskey, authSession, authUser, authVerification, type Db } from '@velocity/cms-db';
+import type { ApiSession, Authenticator } from '@velocity-astro/cms-api';
+import { AccessControl, CmsError, ConflictError, NotFoundError, ROLES, ValidationError, type Actor, type Role } from '@velocity-astro/cms-core';
+import { authAccount, authPasskey, authSession, authUser, authVerification, type Db } from '@velocity-astro/cms-db';
 import { betterAuth } from 'better-auth';
 import { eq } from 'drizzle-orm';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';

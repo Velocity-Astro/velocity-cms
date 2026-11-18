@@ -1,4 +1,4 @@
-import { ValidationError, definePlugin, liveFields, type ContentTypeDef, type Entry, type PluginContext } from '@velocity/cms-core';
+import { ValidationError, definePlugin, liveFields, type ContentTypeDef, type Entry, type PluginContext } from '@velocity-astro/cms-core';
 import { analyse, type SeoConfig, type SeoOverrides } from './analyse.js';
 import { seoEditor, type SeoFinding } from './editor.js';
 

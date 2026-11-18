@@ -1,4 +1,4 @@
-import type { PipelineStage, TeamMember } from '@velocity/cms-core';
+import type { PipelineStage, TeamMember } from '@velocity-astro/cms-core';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 
 /** Says what a stage is called: the team's name for it, or the CMS's own for one that was never renamed. */

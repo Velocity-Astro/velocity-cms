@@ -1,6 +1,6 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { MediaStore, StoredFile } from '@velocity/cms-core';
+import type { MediaStore, StoredFile } from '@velocity-astro/cms-core';
 
 /** A key is one file name the CMS made: nothing that could name a folder or another place. */
 const KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*\.(?:jpg|png|webp)$/;

@@ -1,5 +1,5 @@
-import { definePlugin, type ContentTypeDef, type Entry, type NewForm, type SiteImage } from '@velocity/cms-core';
-import { tinyJpeg, tinyPng } from '@velocity/cms-core/in-memory';
+import { definePlugin, type ContentTypeDef, type Entry, type NewForm, type SiteImage } from '@velocity-astro/cms-core';
+import { tinyJpeg, tinyPng } from '@velocity-astro/cms-core/in-memory';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { AdminClient, Person } from '../client/admin-client.js';
 import type { SeedSubmission } from './memory-client.js';

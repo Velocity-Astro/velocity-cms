@@ -44,14 +44,14 @@ import {
   type PreviewLink,
   type Role,
   type SiteImage,
-} from '@velocity/cms-core';
+} from '@velocity-astro/cms-core';
 import {
   InMemoryEntryRepository,
   InMemoryImageLibrary,
   InMemoryMediaRepository,
   InMemoryMediaStore,
   InMemorySchemaRepository,
-} from '@velocity/cms-core/in-memory';
+} from '@velocity-astro/cms-core/in-memory';
 import type { AdminClient, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from '../client/admin-client.js';
 import { MemoryPeople } from './memory-people.js';
 import { AdminRequestError, type RequestErrorCode } from '../client/errors.js';

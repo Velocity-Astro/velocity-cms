@@ -1,5 +1,5 @@
-import type { FieldDef } from '@velocity/cms-core';
-import { Grid, Stack } from '@velocity/cms-ui';
+import type { FieldDef } from '@velocity-astro/cms-core';
+import { Grid, Stack } from '@velocity-astro/cms-ui';
 import { useFieldTypes } from '../client/queries.js';
 import { useFieldControls } from './field-control.js';
 import { FieldEditor } from './FieldEditor.js';

@@ -1,4 +1,4 @@
-import { Text } from '@velocity/cms-ui';
+import { Text } from '@velocity-astro/cms-ui';
 import { useFieldTypes } from '../client/queries.js';
 import { useFieldControls, type FieldControl, type FieldSummaryProps } from './field-control.js';
 

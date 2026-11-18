@@ -1,4 +1,4 @@
-import { definePlugin } from '@velocity/cms-core';
+import { definePlugin } from '@velocity-astro/cms-core';
 
 /** How long Slack has to answer before a try counts as failed. */
 const ANSWER_WITHIN_MS = 5000;

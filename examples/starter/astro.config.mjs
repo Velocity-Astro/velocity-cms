@@ -1,6 +1,6 @@
 import { defineConfig, memoryCache } from 'astro/config';
 import node from '@astrojs/node';
-import velocityCms from '@velocity/cms-astro';
+import velocityCms from '@velocity-astro/cms-astro';
 
 export default defineConfig({
   // The site's address. Sign-in links lead here once the site is deployed.

@@ -1,5 +1,5 @@
 import { and, asc, count, desc, eq, isNull, sum, type SQL } from 'drizzle-orm';
-import { ConflictError, type Deal, type DealQuery, type DealRepository, type Page, type StageTotal } from '@velocity/cms-core';
+import { ConflictError, type Deal, type DealQuery, type DealRepository, type Page, type StageTotal } from '@velocity-astro/cms-core';
 import type { Db } from './database.js';
 import { deals } from './tables.js';
 

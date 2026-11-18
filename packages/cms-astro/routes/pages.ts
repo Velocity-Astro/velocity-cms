@@ -2,7 +2,7 @@
  * The site's own page files, gathered by Vite. This file is compiled with the site, not with the
  * package, which is why it can see them.
  */
-import { entryPageAddresses, liveAddresses, type PageModule } from '@velocity/cms-astro';
+import { entryPageAddresses, liveAddresses, type PageModule } from '@velocity-astro/cms-astro';
 import options from 'virtual:velocity-cms/options';
 
 const localized = import.meta.glob<PageModule>('/src/live-pages/lang/*.astro', { eager: true });

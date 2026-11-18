@@ -1,6 +1,6 @@
 import { act, render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { dismissToasts } from '@velocity/cms-ui';
+import { dismissToasts } from '@velocity-astro/cms-ui';
 import { afterEach, expect, it } from 'vitest';
 import { AdminApp } from '../../app/AdminApp.js';
 import { createHttpServer } from '../../testing/http-server.js';

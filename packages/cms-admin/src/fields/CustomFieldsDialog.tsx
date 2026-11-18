@@ -1,5 +1,5 @@
-import { liveFields, type CustomFieldsOf } from '@velocity/cms-core';
-import { Button, Dialog, Stack, Text } from '@velocity/cms-ui';
+import { liveFields, type CustomFieldsOf } from '@velocity-astro/cms-core';
+import { Button, Dialog, Stack, Text } from '@velocity-astro/cms-ui';
 import { ErrorState, LoadingState } from '../app/RequestState.js';
 import { useCustomFields, useSaveCustomFields } from '../client/queries.js';
 import { useClosing } from '../lib/use-closing.js';

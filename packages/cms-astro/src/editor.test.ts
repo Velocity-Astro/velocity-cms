@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import type { Actor } from '@velocity/cms-core';
+import type { Actor } from '@velocity-astro/cms-core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runCli } from './cli.js';
 import { connect, type Connection } from './connection.js';

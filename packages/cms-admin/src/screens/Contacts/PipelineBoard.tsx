@@ -1,5 +1,5 @@
-import type { Contact, Pipeline, TeamMember } from '@velocity/cms-core';
-import { Board, toast, type BoardColumn } from '@velocity/cms-ui';
+import type { Contact, Pipeline, TeamMember } from '@velocity-astro/cms-core';
+import { Board, toast, type BoardColumn } from '@velocity-astro/cms-ui';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { paths } from '../../app/paths.js';
 import { useGo } from '../../app/use-go.js';

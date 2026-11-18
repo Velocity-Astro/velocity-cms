@@ -1,11 +1,11 @@
-# @velocity/cms-ui
+# @velocity-astro/cms-ui
 
 The Velocity CMS editor's design system: tokens, components and patterns. Every screen of the
 editor, and every plugin, is built from these parts and nothing else.
 
 ```tsx
-import '@velocity/cms-ui/styles.css';
-import { Button, Stack, TextField } from '@velocity/cms-ui';
+import '@velocity-astro/cms-ui/styles.css';
+import { Button, Stack, TextField } from '@velocity-astro/cms-ui';
 
 <Stack as="form" gap={4}>
   <TextField label="Title" isRequired />

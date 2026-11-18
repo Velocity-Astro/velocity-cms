@@ -1,4 +1,4 @@
-import { catalogue } from '@velocity/cms-plugins';
+import { catalogue } from '@velocity-astro/cms-plugins';
 
 /**
  * The plugins a site named in its config. They are the site's own files, so the site's bundler

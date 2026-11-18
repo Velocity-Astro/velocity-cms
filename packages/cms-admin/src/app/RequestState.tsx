@@ -1,4 +1,4 @@
-import { Box, Button, Card, EmptyState, Grid, Inline, Skeleton, SkeletonGroup, Spinner, Stack } from '@velocity/cms-ui';
+import { Box, Button, Card, EmptyState, Grid, Inline, Skeleton, SkeletonGroup, Spinner, Stack } from '@velocity-astro/cms-ui';
 import type { ReactNode } from 'react';
 import { CircleAlert } from 'lucide-react';
 import { useMessages } from '../messages/messages-context.js';

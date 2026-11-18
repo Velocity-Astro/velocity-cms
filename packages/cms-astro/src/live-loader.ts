@@ -1,5 +1,5 @@
 import type { LiveLoader } from 'astro/loaders';
-import { isLiveType, type ContentTypeDef, type Entry } from '@velocity/cms-core';
+import { isLiveType, type ContentTypeDef, type Entry } from '@velocity-astro/cms-core';
 import { sharedConnection, SITE, type ConnectionOptions } from './connection.js';
 import { isPreview, withPreviewDraft } from './preview.js';
 

@@ -5,7 +5,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import type { SearchDocument, SearchResults } from '@velocity/cms-core';
+import type { SearchDocument, SearchResults } from '@velocity-astro/cms-core';
 import { sharedConnection } from './connection.js';
 
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };

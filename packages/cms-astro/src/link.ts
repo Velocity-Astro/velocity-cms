@@ -1,4 +1,4 @@
-import { isSafeLink, pageAddress, type Cms, type ContentTypeDef, type Entry } from '@velocity/cms-core';
+import { isSafeLink, pageAddress, type Cms, type ContentTypeDef, type Entry } from '@velocity-astro/cms-core';
 import { sharedConnection, SITE } from './connection.js';
 import type { DrawnPage } from './page-head.js';
 import { isPreview } from './preview.js';

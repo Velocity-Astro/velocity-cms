@@ -1,4 +1,4 @@
-import { Button, Dialog, Form, IconButton, Stack, Table, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity/cms-ui';
+import { Button, Dialog, Form, IconButton, Stack, Table, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
 import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useAddPasskey, usePasskeys, useRemovePasskey } from '../client/queries.js';

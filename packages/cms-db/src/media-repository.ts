@@ -1,5 +1,5 @@
 import { asc, eq, or } from 'drizzle-orm';
-import { ConflictError, type MediaFile, type MediaRepository } from '@velocity/cms-core';
+import { ConflictError, type MediaFile, type MediaRepository } from '@velocity-astro/cms-core';
 import type { Db } from './database.js';
 import { media } from './tables.js';
 

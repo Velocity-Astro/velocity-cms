@@ -1,5 +1,5 @@
-import type { FormDef } from '@velocity/cms-core';
-import { Box, Button, ConfirmDialog, EmptyState, Inline, Link, PageHeader, Stack, Tabs, Text, toast } from '@velocity/cms-ui';
+import type { FormDef } from '@velocity-astro/cms-core';
+import { Box, Button, ConfirmDialog, EmptyState, Inline, Link, PageHeader, Stack, Tabs, Text, toast } from '@velocity-astro/cms-ui';
 import { Inbox, Settings2, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useParams } from 'react-router';

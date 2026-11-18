@@ -1,5 +1,5 @@
-import type { PluginSecretInfo } from '@velocity/cms-core';
-import { Button, Fieldset, Inline, Stack, Text, TextField, toast } from '@velocity/cms-ui';
+import type { PluginSecretInfo } from '@velocity-astro/cms-core';
+import { Button, Fieldset, Inline, Stack, Text, TextField, toast } from '@velocity-astro/cms-ui';
 import { useState } from 'react';
 import { AdminRequestError } from '../../client/errors.js';
 import { useSetPluginSecret } from '../../client/queries.js';

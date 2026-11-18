@@ -1,5 +1,5 @@
-import type { FieldDef } from '@velocity/cms-core';
-import { Registry } from '@velocity/cms-core';
+import type { FieldDef } from '@velocity-astro/cms-core';
+import { Registry } from '@velocity-astro/cms-core';
 import { createContext, useContext, type ComponentType, type ReactNode } from 'react';
 
 /** What every field control is given. */

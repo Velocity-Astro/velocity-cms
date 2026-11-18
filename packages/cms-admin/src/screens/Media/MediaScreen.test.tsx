@@ -3,7 +3,7 @@ import { userEvent } from '@testing-library/user-event';
 import { expect, it } from 'vitest';
 import { renderApp } from '../../testing/render-app.js';
 import { sampleContentTypes, sampleUser } from '../../testing/sample-content.js';
-import { tinyPng } from '@velocity/cms-core/in-memory';
+import { tinyPng } from '@velocity-astro/cms-core/in-memory';
 
 const images = [
   { name: 'kitchen', url: '/images/kitchen.jpg', width: 1200, height: 800 },

@@ -1,5 +1,5 @@
 import { and, asc, count, desc, eq, inArray, lt, type SQL } from 'drizzle-orm';
-import { ConflictError, type Page, type Submission, type SubmissionQuery, type SubmissionRepository, type SubmissionStatus } from '@velocity/cms-core';
+import { ConflictError, type Page, type Submission, type SubmissionQuery, type SubmissionRepository, type SubmissionStatus } from '@velocity-astro/cms-core';
 import type { Db } from './database.js';
 import { formSubmissions } from './tables.js';
 

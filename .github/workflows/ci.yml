@@ -41,5 +41,5 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @velocity/cms-ui exec playwright install --with-deps chromium
-      - run: pnpm --filter @velocity/cms-ui check:stories
+      - run: pnpm --filter @velocity-astro/cms-ui exec playwright install --with-deps chromium
+      - run: pnpm --filter @velocity-astro/cms-ui check:stories

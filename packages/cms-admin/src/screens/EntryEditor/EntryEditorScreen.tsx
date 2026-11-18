@@ -1,5 +1,5 @@
-import { EmptyState, Link } from '@velocity/cms-ui';
-import { isTrashed } from '@velocity/cms-core';
+import { EmptyState, Link } from '@velocity-astro/cms-ui';
+import { isTrashed } from '@velocity-astro/cms-core';
 import { FileQuestion, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useParams } from 'react-router';

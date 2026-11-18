@@ -1,5 +1,5 @@
-import type { Contact, ContactChanges } from '@velocity/cms-core';
-import { Card, DateField, Select, Stack, toast } from '@velocity/cms-ui';
+import type { Contact, ContactChanges } from '@velocity-astro/cms-core';
+import { Card, DateField, Select, Stack, toast } from '@velocity-astro/cms-ui';
 import { useState } from 'react';
 import { usePipeline, useTeam, useUpdateContact } from '../../client/queries.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';

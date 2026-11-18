@@ -1,4 +1,4 @@
-import { CmsError, ValidationError, type ValidationIssue } from '@velocity/cms-core';
+import { CmsError, ValidationError, type ValidationIssue } from '@velocity-astro/cms-core';
 
 /** The codes an error response can carry. A client reacts to the code and shows the message. */
 export type ApiErrorCode =

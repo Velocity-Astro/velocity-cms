@@ -1,5 +1,5 @@
-import type { EntryData, PluginInfo } from '@velocity/cms-core';
-import { Button, Dialog, Form, Text, toast } from '@velocity/cms-ui';
+import type { EntryData, PluginInfo } from '@velocity-astro/cms-core';
+import { Button, Dialog, Form, Text, toast } from '@velocity-astro/cms-ui';
 import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { AdminRequestError } from '../../client/errors.js';

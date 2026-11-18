@@ -1,4 +1,4 @@
-import { readImage, type NewUpload } from '@velocity/cms-core';
+import { readImage, type NewUpload } from '@velocity-astro/cms-core';
 
 /** No page shows a photo wider than this, and a phone's camera makes them twice as wide. */
 const LONGEST_SIDE = 2560;

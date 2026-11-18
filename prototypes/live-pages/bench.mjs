@@ -37,7 +37,7 @@ function restore() {
 }
 
 const LIVE_CONFIG = `import { defineLiveCollection } from 'astro:content';
-import { cmsLiveLoader } from '@velocity/cms-astro';
+import { cmsLiveLoader } from '@velocity-astro/cms-astro';
 
 // No schema here: this file must not import anything that imports astro:content, or the build
 // hangs on the circular import. The page checks the entry against the template's schema instead.
@@ -103,7 +103,7 @@ async function waitForServer() {
 
 let server;
 try {
-  execFileSync('pnpm', ['add', '-D', `@velocity/cms-astro@link:${loaderPackage}`], { cwd: project, stdio: 'ignore' });
+  execFileSync('pnpm', ['add', '-D', `@velocity-astro/cms-astro@link:${loaderPackage}`], { cwd: project, stdio: 'ignore' });
 
   // Content: the template's listings, copied up to the target size, published in the CMS.
   const records = multiply(JSON.parse(fs.readFileSync(file('src/content/estate/listings.json'), 'utf8')), target);
@@ -115,7 +115,7 @@ try {
   close();
 
   const config = fs.readFileSync(file('astro.config.mjs'), 'utf8');
-  write('astro.config.mjs', `import velocityCms from '@velocity/cms-astro';\n${config.replace('  integrations: [', '  integrations: [\n    velocityCms(),')}`);
+  write('astro.config.mjs', `import velocityCms from '@velocity-astro/cms-astro';\n${config.replace('  integrations: [', '  integrations: [\n    velocityCms(),')}`);
   write('src/live.config.ts', LIVE_CONFIG);
   write('src/pages/listings/[slug].astro', LISTING_PAGE);
   write('src/pages/api/cms-revalidate.ts', REVALIDATE);

@@ -1,5 +1,5 @@
-import { liveFields, type ContactImportReport, type ContactImportRow } from '@velocity/cms-core';
-import { Button, Dialog, FileButton, Select, Stack, Text, toast } from '@velocity/cms-ui';
+import { liveFields, type ContactImportReport, type ContactImportRow } from '@velocity-astro/cms-core';
+import { Button, Dialog, FileButton, Select, Stack, Text, toast } from '@velocity-astro/cms-ui';
 import { FileUp } from 'lucide-react';
 import { useState } from 'react';
 import { useCustomFields, useImportContacts } from '../../client/queries.js';

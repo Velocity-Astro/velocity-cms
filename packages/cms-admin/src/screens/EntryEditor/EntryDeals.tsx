@@ -1,5 +1,5 @@
-import type { ContentTypeDef, Deal, Entry } from '@velocity/cms-core';
-import { Card, Stack, Table, Tag, Text, type TableColumn, type TableRow } from '@velocity/cms-ui';
+import type { ContentTypeDef, Deal, Entry } from '@velocity-astro/cms-core';
+import { Card, Stack, Table, Tag, Text, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
 import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { useDeals, usePipeline, useSession, useTeam } from '../../client/queries.js';

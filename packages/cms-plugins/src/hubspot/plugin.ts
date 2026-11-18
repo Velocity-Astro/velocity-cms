@@ -1,4 +1,4 @@
-import { definePlugin, type Contact } from '@velocity/cms-core';
+import { definePlugin, type Contact } from '@velocity-astro/cms-core';
 
 /** How long HubSpot has to answer before a try counts as failed. */
 const ANSWER_WITHIN_MS = 8000;

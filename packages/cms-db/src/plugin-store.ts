@@ -1,5 +1,5 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
-import type { PluginStore } from '@velocity/cms-core';
+import type { PluginStore } from '@velocity-astro/cms-core';
 import type { Db } from './database.js';
 import { pluginData } from './tables.js';
 

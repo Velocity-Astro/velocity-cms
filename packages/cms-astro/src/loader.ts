@@ -1,5 +1,5 @@
 import type { Loader } from 'astro/loaders';
-import { isLiveType } from '@velocity/cms-core';
+import { isLiveType } from '@velocity-astro/cms-core';
 import { connect, SITE, type ConnectionOptions } from './connection.js';
 
 export interface CmsLoaderOptions extends ConnectionOptions {

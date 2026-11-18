@@ -1,7 +1,7 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import type { BlockValue } from '@velocity/cms-core';
-import { dismissToasts } from '@velocity/cms-ui';
+import type { BlockValue } from '@velocity-astro/cms-core';
+import { dismissToasts } from '@velocity-astro/cms-ui';
 import { afterEach, expect, it } from 'vitest';
 import type { MemoryAdminClient } from '../testing/memory-client.js';
 import { renderApp } from '../testing/render-app.js';

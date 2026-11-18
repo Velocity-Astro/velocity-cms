@@ -1,5 +1,5 @@
-import { liveFields, type BlockDef, type BlockValue, type FieldDef } from '@velocity/cms-core';
-import { ConfirmDialog, OptionPicker, SectionList, Text, type PickerOption } from '@velocity/cms-ui';
+import { liveFields, type BlockDef, type BlockValue, type FieldDef } from '@velocity-astro/cms-core';
+import { ConfirmDialog, OptionPicker, SectionList, Text, type PickerOption } from '@velocity-astro/cms-ui';
 import { Copy, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { localized, withValue } from '../lib/content.js';

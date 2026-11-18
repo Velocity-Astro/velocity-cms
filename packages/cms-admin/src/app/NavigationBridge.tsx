@@ -1,4 +1,4 @@
-import { NavigationProvider, Toast } from '@velocity/cms-ui';
+import { NavigationProvider, Toast } from '@velocity-astro/cms-ui';
 import { Outlet } from 'react-router';
 import { useGo } from './use-go.js';
 import { useMessages } from '../messages/messages-context.js';

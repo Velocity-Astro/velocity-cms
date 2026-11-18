@@ -1,4 +1,4 @@
-import { Heading, Inline, Link, Stack, Table, Tag, Text, type TableColumn, type TableRow } from '@velocity/cms-ui';
+import { Heading, Inline, Link, Stack, Table, Tag, Text, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
 import { paths } from '../../app/paths.js';
 import { useGo } from '../../app/use-go.js';
 import { useContacts, usePipeline } from '../../client/queries.js';

@@ -13,7 +13,7 @@ import {
   Thumbnail,
   type TableColumn,
   type TableRow,
-} from '@velocity/cms-ui';
+} from '@velocity-astro/cms-ui';
 import { FileQuestion, Inbox, Plus, SearchX } from 'lucide-react';
 import { useState } from 'react';
 import { Navigate, useParams } from 'react-router';

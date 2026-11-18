@@ -1,6 +1,6 @@
-import { CmsApi } from '@velocity/cms-api';
-import { CmsAuth, type InvitationMail, type Mailer, type SignInMail } from '@velocity/cms-auth';
-import { pageAddress, type ContentTypeDef, type Entry, type ImageLibrary } from '@velocity/cms-core';
+import { CmsApi } from '@velocity-astro/cms-api';
+import { CmsAuth, type InvitationMail, type Mailer, type SignInMail } from '@velocity-astro/cms-auth';
+import { pageAddress, type ContentTypeDef, type Entry, type ImageLibrary } from '@velocity-astro/cms-core';
 import { AdminFiles, builtEditorDirectory } from './admin-files.js';
 import { SITE, type Connection } from './connection.js';
 import { invalidateLiveContent } from './live-loader.js';
@@ -23,7 +23,7 @@ export interface EditorHostOptions {
   readonly adminPath?: string;
   /** Where the API is served. Defaults to `/api/cms`; sign-in sits under it at `/auth`. */
   readonly apiPath?: string;
-  /** Where the built editor is. Defaults to the one `@velocity/cms-admin` ships. */
+  /** Where the built editor is. Defaults to the one `@velocity-astro/cms-admin` ships. */
   readonly editorDirectory?: string;
   /** Told about every fault in the API, which its responses say nothing about. */
   readonly onFault?: (error: unknown) => void;

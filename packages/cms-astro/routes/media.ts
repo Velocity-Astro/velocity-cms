@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { uploadedFile } from '@velocity/cms-astro';
+import { uploadedFile } from '@velocity-astro/cms-astro';
 
 export const prerender = false;
 

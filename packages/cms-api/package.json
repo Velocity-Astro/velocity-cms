@@ -1,9 +1,22 @@
 {
-  "name": "@velocity/cms-api",
-  "version": "0.0.0",
+  "name": "@velocity-astro/cms-api",
+  "version": "0.1.0-beta.1",
   "description": "The Velocity CMS over HTTP: what the editor, the CLI and plugins call. Built on web-standard Request and Response, so it runs wherever the site does.",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Velocity-Astro/velocity-cms.git",
+    "directory": "packages/cms-api"
+  },
+  "homepage": "https://docs.deployvelocity.com/cms/",
+  "bugs": "https://github.com/Velocity-Astro/velocity-cms/issues",
+  "engines": {
+    "node": ">=22.23.4"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "sideEffects": false,
   "exports": {
     ".": {
@@ -20,7 +33,7 @@
     "!dist/**/*.test.*"
   ],
   "dependencies": {
-    "@velocity/cms-core": "workspace:*"
+    "@velocity-astro/cms-core": "workspace:*"
   },
   "peerDependencies": {
     "zod": "^4.6.6"

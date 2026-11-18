@@ -1,5 +1,5 @@
-import { ROLES, type Role, type Team, type TeamMember } from '@velocity/cms-core';
-import { authUser, type Db } from '@velocity/cms-db';
+import { ROLES, type Role, type Team, type TeamMember } from '@velocity-astro/cms-core';
+import { authUser, type Db } from '@velocity-astro/cms-db';
 
 const isRole = (value: unknown): value is Role => ROLES.includes(value as Role);
 

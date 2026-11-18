@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const PACKAGE = '@velocity/cms-astro';
+const PACKAGE = '@velocity-astro/cms-astro';
 const CONFIG_FILES = ['astro.config.mjs', 'astro.config.ts', 'astro.config.js', 'astro.config.mts'];
 /** Where the database is kept unless the site says otherwise (see `connect`). */
 const DATA_FOLDER = 'cms';

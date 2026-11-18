@@ -3,7 +3,7 @@
  * Each component takes a section's values as props. To add a kind of section, describe it in the
  * model, write its component, and name it here.
  */
-import type { linkTo } from '@velocity/cms-astro';
+import type { linkTo } from '@velocity-astro/cms-astro';
 import CallToAction from './blocks/CallToAction.astro';
 import Features from './blocks/Features.astro';
 import Form from './blocks/Form.astro';

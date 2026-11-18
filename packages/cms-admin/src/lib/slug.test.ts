@@ -1,4 +1,4 @@
-import { isSlug } from '@velocity/cms-core';
+import { isSlug } from '@velocity-astro/cms-core';
 import { expect, it } from 'vitest';
 import { slugify } from './slug.js';
 

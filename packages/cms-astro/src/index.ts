@@ -4,7 +4,7 @@ export { EditorHost, LogMailer, type EditorHostOptions } from './editor.js';
 export { default, type VelocityCmsOptions } from './integration.js';
 export { ResendMailer, englishMailWords, mailerFromEnv, type MailWords, type ResendMailerOptions } from './resend-mailer.js';
 // What a site's own plugin file needs, so it imports from the one package the site installed.
-export { definePlugin, type PluginContext, type PluginDefinition } from '@velocity/cms-core';
+export { definePlugin, type PluginContext, type PluginDefinition } from '@velocity-astro/cms-core';
 export { registerSitePlugins } from './site-plugins.js';
 export { EditorNotSetUpError, editorOrigin, pagesOrigin, siteEditorHost, withEditor, type SiteEditorSettings } from './site-editor.js';
 export {
@@ -39,7 +39,7 @@ export {
 } from './form-post.js';
 export { FORM_SCRIPT, siteForm, siteFormPosts, type FormChoice, type SiteForm, type SiteFormOptions } from './site-forms.js';
 export { menuLinks, type MenuColumn, type MenuLink, type MenuOptions } from './menu.js';
-export type { PageHead } from '@velocity/cms-core';
+export type { PageHead } from '@velocity-astro/cms-core';
 export { cmsLoader, type CmsLoaderOptions } from './loader.js';
 export {
   liveAddresses,

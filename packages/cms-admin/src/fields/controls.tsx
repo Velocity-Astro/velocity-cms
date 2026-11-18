@@ -1,5 +1,5 @@
-import { fromPlainText, liveFields, type FieldDef, type RichText } from '@velocity/cms-core';
-import { DateField, Fieldset, ImagePicker, NumberField, Repeater, SectionList, Select, Skeleton, SkeletonGroup, Stack, Switch, Text, TextArea, TextField, toast } from '@velocity/cms-ui';
+import { fromPlainText, liveFields, type FieldDef, type RichText } from '@velocity-astro/cms-core';
+import { DateField, Fieldset, ImagePicker, NumberField, Repeater, SectionList, Select, Skeleton, SkeletonGroup, Stack, Switch, Text, TextArea, TextField, toast } from '@velocity-astro/cms-ui';
 import { Copy, Trash2 } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
 import { useContentTypes, useEntries, useForms, useImages, useUploadImage, useUploadRules } from '../client/queries.js';
@@ -266,7 +266,7 @@ const isPlainText = (value: unknown): value is string | string[] =>
  * The rich text editor is the largest part of the editor by far, and many forms have no rich
  * text. It is fetched the first time a form shows one, not with the first screen.
  */
-const RichTextEditor = lazy(async () => ({ default: (await import('@velocity/cms-ui/rich-text')).RichTextEditor }));
+const RichTextEditor = lazy(async () => ({ default: (await import('@velocity-astro/cms-ui/rich-text')).RichTextEditor }));
 
 /** Text with headings, lists, quotes, bold, italics and links. */
 function RichTextControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {

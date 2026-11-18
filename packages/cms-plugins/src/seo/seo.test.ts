@@ -1,5 +1,5 @@
-import { createCms, ValidationError, type Actor, type Cms, type ContentTypeDef } from '@velocity/cms-core';
-import { FakeClock, InMemoryEntryRepository, InMemoryPluginStore, InMemorySchemaRepository, SequentialIds } from '@velocity/cms-core/testing';
+import { createCms, ValidationError, type Actor, type Cms, type ContentTypeDef } from '@velocity-astro/cms-core';
+import { FakeClock, InMemoryEntryRepository, InMemoryPluginStore, InMemorySchemaRepository, SequentialIds } from '@velocity-astro/cms-core/testing';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { catalogue } from '../index.js';
 import { analyse, type SeoConfig } from './analyse.js';

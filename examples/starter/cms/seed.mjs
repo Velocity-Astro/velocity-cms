@@ -9,8 +9,8 @@
  * keep their ids, and nothing that was edited is touched.
  */
 import { randomUUID } from 'node:crypto';
-import { sharedConnection } from '@velocity/cms-astro';
-import { toStoredData } from '@velocity/cms-core';
+import { sharedConnection } from '@velocity-astro/cms-astro';
+import { toStoredData } from '@velocity-astro/cms-core';
 import { forms, model, sampleMenu, samplePages, samplePosts } from './model.mjs';
 
 const SEED = { kind: 'cli', id: 'seed', role: 'owner' };

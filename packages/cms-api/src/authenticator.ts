@@ -1,4 +1,4 @@
-import type { Actor, Role } from '@velocity/cms-core';
+import type { Actor, Role } from '@velocity-astro/cms-core';
 
 /** The person a request comes from, as the editor shows them. */
 export interface ApiUser {

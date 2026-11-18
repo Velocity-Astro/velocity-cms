@@ -1,13 +1,13 @@
-import { CmsApi } from '@velocity/cms-api';
-import { FixedAuthenticator } from '@velocity/cms-api/testing';
-import { createCms } from '@velocity/cms-core';
+import { CmsApi } from '@velocity-astro/cms-api';
+import { FixedAuthenticator } from '@velocity-astro/cms-api/testing';
+import { createCms } from '@velocity-astro/cms-core';
 import {
   InMemoryEntryRepository,
   InMemoryImageLibrary,
   InMemoryMediaRepository,
   InMemoryMediaStore,
   InMemorySchemaRepository,
-} from '@velocity/cms-core/in-memory';
+} from '@velocity-astro/cms-core/in-memory';
 import type { SessionUser } from '../client/admin-client.js';
 import { HttpAdminClient } from '../client/http-client.js';
 import { MemoryPeople } from './memory-people.js';

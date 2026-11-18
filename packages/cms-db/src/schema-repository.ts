@@ -1,5 +1,5 @@
 import { asc, eq } from 'drizzle-orm';
-import { ConflictError, type ContentTypeDef, type SchemaRepository } from '@velocity/cms-core';
+import { ConflictError, type ContentTypeDef, type SchemaRepository } from '@velocity-astro/cms-core';
 import type { Db } from './database.js';
 import { contentTypes } from './tables.js';
 

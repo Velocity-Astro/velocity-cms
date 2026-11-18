@@ -1,10 +1,10 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { TextField, dismissToasts } from '@velocity/cms-ui';
+import { TextField, dismissToasts } from '@velocity-astro/cms-ui';
 import { afterEach, expect, it, vi } from 'vitest';
 import { AdminApp } from '../../app/AdminApp.js';
 import { createFieldControlRegistry, createFieldControls } from '../../fields/index.js';
-import { tinyPng } from '@velocity/cms-core/in-memory';
+import { tinyPng } from '@velocity-astro/cms-core/in-memory';
 import { MemoryAdminClient } from '../../testing/memory-client.js';
 import { renderApp } from '../../testing/render-app.js';
 import { sampleContentTypes, sampleEntries, samplePagesType, sampleUser } from '../../testing/sample-content.js';

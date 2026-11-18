@@ -2,8 +2,8 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, expect, it } from 'vitest';
-import { createCms } from '@velocity/cms-core';
-import { contactRepositoryContract, dealRepositoryContract, pipelineStoreContract, customFieldsStoreContract, entryRepositoryContract, formRepositoryContract, submissionRepositoryContract, mediaRepositoryContract, pluginStoreContract, schemaRepositoryContract, searchIndexContract } from '@velocity/cms-core/testing';
+import { createCms } from '@velocity-astro/cms-core';
+import { contactRepositoryContract, dealRepositoryContract, pipelineStoreContract, customFieldsStoreContract, entryRepositoryContract, formRepositoryContract, submissionRepositoryContract, mediaRepositoryContract, pluginStoreContract, schemaRepositoryContract, searchIndexContract } from '@velocity-astro/cms-core/testing';
 import { openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqliteDealRepository, SqlitePipelineStore, SqliteCustomFieldsStore, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Database } from './index.js';
 
 const opened: Database[] = [];

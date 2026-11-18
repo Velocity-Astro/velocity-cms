@@ -14,9 +14,9 @@ TypeScript (strict) · Zod 4 · web-standard `Request`/`Response` · Better Auth
 | Build and type-check | `pnpm build` |
 | Tests | `pnpm test` (builds first: packages import each other's `dist`) |
 | Lint | `pnpm lint` (ESLint, then the design system's rules) |
-| Design system showcase | `pnpm --filter @velocity/cms-ui storybook` |
-| Accessibility of every story, light and dark | `pnpm --filter @velocity/cms-ui check:stories` |
-| New migration | `pnpm --filter @velocity/cms-db migrations:generate` |
+| Design system showcase | `pnpm --filter @velocity-astro/cms-ui storybook` |
+| Accessibility of every story, light and dark | `pnpm --filter @velocity-astro/cms-ui check:stories` |
+| New migration | `pnpm --filter @velocity-astro/cms-db migrations:generate` |
 
 ## Where things live
 
@@ -49,7 +49,7 @@ TypeScript (strict) · Zod 4 · web-standard `Request`/`Response` · Better Auth
 - `packages/cms-api/src/api.ts` — the CMS over HTTP: `CmsApi.handle(request)` answers with a `Response`. Routes hold no rules; they check the shape of what was sent and call a service. `authenticator.ts` is how it learns who is asking; `http.ts` maps each refusal to a status and a code.
 - `packages/cms-auth/src/auth.ts` — sign-in: `CmsAuth` wraps Better Auth (email links, passkeys) and is the only file that knows it. `client.ts` is the browser's side and imports nothing. `mailer.ts` is how a site delivers the links. Its tables are `auth_*` in `packages/cms-db/src/auth-tables.ts`.
 - `packages/cms-ui/` — the editor's design system. `src/tokens/tokens.css` holds every colour, size, radius, shadow and duration; `src/styles.css` turns them into the Tailwind theme and switches Tailwind's own palette off; `src/components/` and `src/patterns/` hold one folder per part; `component-registry.json` lists them all; `scripts/check.mjs` enforces the rules below.
-- `packages/cms-admin/` — the editor's screens, a React app. `src/client/admin-client.ts` is the only way to the server (`queries.ts` wraps every request, `http-client.ts` is the one a real site uses); `src/messages/en.ts` holds every word; `src/app/` has the routes, addresses and frame; `src/screens/` has one folder per screen; `src/fields/` has the control for each kind of field, looked up by the name a field type gives as `editor`; `src/fields/settings.tsx` has the form for each field type's settings in the content type builder (`screens/ContentTypes`, `screens/ContentType`), looked up by the field type's name; `src/testing/` has the in-memory server the tests and the preview (`pnpm --filter @velocity/cms-admin dev`) run against.
+- `packages/cms-admin/` — the editor's screens, a React app. `src/client/admin-client.ts` is the only way to the server (`queries.ts` wraps every request, `http-client.ts` is the one a real site uses); `src/messages/en.ts` holds every word; `src/app/` has the routes, addresses and frame; `src/screens/` has one folder per screen; `src/fields/` has the control for each kind of field, looked up by the name a field type gives as `editor`; `src/fields/settings.tsx` has the form for each field type's settings in the content type builder (`screens/ContentTypes`, `screens/ContentType`), looked up by the field type's name; `src/testing/` has the in-memory server the tests and the preview (`pnpm --filter @velocity-astro/cms-admin dev`) run against.
 - `packages/cms-admin/src/fields/BlocksControl.tsx` — the control for a page's sections: a `SectionList` of the entry's sections, each opening to its block's fields, and an `OptionPicker` of the blocks the template has today. `block-icons.ts` holds the icons a block can name.
 - `packages/cms-admin/src/screens/EntryEditor/PagePane.tsx` — the page beside the form (`Workbench`, `PagePreview`), shown for an entry that has a page and a field whose control says `showsPage`. `fields/page-focus.tsx` is how the form and the page tell each other which section is being looked at.
 - `packages/cms-admin/src/screens/Forms`, `screens/Form` — the forms a site has, and one form: what it was sent (`Submissions.tsx`, new first, then handled and spam), its fields (`FormFields.tsx`, drawn by the shared `FieldSetEditor`) and its settings. A form's fields are saved all at once, each with its id, and only kinds a visitor can fill in are offered (`FieldTypeInfo.takesSubmissions`).
@@ -60,6 +60,8 @@ TypeScript (strict) · Zod 4 · web-standard `Request`/`Response` · Better Auth
 - `packages/cms-admin/src/fields/FieldSetEditor.tsx`, `FieldSetDialog.tsx`, `field-set.ts` — a list of simple fields edited as a whole (`FieldSet`): a form's (`screens/Form/FormFields.tsx`) and the custom fields of contacts and deals (`fields/CustomFieldsDialog.tsx`). `fields/custom-values.tsx` fills custom fields in on one contact or deal, with the controls entries use.
 - `packages/cms-admin/src/plugins/` — what plugins add to the editor. `plugin-editor.tsx` loads each running plugin's editor file (`definePlugin({ editor })`, served by the site at `/admin/plugins/<name>.js`) and hands it `{ React, ui, client, register }`; `plugin-ui.ts` names the design system parts a plugin gets; `PluginBoundary.tsx` keeps a plugin's fault to its own part of the screen.
 - `packages/cms-plugins/` — the plugins that come with the CMS (`catalogue`), each in its own folder. `cms-astro/src/site-plugins.ts` loads them on every site after the site's own, switched off until an owner activates one. `seo/` is the first: `analyse.ts` judges an entry, `plugin.ts` is the server side, `editor.ts` the editor's part. `webhooks/` sends what happens (a form submitted, a contact or a deal changed, a page published) to the addresses an owner lists, signed when a signing secret is saved. `mailchimp/` adds whoever sends a form to a Mailchimp audience: the API key is a secret and the only thing that chooses the host (`mailchimpHost`), someone already in the audience is never updated, and an owner may name the forms and a yes or no field that asks for consent. `slack/` posts to a channel when a form is sent or a contact is made: the webhook address is a secret, only `hooks.slack.com` is posted to (`slackAddress`), and a message names the person only when the owner asks. `hubspot/` copies contacts to HubSpot one way, matched by email, to one fixed address (`HUBSPOT_UPSERT`) with a private app token kept as a secret.
+- `packages/velocity-cms/` — the `npx velocity-cms` command for a site that does not have the CMS yet: `init` installs `@velocity-astro/cms-astro` with the site's package manager, and every command is handed to the CMS the site has. No build and no dependencies.
+- `scripts/version.mjs`, `.github/workflows/release.yml`, `CHANGELOG.md` — a release: every package gets one version, the changelog names it, and the workflow, run by hand from main, rehearses unless told to publish.
 - `examples/starter/` — a small site on the CMS that is plain Astro: its model and seed (`cms/`), one component per section, and `npm run check`, which CI runs to prove a site works from an empty database. Keep it small enough to read in one sitting; it is what the README tells people to run.
 - `prototypes/` — phase 0 experiments. Scripts here may be rough; packages may not.
 
@@ -96,7 +98,7 @@ TypeScript (strict) · Zod 4 · web-standard `Request`/`Response` · Better Auth
 - **A slug is one part of an address unless the type says otherwise.** A type whose address pattern says `[...slug]` (`/[...slug]`) takes slugs of several parts, such as `services/roofing`, so pages can sit under pages; every part is a slug by itself (`isSlugPath`). Nothing else may put a slash in an address. The entry whose slug is `index` is the page at the top of such a pattern: with `/[...slug]`, the home page, at `/` and nowhere else.
 - **A link to an entry is stored as the entry, never as its address.** The site works the address out when it draws the page, in the page's language, and leaves out a link whose entry is not published. A typed address must pass `isSafeLink`.
 - **No switch on field type.** Behaviour that differs by field type is a method on `FieldType`.
-- **A new adapter must pass the contract tests** in `@velocity/cms-core/testing`. Add a case there when you find behaviour an adapter could get wrong.
+- **A new adapter must pass the contract tests** in `@velocity-astro/cms-core/testing`. Add a case there when you find behaviour an adapter could get wrong.
 - **Migrations only move forward.** Never edit a generated migration that has shipped.
 - **Errors are for people.** Throw a `CmsError` subclass with a message that says what happened and what to do, naming fields by key.
 - **No `any`** and no hardcoded user-facing strings outside error messages.
@@ -146,7 +148,7 @@ TypeScript (strict) · Zod 4 · web-standard `Request`/`Response` · Better Auth
 
 ESLint fails when one of these is broken.
 
-- **Screens are built only from `@velocity/cms-ui`.** No `className`, no `style`, no HTML elements, no imports of React Aria or Tailwind. If a part is missing, add it to `cms-ui` first.
+- **Screens are built only from `@velocity-astro/cms-ui`.** No `className`, no `style`, no HTML elements, no imports of React Aria or Tailwind. If a part is missing, add it to `cms-ui` first.
 - **No words in screens.** Every string a person reads lives in `src/messages/en.ts` and is read with `useMessages()`. A message with a value in it is a function.
 - **The server is reached only through `AdminClient`,** and screens call it only through the hooks in `client/queries.ts`, so each request has one cache key.
 - **Addresses come from `app/paths.ts`.** Don't write a path by hand in a screen. Go to one with `useGo()` (`app/use-go.ts`), so every change of screen moves the same way.

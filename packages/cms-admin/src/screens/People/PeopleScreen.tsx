@@ -1,5 +1,5 @@
-import { ROLES, type Role } from '@velocity/cms-core';
-import { Box, Button, ConfirmDialog, Dialog, Form, IconButton, Inline, PageHeader, Select, Stack, Table, Tag, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity/cms-ui';
+import { ROLES, type Role } from '@velocity-astro/cms-core';
+import { Box, Button, ConfirmDialog, Dialog, Form, IconButton, Inline, PageHeader, Select, Stack, Table, Tag, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
 import { Trash2, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';

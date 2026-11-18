@@ -1,4 +1,4 @@
-import type { ContentTypeDef, FieldDef } from '@velocity/cms-core';
+import type { ContentTypeDef, FieldDef } from '@velocity-astro/cms-core';
 import { expect, it } from 'vitest';
 import { NO_SECTION, moved, placeOf, placed, placesOf } from './arrangement.js';
 

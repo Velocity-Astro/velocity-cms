@@ -1,4 +1,4 @@
-import type { ContentTypeDef } from '@velocity/cms-core';
+import type { ContentTypeDef } from '@velocity-astro/cms-core';
 
 /** What the SEO plugin goes by, from its settings. */
 export interface SeoConfig {

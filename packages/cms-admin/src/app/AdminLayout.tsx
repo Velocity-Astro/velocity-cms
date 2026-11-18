@@ -1,4 +1,4 @@
-import { AppShell, Logo, dismissToasts, toast, type AppShellNavItem } from '@velocity/cms-ui';
+import { AppShell, Logo, dismissToasts, toast, type AppShellNavItem } from '@velocity-astro/cms-ui';
 import { Blocks, Contact, HandCoins, House, Images, Inbox, KeyRound, LogOut, Puzzle, Shapes, Trash2, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router';

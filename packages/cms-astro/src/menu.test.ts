@@ -1,4 +1,4 @@
-import type { Actor, ContentTypeDef, Entry } from '@velocity/cms-core';
+import type { Actor, ContentTypeDef, Entry } from '@velocity-astro/cms-core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { connect, type Connection } from './connection.js';
 import { menuLinksFrom } from './menu.js';

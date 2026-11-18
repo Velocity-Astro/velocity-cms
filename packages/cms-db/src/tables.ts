@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import type { ContentTypeDef, EntryData, EntryStatus, FormDef, SubmissionStatus } from '@velocity/cms-core';
+import type { ContentTypeDef, EntryData, EntryStatus, FormDef, SubmissionStatus } from '@velocity-astro/cms-core';
 
 /**
  * One row per content type. The definition is stored whole, as JSON: it is always read and

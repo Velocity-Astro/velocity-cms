@@ -1,4 +1,4 @@
-import { liveFields, type CustomFieldsOf, type EntryData, type FieldDef } from '@velocity/cms-core';
+import { liveFields, type CustomFieldsOf, type EntryData, type FieldDef } from '@velocity-astro/cms-core';
 import { useState } from 'react';
 import { AdminRequestError } from '../client/errors.js';
 import { useCustomFields } from '../client/queries.js';

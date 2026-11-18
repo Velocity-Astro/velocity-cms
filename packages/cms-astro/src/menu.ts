@@ -1,4 +1,4 @@
-import type { Cms } from '@velocity/cms-core';
+import type { Cms } from '@velocity-astro/cms-core';
 import { sharedConnection } from './connection.js';
 import { DEFAULT_LOCALE, entriesOf, linkResolver } from './link.js';
 import type { DrawnPage } from './page-head.js';

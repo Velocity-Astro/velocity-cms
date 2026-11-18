@@ -13,8 +13,8 @@
   },
   "dependencies": {
     "@astrojs/node": "11.1.9",
-    "@velocity/cms-astro": "workspace:*",
-    "@velocity/cms-core": "workspace:*",
+    "@velocity-astro/cms-astro": "workspace:*",
+    "@velocity-astro/cms-core": "workspace:*",
     "astro": "7.4.5"
   }
 }

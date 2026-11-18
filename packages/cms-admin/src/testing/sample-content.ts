@@ -1,6 +1,6 @@
-import type { NewForm } from '@velocity/cms-core';
+import type { NewForm } from '@velocity-astro/cms-core';
 import type { SeedSubmission } from './memory-client.js';
-import type { ContentTypeDef, Entry, FieldDef } from '@velocity/cms-core';
+import type { ContentTypeDef, Entry, FieldDef } from '@velocity-astro/cms-core';
 import type { SessionUser } from '../client/admin-client.js';
 
 /** A small real-estate site, for tests and the development preview. */

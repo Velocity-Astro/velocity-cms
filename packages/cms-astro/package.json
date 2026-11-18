@@ -1,9 +1,22 @@
 {
-  "name": "@velocity/cms-astro",
-  "version": "0.0.0",
+  "name": "@velocity-astro/cms-astro",
+  "version": "0.1.0-beta.1",
   "description": "The Astro side of Velocity CMS: a live loader for pages rendered on demand, a Content Layer loader for static builds, and the integration.",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Velocity-Astro/velocity-cms.git",
+    "directory": "packages/cms-astro"
+  },
+  "homepage": "https://docs.deployvelocity.com/cms/",
+  "bugs": "https://github.com/Velocity-Astro/velocity-cms/issues",
+  "engines": {
+    "node": ">=22.23.4"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -21,12 +34,12 @@
     "!dist/**/*.test.*"
   ],
   "dependencies": {
-    "@velocity/cms-admin": "workspace:*",
-    "@velocity/cms-api": "workspace:*",
-    "@velocity/cms-auth": "workspace:*",
-    "@velocity/cms-core": "workspace:*",
-    "@velocity/cms-db": "workspace:*",
-    "@velocity/cms-plugins": "workspace:*"
+    "@velocity-astro/cms-admin": "workspace:*",
+    "@velocity-astro/cms-api": "workspace:*",
+    "@velocity-astro/cms-auth": "workspace:*",
+    "@velocity-astro/cms-core": "workspace:*",
+    "@velocity-astro/cms-db": "workspace:*",
+    "@velocity-astro/cms-plugins": "workspace:*"
   },
   "peerDependencies": {
     "astro": "^7.0.0"

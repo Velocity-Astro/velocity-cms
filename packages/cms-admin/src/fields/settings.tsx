@@ -1,5 +1,5 @@
-import { Registry, type FieldDef } from '@velocity/cms-core';
-import { Checkbox, NumberField, Select, TextArea } from '@velocity/cms-ui';
+import { Registry, type FieldDef } from '@velocity-astro/cms-core';
+import { Checkbox, NumberField, Select, TextArea } from '@velocity-astro/cms-ui';
 import { useState, type ComponentType } from 'react';
 import { useContentTypes } from '../client/queries.js';
 import { localized } from '../lib/content.js';

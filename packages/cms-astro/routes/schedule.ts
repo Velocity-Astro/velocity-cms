@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { hasSiteSecret } from '@velocity/cms-astro';
+import { hasSiteSecret } from '@velocity-astro/cms-astro';
 import { publishDue } from './editor.ts';
 
 export const prerender = false;

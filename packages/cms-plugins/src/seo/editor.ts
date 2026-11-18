@@ -1,4 +1,4 @@
-import type { PluginEditorApi } from '@velocity/cms-admin';
+import type { PluginEditorApi } from '@velocity-astro/cms-admin';
 import type { analyse as Analyse, SeoConfig, SeoOverrides, SeoProblem } from './analyse.js';
 
 /** One entry with something to fix, as the server's review lists it. */

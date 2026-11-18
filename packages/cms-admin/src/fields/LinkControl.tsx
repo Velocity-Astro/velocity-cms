@@ -1,5 +1,5 @@
-import { isLiveType, type ContentTypeDef } from '@velocity/cms-core';
-import { Grid, Select, TextField } from '@velocity/cms-ui';
+import { isLiveType, type ContentTypeDef } from '@velocity-astro/cms-core';
+import { Grid, Select, TextField } from '@velocity-astro/cms-ui';
 import { useState } from 'react';
 import { useContentTypes, useEntries } from '../client/queries.js';
 import { entryTitle, groupTranslations, localized } from '../lib/content.js';

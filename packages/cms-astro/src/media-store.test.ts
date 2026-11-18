@@ -1,7 +1,7 @@
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { mediaStoreContract } from '@velocity/cms-core/testing';
+import { mediaStoreContract } from '@velocity-astro/cms-core/testing';
 import { describe, expect, it } from 'vitest';
 import { FolderMediaStore, mediaStoreFromEnv, S3MediaStore } from './media-store.js';
 

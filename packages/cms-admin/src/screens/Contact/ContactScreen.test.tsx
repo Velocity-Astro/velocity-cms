@@ -1,6 +1,6 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { dismissToasts } from '@velocity/cms-ui';
+import { dismissToasts } from '@velocity-astro/cms-ui';
 import { afterEach, expect, it, vi } from 'vitest';
 import { MemoryAdminClient } from '../../testing/memory-client.js';
 import { renderApp } from '../../testing/render-app.js';

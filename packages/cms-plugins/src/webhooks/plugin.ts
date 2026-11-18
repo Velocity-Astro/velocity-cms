@@ -1,4 +1,4 @@
-import { ValidationError, definePlugin, liveFields, type Contact, type Deal, type Entry, type FormDef, type PluginContext, type Submission } from '@velocity/cms-core';
+import { ValidationError, definePlugin, liveFields, type Contact, type Deal, type Entry, type FormDef, type PluginContext, type Submission } from '@velocity-astro/cms-core';
 
 /** How long the other side has to answer before a try counts as failed. */
 const ANSWER_WITHIN_MS = 5000;

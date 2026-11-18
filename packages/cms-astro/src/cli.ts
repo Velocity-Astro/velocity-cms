@@ -1,5 +1,5 @@
-import { CmsAuth } from '@velocity/cms-auth';
-import { CmsError } from '@velocity/cms-core';
+import { CmsAuth } from '@velocity-astro/cms-auth';
+import { CmsError } from '@velocity-astro/cms-core';
 import { connect } from './connection.js';
 import { LogMailer } from './editor.js';
 import { initSite } from './init.js';

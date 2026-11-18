@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { MiddlewareHandler } from 'astro';
-import { PREVIEW_PARAMETER, PreviewLinks, type EntryData } from '@velocity/cms-core';
+import { PREVIEW_PARAMETER, PreviewLinks, type EntryData } from '@velocity-astro/cms-core';
 import { siteSecret } from './secret.js';
 import { refreshUploadedImages } from './site-media.js';
 

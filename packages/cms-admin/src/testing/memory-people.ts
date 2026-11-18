@@ -1,4 +1,4 @@
-import { AccessControl, ConflictError, NotFoundError, ROLES, ValidationError, type Actor, type Role, type Team, type TeamMember } from '@velocity/cms-core';
+import { AccessControl, ConflictError, NotFoundError, ROLES, ValidationError, type Actor, type Role, type Team, type TeamMember } from '@velocity-astro/cms-core';
 import type { NewPerson, Person } from '../client/admin-client.js';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

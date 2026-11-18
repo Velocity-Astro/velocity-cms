@@ -1,10 +1,10 @@
 /**
  * The editor as a site serves it: the whole app, talking to the real API and the real sign-in.
- * `pnpm --filter @velocity/cms-admin build:app` builds this into `app-dist/`, and the Velocity
+ * `pnpm --filter @velocity-astro/cms-admin build:app` builds this into `app-dist/`, and the Velocity
  * CMS integration serves those files at `/admin`.
  */
-import '@velocity/cms-ui/styles.css';
-import { createAuthClient } from '@velocity/cms-auth/client';
+import '@velocity-astro/cms-ui/styles.css';
+import { createAuthClient } from '@velocity-astro/cms-auth/client';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AdminApp } from '../app/AdminApp.js';

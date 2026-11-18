@@ -1,9 +1,22 @@
 {
-  "name": "@velocity/cms-plugins",
-  "version": "0.0.0",
+  "name": "@velocity-astro/cms-plugins",
+  "version": "0.1.0-beta.1",
   "description": "The plugins that come with Velocity CMS. Every site lists them under Plugins, switched off until an owner activates one.",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Velocity-Astro/velocity-cms.git",
+    "directory": "packages/cms-plugins"
+  },
+  "homepage": "https://docs.deployvelocity.com/cms/",
+  "bugs": "https://github.com/Velocity-Astro/velocity-cms/issues",
+  "engines": {
+    "node": ">=22.23.4"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "sideEffects": false,
   "exports": {
     ".": {
@@ -16,9 +29,9 @@
     "!dist/**/*.test.*"
   ],
   "dependencies": {
-    "@velocity/cms-core": "workspace:*"
+    "@velocity-astro/cms-core": "workspace:*"
   },
   "devDependencies": {
-    "@velocity/cms-admin": "workspace:*"
+    "@velocity-astro/cms-admin": "workspace:*"
   }
 }

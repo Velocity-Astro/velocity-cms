@@ -1,5 +1,5 @@
-import type { Pipeline, StageKind, TeamMember } from '@velocity/cms-core';
-import { Button, Checkbox, Dialog, Fieldset, Form, Grid, NumberField, Repeater, Select, Stack, Text, TextField, toast } from '@velocity/cms-ui';
+import type { Pipeline, StageKind, TeamMember } from '@velocity-astro/cms-core';
+import { Button, Checkbox, Dialog, Fieldset, Form, Grid, NumberField, Repeater, Select, Stack, Text, TextField, toast } from '@velocity-astro/cms-ui';
 import { useRef, useState } from 'react';
 import { AdminRequestError } from '../../client/errors.js';
 import { useSavePipeline } from '../../client/queries.js';

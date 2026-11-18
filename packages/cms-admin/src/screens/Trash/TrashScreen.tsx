@@ -1,5 +1,5 @@
-import type { Entry } from '@velocity/cms-core';
-import { Box, Button, ConfirmDialog, EmptyState, Inline, PageHeader, Stack, Table, Text, toast, type TableColumn, type TableRow } from '@velocity/cms-ui';
+import type { Entry } from '@velocity-astro/cms-core';
+import { Box, Button, ConfirmDialog, EmptyState, Inline, PageHeader, Stack, Table, Text, toast, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
 import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';

@@ -1,5 +1,5 @@
 import { and, asc, eq, isNotNull, isNull, ne } from 'drizzle-orm';
-import { ConflictError, type FormDef, type FormRepository } from '@velocity/cms-core';
+import { ConflictError, type FormDef, type FormRepository } from '@velocity-astro/cms-core';
 import type { Db } from './database.js';
 import { forms } from './tables.js';
 

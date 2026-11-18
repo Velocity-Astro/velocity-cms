@@ -7,7 +7,7 @@ import {
   type EntryData,
   type FieldDef,
   type LocalizedText,
-} from '@velocity/cms-core';
+} from '@velocity-astro/cms-core';
 
 /** The text for a language, falling back to its base language (`es` for `es-ES`), then to any. */
 export function localized(text: LocalizedText, locale: string): string {

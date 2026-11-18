@@ -1,4 +1,4 @@
-import { pageAddress, type Cms, type ContentTypeDef, type PublicEntry } from '@velocity/cms-core';
+import { pageAddress, type Cms, type ContentTypeDef, type PublicEntry } from '@velocity-astro/cms-core';
 import { sharedConnection, SITE } from './connection.js';
 import { pageAt, type DrawnPage } from './page-head.js';
 

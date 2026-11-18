@@ -1,4 +1,4 @@
-import type { ContentTypeDef, Entry, EntryData } from '@velocity/cms-core';
+import type { ContentTypeDef, Entry, EntryData } from '@velocity-astro/cms-core';
 import * as React from 'react';
 import { createContext, useContext, useEffect, useSyncExternalStore, type ComponentType, type ReactNode } from 'react';
 import type { AdminClient } from '../client/admin-client.js';

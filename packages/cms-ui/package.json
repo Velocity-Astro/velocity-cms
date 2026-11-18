@@ -1,9 +1,22 @@
 {
-  "name": "@velocity/cms-ui",
-  "version": "0.0.0",
+  "name": "@velocity-astro/cms-ui",
+  "version": "0.1.0-beta.1",
   "description": "The Velocity CMS editor's design system: tokens, components and patterns. Knows nothing about content or the API.",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Velocity-Astro/velocity-cms.git",
+    "directory": "packages/cms-ui"
+  },
+  "homepage": "https://docs.deployvelocity.com/cms/",
+  "bugs": "https://github.com/Velocity-Astro/velocity-cms/issues",
+  "engines": {
+    "node": ">=22.23.4"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "sideEffects": [
     "**/*.css"
   ],
