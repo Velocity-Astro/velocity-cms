@@ -2,11 +2,12 @@ import { CmsApi } from '@velocity/cms-api';
 import { CmsAuth, type InvitationMail, type Mailer, type SignInMail } from '@velocity/cms-auth';
 import { pageAddress, type ContentTypeDef, type Entry, type ImageLibrary } from '@velocity/cms-core';
 import { AdminFiles, builtEditorDirectory } from './admin-files.js';
-import type { Connection } from './connection.js';
+import { SITE, type Connection } from './connection.js';
 import { invalidateLiveContent } from './live-loader.js';
 
 /** The language of the pages at a type's `urlPattern`, as the API and the previews take it. */
 const DEFAULT_LOCALE = 'en';
+const PAGE_SIZE = 500;
 
 export interface EditorHostOptions {
   readonly connection: Connection;
@@ -93,6 +94,19 @@ export class EditorHost {
     };
     cms.events.on('entry.published', published);
     cms.events.on('entry.unpublished', published);
+
+    // Archiving a type takes every page of it off the site, and restoring brings them back.
+    const shown = async ({ type }: { type: ContentTypeDef }) => {
+      invalidateLiveContent();
+      this.#published = true;
+      for (let offset = 0; ; offset += PAGE_SIZE) {
+        const page = await cms.content.find(SITE, { typeId: type.id, status: 'published', limit: PAGE_SIZE, offset });
+        for (const address of addressesOf(type, page.items)) this.#changed.add(address);
+        if (offset + page.items.length >= page.total || page.items.length === 0) break;
+      }
+    };
+    cms.events.on('type.archived', shown);
+    cms.events.on('type.restored', shown);
   }
 
   /** Answers a request to the API. */

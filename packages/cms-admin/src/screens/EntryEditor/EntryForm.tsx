@@ -59,7 +59,9 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
 
   const typeName = localized(type.label, locale);
   const title = entryTitle(type, data);
-  const slug = typedSlug ?? entry?.slug ?? slugify(title ?? '');
+  // A single page is its type's one entry, so it is named after the type and nobody has to name it.
+  const isSingle = type.kind === 'single';
+  const slug = typedSlug ?? entry?.slug ?? (isSingle ? type.key : slugify(title ?? ''));
   const hasChanges = entry === null || slug !== entry.slug || !sameData(data, entry.data);
   const state = entry ? entryState(entry) : 'draft';
   // What would be lost by leaving now. A new entry nobody has typed in holds nothing, and a save
@@ -202,8 +204,8 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
     <Stack gap={0} fill>
       <SaveBar
         label={messages.editor.saveBar}
-        back={{ href: paths.contentList(type.key), label: typeName }}
-        title={title ?? (entry ? messages.contentList.untitled : messages.editor.newTitle)}
+        {...(!isSingle && { back: { href: paths.contentList(type.key), label: typeName } })}
+        title={isSingle ? typeName : (title ?? (entry ? messages.contentList.untitled : messages.editor.newTitle))}
         status={
           <>
             <Tag tone={STATE_TONE[state]}>{messages.status[state]}</Tag>
@@ -247,33 +249,40 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
       />
       <Box paddingX={12} paddingY={8} grow>
         <Form label={messages.editor.form} gap={5} onSubmit={() => void run('save')}>
-          <Split
-            asideLabel={messages.editor.aside}
-            aside={
-              <>
-                <Card title={slugPattern !== undefined ? messages.editor.addressSection : messages.editor.identifierSection}>
-                  <TextField
-                    label={messages.editor.slug}
-                    value={slug}
-                    onChange={(next) => {
-                      setTypedSlug(next);
-                      setSlugProblem(null);
-                    }}
-                    isRequired
-                    description={
-                      slugPattern !== undefined
-                        ? messages.editor.slugDescription(slugPattern.replace('[slug]', slug === '' ? '…' : slug))
-                        : messages.editor.slugAsIdentifier
-                    }
-                    {...(slugProblem !== null && { errorMessage: slugProblem })}
-                  />
-                </Card>
-                {sections.filter((section) => section.aside).map(card)}
-              </>
-            }
-          >
-            {sections.filter((section) => !section.aside).map(card)}
-          </Split>
+          {isSingle && !sections.some((section) => section.aside) ? (
+            // Nothing to show beside the content, so the content has the page.
+            <Stack gap={6}>{sections.map(card)}</Stack>
+          ) : (
+            <Split
+              asideLabel={messages.editor.aside}
+              aside={
+                <>
+                  {!isSingle && (
+                    <Card title={slugPattern !== undefined ? messages.editor.addressSection : messages.editor.identifierSection}>
+                      <TextField
+                        label={messages.editor.slug}
+                        value={slug}
+                        onChange={(next) => {
+                          setTypedSlug(next);
+                          setSlugProblem(null);
+                        }}
+                        isRequired
+                        description={
+                          slugPattern !== undefined
+                            ? messages.editor.slugDescription(slugPattern.replace('[slug]', slug === '' ? '…' : slug))
+                            : messages.editor.slugAsIdentifier
+                        }
+                        {...(slugProblem !== null && { errorMessage: slugProblem })}
+                      />
+                    </Card>
+                  )}
+                  {sections.filter((section) => section.aside).map(card)}
+                </>
+              }
+            >
+              {sections.filter((section) => !section.aside).map(card)}
+            </Split>
+          )}
         </Form>
       </Box>
       <ConfirmDialog

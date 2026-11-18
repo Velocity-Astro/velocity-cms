@@ -59,3 +59,38 @@ it('says what is missing, and what the server refused, on the field it is about'
   // What was typed is still there to correct.
   expect((dialog.getByRole('textbox', { name: /^Name/ }) as HTMLInputElement).value).toBe('Listings');
 });
+
+it('starts a single page, which is opened straight from the sidebar and has one entry', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/types', signedIn);
+  await user.click(await screen.findByRole('button', { name: 'New content type' }));
+  const dialog = within(await screen.findByRole('dialog', { name: 'New content type' }));
+  await user.click(dialog.getByRole('radio', { name: 'One page' }));
+  await user.type(dialog.getByRole('textbox', { name: /^Name/ }), 'About');
+  await user.type(dialog.getByRole('textbox', { name: /^Address of the page/ }), '/about');
+  await user.click(dialog.getByRole('button', { name: 'Create content type' }));
+  expect(await screen.findByRole('heading', { level: 1, name: 'About' })).toBeTruthy();
+
+  await user.click((await screen.findAllByRole('button', { name: 'Add field' }))[0] as HTMLElement);
+  const field = within(await screen.findByRole('dialog', { name: 'Add a field' }));
+  await user.type(field.getByRole('textbox', { name: /^Name/ }), 'Story');
+  await user.click(field.getByRole('button', { name: 'Add field' }));
+  await screen.findByRole('row', { name: /^Story/ });
+
+  // No list in between: the sidebar leads to the page itself, which nobody has to name.
+  await user.click(screen.getByRole('link', { name: 'About' }));
+  await user.type(await screen.findByRole('textbox', { name: /^Story/ }), 'Founded in 1998.');
+  expect(screen.queryByRole('textbox', { name: /Identifier|Address/ })).toBeNull();
+  await user.click(screen.getByRole('button', { name: 'Save draft' }));
+  expect(await screen.findByRole('alertdialog', { name: 'Draft saved' })).toBeTruthy();
+
+  const about = (await client.listContentTypes()).find((type) => type.key === 'about');
+  expect(about).toMatchObject({ kind: 'single', urlPattern: '/about' });
+  expect((await client.listEntries({ type: 'about' })).items.map((entry) => entry.slug)).toEqual(['about']);
+
+  // Coming back opens that same entry, not a second one.
+  await user.click(screen.getByRole('link', { name: 'Home' }));
+  await user.click(await screen.findByRole('link', { name: 'About' }));
+  expect(((await screen.findByRole('textbox', { name: /^Story/ })) as HTMLTextAreaElement).value).toBe('Founded in 1998.');
+  expect(screen.queryByRole('button', { name: 'About' })).toBeNull();
+});

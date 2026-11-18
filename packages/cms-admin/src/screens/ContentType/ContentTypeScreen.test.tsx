@@ -306,3 +306,25 @@ it('chooses what entries are called by and what the list of entries shows', asyn
   expect(within(table).getByRole('columnheader', { name: 'Price' })).toBeTruthy();
   expect(within(table).getByRole('columnheader', { name: 'Stage' })).toBeTruthy();
 });
+
+it('archives a content type after asking, and restores it from the list of archived ones', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/types/agents', signedIn);
+  await user.click(await screen.findByRole('button', { name: 'Archive' }));
+  const ask = within(await screen.findByRole('alertdialog', { name: 'Archive Agents?' }));
+  expect(ask.getByText(/Its fields and entries are kept/)).toBeTruthy();
+  await user.click(ask.getByRole('button', { name: 'Archive content type' }));
+
+  // Back at the list, where it is out of the way but not gone.
+  expect(await screen.findByRole('heading', { level: 1, name: 'Content types' })).toBeTruthy();
+  expect(await screen.findByRole('alertdialog', { name: 'Agents was archived' })).toBeTruthy();
+  await waitFor(() => expect(screen.queryByRole('link', { name: 'Agents' })).toBeNull());
+  const archived = within(await screen.findByRole('grid', { name: 'Archived content types' }));
+  expect((await client.listContentTypes()).map((type) => type.key)).toEqual(['listings']);
+
+  await user.click(archived.getByRole('button', { name: 'Restore Agents' }));
+  expect(await screen.findByRole('alertdialog', { name: 'Agents was restored' })).toBeTruthy();
+  expect(await screen.findByRole('link', { name: 'Agents' })).toBeTruthy();
+  await waitFor(() => expect(screen.queryByRole('grid', { name: 'Archived content types' })).toBeNull());
+  expect((await client.listContentTypes()).map((type) => type.key)).toEqual(['agents', 'listings']);
+});

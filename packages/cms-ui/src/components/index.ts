@@ -17,6 +17,7 @@ export * from './NumberField/index.js';
 export * from './SearchField/index.js';
 export * from './Segmented/index.js';
 export * from './Select/index.js';
+export * from './Skeleton/index.js';
 export * from './Spinner/index.js';
 export * from './Stack/index.js';
 export * from './Stat/index.js';

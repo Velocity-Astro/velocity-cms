@@ -40,6 +40,7 @@ export {
 } from './rich-text.js';
 export {
   hasUnpublishedChanges,
+  isLiveType,
   liveFields,
   type ContentTypeDef,
   type ContentTypeKind,

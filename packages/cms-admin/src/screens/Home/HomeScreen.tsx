@@ -86,7 +86,7 @@ export function HomeScreen({ siteName }: HomeScreenProps) {
           description={messages.home.description(siteName)}
         />
         {failed && <ErrorState error={failed.error} onRetry={() => void failed.refetch()} />}
-        {!failed && pending && <LoadingState />}
+        {!failed && pending && <LoadingState shape="summary" />}
         {!failed && !pending && (
           <>
             <Grid columns={3} gap={4}>
@@ -97,7 +97,9 @@ export function HomeScreen({ siteName }: HomeScreenProps) {
             <Stack gap={3}>
               <Heading level={2}>{messages.home.addTitle}</Heading>
               <Inline gap={2} wrap>
-                {types.data.map((type) => (
+                {types.data
+                  .filter((type) => type.kind !== 'single')
+                  .map((type) => (
                   <Button key={type.id} variant="secondary" icon={Plus} onPress={() => go(paths.newEntry(type.key))}>
                     {localized(type.label, locale)}
                   </Button>

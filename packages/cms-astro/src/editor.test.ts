@@ -121,6 +121,28 @@ describe('signing in and publishing', () => {
     expect(host.takePublished()).toEqual(['/listings/lakeshore-drive/']);
   });
 
+  it('takes the pages of an archived type off the site, and puts them back when it is restored', async () => {
+    const type = await connection.cms.schema.create(installer, {
+      key: 'listings',
+      kind: 'collection',
+      label: { en: 'Listings' },
+      urlPattern: '/listings/[slug]',
+      fields: [{ key: 'title', type: 'text', label: { en: 'Title' } }],
+    });
+    const cookie = await signIn();
+    const created = await host.api(json('/api/cms/entries', cookie, { type: 'listings', slug: 'lakeshore', data: {} }));
+    const entry = (await created.json()) as { id: string; revision: number };
+    await host.api(json('/api/cms/entries', cookie, { type: 'listings', slug: 'a-draft', data: {} }));
+    await host.api(json(`/api/cms/entries/${entry.id}/publish`, cookie, { expectedRevision: entry.revision }));
+    host.takePublished();
+
+    expect((await host.api(json(`/api/cms/content-types/${type.id}`, cookie, {}, 'DELETE'))).status).toBe(200);
+    // Only pages visitors could see are read again: the draft never had one.
+    expect(host.takePublished()).toEqual(['/listings/lakeshore/']);
+    expect((await host.api(json(`/api/cms/content-types/${type.id}/restore`, cookie, {}))).status).toBe(200);
+    expect(host.takePublished()).toEqual(['/listings/lakeshore/']);
+  });
+
   it('prints a sign-in link to the log when the site has no mailer', async () => {
     await signIn();
     await host.signIn(json('/api/cms/auth/sign-in/magic-link', '', { email: 'dana@example.com', callbackURL: '/admin' }));

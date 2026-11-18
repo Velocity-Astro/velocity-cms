@@ -101,6 +101,12 @@ export interface AdminClient {
   createContentType(type: NewType): Promise<ContentTypeDef>;
   /** Changes what a content type is called, or where its entries live. */
   updateContentType(id: string, changes: ContentTypeChanges): Promise<ContentTypeDef>;
+  /** The content types that were archived, ordered by key. Owners only. */
+  listArchivedContentTypes(): Promise<readonly ContentTypeDef[]>;
+  /** Takes a content type out of the editor and its pages off the site. Its fields and entries are kept. */
+  archiveContentType(id: string): Promise<ContentTypeDef>;
+  /** Brings an archived content type back, with its entries as they were. */
+  restoreContentType(id: string): Promise<ContentTypeDef>;
   /**
    * Adds a field to a content type. Refused when a field already has its key. `within` leads to
    * the field that holds it, by id from the top down, for a field inside a group.

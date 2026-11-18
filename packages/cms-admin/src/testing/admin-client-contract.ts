@@ -190,6 +190,22 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       await expect(client.addField('type-listings', { key: 'x', type: 'text', label: { en: 'X' } }, ['f-title'])).rejects.toMatchObject({ code: 'conflict' });
     });
 
+    it('archives a content type, keeping its entries, and brings it back', async () => {
+      const before = (await client.listEntries({ type: 'agents' })).total;
+      expect(await client.listArchivedContentTypes()).toEqual([]);
+      expect((await client.archiveContentType('type-agents')).deletedAt).toBeTypeOf('string');
+      expect((await client.listContentTypes()).map((type) => type.key)).toEqual(['listings']);
+      expect((await client.listArchivedContentTypes()).map((type) => type.key)).toEqual(['agents']);
+      // Nothing about it changes while it is archived, and its key stays its own.
+      await expect(client.createEntry({ type: 'agents', slug: 'someone-new', data: {} })).rejects.toMatchObject({ code: 'conflict' });
+      await expect(client.addField('type-agents', { key: 'age', type: 'number', label: { en: 'Age' } })).rejects.toMatchObject({ code: 'conflict' });
+      await expect(client.createContentType({ key: 'agents', kind: 'collection', label: { en: 'Agents' } })).rejects.toMatchObject({ code: 'conflict' });
+
+      expect(await client.restoreContentType('type-agents')).not.toHaveProperty('deletedAt');
+      expect((await client.listContentTypes()).map((type) => type.key)).toEqual(['agents', 'listings']);
+      expect((await client.listEntries({ type: 'agents' })).total).toBe(before);
+    });
+
     it('refuses a content type or a field that could not work, in words for the person', async () => {
       await expect(client.createContentType({ key: 'listings', kind: 'collection', label: { en: 'Again' } })).rejects.toMatchObject({ code: 'conflict' });
       await expect(client.createContentType({ key: 'My News', kind: 'collection', label: { en: 'News' } })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['key'] }] });

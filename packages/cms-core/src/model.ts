@@ -66,6 +66,16 @@ export interface ContentTypeDef {
   readonly list?: ListSummary;
   /** How the editor lays the fields out. A field in no section is shown after them. */
   readonly sections?: readonly FieldSection[];
+  /**
+   * Set when the type was archived: it is out of the editor and its pages are off the site. Its
+   * fields and entries are kept as they were, so restoring it brings everything back.
+   */
+  readonly deletedAt?: Timestamp;
+}
+
+/** Whether a content type is in use: not archived. */
+export function isLiveType(type: ContentTypeDef): boolean {
+  return type.deletedAt === undefined;
 }
 
 /**

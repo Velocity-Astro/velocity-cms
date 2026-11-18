@@ -4,7 +4,8 @@
  *
  *   pnpm --filter @velocity/cms-admin dev
  *
- * Add `?signed-out` to the address to start at the sign-in screen, and `?dark` for the dark theme.
+ * Add `?signed-out` to the address to start at the sign-in screen, `?dark` for the dark theme, and
+ * `?slow` to make every request take a while, to see what each screen shows while it waits.
  */
 import '@velocity/cms-ui/styles.css';
 import { StrictMode } from 'react';
@@ -20,6 +21,7 @@ const client = new MemoryAdminClient({
   passkeyUser: sampleUser,
   contentTypes: sampleContentTypes,
   entries: sampleEntries(),
+  ...(options.has('slow') && { delay: 1500 }),
 });
 
 createRoot(document.getElementById('root') as HTMLElement).render(
