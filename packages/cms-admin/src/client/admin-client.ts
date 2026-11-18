@@ -200,6 +200,10 @@ export interface AdminClient {
   unpublishEntry(id: string): Promise<Entry>;
   /** A copy of an entry as a new draft of its own, under the entry's slug with `-copy` after it. */
   duplicateEntry(id: string): Promise<Entry>;
+  /** Sets the working version to go on the site at a time to come (`at`, an ISO time). It must be fit to publish now. */
+  scheduleEntry(id: string, input: { readonly at: string; readonly expectedRevision: number }): Promise<Entry>;
+  /** Takes an entry off the schedule. It stays as it is. */
+  unscheduleEntry(id: string): Promise<Entry>;
   /** Every save of an entry, the latest first. */
   entryHistory(id: string): Promise<Revision[]>;
   /** Brings back what the entry held at an earlier revision, as a new save. What visitors see stays. */

@@ -81,6 +81,8 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
       'astro:config:setup': ({ config, updateConfig, addMiddleware, injectRoute }) => {
         root = fileURLToPath(config.root);
         addMiddleware({ entrypoint: `${PACKAGE}/middleware`, order: 'pre' });
+        // Entries set to go out at a time are looked for as pages are asked for.
+        addMiddleware({ entrypoint: route('due.ts'), order: 'pre' });
         // Loaded with the server, so the plugins are known before the first request.
         if ((options.plugins ?? []).length > 0) addMiddleware({ entrypoint: route('plugins.ts'), order: 'pre' });
         injectRoute({ pattern: '/sitemap-live.xml', entrypoint: route('sitemap-live.xml.ts') });
@@ -92,6 +94,7 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
         injectRoute({ pattern: '/cms-preview.js', entrypoint: route('preview-client.js.ts') });
         injectRoute({ pattern: '/media/[file]', entrypoint: route('media.ts') });
         injectRoute({ pattern: '/api/cms/submit/[form]', entrypoint: route('submit.ts') });
+        injectRoute({ pattern: '/api/cms/schedule', entrypoint: route('schedule.ts') });
         injectRoute({ pattern: '/api/cms/auth/[...path]', entrypoint: route('auth.ts') });
         injectRoute({ pattern: '/api/cms/[...path]', entrypoint: route('api.ts') });
         injectRoute({ pattern: `${ADMIN_PATH}/[...path]`, entrypoint: route('admin.ts') });

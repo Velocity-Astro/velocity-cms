@@ -164,6 +164,14 @@ export class HttpAdminClient implements AdminClient {
     return this.#send('POST', `/entries/${encodeURIComponent(id)}/duplicate`, {});
   }
 
+  scheduleEntry(id: string, input: { readonly at: string; readonly expectedRevision: number }): Promise<Entry> {
+    return this.#send('POST', `/entries/${encodeURIComponent(id)}/schedule`, input);
+  }
+
+  unscheduleEntry(id: string): Promise<Entry> {
+    return this.#send('POST', `/entries/${encodeURIComponent(id)}/unschedule`, {});
+  }
+
   async entryHistory(id: string): Promise<Revision[]> {
     return (await this.#get<{ items: Revision[] }>(`/entries/${encodeURIComponent(id)}/history`)).items;
   }

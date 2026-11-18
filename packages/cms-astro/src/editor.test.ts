@@ -158,6 +158,28 @@ describe('signing in and publishing', () => {
     expect(host.takePublished()).toEqual(['/listings/lakeshore-drive/']);
   });
 
+  it('publishes an entry whose time has come, looking at most every half minute', async () => {
+    const type = await connection.cms.schema.create(installer, {
+      key: 'listings',
+      kind: 'collection',
+      label: { en: 'Listings' },
+      urlPattern: '/listings/[slug]',
+      fields: [{ key: 'title', type: 'text', label: { en: 'Title' } }],
+    });
+    const entry = await connection.cms.content.create(installer, { typeId: type.id, locale: 'en', slug: 'lakeshore', data: {} });
+    const soon = new Date(Date.now() + 40).toISOString();
+    await connection.cms.content.schedule(installer, entry.id, { at: soon, expectedRevision: 1 });
+    await host.publishDue();
+    expect(host.takePublished()).toBeNull();
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    // Looked a moment ago, so not again yet, unless a scheduled job asks.
+    await host.publishDue();
+    expect(host.takePublished()).toBeNull();
+    await host.publishDue({ now: true });
+    expect(host.takePublished()).toEqual(['/listings/lakeshore/']);
+    expect((await connection.cms.content.get(installer, entry.id)).status).toBe('published');
+  });
+
   it('takes the pages of an archived type off the site, and puts them back when it is restored', async () => {
     const type = await connection.cms.schema.create(installer, {
       key: 'listings',

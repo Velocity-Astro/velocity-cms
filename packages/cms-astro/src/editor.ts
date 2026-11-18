@@ -50,12 +50,19 @@ export class LogMailer implements Mailer {
  * calls and the sign-in behind both, over the site's one database connection. The integration's
  * routes each hand their request to one of the three methods and do nothing else.
  */
+/** How often entries due to be published are looked for. */
+const DUE_EVERY_MS = 30_000;
+
 export class EditorHost {
   readonly auth: CmsAuth;
   readonly #api: CmsApi;
   readonly #files: AdminFiles;
   readonly #pluginFile: RegExp;
   readonly #plugins: Connection['cms']['plugins'];
+  readonly #content: Connection['cms']['content'];
+  readonly #onFault: ((error: unknown) => void) | undefined;
+  /** When entries due to be published were last looked for. */
+  #lookedAt = 0;
   /** Whether anything was published or taken down since `takePublished` was last called. */
   #published = false;
   /** The addresses of the pages that changed with it, where they are known. */
@@ -86,6 +93,8 @@ export class EditorHost {
       ...(options.onFault && { onFault: options.onFault }),
     });
     this.#plugins = cms.plugins;
+    this.#content = cms.content;
+    this.#onFault = options.onFault;
     // `/admin/plugins/<name>.js`: what a running plugin adds to the editor.
     this.#pluginFile = new RegExp(`^${adminPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/plugins/([a-z][a-z0-9-]{0,39})\\.js$`);
     this.#files = new AdminFiles(options.editorDirectory ?? builtEditorDirectory(), { siteName: options.siteName, adminPath, apiPath, authPath });
@@ -152,6 +161,22 @@ export class EditorHost {
     // Not the editor's page: a browser asked for a script, and would try to run it.
     if (file === null) return new Response(null, { status: 404, headers: { 'cache-control': 'no-store' } });
     return new Response(file, { headers: { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' } });
+  }
+
+  /**
+   * Publishes the entries whose time has come. A site may have no clock of its own, so this is
+   * asked on every request and looks at most every half minute; a scheduled job that calls the
+   * site (`/api/cms/schedule`) passes `now` to look whenever it asks. It never throws: a page is
+   * not lost over a publish that could not be looked for. `takePublished` says what went out.
+   */
+  async publishDue(options: { readonly now?: boolean } = {}): Promise<void> {
+    if (options.now !== true && Date.now() - this.#lookedAt < DUE_EVERY_MS) return;
+    this.#lookedAt = Date.now();
+    try {
+      await this.#content.publishDue();
+    } catch (error) {
+      this.#onFault?.(error);
+    }
   }
 
   /**

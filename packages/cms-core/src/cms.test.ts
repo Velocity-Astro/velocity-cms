@@ -36,11 +36,14 @@ const id = (type: ContentTypeDef, key: string): string => {
   return field.id;
 };
 
+let clock: FakeClock;
+
 beforeEach(async () => {
+  clock = new FakeClock();
   cms = createCms({
     entries: new InMemoryEntryRepository(),
     types: new InMemorySchemaRepository(),
-    clock: new FakeClock(),
+    clock,
     ids: new SequentialIds(),
   });
   listings = await cms.schema.create(owner, {
@@ -315,6 +318,59 @@ describe('ContentService', () => {
       const again = await cms.content.update(editor, first.id, { data: { ...valid(), [note]: 'Call first' }, expectedRevision: back.revision });
       await cms.schema.removeField(owner, listings.id, note);
       expect((await cms.content.revert(editor, first.id, { revision: 1, expectedRevision: again.revision })).data).toEqual({ ...first.data, [note]: 'Call first' });
+    });
+  });
+
+  describe('a time to publish', () => {
+    const later = '2026-03-01T09:00:00.000Z';
+
+    it('puts the working version on the site once the time has come, and not before', async () => {
+      const draft = await cms.content.create(editor, { typeId: listings.id, locale: 'en', slug: 'a', data: valid() });
+      const set = await cms.content.schedule(editor, draft.id, { at: later, expectedRevision: 1 });
+      expect(set).toMatchObject({ status: 'draft', publishAt: later, revision: 2 });
+      expect(await cms.content.publishDue()).toBe(0);
+      // It can still be worked on: what goes out is what it holds when the time comes.
+      const changed = await cms.content.update(author, draft.id, { data: { ...valid(), [id(listings, 'price')]: 5 }, expectedRevision: 2 });
+      expect(changed.publishAt).toBe(later);
+
+      clock.set('2026-03-01T09:00:01.000Z');
+      expect(await cms.content.publishDue()).toBe(1);
+      const live = await cms.content.get(editor, draft.id);
+      expect(live).toMatchObject({ status: 'published', published: { data: changed.data } });
+      expect(live).not.toHaveProperty('publishAt');
+      expect(await cms.content.publishDue()).toBe(0);
+    });
+
+    it('refuses a time that has passed, an entry not fit to publish and someone who may not publish', async () => {
+      const draft = await cms.content.create(editor, { typeId: listings.id, locale: 'en', slug: 'a', data: valid() });
+      await expect(cms.content.schedule(editor, draft.id, { at: '2020-01-01T00:00:00.000Z', expectedRevision: 1 })).rejects.toThrowError(/still to come/);
+      await expect(cms.content.schedule(editor, draft.id, { at: 'soon', expectedRevision: 1 })).rejects.toBeInstanceOf(ValidationError);
+      await expect(cms.content.schedule(author, draft.id, { at: later, expectedRevision: 1 })).rejects.toBeInstanceOf(ForbiddenError);
+      const empty = await cms.content.create(editor, { typeId: listings.id, locale: 'en', slug: 'b', data: {} });
+      await expect(cms.content.schedule(editor, empty.id, { at: later, expectedRevision: 1 })).rejects.toBeInstanceOf(ValidationError);
+    });
+
+    it('comes off the schedule when asked, and when published by hand', async () => {
+      const draft = await cms.content.create(editor, { typeId: listings.id, locale: 'en', slug: 'a', data: valid() });
+      await cms.content.schedule(editor, draft.id, { at: later, expectedRevision: 1 });
+      expect(await cms.content.unschedule(editor, draft.id)).not.toHaveProperty('publishAt');
+      await cms.content.schedule(editor, draft.id, { at: later, expectedRevision: 3 });
+      expect(await cms.content.publish(editor, draft.id)).not.toHaveProperty('publishAt');
+    });
+
+    it('keeps the reason on an entry that was no longer fit to publish, and tries it no more', async () => {
+      const draft = await cms.content.create(editor, { typeId: listings.id, locale: 'en', slug: 'a', data: valid() });
+      await cms.content.schedule(editor, draft.id, { at: later, expectedRevision: 1 });
+      await cms.content.update(editor, draft.id, { data: {}, expectedRevision: 2 });
+      clock.set('2026-03-02T00:00:00.000Z');
+      expect(await cms.content.publishDue()).toBe(0);
+      const missed = await cms.content.get(editor, draft.id);
+      expect(missed.status).toBe('draft');
+      expect(missed).not.toHaveProperty('publishAt');
+      expect(missed.publishProblem).toMatch(/problem/);
+      // Set again once it is put right, the reason goes.
+      const fixed = await cms.content.update(editor, draft.id, { data: valid(), expectedRevision: missed.revision });
+      expect(await cms.content.schedule(editor, draft.id, { at: '2026-04-01T00:00:00.000Z', expectedRevision: fixed.revision })).not.toHaveProperty('publishProblem');
     });
   });
 

@@ -1,0 +1,1 @@
+ALTER TABLE `entries` ADD `publish_problem` text;

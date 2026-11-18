@@ -171,7 +171,13 @@ export interface Entry {
   readonly published?: PublishedVersion;
   /** Starts at 1 and goes up by one on every save. */
   readonly revision: number;
+  /**
+   * When the working version goes on the site by itself. Set by `schedule`; a publish, by hand or
+   * when the time comes, takes it away.
+   */
   readonly publishAt?: Timestamp;
+  /** Why the entry did not go on the site when its time came. Gone at the next publish or schedule. */
+  readonly publishProblem?: string;
   readonly createdAt: Timestamp;
   readonly updatedAt: Timestamp;
   /**

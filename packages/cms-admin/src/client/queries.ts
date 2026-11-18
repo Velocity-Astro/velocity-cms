@@ -290,6 +290,19 @@ export function useDuplicateEntry() {
   return useMutation({ mutationFn: (id: string) => client.duplicateEntry(id), onSuccess: useEntryChanged() });
 }
 
+export function useScheduleEntry() {
+  const client = useClient();
+  return useMutation({
+    mutationFn: ({ id, ...input }: { readonly id: string; readonly at: string; readonly expectedRevision: number }) => client.scheduleEntry(id, input),
+    onSuccess: useEntryChanged(),
+  });
+}
+
+export function useUnscheduleEntry() {
+  const client = useClient();
+  return useMutation({ mutationFn: (id: string) => client.unscheduleEntry(id), onSuccess: useEntryChanged() });
+}
+
 /** Every save of an entry, the latest first. Asked for only once someone opens its history. */
 export function useEntryHistory(id: string, isAsked = true) {
   const client = useClient();

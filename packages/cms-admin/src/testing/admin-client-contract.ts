@@ -152,6 +152,20 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       await expect(client.duplicateEntry('nothing')).rejects.toMatchObject({ code: 'not_found' });
     });
 
+    it('sets a published entry\'s changes to go out later, and takes them off the schedule', async () => {
+      const entry = await client.getEntry('e1');
+      const at = '2999-01-01T09:00:00.000Z';
+      const set = await client.scheduleEntry('e1', { at, expectedRevision: entry.revision });
+      expect(set).toMatchObject({ status: 'published', publishAt: at, revision: entry.revision + 1 });
+      expect(await client.unscheduleEntry('e1')).not.toHaveProperty('publishAt');
+      await expect(client.scheduleEntry('e1', { at: '2001-01-01T09:00:00.000Z', expectedRevision: entry.revision + 2 })).rejects.toMatchObject({
+        code: 'validation_failed',
+        issues: [{ path: ['publishAt'] }],
+      });
+      // An entry not fit to publish is refused today, not when its time comes.
+      await expect(client.scheduleEntry('e4', { at, expectedRevision: 1 })).rejects.toMatchObject({ code: 'validation_failed' });
+    });
+
     it('lists every save of an entry and brings an earlier one back as a new save', async () => {
       const created = await client.createEntry({ type: 'agents', slug: 'maria-ortiz', data: { 'f-name': 'María Ortiz' } });
       const saved = await client.updateEntry(created.id, { slug: 'maria', data: { 'f-name': 'María' }, expectedRevision: 1 });
