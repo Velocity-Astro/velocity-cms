@@ -5,6 +5,7 @@ import type { EventBus } from '../events.js';
 import type { Deal, Forecast, Page, PipelineStage } from '../model.js';
 import type { Clock, ContactRepository, DealQuery, DealRepository, IdGenerator } from '../ports.js';
 import type { ContactService } from './contact-service.js';
+import type { CustomFieldsService } from './custom-fields-service.js';
 import { DEFAULT_CURRENCY, chanceOf, type PipelineService } from './pipeline-service.js';
 
 export interface NewDeal {
@@ -16,6 +17,8 @@ export interface NewDeal {
   /** Left out, whoever looks after the contact. */
   readonly ownerId?: string;
   readonly closeOn?: string;
+  /** What the site's own fields for deals hold, by field id. */
+  readonly data?: Readonly<Record<string, unknown>>;
 }
 
 /** What to change in a deal. Anything left out stays as it is; `null` clears it. */
@@ -25,6 +28,8 @@ export interface DealChanges {
   readonly stage?: string;
   readonly ownerId?: string | null;
   readonly closeOn?: string | null;
+  /** The site's own fields to change, by field id. One left out stays as it is; an empty one is cleared. */
+  readonly data?: Readonly<Record<string, unknown>>;
   /** The revision the editor loaded. The update is refused if someone saved in between. */
   readonly expectedRevision: number;
 }
@@ -47,6 +52,7 @@ export class DealService {
     private readonly events: EventBus,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
+    private readonly custom?: CustomFieldsService,
   ) {}
 
   async find(actor: Actor, query: DealQuery = {}): Promise<Page<Deal>> {
@@ -68,6 +74,7 @@ export class DealService {
     const stage = stages.find((candidate) => candidate.id === checked.stage) ?? stages[0];
     if (!stage || checked.title === undefined || checked.value === undefined) throw new ConflictError('The pipeline has no stages.');
     const ownerId = checked.ownerId ?? contact.ownerId;
+    const data = await this.custom?.values('deal', input.data, undefined);
     const now = this.clock.now();
     const deal: Deal = {
       id: this.ids.next(),
@@ -78,6 +85,7 @@ export class DealService {
       ...(ownerId !== undefined && { ownerId }),
       ...(checked.closeOn !== undefined && { closeOn: checked.closeOn }),
       ...(stage.kind !== 'open' && { closedAt: now }),
+      ...(data !== undefined && { data }),
       revision: 1,
       createdAt: now,
       updatedAt: now,
@@ -93,7 +101,8 @@ export class DealService {
     if (current.revision !== changes.expectedRevision) throw new ConflictError('This deal was saved by someone else. Reload it and try again.');
     const stages = (await this.pipeline.current()).stages;
     const checked = await this.checked(actor, stages, { title: changes.title, value: changes.value, stage: changes.stage, ownerId: changes.ownerId ?? undefined, closeOn: changes.closeOn ?? undefined });
-    const { ownerId: _ownerId, closeOn: _closeOn, closedAt: _closedAt, ...kept } = current;
+    const data = this.custom ? await this.custom.values('deal', changes.data, current.data) : current.data;
+    const { ownerId: _ownerId, closeOn: _closeOn, closedAt: _closedAt, data: _data, ...kept } = current;
     const stageId = checked.stage ?? current.stage;
     const isOpen = (stages.find((candidate) => candidate.id === stageId)?.kind ?? 'open') === 'open';
     const ownerId = changes.ownerId === null ? undefined : (checked.ownerId ?? current.ownerId);
@@ -109,6 +118,7 @@ export class DealService {
       ...(ownerId !== undefined && { ownerId }),
       ...(closeOn !== undefined && { closeOn }),
       ...(closedAt !== undefined && { closedAt }),
+      ...(data !== undefined && { data }),
       revision: current.revision + 1,
       updatedAt: now,
     };

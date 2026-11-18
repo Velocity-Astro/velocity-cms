@@ -1,4 +1,4 @@
-import { readImage, type Contact, type ContactChanges, type Deal, type DealChanges, type Forecast, type NewDeal, type Pipeline, type PipelineChanges, type TeamMember, type ContactNote, type NewContact, type TimelineItem, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PluginSettings, type PluginTask, type PluginEditorInfo, type PluginRouteMethod, type EntryData, type FormChanges, type FormDef, type NewForm, type PreviewLink, type SiteImage, type Submission, type SubmissionStatus } from '@velocity/cms-core';
+import { readImage, type CustomFields, type CustomFieldsChanges, type Contact, type ContactChanges, type Deal, type DealChanges, type Forecast, type NewDeal, type Pipeline, type PipelineChanges, type TeamMember, type ContactNote, type NewContact, type TimelineItem, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PluginSettings, type PluginTask, type PluginEditorInfo, type PluginRouteMethod, type EntryData, type FormChanges, type FormDef, type NewForm, type PreviewLink, type SiteImage, type Submission, type SubmissionStatus } from '@velocity/cms-core';
 import type { AdminClient, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from './admin-client.js';
 import { AdminRequestError, type RequestErrorCode, type RequestIssue } from './errors.js';
 
@@ -278,6 +278,14 @@ export class HttpAdminClient implements AdminClient {
 
   savePipeline(changes: PipelineChanges): Promise<Pipeline> {
     return this.#send('PUT', '/pipeline', changes);
+  }
+
+  getCustomFields(): Promise<CustomFields> {
+    return this.#get('/custom-fields');
+  }
+
+  saveCustomFields(changes: CustomFieldsChanges): Promise<CustomFields> {
+    return this.#send('PUT', '/custom-fields', changes);
   }
 
   async listTeam(): Promise<readonly TeamMember[]> {

@@ -388,6 +388,29 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       expect((await site.getPluginSettings('seo')).values).toEqual({ [suffix]: ' | Lakeshore' });
     });
 
+    it('keeps the site\'s own fields for contacts and deals, and what is filled in under them', async () => {
+      expect(await client.getCustomFields()).toEqual({ contact: [], deal: [], revision: 0 });
+      const saved = await client.saveCustomFields({
+        contact: [{ key: 'membership', type: 'select', label: { en: 'Membership' }, options: { choices: ['monthly', 'yearly'] } }],
+        deal: [{ key: 'seats', type: 'number', label: { en: 'Seats' }, options: { integer: true } }],
+        expectedRevision: 0,
+      });
+      expect([saved.contact.map((field) => field.key), saved.deal.map((field) => field.key), saved.revision]).toEqual([['membership'], ['seats'], 1]);
+      expect(await client.getCustomFields()).toEqual(saved);
+      await expect(client.saveCustomFields({ contact: [], expectedRevision: 0 })).rejects.toMatchObject({ code: 'conflict' });
+      await expect(client.saveCustomFields({ contact: [{ key: 'body', type: 'richtext', label: { en: 'Body' } }], expectedRevision: 1 })).rejects.toMatchObject({ code: 'validation_failed' });
+
+      const membership = saved.contact[0]?.id ?? '';
+      const seats = saved.deal[0]?.id ?? '';
+      const sam = await client.createContact({ email: 'sam@example.com', data: { [membership]: 'yearly' } });
+      expect(sam.data).toEqual({ [membership]: 'yearly' });
+      await expect(client.updateContact(sam.id, { data: { [membership]: 'weekly' }, expectedRevision: sam.revision })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['data', 'membership'] }] });
+      expect((await client.updateContact(sam.id, { data: { [membership]: 'monthly' }, expectedRevision: sam.revision })).data).toEqual({ [membership]: 'monthly' });
+      const deal = await client.createDeal({ contactId: sam.id, title: 'Team plan', value: 900, data: { [seats]: 12 } });
+      expect(deal.data).toEqual({ [seats]: 12 });
+      expect((await client.updateDeal(deal.id, { data: { [seats]: null }, expectedRevision: deal.revision })).data).toBeUndefined();
+    });
+
     it('saves a plugin\'s secret without ever sending it back, and shows its work with a way to try again', async () => {
       let works = false;
       const site = await make({

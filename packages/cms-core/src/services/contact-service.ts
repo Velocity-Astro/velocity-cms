@@ -7,6 +7,7 @@ import type { Contact, ContactNote, FormDef, Page, Submission, SubmissionAnswer,
 import type { Clock, ContactQuery, ContactRepository, DealRepository, FormRepository, IdGenerator, SubmissionRepository, Team } from '../ports.js';
 import type { Registry } from '../registry.js';
 import type { PipelineService } from './pipeline-service.js';
+import type { CustomFieldsService } from './custom-fields-service.js';
 import { removeSubmissions } from './submission-service.js';
 
 /** A contact as someone adds one by hand. */
@@ -18,6 +19,8 @@ export interface NewContact {
   readonly stage?: string;
   readonly ownerId?: string;
   readonly followUpAt?: string;
+  /** What the site's own fields for contacts hold, by field id. */
+  readonly data?: Readonly<Record<string, unknown>>;
 }
 
 /** What to change in a contact. Anything left out stays as it is; `null` clears it. */
@@ -31,6 +34,8 @@ export interface ContactChanges {
   readonly ownerId?: string | null;
   /** The day to get back to them, as `2026-03-14`. */
   readonly followUpAt?: string | null;
+  /** The site's own fields to change, by field id. One left out stays as it is; an empty one is cleared. */
+  readonly data?: Readonly<Record<string, unknown>>;
   /** The revision the editor loaded. The update is refused if someone saved in between. */
   readonly expectedRevision: number;
 }
@@ -57,6 +62,7 @@ export class ContactService {
     private readonly pipeline: PipelineService,
     private readonly team?: Team,
     private readonly deals?: DealRepository,
+    private readonly custom?: CustomFieldsService,
   ) {}
 
   /** Who a contact can be given to: everyone on the team who may read contacts, by name. */
@@ -83,6 +89,7 @@ export class ContactService {
     if (details.email === undefined) throw problems([{ path: ['email'], message: 'This is needed.' }]);
     await this.free(details.email, null);
     const place = await this.placed(actor, { stage: input.stage, ownerId: input.ownerId, followUpAt: input.followUpAt });
+    const data = await this.custom?.values('contact', input.data, undefined);
     const now = this.clock.now();
     const contact: Contact = {
       id: this.ids.next(),
@@ -92,6 +99,7 @@ export class ContactService {
       stage: place.stage ?? (await this.firstStage()),
       ...(place.ownerId !== undefined && { ownerId: place.ownerId }),
       ...(place.followUpAt !== undefined && { followUpAt: place.followUpAt }),
+      ...(data !== undefined && { data }),
       revision: 1,
       createdAt: now,
       updatedAt: now,
@@ -109,7 +117,8 @@ export class ContactService {
     const email = details.email ?? current.email;
     if (email !== current.email) await this.free(email, current.id);
     const place = await this.placed(actor, { stage: changes.stage, ownerId: changes.ownerId ?? undefined, followUpAt: changes.followUpAt ?? undefined });
-    const { name: _name, phone: _phone, ownerId: _ownerId, followUpAt: _followUpAt, ...kept } = current;
+    const data = this.custom ? await this.custom.values('contact', changes.data, current.data) : current.data;
+    const { name: _name, phone: _phone, ownerId: _ownerId, followUpAt: _followUpAt, data: _data, ...kept } = current;
     const name = changes.name === null ? undefined : (details.name ?? current.name);
     const phone = changes.phone === null ? undefined : (details.phone ?? current.phone);
     const ownerId = changes.ownerId === null ? undefined : (place.ownerId ?? current.ownerId);
@@ -122,6 +131,7 @@ export class ContactService {
       stage: place.stage ?? current.stage,
       ...(ownerId !== undefined && { ownerId }),
       ...(followUpAt !== undefined && { followUpAt }),
+      ...(data !== undefined && { data }),
       revision: current.revision + 1,
       updatedAt: this.clock.now(),
     };
@@ -190,10 +200,12 @@ export class ContactService {
     const deals = [];
     for (let offset = 0; this.deals; offset += BATCH) {
       const { items } = await this.deals.find({ contactId: id, limit: BATCH, offset });
-      for (const deal of items) deals.push({ title: deal.title, value: deal.value, stage: deal.stage, ...(deal.closeOn !== undefined && { closeOn: deal.closeOn }), made: deal.createdAt });
+      for (const deal of items) deals.push({ title: deal.title, value: deal.value, stage: deal.stage, ...(deal.closeOn !== undefined && { closeOn: deal.closeOn }), ...(deal.data !== undefined && this.custom && { fields: await this.custom.byKey('deal', deal.data) }), made: deal.createdAt });
       if (items.length < BATCH) break;
     }
-    const { id: _id, revision: _revision, source: _source, ...person } = contact;
+    const { id: _id, revision: _revision, source: _source, data: held, ...known } = contact;
+    // The site's own fields are named by key, as a person would know them.
+    const person = { ...known, ...(held !== undefined && this.custom && { fields: await this.custom.byKey('contact', held) }) };
     return `${JSON.stringify({ contact: person, submissions: sent, notes, deals }, null, 2)}\n`;
   }
 

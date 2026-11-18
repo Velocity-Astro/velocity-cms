@@ -139,3 +139,32 @@ it('lists on Home the contacts a person looks after that are due, and opens one'
   await user.click(due.getByRole('rowheader', { name: 'Ana Ruiz' }));
   expect(await screen.findByRole('heading', { level: 1, name: 'Ana Ruiz' })).toBeTruthy();
 });
+
+it('adds a field of the site\'s own to contacts, and fills it in on one', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/contacts', site);
+  await user.click(await screen.findByRole('button', { name: 'Custom fields' }));
+  const fields = within(await screen.findByRole('dialog', { name: 'Custom fields for contacts' }));
+  expect(await fields.findByText(/Add what you want to know about each contact/)).toBeTruthy();
+  await user.click(fields.getByRole('button', { name: 'Add field' }));
+  const adding = within(await screen.findByRole('dialog', { name: 'Add a field' }));
+  // No custom field can be one that must be filled in: a contact from a form could not be.
+  expect(adding.queryByRole('checkbox', { name: /must fill this in/ })).toBeNull();
+  await user.type(adding.getByRole('textbox', { name: /^Label/ }), 'Membership type');
+  await user.click(adding.getByRole('button', { name: 'Add field' }));
+  expect(await screen.findByText('Membership type added')).toBeTruthy();
+  expect(await fields.findByRole('row', { name: /Membership type/ })).toBeTruthy();
+  expect((await client.getCustomFields()).contact.map((field) => field.key)).toEqual(['membershipType']);
+  await user.click(fields.getByRole('button', { name: 'Close' }));
+
+  await user.click(await screen.findByRole('row', { name: /Ana Ruiz/ }));
+  const details = within(await screen.findByRole('region', { name: 'Details' }));
+  expect(await details.findByText('Membership type')).toBeTruthy();
+  await user.click(screen.getByRole('button', { name: 'Edit details' }));
+  const editing = within(await screen.findByRole('dialog', { name: 'Edit Ana Ruiz' }));
+  await user.type(await editing.findByRole('textbox', { name: /^Membership type/ }), 'Yearly');
+  await user.click(editing.getByRole('button', { name: 'Save details' }));
+  expect(await details.findByText('Yearly')).toBeTruthy();
+  const [ana] = (await client.listContacts({ search: 'ana@' })).items;
+  expect(Object.values(ana?.data ?? {})).toEqual(['Yearly']);
+});

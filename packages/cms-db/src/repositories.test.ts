@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, expect, it } from 'vitest';
 import { createCms } from '@velocity/cms-core';
-import { contactRepositoryContract, dealRepositoryContract, pipelineStoreContract, entryRepositoryContract, formRepositoryContract, submissionRepositoryContract, mediaRepositoryContract, pluginStoreContract, schemaRepositoryContract, searchIndexContract } from '@velocity/cms-core/testing';
-import { openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqliteDealRepository, SqlitePipelineStore, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Database } from './index.js';
+import { contactRepositoryContract, dealRepositoryContract, pipelineStoreContract, customFieldsStoreContract, entryRepositoryContract, formRepositoryContract, submissionRepositoryContract, mediaRepositoryContract, pluginStoreContract, schemaRepositoryContract, searchIndexContract } from '@velocity/cms-core/testing';
+import { openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqliteDealRepository, SqlitePipelineStore, SqliteCustomFieldsStore, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Database } from './index.js';
 
 const opened: Database[] = [];
 const memory = async () => {
@@ -20,6 +20,7 @@ submissionRepositoryContract('SqliteSubmissionRepository', async () => new Sqlit
 contactRepositoryContract('SqliteContactRepository', async () => new SqliteContactRepository(await memory()));
 dealRepositoryContract('SqliteDealRepository', async () => new SqliteDealRepository(await memory()));
 pipelineStoreContract('SqlitePipelineStore', async () => new SqlitePipelineStore(await memory()));
+customFieldsStoreContract('SqliteCustomFieldsStore', async () => new SqliteCustomFieldsStore(await memory()));
 schemaRepositoryContract('SqliteSchemaRepository', async () => new SqliteSchemaRepository(await memory()));
 mediaRepositoryContract('SqliteMediaRepository', async () => new SqliteMediaRepository(await memory()));
 pluginStoreContract('SqlitePluginStore', async () => new SqlitePluginStore(await memory()));

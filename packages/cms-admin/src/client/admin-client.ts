@@ -1,4 +1,4 @@
-import type { Contact, ContactChanges, Deal, DealChanges, Forecast, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginTask, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
+import type { CustomFields, CustomFieldsChanges, Contact, ContactChanges, Deal, DealChanges, Forecast, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginTask, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
@@ -234,6 +234,10 @@ export interface AdminClient {
   getPipeline(): Promise<Pipeline>;
   /** Replaces the stages. Contacts in a stage that is removed move to the first. */
   savePipeline(changes: PipelineChanges): Promise<Pipeline>;
+  /** The fields this site adds to its contacts and its deals. For those who may read contacts. */
+  getCustomFields(): Promise<CustomFields>;
+  /** Replaces the custom fields named. A field left out is removed, and what it held is kept. */
+  saveCustomFields(changes: CustomFieldsChanges): Promise<CustomFields>;
   /** Who a contact can be given to, by name. For those who may read contacts. */
   listTeam(): Promise<readonly TeamMember[]>;
   /** What contacts may buy, newest first. Only for those who may read contacts. */

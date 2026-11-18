@@ -148,6 +148,8 @@ export const contacts = sqliteTable(
     stage: text('stage').notNull().default('new'),
     ownerId: text('owner_id'),
     followUpAt: text('follow_up_at'),
+    // What the site's own fields hold, by field id.
+    data: text('data', { mode: 'json' }).$type<EntryData>(),
     revision: integer('revision').notNull(),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
@@ -172,6 +174,7 @@ export const deals = sqliteTable(
     ownerId: text('owner_id'),
     closeOn: text('close_on'),
     closedAt: text('closed_at'),
+    data: text('data', { mode: 'json' }).$type<EntryData>(),
     revision: integer('revision').notNull(),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),

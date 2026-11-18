@@ -1,4 +1,4 @@
-import type { Cms, ContactChanges, DealChanges, NewDeal, PipelineChanges, ContentTypeChanges, FieldArrangement, FieldChanges, FieldSection, FormChanges, NewContact, NewField, NewForm, Role } from '@velocity/cms-core';
+import type { Cms, ContactChanges, DealChanges, NewDeal, PipelineChanges, CustomFieldsChanges, ContentTypeChanges, FieldArrangement, FieldChanges, FieldSection, FormChanges, NewContact, NewField, NewForm, Role } from '@velocity/cms-core';
 import { z } from 'zod';
 import type { ApiSession, Authenticator } from './authenticator.js';
 import { ApiError, errorResponse, isFault, json } from './http.js';
@@ -142,7 +142,9 @@ const contactList = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
   offset: z.coerce.number().int().min(0).default(0),
 });
-const newContact = z.strictObject({ email: z.string(), name: z.string().optional(), phone: z.string().optional() });
+// What each custom field may hold is its field type's to say, in the service.
+const customValues = z.record(z.string(), z.unknown());
+const newContact = z.strictObject({ email: z.string(), name: z.string().optional(), phone: z.string().optional(), data: customValues.optional() });
 const contactChanges = z.strictObject({
   email: z.string().optional(),
   name: z.string().nullable().optional(),
@@ -150,7 +152,13 @@ const contactChanges = z.strictObject({
   stage: z.string().optional(),
   ownerId: z.string().nullable().optional(),
   followUpAt: z.string().nullable().optional(),
+  data: customValues.optional(),
   expectedRevision: z.number().int().positive(),
+});
+const customFieldsChanges = z.strictObject({
+  contact: z.array(formField).max(100).optional(),
+  deal: z.array(formField).max(100).optional(),
+  expectedRevision: z.number().int().min(0),
 });
 const pipelineChanges = z.strictObject({
   stages: z.array(z.strictObject({ id: z.string().optional(), label: z.string().optional(), kind: z.enum(['open', 'won', 'lost']), chance: z.number().optional() })).max(50),
@@ -173,6 +181,7 @@ const newDeal = z.strictObject({
   stage: z.string().optional(),
   ownerId: z.string().optional(),
   closeOn: z.string().optional(),
+  data: customValues.optional(),
 });
 const dealChanges = z.strictObject({
   title: z.string().optional(),
@@ -180,6 +189,7 @@ const dealChanges = z.strictObject({
   stage: z.string().optional(),
   ownerId: z.string().nullable().optional(),
   closeOn: z.string().nullable().optional(),
+  data: customValues.optional(),
   expectedRevision: z.number().int().positive(),
 });
 const newNote = z.strictObject({ text: z.string() });
@@ -200,7 +210,7 @@ export class CmsApi {
   constructor(options: CmsApiOptions) {
     this.#options = options;
     this.#basePath = `/${(options.basePath ?? '/api/cms').split('/').filter(Boolean).join('/')}`;
-    const { schema, content, fields, media, previews, plugins, forms, submissions, contacts, pipeline, deals } = options.cms;
+    const { schema, content, fields, media, previews, plugins, forms, submissions, contacts, pipeline, deals, customFields } = options.cms;
     const defaultLocale = options.defaultLocale ?? 'en';
 
     this.#router
@@ -367,6 +377,12 @@ export class CmsApi {
         const who = actor(call);
         const body = parse(pipelineChanges, await this.#body(call.request));
         return json(await pipeline.save(who, deep<PipelineChanges>(body)));
+      })
+      .add('GET', '/custom-fields', async (call) => json(await customFields.get(actor(call))))
+      .add('PUT', '/custom-fields', async (call) => {
+        const who = actor(call);
+        const body = parse(customFieldsChanges, await this.#body(call.request));
+        return json(await customFields.save(who, deep<CustomFieldsChanges>(body)));
       })
       .add('GET', '/deals', async (call) => {
         const query = parse(dealList, Object.fromEntries(call.url.searchParams));

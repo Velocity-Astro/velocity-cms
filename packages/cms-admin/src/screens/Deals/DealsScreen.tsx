@@ -1,10 +1,11 @@
 import type { Deal, Pipeline } from '@velocity/cms-core';
-import { Board, Box, EmptyState, Grid, Link, PageHeader, Stack, Stat, toast, type BoardColumn } from '@velocity/cms-ui';
-import { HandCoins } from 'lucide-react';
+import { Board, Box, Button, EmptyState, Grid, Link, PageHeader, Stack, Stat, toast, type BoardColumn } from '@velocity/cms-ui';
+import { HandCoins, ListPlus } from 'lucide-react';
 import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { paths } from '../../app/paths.js';
 import { useContacts, useDealLists, useForecast, usePipeline, useSession, useTeam, useUpdateDeal } from '../../client/queries.js';
+import { CustomFieldsDialog } from '../../fields/CustomFieldsDialog.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 import { STAGE_TONE, dayText, useMoney, useStageName } from '../Contacts/pipeline.js';
 import { DealDialog } from './DealDialog.js';
@@ -18,17 +19,27 @@ export function DealsScreen() {
   const messages = useMessages();
   const session = useSession();
   const pipeline = usePipeline();
+  const [isEditingFields, setEditingFields] = useState(false);
   const mayRead = session.data !== null && session.data !== undefined && session.data.role !== 'author';
   // Deals are as personal as contacts: an author who finds the address is told so, and nothing is asked for.
   if (!mayRead) return <EmptyState icon={HandCoins} title={messages.deals.title} description={messages.deals.noAccess} />;
   return (
     <Box paddingX={12} paddingY={10}>
       <Stack gap={6}>
-        <PageHeader title={messages.deals.title} description={messages.deals.description} />
+        <PageHeader
+          title={messages.deals.title}
+          description={messages.deals.description}
+          actions={
+            <Button variant="secondary" icon={ListPlus} onPress={() => setEditingFields(true)}>
+              {messages.customFields.button}
+            </Button>
+          }
+        />
         {pipeline.isPending && <LoadingState shape="summary" />}
         {pipeline.isError && <ErrorState error={pipeline.error} onRetry={() => void pipeline.refetch()} />}
         {pipeline.isSuccess && <DealBoard pipeline={pipeline.data} />}
       </Stack>
+      {isEditingFields && <CustomFieldsDialog of="deal" onClose={() => setEditingFields(false)} />}
     </Box>
   );
 }

@@ -33,6 +33,8 @@ import {
   type EntryData,
   type PluginInfo,
   type PluginSettings,
+  type CustomFields,
+  type CustomFieldsChanges,
   type PluginTask,
   type PluginEditorInfo,
   type PluginRouteMethod,
@@ -394,6 +396,14 @@ export class MemoryAdminClient implements AdminClient {
 
   savePipeline(changes: PipelineChanges): Promise<Pipeline> {
     return this.#request((actor) => this.#cms.pipeline.save(actor, changes));
+  }
+
+  getCustomFields(): Promise<CustomFields> {
+    return this.#request((actor) => this.#cms.customFields.get(actor));
+  }
+
+  saveCustomFields(changes: CustomFieldsChanges): Promise<CustomFields> {
+    return this.#request((actor) => this.#cms.customFields.save(actor, changes));
   }
 
   listTeam(): Promise<readonly TeamMember[]> {

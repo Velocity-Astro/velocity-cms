@@ -5,13 +5,14 @@ import { contactNotes, contacts } from './tables.js';
 
 type Row = typeof contacts.$inferSelect;
 
-const toContact = ({ name, phone, sourceFormId, sourcePage, ownerId, followUpAt, ...row }: Row): Contact => ({
+const toContact = ({ name, phone, sourceFormId, sourcePage, ownerId, followUpAt, data, ...row }: Row): Contact => ({
   ...row,
   ...(name !== null && { name }),
   ...(phone !== null && { phone }),
   ...(sourceFormId !== null && { source: { formId: sourceFormId, ...(sourcePage !== null && { page: sourcePage }) } }),
   ...(ownerId !== null && { ownerId }),
   ...(followUpAt !== null && { followUpAt }),
+  ...(data !== null && { data }),
 });
 
 const toRow = ({ source, ...contact }: Contact): Row => ({
@@ -22,6 +23,7 @@ const toRow = ({ source, ...contact }: Contact): Row => ({
   sourcePage: source?.page ?? null,
   ownerId: contact.ownerId ?? null,
   followUpAt: contact.followUpAt ?? null,
+  data: contact.data ?? null,
 });
 
 /** The words as a pattern that matches them anywhere, with nothing in them read as a wildcard. */

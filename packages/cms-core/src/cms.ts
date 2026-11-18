@@ -5,13 +5,14 @@ import { createFieldRegistry } from './fields/index.js';
 import { PublishChecks } from './checks.js';
 import { PageHeads } from './pages.js';
 import { PluginHost } from './plugin.js';
-import type { Clock, ContactRepository, DealRepository, EntryRepository, FormRepository, IdGenerator, PipelineStore, PluginStore, SchemaRepository, SubmissionRepository, Team } from './ports.js';
-import { InMemoryContactRepository, InMemoryDealRepository, InMemoryFormRepository, InMemoryPipelineStore, InMemoryPluginStore, InMemorySubmissionRepository } from './testing/in-memory.js';
+import type { Clock, ContactRepository, DealRepository, EntryRepository, FormRepository, IdGenerator, PipelineStore, CustomFieldsStore, PluginStore, SchemaRepository, SubmissionRepository, Team } from './ports.js';
+import { InMemoryContactRepository, InMemoryDealRepository, InMemoryFormRepository, InMemoryPipelineStore, InMemoryCustomFieldsStore, InMemoryPluginStore, InMemorySubmissionRepository } from './testing/in-memory.js';
 import type { Registry } from './registry.js';
 import { ContentService } from './services/content-service.js';
 import { ContactService } from './services/contact-service.js';
 import { DealService } from './services/deal-service.js';
 import { PipelineService } from './services/pipeline-service.js';
+import { CustomFieldsService } from './services/custom-fields-service.js';
 import { FormService } from './services/form-service.js';
 import { SubmissionService } from './services/submission-service.js';
 import { MediaService, type MediaServiceOptions } from './services/media-service.js';
@@ -41,6 +42,8 @@ export interface CmsOptions {
   readonly deals?: DealRepository;
   /** Where the stages of the pipeline are kept once someone changes them. Without one, in memory. */
   readonly pipeline?: PipelineStore;
+  /** Where the fields a site adds to its contacts and deals are kept. Without one, in memory. */
+  readonly customFields?: CustomFieldsStore;
   /** Who is on the team, so a contact can be given to one of them. Without it nobody can be. */
   readonly team?: Team;
   readonly clock?: Clock;
@@ -66,6 +69,7 @@ export interface Cms {
   readonly contacts: ContactService;
   /** The stages a contact moves through. */
   readonly pipeline: PipelineService;
+  readonly customFields: CustomFieldsService;
   /** What contacts may buy, what each is worth and how far along it is. */
   readonly deals: DealService;
   readonly previews: PreviewService;
@@ -102,11 +106,12 @@ export function createCms(options: CmsOptions): Cms {
   const contactStore = options.contacts ?? new InMemoryContactRepository();
   const dealStore = options.deals ?? new InMemoryDealRepository();
   const pipeline = new PipelineService(options.pipeline ?? new InMemoryPipelineStore(), contactStore, access, events, ids, dealStore, options.team);
-  const contacts = new ContactService(contactStore, submissionStore, formStore, fields, access, events, clock, ids, pipeline, options.team, dealStore);
-  const deals = new DealService(dealStore, contactStore, contacts, pipeline, access, events, clock, ids);
+  const customFields = new CustomFieldsService(options.customFields ?? new InMemoryCustomFieldsStore(), fields, access, events, clock, ids);
+  const contacts = new ContactService(contactStore, submissionStore, formStore, fields, access, events, clock, ids, pipeline, options.team, dealStore, customFields);
+  const deals = new DealService(dealStore, contactStore, contacts, pipeline, access, events, clock, ids, customFields);
   const submissions = new SubmissionService(submissionStore, formStore, fields, access, events, clock, ids, contacts);
   const previews = new PreviewService(content, schema, clock, options.previews);
   const sealWith = options.secret ?? options.previews?.secret;
   const plugins = new PluginHost({ fields, events, checks, pages, store: options.pluginStore ?? new InMemoryPluginStore(), ids, schema, content, access, clock, ...(sealWith !== undefined && { secret: sealWith }), ...(options.onPluginFault && { onFault: options.onPluginFault }) });
-  return { schema, content, media, forms, submissions, contacts, pipeline, deals, previews, fields, events, access, plugins, pages };
+  return { schema, content, media, forms, submissions, contacts, pipeline, customFields, deals, previews, fields, events, access, plugins, pages };
 }

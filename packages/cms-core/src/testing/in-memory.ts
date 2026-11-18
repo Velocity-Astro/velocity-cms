@@ -1,5 +1,5 @@
 import { ConflictError } from '../errors.js';
-import type { Contact, ContactNote, Deal, Pipeline, ContentTypeDef, Entry, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus } from '../model.js';
+import type { Contact, ContactNote, CustomFields, Deal, Pipeline, ContentTypeDef, Entry, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus } from '../model.js';
 import type {
   Clock,
   ContactQuery,
@@ -8,6 +8,7 @@ import type {
   DealRepository,
   StageTotal,
   PipelineStore,
+  CustomFieldsStore,
   EntryQuery,
   EntryRepository,
   FormRepository,
@@ -415,6 +416,20 @@ export class InMemoryPipelineStore implements PipelineStore {
     if ((this.#pipeline?.revision ?? null) !== expectedRevision) throw new ConflictError('The stages were changed by someone else. Reload them and try again.');
     this.#pipeline = pipeline;
     return pipeline;
+  }
+}
+
+export class InMemoryCustomFieldsStore implements CustomFieldsStore {
+  #fields: CustomFields | null = null;
+
+  async get(): Promise<CustomFields | null> {
+    return this.#fields;
+  }
+
+  async save(fields: CustomFields, expectedRevision: number | null): Promise<CustomFields> {
+    if ((this.#fields?.revision ?? null) !== expectedRevision) throw new ConflictError('These fields were changed by someone else. Reload them and try again.');
+    this.#fields = fields;
+    return fields;
   }
 }
 
