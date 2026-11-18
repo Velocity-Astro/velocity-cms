@@ -57,7 +57,7 @@ describe('how an entry reads in search results', () => {
 
 describe('the SEO plugin', () => {
   it('comes with the CMS switched off, and an owner activates it', async () => {
-    expect((await cms.plugins.list(owner))[0]).toMatchObject({ name: 'seo', status: 'off', hasSettings: true, hasEditor: true });
+    expect((await cms.plugins.list(owner)).find((plugin) => plugin.name === 'seo')).toMatchObject({ name: 'seo', status: 'off', hasSettings: true, hasEditor: true });
     expect(await cms.plugins.setEnabled(owner, 'seo', true)).toMatchObject({ status: 'on', adds: { checks: 1 } });
   });
 
