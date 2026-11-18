@@ -8,3 +8,5 @@ export * from './SaveBar/index.js';
 export * from './ImagePicker/index.js';
 export * from './Split/index.js';
 export * from './MediaGrid/index.js';
+export * from './OptionPicker/index.js';
+export * from './SectionList/index.js';

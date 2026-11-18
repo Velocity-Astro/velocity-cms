@@ -194,6 +194,24 @@
       "uses": ["Button", "IconButton"]
     },
     {
+      "name": "SectionList",
+      "layer": "pattern",
+      "group": "Forms",
+      "description": "Sections of different kinds in an order a person chooses. Each opens to show its own fields, and has a menu of what else can be done with it.",
+      "example": "<SectionList label=\"Sections\" items={items} openIds={open} onOpenChange={toggle} emptyText=\"No sections yet\" addLabel=\"Add section\" onAdd={pick} onMove={move} onAction={act} moveUpLabel={…} moveDownLabel={…} moreLabel={…} />",
+      "useInstead": "Repeater for several of the same small thing; Tabs to switch between views of one thing.",
+      "uses": ["Button", "IconButton", "Menu", "Tag"]
+    },
+    {
+      "name": "OptionPicker",
+      "layer": "pattern",
+      "group": "Overlays",
+      "description": "A window to choose one thing from a set of named kinds, in groups, each with a line on what it gives. Choosing closes it.",
+      "example": "<OptionPicker isOpen={isOpen} onOpenChange={setOpen} title=\"Add a section\" closeLabel=\"Close\" groups={groups} onChoose={add} emptyText=\"No kinds of section yet\" />",
+      "useInstead": "Menu for a handful of actions; Select to choose a field's value; ImagePicker to choose a picture.",
+      "uses": ["Dialog"]
+    },
+    {
       "name": "MediaGrid",
       "layer": "pattern",
       "group": "Media",

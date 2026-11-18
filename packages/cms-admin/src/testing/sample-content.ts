@@ -49,6 +49,86 @@ export const sampleContentTypes: readonly ContentTypeDef[] = [
   },
 ];
 
+/**
+ * A type whose entries are pages built from sections, and one page of it. Kept apart from the
+ * types above, so a test or the preview adds them when it is about pages.
+ */
+export const samplePagesType: ContentTypeDef = {
+  id: 'type-pages',
+  key: 'pages',
+  kind: 'collection',
+  label: { en: 'Pages' },
+  urlPattern: '/[slug]',
+  fields: [
+    field('f-page-title', 'title', 'text', 'Title', { required: true }),
+    field('f-body', 'body', 'blocks', 'Sections', {
+      options: {
+        blocks: [
+          {
+            id: 'b-hero',
+            key: 'page-hero',
+            label: { en: 'Page opening' },
+            description: { en: 'The page\'s heading and a line under it.' },
+            icon: 'layout-template',
+            group: 'Opening',
+            fields: [field('bf-hero-title', 'title', 'text', 'Heading', { required: true }), field('bf-hero-text', 'text', 'text', 'Line under it', { options: { multiline: true } })],
+          },
+          {
+            id: 'b-text',
+            key: 'text',
+            label: { en: 'Text' },
+            description: { en: 'A heading with paragraphs under it.' },
+            icon: 'text',
+            group: 'Content',
+            fields: [field('bf-text-title', 'title', 'text', 'Heading'), field('bf-text-body', 'body', 'text', 'Words', { options: { multiline: true } })],
+          },
+          {
+            id: 'b-cta',
+            key: 'call-to-action',
+            label: { en: 'Call to action' },
+            description: { en: 'A closing line with a button.' },
+            icon: 'megaphone',
+            group: 'Action',
+            fields: [
+              field('bf-cta-title', 'title', 'text', 'Line', { required: true }),
+              field('bf-cta-look', 'look', 'select', 'Look', { options: { choices: ['Plain', 'Bold'] } }),
+            ],
+          },
+          {
+            id: 'b-map',
+            key: 'map',
+            label: { en: 'Map' },
+            fields: [field('bf-map-place', 'place', 'text', 'Place')],
+            retiredAt: '2026-11-01T00:00:00.000Z',
+          },
+        ],
+      },
+    }),
+  ],
+};
+
+export function samplePage(now: Date = new Date()): Entry {
+  return {
+    id: 'p1',
+    typeId: 'type-pages',
+    locale: 'en',
+    translationGroup: 'p1',
+    slug: 'why-list-with-us',
+    status: 'draft',
+    data: {
+      'f-page-title': 'Why list with us',
+      'f-body': [
+        { id: 's1', block: 'b-hero', data: { 'bf-hero-title': 'Sell for more, with less to do', 'bf-hero-text': 'One agent from the first photo to the closing table.' } },
+        { id: 's2', block: 'b-text', data: { 'bf-text-title': 'How we work' } },
+        { id: 's3', block: 'b-map', data: { 'bf-map-place': 'Austin' } },
+      ],
+    },
+    revision: 1,
+    createdAt: hoursAgo(30, now),
+    updatedAt: hoursAgo(3, now),
+  };
+}
+
 const hoursAgo = (hours: number, now: Date) => new Date(now.getTime() - hours * 60 * 60 * 1000).toISOString();
 
 /** Listings in each state the list can show. Times are relative to `now`, so the list always reads the same. */
