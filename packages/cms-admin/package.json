@@ -1,6 +1,6 @@
 {
   "name": "@velocity-astro/cms-admin",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.2",
   "description": "The Velocity CMS editor: the screens people use to manage content. Built only from cms-ui parts.",
   "type": "module",
   "license": "MIT",

@@ -2,7 +2,7 @@
 
 A content management system for [Astro](https://astro.build) sites, built for [Velocity](https://github.com/southwellmedia/velocity). People edit at `/admin`; the content lives in a small SQLite database beside the site; and a change is on the site about a second after it is published, with no rebuild.
 
-> **Beta.** Versions are `0.x`: the plugin API and the template API may still change between releases, each change with a note on how to move. The packages are not on npm yet. Until they are, run it from this repository.
+> **Beta.** Versions are `0.x`: the plugin API and the template API may still change between releases, each change with a note on how to move. The packages are on npm as `@velocity-astro/cms-*`, with the `velocity-cms` command.
 
 ## What it does
 
