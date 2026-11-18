@@ -3,7 +3,7 @@ import { isDay } from '../day.js';
 import { ConflictError, NotFoundError, ValidationError, type ValidationIssue } from '../errors.js';
 import type { EventBus } from '../events.js';
 import type { FieldType } from '../field-type.js';
-import type { Contact, ContactNote, FormDef, Page, Submission, SubmissionAnswer, TeamMember, TimelineItem } from '../model.js';
+import { liveFields, type Contact, type ContactNote, type FormDef, type Page, type Submission, type SubmissionAnswer, type TeamMember, type TimelineItem } from '../model.js';
 import type { Clock, ContactQuery, ContactRepository, DealRepository, FormRepository, IdGenerator, SubmissionRepository, Team } from '../ports.js';
 import type { Registry } from '../registry.js';
 import type { PipelineService } from './pipeline-service.js';
@@ -250,6 +250,7 @@ export class ContactService {
     const name = text(form.contact?.name)?.slice(0, MAX_CONTACT_NAME_LENGTH);
     const phone = text(form.contact?.phone);
     const current = await this.contacts.getByEmail(submission.email);
+    const answers = await this.answers(form, submission, current?.data);
     const now = this.clock.now();
     let contact: Contact;
     if (!current) {
@@ -262,12 +263,13 @@ export class ContactService {
         source: { formId: form.id, ...(submission.page !== undefined && { page: submission.page }) },
         stage: await this.firstStage(),
         ...(ownerId !== undefined && { ownerId }),
+        ...(answers !== undefined && { data: answers }),
         revision: 1,
         createdAt: now,
         updatedAt: now,
       };
     } else {
-      const gains = { ...(current.name === undefined && name !== undefined && { name }), ...(current.phone === undefined && phone !== undefined && { phone }) };
+      const gains = { ...(current.name === undefined && name !== undefined && { name }), ...(current.phone === undefined && phone !== undefined && { phone }), ...(answers !== undefined && { data: answers }) };
       if (Object.keys(gains).length === 0) return current;
       contact = { ...current, ...gains, revision: current.revision + 1, updatedAt: now };
     }
@@ -300,6 +302,32 @@ export class ContactService {
       if (!known) made += 1;
     }
     return made;
+  }
+
+  /**
+   * What a contact's custom fields hold once a submission's answers are added, or `undefined`
+   * when it adds nothing. An answer goes where its form says (`fills`), into a field of its own
+   * kind that the contact has left empty: what the team typed is never overwritten, and an
+   * answer that field would not take is left out.
+   */
+  private async answers(form: FormDef, submission: Submission, held: Contact['data']): Promise<Contact['data']> {
+    if (!this.custom || form.fills === undefined) return undefined;
+    const fields = liveFields((await this.custom.current()).contact);
+    const given: Record<string, unknown> = {};
+    for (const [formFieldId, customId] of Object.entries(form.fills)) {
+      const from = form.fields.find((field) => field.id === formFieldId);
+      const to = fields.find((field) => field.id === customId);
+      const value = submission.data[formFieldId];
+      if (!from || !to || from.type !== to.type || value === undefined || held?.[customId] !== undefined) continue;
+      try {
+        // Checked one at a time, so one answer the field will not take costs only itself.
+        await this.custom.values('contact', { [customId]: value }, undefined);
+        given[customId] = value;
+      } catch {
+        // Left out: the submission still holds it.
+      }
+    }
+    return Object.keys(given).length > 0 ? { ...held, ...given } : undefined;
   }
 
   /** What a person sent, newest first, through every form. */

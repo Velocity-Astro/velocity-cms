@@ -271,6 +271,11 @@ export interface FormDef {
   readonly notify: readonly string[];
   /** The ids of the fields that hold the sender's name, email and phone: what ties a submission to a person. */
   readonly contact?: FormContactFields;
+  /**
+   * Which answers are kept on the sender's contact, in the site's own fields for contacts: the
+   * id of a field of the form, then the id of the custom field it fills.
+   */
+  readonly fills?: Readonly<Record<string, string>>;
   /** How many days a submission is kept. Left out, until someone deletes it. */
   readonly retentionDays?: number;
   /**

@@ -149,6 +149,26 @@ it('saves the settings: who is emailed, whether it is open and how long answers 
   expect(await screen.findByText('Key: contact · Closed')).toBeTruthy();
 });
 
+it('chooses which answer fills a field the site added to contacts, among the fields of its kind', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/forms', signedIn('owner'));
+  const custom = await client.saveCustomFields({ contact: [{ key: 'question', type: 'text', label: { en: 'First question' } }, { key: 'visits', type: 'number', label: { en: 'Visits' } }], expectedRevision: (await client.getCustomFields()).revision });
+  await user.click(await within(await screen.findByRole('grid', { name: 'Forms' })).findByRole('row', { name: /Contact us/ }));
+  await user.click(await screen.findByRole('button', { name: 'Settings' }));
+  const dialog = within(await screen.findByRole('dialog', { name: 'Settings of Contact us' }));
+  await user.click(await dialog.findByRole('button', { name: /Field that fills a contact's "First question"/ }));
+  await user.click(await screen.findByRole('option', { name: 'Message' }));
+  // The form has no number to fill a number with.
+  await user.click(dialog.getByRole('button', { name: /Field that fills a contact's "Visits"/ }));
+  expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toEqual(['None']);
+  await user.keyboard('{Escape}');
+  await user.click(dialog.getByRole('button', { name: 'Save settings' }));
+  expect(await screen.findByText('Settings saved')).toBeTruthy();
+  const [contact] = await client.listForms();
+  const message = contact?.fields.find((field) => field.key === 'message')?.id ?? '';
+  expect(contact?.fills).toEqual({ [message]: custom.contact[0]?.id });
+});
+
 it('moves the form to the trash after asking, and goes back to the list', async () => {
   const { user, client } = await openContact();
   await user.click(screen.getByRole('button', { name: 'Move to trash' }));

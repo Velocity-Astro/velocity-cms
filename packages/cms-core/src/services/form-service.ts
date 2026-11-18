@@ -23,6 +23,8 @@ export interface NewForm {
   readonly success?: LocalizedText;
   readonly notify?: readonly string[];
   readonly contact?: FormContactKeys;
+  /** Which answers fill the contact's custom fields: a field's key, then the custom field's id. */
+  readonly fills?: Readonly<Record<string, string>>;
   readonly retentionDays?: number;
   /** True when a submission sent from an entry's own page starts a deal about that entry. */
   readonly startsDeal?: boolean;
@@ -44,6 +46,8 @@ export interface FormChanges {
   readonly success?: LocalizedText | null;
   readonly notify?: readonly string[];
   readonly contact?: FormContactKeys;
+  /** Which answers fill the contact's custom fields, all of them: a field's key, then the custom field's id. */
+  readonly fills?: Readonly<Record<string, string>>;
   /** `null` keeps submissions until someone deletes them. */
   readonly retentionDays?: number | null;
   /** Whether a submission sent from an entry's own page starts a deal about that entry. */
@@ -138,6 +142,7 @@ export class FormService {
       ...(input.success !== undefined && { success: input.success }),
       notify: addresses(input.notify ?? []),
       ...this.contact(input.contact, fields),
+      ...this.fills(input.fills, fields),
       ...(input.retentionDays !== undefined && { retentionDays: days(input.retentionDays) }),
       ...(input.startsDeal === true && { startsDeal: true as const }),
       open: input.open ?? true,
@@ -159,7 +164,7 @@ export class FormService {
     if (change.key !== undefined) requireKey(change.key, 'form');
     const fields = change.fields === undefined ? current.fields : this.described(change.fields, current.fields);
     // The marks are kept by field id, so they follow a field through a new key and go with one that is removed.
-    const { contact: marked, submitLabel, success, retentionDays, startsDeal, ...rest } = current;
+    const { contact: marked, fills: filled, submitLabel, success, retentionDays, startsDeal, ...rest } = current;
     const contact =
       change.contact !== undefined
         ? this.contact(change.contact, fields)
@@ -179,6 +184,7 @@ export class FormService {
         ...(nextSuccess !== undefined && { success: nextSuccess }),
         notify: change.notify === undefined ? current.notify : addresses(change.notify),
         ...contact,
+        ...(change.fills !== undefined ? this.fills(change.fills, fields) : this.fillsOf(filled, fields)),
         ...(nextDays !== undefined && { retentionDays: nextDays }),
         ...((change.startsDeal ?? startsDeal === true) && { startsDeal: true as const }),
         open: change.open ?? current.open,
@@ -268,6 +274,27 @@ export class FormService {
     };
     const contact: FormContactFields = { ...idOf('name'), ...idOf('email'), ...idOf('phone') };
     return Object.keys(contact).length > 0 ? { contact } : {};
+  }
+
+  /** Which answers fill which custom fields, by the form field's id. No two answers fill the same one. */
+  private fills(byKey: Readonly<Record<string, string>> | undefined, fields: readonly FieldDef[]): { fills?: Readonly<Record<string, string>> } {
+    const fills: Record<string, string> = {};
+    for (const [key, customId] of Object.entries(byKey ?? {})) {
+      const field = liveFields(fields).find((candidate) => candidate.key === key);
+      if (!field) throw new ValidationError(`The form has no field with the key "${key}" to fill a contact's field from.`, [{ path: ['fills', key], message: 'No such field' }]);
+      if (Object.values(fills).includes(customId)) {
+        throw new ValidationError(`Two fields of the form fill the same field of a contact. Choose one of them ("${key}" is the second).`, [{ path: ['fills', key], message: 'Already filled by another field' }]);
+      }
+      fills[field.id] = customId;
+    }
+    return Object.keys(fills).length > 0 ? { fills } : {};
+  }
+
+  /** The choices whose form field is still there. */
+  private fillsOf(filled: Readonly<Record<string, string>> | undefined, fields: readonly FieldDef[]): { fills?: Readonly<Record<string, string>> } {
+    const live = new Set(liveFields(fields).map((field) => field.id));
+    const fills = Object.fromEntries(Object.entries(filled ?? {}).filter(([id]) => live.has(id)));
+    return Object.keys(fills).length > 0 ? { fills } : {};
   }
 
   /** The marks that still name a live field. */
