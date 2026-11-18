@@ -36,7 +36,7 @@ export const hubspot = definePlugin({
   name: 'hubspot',
   apiVersion: 1,
   label: { en: 'HubSpot' },
-  description: { en: 'Copy your contacts to HubSpot as they are made and changed, matched by email.' },
+  description: { en: 'Copy your contacts to HubSpot as they are made and changed, matched by email. Experimental: tested, but not yet tried against the real service.' },
   version: '1.0.0',
   permissions: ['contact:read'],
   enabledByDefault: false,

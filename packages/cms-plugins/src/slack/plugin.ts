@@ -35,7 +35,7 @@ export const slack = definePlugin({
   name: 'slack',
   apiVersion: 1,
   label: { en: 'Slack' },
-  description: { en: 'Post to a Slack channel when a visitor sends a form or a new contact is made, so your team hears of it at once.' },
+  description: { en: 'Post to a Slack channel when a visitor sends a form or a new contact is made, so your team hears of it at once. Experimental: tested, but not yet tried against the real service.' },
   version: '1.0.0',
   permissions: ['submission:read', 'contact:read'],
   enabledByDefault: false,
