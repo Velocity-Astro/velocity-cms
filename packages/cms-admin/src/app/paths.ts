@@ -11,6 +11,8 @@ export const paths = {
   people: '/people',
   media: '/media',
   plugins: '/plugins',
+  /** A screen a plugin added. */
+  pluginScreen: (plugin: string, screen: string) => `/plugins/${encodeURIComponent(plugin)}/${encodeURIComponent(screen)}`,
   types: '/types',
   /** A content type's fields, or with `within` (field ids from the top down) the fields a group holds. */
   type: (typeKey: string, within: readonly string[] = []) =>

@@ -131,6 +131,7 @@ export class CmsApi {
         const { enabled } = parse(pluginSwitch, await this.#body(call.request));
         return json(await plugins.setEnabled(who, param(call, 'name'), enabled));
       })
+      .add('GET', '/plugin-editors', async (call) => json({ items: await plugins.editors(actor(call)) }))
       .add('GET', '/plugin-settings/:name', async (call) => json(await plugins.settings(actor(call), param(call, 'name'))))
       .add('PUT', '/plugin-settings/:name', async (call) => {
         const who = actor(call);

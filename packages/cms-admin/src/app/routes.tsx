@@ -5,6 +5,7 @@ import { ContentListScreen } from '../screens/ContentList/ContentListScreen.js';
 import { EntryEditorScreen } from '../screens/EntryEditor/EntryEditorScreen.js';
 import { HomeScreen } from '../screens/Home/HomeScreen.js';
 import { MediaScreen } from '../screens/Media/MediaScreen.js';
+import { PluginScreenScreen } from '../screens/PluginScreen/PluginScreenScreen.js';
 import { PluginsScreen } from '../screens/Plugins/PluginsScreen.js';
 import { PeopleScreen } from '../screens/People/PeopleScreen.js';
 import { SignInScreen } from '../screens/SignIn/SignInScreen.js';
@@ -25,6 +26,7 @@ export function createRoutes(siteName: string): RouteObject[] {
             { path: 'people', element: <PeopleScreen /> },
             { path: 'media', element: <MediaScreen /> },
             { path: 'plugins', element: <PluginsScreen /> },
+            { path: 'plugins/:pluginName/:screenId', element: <PluginScreenScreen /> },
             { path: 'types', element: <ContentTypesScreen /> },
             { path: 'types/:typeKey', element: <ContentTypeScreen /> },
             { path: 'content/:typeKey', element: <ContentListScreen /> },

@@ -1,9 +1,10 @@
 import { render, type RenderResult } from '@testing-library/react';
 import { AdminApp } from '../app/AdminApp.js';
+import type { PluginEditorLoader } from '../plugins/plugin-editor.js';
 import { MemoryAdminClient, type MemoryAdminClientOptions } from './memory-client.js';
 
 /** Renders the whole editor at an address, against an in-memory server. */
-export function renderApp(path: string, options: MemoryAdminClientOptions = {}): RenderResult & { client: MemoryAdminClient } {
+export function renderApp(path: string, options: MemoryAdminClientOptions = {}, pluginEditors?: PluginEditorLoader): RenderResult & { client: MemoryAdminClient } {
   const client = new MemoryAdminClient(options);
-  return { client, ...render(<AdminApp client={client} siteName="Lakeshore Realty" initialPath={path} />) };
+  return { client, ...render(<AdminApp client={client} siteName="Lakeshore Realty" initialPath={path} {...(pluginEditors && { pluginEditors })} />) };
 }

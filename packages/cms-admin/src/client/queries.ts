@@ -17,6 +17,7 @@ const keys = {
   people: ['people'] as const,
   passkeys: ['passkeys'] as const,
   plugins: ['plugins'] as const,
+  pluginEditors: ['plugin-editors'] as const,
   pluginSettings: (name: string) => ['plugins', name, 'settings'] as const,
   /** Every list of entries starts with this, so one call marks them all out of date. */
   entryLists: ['entries'] as const,
@@ -290,6 +291,12 @@ export function useRemovePerson() {
 export function usePlugins() {
   const client = useClient();
   return useQuery({ queryKey: keys.plugins, queryFn: () => client.listPlugins() });
+}
+
+/** The running plugins that add to the editor. Asked once someone is signed in. */
+export function usePluginEditorList(isSignedIn: boolean) {
+  const client = useClient();
+  return useQuery({ queryKey: keys.pluginEditors, queryFn: () => client.listPluginEditors(), enabled: isSignedIn });
 }
 
 export function useSetPluginEnabled() {

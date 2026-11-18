@@ -16,6 +16,8 @@ import {
   type EntryData,
   type PluginInfo,
   type PluginSettings,
+  type PluginEditorInfo,
+  type PluginRouteMethod,
   type PreviewLink,
   type Role,
   type SiteImage,
@@ -27,7 +29,7 @@ import {
   InMemoryMediaStore,
   InMemorySchemaRepository,
 } from '@velocity/cms-core/in-memory';
-import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, SessionUser } from '../client/admin-client.js';
+import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser } from '../client/admin-client.js';
 import { MemoryPeople } from './memory-people.js';
 import { AdminRequestError, type RequestErrorCode } from '../client/errors.js';
 
@@ -272,6 +274,18 @@ export class MemoryAdminClient implements AdminClient {
 
   listPlugins(): Promise<readonly PluginInfo[]> {
     return this.#request(async (actor) => this.#cms.plugins.list(actor));
+  }
+
+  listPluginEditors(): Promise<readonly PluginEditorInfo[]> {
+    return this.#request((actor) => this.#cms.plugins.editors(actor));
+  }
+
+  callPlugin(name: string, method: PluginRouteMethod, path: string, input: PluginCall = {}): Promise<unknown> {
+    // What a plugin answers crosses the wire as JSON on a real site, so it does here too.
+    return this.#request(async (actor) => {
+      const answer = await this.#cms.plugins.call(actor, name, method, path, { query: input.query ?? {}, body: method === 'GET' ? undefined : (input.body ?? {}) });
+      return answer === undefined ? {} : (JSON.parse(JSON.stringify(answer)) as unknown);
+    });
   }
 
   setPluginEnabled(name: string, enabled: boolean): Promise<PluginInfo> {

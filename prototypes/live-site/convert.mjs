@@ -48,6 +48,7 @@ export function convert(project) {
   //    the publish notice come with the integration.
   add('src/live.config.ts', 'live.config.ts');
   add('src/cms/publish-log-plugin.ts', 'publish-log-plugin.ts');
+  add('src/cms/publish-log-editor.js', 'publish-log-editor.js');
   add('src/lib/live.ts', 'live.ts');
   edit('src/views/SearchView.astro', (view) => must(view, "const url = '/pagefind/pagefind.js';", "const url = '/cms-search.js';"));
 

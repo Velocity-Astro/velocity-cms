@@ -7,6 +7,7 @@ import { createQueryCache } from '../client/queries.js';
 import { createFieldControls, FieldControlsProvider, type FieldControls } from '../fields/index.js';
 import type { Messages } from '../messages/en.js';
 import { MessagesProvider } from '../messages/messages-context.js';
+import { PluginExtensions, PluginExtensionsProvider, sitePluginEditors, type PluginEditorLoader } from '../plugins/plugin-editor.js';
 import { createRoutes } from './routes.js';
 
 export interface AdminAppProps {
@@ -26,6 +27,11 @@ export interface AdminAppProps {
    */
   readonly fieldControls?: FieldControls;
   /**
+   * Fetches a plugin's editor file by the plugin's name. Defaults to the file the site serves
+   * beside the editor, at `<basePath>/plugins/<name>.js`. For tests and previews.
+   */
+  readonly pluginEditors?: PluginEditorLoader;
+  /**
    * Keeps the address in memory instead of the browser's address bar, starting here. For tests
    * and previews.
    */
@@ -33,8 +39,10 @@ export interface AdminAppProps {
 }
 
 /** The whole editor. Render one, give it a client, and it does the rest. */
-export function AdminApp({ client, siteName, basePath = '/admin', messages, locale, fieldControls, initialPath }: AdminAppProps) {
+export function AdminApp({ client, siteName, basePath = '/admin', messages, locale, fieldControls, pluginEditors, initialPath }: AdminAppProps) {
   const [controls] = useState(() => fieldControls ?? createFieldControls());
+  const [extensions] = useState(() => new PluginExtensions());
+  const [loader] = useState(() => pluginEditors ?? sitePluginEditors(basePath));
   // Created once per app, never shared between two apps on one page.
   const [queries] = useState(createQueryCache);
   const [router] = useState(() => {
@@ -49,7 +57,9 @@ export function AdminApp({ client, siteName, basePath = '/admin', messages, loca
       <ClientProvider client={client}>
         <MessagesProvider {...(messages && { messages })} {...(locale !== undefined && { locale })}>
           <FieldControlsProvider controls={controls}>
-            <RouterProvider router={router} />
+            <PluginExtensionsProvider extensions={extensions} loader={loader}>
+              <RouterProvider router={router} />
+            </PluginExtensionsProvider>
           </FieldControlsProvider>
         </MessagesProvider>
       </ClientProvider>

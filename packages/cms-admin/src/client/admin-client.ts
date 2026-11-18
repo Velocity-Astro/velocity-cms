@@ -1,4 +1,4 @@
-import type { PluginSettings, PluginInfo, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, LocalizedText, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
+import type { PluginSettings, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, LocalizedText, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
@@ -169,6 +169,13 @@ export interface AdminClient {
   addPasskey(name: string): Promise<void>;
   /** The plugins the site named in its config, running or not, by name. Owners only. */
   listPlugins(): Promise<readonly PluginInfo[]>;
+  /** The running plugins that add to the editor, for anyone signed in. */
+  listPluginEditors(): Promise<readonly PluginEditorInfo[]>;
+  /**
+   * Asks one of a plugin's own addresses, as the person signed in. `path` starts with a slash.
+   * A plugin's screens reach their server side this way and no other.
+   */
+  callPlugin(name: string, method: PluginRouteMethod, path: string, input?: PluginCall): Promise<unknown>;
   /** Switches a plugin on or off, for the whole site. Owners only. */
   setPluginEnabled(name: string, enabled: boolean): Promise<PluginInfo>;
   /** A plugin's settings: the fields to draw, and what is set, by field id. Owners only. */
@@ -179,4 +186,11 @@ export interface AdminClient {
   listPasskeys(): Promise<readonly Passkey[]>;
   /** Removes one of the signed-in person's own passkeys. That device then signs in with a link. */
   removePasskey(id: string): Promise<void>;
+}
+
+/** What goes with a request to a plugin's own address. */
+export interface PluginCall {
+  readonly query?: Readonly<Record<string, string>>;
+  /** Sent as JSON. Left out for a `GET`. */
+  readonly body?: unknown;
 }
