@@ -41,6 +41,34 @@ export function editorOrigin(request: Request, settings: Pick<SiteEditorSettings
   }
 }
 
+/** The names a host gives a deployment itself. A visitor cannot set them. */
+const PLATFORM_HOSTS = ['VERCEL_URL', 'VERCEL_BRANCH_URL', 'VERCEL_PROJECT_PRODUCTION_URL', 'URL', 'DEPLOY_PRIME_URL', 'DEPLOY_URL'] as const;
+
+const hostOf = (address: string | undefined): string | null => {
+  if (!address) return null;
+  const full = address.includes('://') ? address : `https://${address}`;
+  return URL.canParse(full) ? new URL(full).host : null;
+};
+
+/**
+ * The address the site reads its own pages from, for search and share images, or `null` when it
+ * cannot tell. The request's own address is used only when the site is known by it: whoever
+ * sends a request chooses its `Host` header, and a page read from an address of their choosing
+ * would be someone else's page, or a machine beside the site.
+ */
+export function pagesOrigin(request: Request, settings: Pick<SiteEditorSettings, 'site' | 'dev'>): string | null {
+  const asked = new URL(request.url);
+  if (settings.dev) return asked.origin;
+  const configured = [process.env.VELOCITY_CMS_ORIGIN, settings.site].map(hostOf);
+  const known = [...configured, ...PLATFORM_HOSTS.map((name) => hostOf(process.env[name]))];
+  if (known.includes(asked.host)) return asked.origin;
+  try {
+    return editorOrigin(request, settings);
+  } catch {
+    return null;
+  }
+}
+
 const hosts = new Map<string, Promise<EditorHost>>();
 
 async function createHost(origin: string, settings: SiteEditorSettings): Promise<EditorHost> {

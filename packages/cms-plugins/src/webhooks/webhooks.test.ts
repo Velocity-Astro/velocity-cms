@@ -121,6 +121,18 @@ describe('the Webhooks plugin', () => {
     expect(sent.map((message) => [message.body.event, message.body.data])).toEqual([['entry.published', { entry: { id: entry.id, type: 'pages', locale: 'en', slug: 'about', updatedAt: expect.any(String) as string } }]]);
   });
 
+  it('sends nothing to a public name that leads to a private machine', async () => {
+    const leadsTo: Record<string, string[]> = { 'hooks.example.com': ['93.184.216.34'], 'inside.example.com': ['93.184.216.34', '10.0.0.8'] };
+    cms = createCms({ pluginStore: store, lookup: async (host) => leadsTo[host] ?? Promise.reject(new Error('ENOTFOUND')), entries: new InMemoryEntryRepository(), types: new InMemorySchemaRepository(), clock: new FakeClock(), ids: new SequentialIds() });
+    await cms.plugins.load(catalogue);
+    await cms.plugins.setEnabled(owner, 'webhooks', true);
+    await endpoints([{ url: 'https://hooks.example.com/in' }, { url: 'https://inside.example.com/in' }, { url: 'https://nowhere.example.com/in' }]);
+    await cms.contacts.create(editor, { email: 'tom@example.com' });
+    expect(sent.map((message) => message.url)).toEqual(['https://hooks.example.com/in']);
+    const failed = (await cms.plugins.tasks(owner, 'webhooks')).flatMap((task) => (task.lastError === undefined ? [] : [task.lastError])).sort();
+    expect(failed).toEqual(['inside.example.com does not lead to a public address, so nothing is sent to it.', 'nowhere.example.com does not lead to a public address, so nothing is sent to it.']);
+  });
+
   it('sends nothing to an address that is not public and safe, and says so under Plugins', async () => {
     await endpoints([{ url: 'http://hooks.example.com/in' }, { url: 'https://localhost/in' }, { url: 'https://10.0.0.8/in' }]);
     await cms.contacts.create(editor, { email: 'tom@example.com' });

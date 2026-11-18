@@ -2,11 +2,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { Actor } from '@velocity/cms-core';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runCli } from './cli.js';
 import { connect, type Connection } from './connection.js';
 import { EditorHost, LogMailer } from './editor.js';
-import { editorOrigin, EditorNotSetUpError } from './site-editor.js';
+import { editorOrigin, EditorNotSetUpError, pagesOrigin } from './site-editor.js';
 import { allPlugins, registerSitePlugins } from './site-plugins.js';
 
 const ORIGIN = 'https://site.test';
@@ -247,6 +247,30 @@ describe('the address links are made for', () => {
 
   it('is refused, with what to set, when a deployed site has no address', () => {
     expect(() => editorOrigin(request, { site: undefined, dev: false })).toThrow(EditorNotSetUpError);
+  });
+});
+
+describe('the address the site reads its own pages from', () => {
+  const deployed = { site: 'https://lakeshore.example', dev: false };
+  beforeEach(() => {
+    for (const name of ['VELOCITY_CMS_ORIGIN', 'VERCEL_URL', 'VERCEL_BRANCH_URL', 'VERCEL_PROJECT_PRODUCTION_URL', 'URL', 'DEPLOY_PRIME_URL', 'DEPLOY_URL']) vi.stubEnv(name, '');
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  it('is the request\'s own when the site is known by it', () => {
+    expect(pagesOrigin(new Request('https://lakeshore.example/og/index.png'), deployed)).toBe('https://lakeshore.example');
+    expect(pagesOrigin(new Request('http://localhost:4321/og/index.png'), { site: undefined, dev: true })).toBe('http://localhost:4321');
+    vi.stubEnv('VERCEL_URL', 'lakeshore-git-new-home.vercel.app');
+    expect(pagesOrigin(new Request('https://lakeshore-git-new-home.vercel.app/x'), deployed)).toBe('https://lakeshore-git-new-home.vercel.app');
+  });
+
+  it('is the configured site when a request names a host the site is not known by', () => {
+    expect(pagesOrigin(new Request('https://attacker.test/og/index.png'), deployed)).toBe('https://lakeshore.example');
+    expect(pagesOrigin(new Request('http://169.254.169.254/og/index.png'), deployed)).toBe('https://lakeshore.example');
+  });
+
+  it('is unknown on a deployed site with no address, so nothing is read', () => {
+    expect(pagesOrigin(new Request('https://attacker.test/x'), { site: undefined, dev: false })).toBeNull();
   });
 });
 

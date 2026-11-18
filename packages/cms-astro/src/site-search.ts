@@ -49,8 +49,10 @@ export async function indexPages(origin: string, addresses: readonly string[]): 
   const queue = [...addresses];
   const worker = async () => {
     for (let address = queue.shift(); address !== undefined; address = queue.shift()) {
-      const response = await fetch(new URL(address, origin));
-      const document = response.ok ? toSearchDocument(address, await response.text()) : null;
+      // Only the site's own pages are read: an address that leads elsewhere is passed over.
+      const target = new URL(address, origin);
+      const response = target.origin === new URL(origin).origin ? await fetch(target) : null;
+      const document = response?.ok ? toSearchDocument(address, await response.text()) : null;
       if (document) documents.push(document);
       else gone.push(documentId(address));
     }

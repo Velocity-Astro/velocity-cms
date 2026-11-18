@@ -571,9 +571,9 @@ export class CmsApi {
   }
 
   /** The request's body as it is. Stops reading as soon as it is more than the limit. */
-  async #bytes(request: Request, limit: number): Promise<Uint8Array> {
+  async #bytes(request: Request, limit: number, refusal?: ApiError): Promise<Uint8Array> {
     const megabytes = (limit / 1_000_000).toFixed(1).replace(/\.0$/, '');
-    const tooLarge = new ApiError(413, 'too_large', `The file is more than the ${megabytes} MB an upload can be. Make it smaller first.`);
+    const tooLarge = refusal ?? new ApiError(413, 'too_large', `The file is more than the ${megabytes} MB an upload can be. Make it smaller first.`);
     if (Number(request.headers.get('content-length') ?? 0) > limit) throw tooLarge;
     const chunks: Uint8Array[] = [];
     let size = 0;
@@ -599,9 +599,8 @@ export class CmsApi {
   async #body(request: Request): Promise<unknown> {
     const limit = this.#options.maxBodyBytes ?? 1_000_000;
     const tooLarge = new ApiError(413, 'too_large', `This is more than the ${Math.round(limit / 1000)} kB one request may carry.`);
-    if (Number(request.headers.get('content-length') ?? 0) > limit) throw tooLarge;
-    const text = await request.text();
-    if (new TextEncoder().encode(text).length > limit) throw tooLarge;
+    // Read with the limit in force, whatever length the request claimed: a body sent in parts says none.
+    const text = new TextDecoder().decode(await this.#bytes(request, limit, tooLarge));
     if (text.trim() === '') return {};
     try {
       return JSON.parse(text);

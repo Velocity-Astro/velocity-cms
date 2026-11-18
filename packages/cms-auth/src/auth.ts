@@ -40,6 +40,11 @@ export interface CmsAuthOptions {
   readonly adminPath?: string;
   /** How long a sign-in link works for. Defaults to 10 minutes. */
   readonly linkLifetimeMinutes?: number;
+  /**
+   * The least time a request for a sign-in link takes to answer, whoever the address belongs to.
+   * Defaults to one second, which is longer than an email usually takes to hand over.
+   */
+  readonly answerAfterMs?: number;
   /** Decides who may invite people. Defaults to the CMS's own rules; pass `cms.access` to share them. */
   readonly access?: AccessControl;
 }
@@ -48,6 +53,10 @@ export interface CmsAuthOptions {
 export class AuthSetupError extends CmsError {
   readonly code = 'auth_setup';
 }
+
+/** How many sign-in links one address is emailed in any ten minutes. More are asked for in vain. */
+const LINKS_PER_ADDRESS = 3;
+const LINKS_WINDOW_MS = 10 * 60_000;
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const isRole = (value: unknown): value is Role => ROLES.includes(value as Role);
@@ -80,6 +89,8 @@ export class CmsAuth implements Authenticator {
   readonly #auth;
   /** Links being made for `createSignInLink`, by email: they are handed back instead of emailed. */
   readonly #handBack = new Map<string, (url: string) => void>();
+  /** When links were last emailed, by address. */
+  readonly #emailed = new Map<string, number[]>();
 
   constructor(options: CmsAuthOptions) {
     if (options.secret.length < 32) {
@@ -271,14 +282,32 @@ export class CmsAuth implements Authenticator {
     const address = normalised(email);
     const handBack = this.#handBack.get(address);
     if (handBack) return handBack(url);
+    // No request is answered sooner than this wait. Without it, the time an email takes to
+    // hand over would say whether the address belongs to someone here. The email is still
+    // waited for, since a site may stop working the moment it has answered.
+    const wait = new Promise<void>((resolve) => setTimeout(resolve, this.#options.answerAfterMs ?? 1000));
     const user = await this.#find(address);
-    if (!user) return;
-    await this.#options.mailer.sendSignInLink({
-      email: address,
-      name: user.name,
-      url,
-      expiresInMinutes: this.#lifetime,
-      siteName: this.#options.siteName,
-    });
+    if (user && this.#mayEmail(address)) {
+      // A link that cannot be sent is the owner's to hear of, in the log. Telling the person
+      // asking would tell a stranger the same thing.
+      const sending = this.#options.mailer
+        .sendSignInLink({ email: address, name: user.name, url, expiresInMinutes: this.#lifetime, siteName: this.#options.siteName })
+        .catch((error: unknown) => console.error('[velocity-cms] A sign-in link could not be sent.', error));
+      await sending;
+    }
+    await wait;
+  }
+
+  /** Whether one more link may be emailed to an address, which counts it. Nobody's inbox is filled by a stranger asking. */
+  #mayEmail(address: string): boolean {
+    const now = Date.now();
+    const since = now - LINKS_WINDOW_MS;
+    if (this.#emailed.size > 5000) {
+      for (const [known, times] of this.#emailed) if ((times.at(-1) ?? 0) <= since) this.#emailed.delete(known);
+    }
+    const times = (this.#emailed.get(address) ?? []).filter((time) => time > since);
+    if (times.length >= LINKS_PER_ADDRESS) return false;
+    this.#emailed.set(address, [...times, now]);
+    return true;
   }
 }

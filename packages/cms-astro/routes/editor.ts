@@ -2,7 +2,7 @@
  * What the editor's three routes share. Compiled with the site, like every file here, so it can
  * read the settings the integration wrote and the site's own mailer.
  */
-import { indexPages, siteEditorHost, withEditor, type EditorHost, type SiteEditorSettings } from '@velocity/cms-astro';
+import { indexPages, pagesOrigin, siteEditorHost, withEditor, type EditorHost, type SiteEditorSettings } from '@velocity/cms-astro';
 import images from 'virtual:velocity-cms/images';
 import mailer from 'virtual:velocity-cms/mailer';
 import options from 'virtual:velocity-cms/options';
@@ -17,11 +17,15 @@ interface PageCache {
   invalidate(options: { tags: string[] }): Promise<void>;
 }
 
+/** Where the site reads its own pages from: never an address a request merely claims. `null` when it cannot tell. */
+export const ownOrigin = (request: Request): string | null => pagesOrigin(request, settings);
+
 /** A publish must be seen at once: drops the kept pages, then reads the changed ones for search. */
-export async function showPublished(host: EditorHost, cache: PageCache, origin: string): Promise<void> {
+export async function showPublished(host: EditorHost, cache: PageCache, origin: string | null): Promise<void> {
   const changed = host.takePublished();
   if (!changed) return;
   await cache.invalidate({ tags: ['cms'] });
+  if (origin === null) return;
   await indexPages(origin, changed).catch((error: unknown) => console.error('[velocity-cms] Search was not updated.', error));
 }
 
@@ -32,7 +36,7 @@ let notSetUpAt = 0;
  * Publishes what was set to go out by now, and shows it. A site whose editor is not set up has
  * nothing scheduled, so that is passed over in silence.
  */
-export async function publishDue(request: Request, cache: PageCache, origin: string, options: { now?: boolean } = {}): Promise<void> {
+export async function publishDue(request: Request, cache: PageCache, options: { now?: boolean } = {}): Promise<void> {
   if (Date.now() - notSetUpAt < 30_000) return;
   const host = await siteEditorHost(request, settings).catch(() => null);
   if (!host) {
@@ -40,5 +44,5 @@ export async function publishDue(request: Request, cache: PageCache, origin: str
     return;
   }
   await host.publishDue(options);
-  await showPublished(host, cache, origin);
+  await showPublished(host, cache, ownOrigin(request));
 }

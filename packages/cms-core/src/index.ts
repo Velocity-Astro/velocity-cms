@@ -122,7 +122,9 @@ export type {
   SearchQuery,
   SearchResults,
   StoredFile,
+  NameLookup,
 } from './ports.js';
+export { isPrivateAddress } from './net.js';
 export { PREVIEW_PARAMETER, PreviewLinks } from './preview.js';
 export { pageAddress, urlPatternFor, type AddressedVersion } from './page-address.js';
 export { PreviewService, type PreviewLink, type PreviewServiceOptions } from './services/preview-service.js';

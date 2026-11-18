@@ -113,6 +113,8 @@ export const webhooks = definePlugin({
     cms.tasks.define(SEND, async (payload, task) => {
       if (!isDelivery(payload)) throw new Error('This delivery was kept in a form this version cannot read.');
       const url = deliveryAddress(payload.url);
+      // A public name can lead to a machine beside the site. Where the site can look, it does.
+      if (!(await cms.net.isPublic(url.hostname))) throw new Error(`${url.host} does not lead to a public address, so nothing is sent to it.`);
       const body = JSON.stringify({ id: task.id, event: payload.event, createdAt: payload.at, data: payload.data });
       const secret = await cms.secrets.get('signingSecret');
       const headers: Record<string, string> = { 'content-type': 'application/json', 'user-agent': 'Velocity-CMS-Webhooks/1', 'x-velocity-event': payload.event, 'x-velocity-delivery': task.id };

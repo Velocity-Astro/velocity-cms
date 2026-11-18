@@ -7,6 +7,6 @@ import type { MiddlewareHandler } from 'astro';
 import { publishDue } from './editor.ts';
 
 export const onRequest: MiddlewareHandler = async (context, next) => {
-  if (!context.isPrerendered) await publishDue(context.request, context.cache, context.url.origin).catch(() => undefined);
+  if (!context.isPrerendered) await publishDue(context.request, context.cache).catch(() => undefined);
   return next();
 };
