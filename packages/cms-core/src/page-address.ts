@@ -1,4 +1,5 @@
 import { liveFields, type ContentTypeDef, type EntryData } from './model.js';
+import { isSlugPath, SLUG_PATH_NAME } from './slug.js';
 
 type Pages = Pick<ContentTypeDef, 'urlPattern' | 'localizedUrlPatterns' | 'fields'>;
 
@@ -17,7 +18,8 @@ export const urlPatternFor = (type: Pick<ContentTypeDef, 'urlPattern' | 'localiz
  * Where an entry's own page is on the site, as a path that ends in a slash: `/listings/oak-lane/`.
  *
  * A pattern names what goes in the address in brackets: `[slug]` is the entry's slug, and any
- * other name is one of the type's text fields by key, as in `/listings/[path]`. `null` when the
+ * other name is one of the type's text fields by key, as in `/listings/[path]`. `[...slug]` is a
+ * slug that may have several parts, as in `/services/roofing/`. `null` when the
  * type has no page in that language, or the entry does not yet have what the pattern names.
  */
 export function pageAddress(type: Pages, entry: AddressedVersion, defaultLocale: string): string | null {
@@ -25,6 +27,10 @@ export function pageAddress(type: Pages, entry: AddressedVersion, defaultLocale:
   if (pattern === undefined) return null;
   let isComplete = true;
   const path = pattern.replace(/\[([^\]]+)\]/g, (_, name: string) => {
+    if (name === SLUG_PATH_NAME) {
+      if (!isSlugPath(entry.slug)) isComplete = false;
+      return entry.slug;
+    }
     const field = name === 'slug' ? undefined : liveFields(type.fields).find((candidate) => candidate.key === name);
     const value = name === 'slug' ? entry.slug : field ? entry.data[field.id] : undefined;
     // What goes in an address is one plain segment: no slashes, nothing a browser would read as more.

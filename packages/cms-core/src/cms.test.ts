@@ -5,6 +5,7 @@ import { createCms, type Cms } from './cms.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from './errors.js';
 import { FieldType } from './field-type.js';
 import { hasUnpublishedChanges, type ContentTypeDef, type FieldDef } from './model.js';
+import { pageAddress } from './page-address.js';
 import { UnknownTypeError } from './registry.js';
 import {
   FakeClock,
@@ -152,6 +153,19 @@ describe('ContentService', () => {
     await create('en', 'about');
     await expect(create('en', 'about-again')).rejects.toMatchObject({ code: 'conflict' });
     await expect(create('es', 'about')).resolves.toMatchObject({ locale: 'es' });
+  });
+
+  it('takes a slug of several parts only where the type\'s address says [...slug]', async () => {
+    const pages = await cms.schema.create(owner, { key: 'pages', kind: 'collection', label: { en: 'Pages' }, urlPattern: '/[...slug]', fields: [] });
+    const create = (slug: string) => cms.content.create(editor, { typeId: pages.id, locale: 'en', slug, data: {} });
+    const deep = await create('services/roofing');
+    expect(pageAddress(pages, deep, 'en')).toBe('/services/roofing/');
+    expect(pageAddress(pages, await create('services'), 'en')).toBe('/services/');
+    for (const slug of ['/services', 'services/', 'services//roofing', 'services/../admin', 'Services/Roofing', 'a/b/c/d/e/f']) {
+      await expect(create(slug)).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['$slug'] }] });
+    }
+    // A type with one part to its address keeps to one.
+    expect(pageAddress(listings, { locale: 'en', slug: 'a/b', data: {} }, 'en')).toBeNull();
   });
 
   it('refuses a slug that could not be part of an address', async () => {

@@ -61,6 +61,19 @@ describe('a page made in the editor', () => {
     expect(await entryPageAt(connection.cms, '/our-story/', ['agents'])).toBeUndefined();
   });
 
+  it('can sit under another page when the type\'s address says [...slug]', async () => {
+    const { cms } = connection;
+    const guides = await cms.schema.create(owner, { key: 'guides', kind: 'collection', label: { en: 'Guides' }, urlPattern: '/guides/[...slug]', fields: [] });
+    const draft = await cms.content.create(owner, { typeId: guides.id, locale: 'en', slug: 'selling/pricing', data: {} });
+    await cms.content.publish(owner, draft.id);
+    expect(await entryPageAt(cms, '/guides/selling/pricing/', ['guides'])).toMatchObject({ type: 'guides', entry: { slug: 'selling/pricing' } });
+    expect(await entryPageAt(cms, '/guides/selling/', ['guides'])).toBeUndefined();
+    expect(await entryPageAt(cms, '/guides/selling//pricing/', ['guides'])).toBeUndefined();
+    // A page with one part to its address is not found under a longer one.
+    expect(await entryPageAt(cms, '/our-story/more/', ['pages'])).toBeUndefined();
+    expect(await publishedAddresses(cms, ['guides'])).toEqual(['/guides/selling/pricing/']);
+  });
+
   it('joins the site\'s addresses once published, after the pages the site has files for', async () => {
     const entries = await publishedAddresses(connection.cms, ['pages']);
     expect(entries.sort()).toEqual(['/es/nuestra-historia/', '/our-story/']);

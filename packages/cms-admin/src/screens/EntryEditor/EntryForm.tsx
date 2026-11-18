@@ -1,5 +1,5 @@
 import type { ContentTypeDef, Entry, EntryData, FieldDef } from '@velocity/cms-core';
-import { SLUG_PATH, isSlug, liveFields } from '@velocity/cms-core';
+import { SLUG_PATH, isSlug, isSlugPath, liveFields, takesSlugPath } from '@velocity/cms-core';
 import { Box, Button, Card, ConfirmDialog, Form, SaveBar, Segmented, Split, Stack, Tag, Text, TextField, Workbench, toast } from '@velocity/cms-ui';
 import { useState } from 'react';
 import { paths } from '../../app/paths.js';
@@ -65,6 +65,9 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
   // A single page is its type's one entry, so it is named after the type and nobody has to name it.
   const isSingle = type.kind === 'single';
   const slug = typedSlug ?? entry?.slug ?? (isSingle ? type.key : slugify(title ?? ''));
+  // A type whose address pattern says [...slug] has pages under other pages: services/roofing.
+  const isDeep = takesSlugPath(type);
+  const slugFits = isDeep ? isSlugPath(slug) : isSlug(slug);
   const hasChanges = entry === null || slug !== entry.slug || !sameData(data, entry.data);
   const state = entry ? entryState(entry) : 'draft';
   // What would be lost by leaving now. A new entry nobody has typed in holds nothing, and a save
@@ -97,8 +100,8 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
   }
 
   async function run(action: 'save' | 'publish') {
-    if (!isSlug(slug)) {
-      setSlugProblem(slug === '' ? messages.editor.slugMissing : messages.editor.slugInvalid);
+    if (!slugFits) {
+      setSlugProblem(slug === '' ? messages.editor.slugMissing : isDeep ? messages.editor.slugPathInvalid : messages.editor.slugInvalid);
       return;
     }
     setRunning(action);
@@ -129,8 +132,8 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
 
   /** Saves what was typed, then shows the page as it would be in a new tab. */
   async function preview() {
-    if (!isSlug(slug)) {
-      setSlugProblem(slug === '' ? messages.editor.slugMissing : messages.editor.slugInvalid);
+    if (!slugFits) {
+      setSlugProblem(slug === '' ? messages.editor.slugMissing : isDeep ? messages.editor.slugPathInvalid : messages.editor.slugInvalid);
       return;
     }
     // Opened now, while the browser still counts this as the person's own click.
@@ -169,7 +172,8 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
   const isBusy = running !== null;
   // The slug is part of the page's address only when the type's pattern says so. Otherwise it
   // is a name other entries link by.
-  const slugPattern = type.urlPattern?.includes('[slug]') ? type.urlPattern : undefined;
+  const slugName = isDeep ? '[...slug]' : '[slug]';
+  const slugPattern = type.urlPattern?.includes(slugName) ? type.urlPattern : undefined;
   // A type whose entries only show on other pages has nothing of its own to preview.
   const hasPage = type.urlPattern !== undefined || Object.keys(type.localizedUrlPatterns ?? {}).length > 0;
 
@@ -285,7 +289,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
                       isRequired
                       description={
                         slugPattern !== undefined
-                          ? messages.editor.slugDescription(slugPattern.replace('[slug]', slug === '' ? '…' : slug))
+                          ? (isDeep ? messages.editor.slugPathDescription : messages.editor.slugDescription)(slugPattern.replace(slugName, slug === '' ? '…' : slug))
                           : messages.editor.slugAsIdentifier
                       }
                       {...(slugProblem !== null && { errorMessage: slugProblem })}
@@ -317,7 +321,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
                         isRequired
                         description={
                           slugPattern !== undefined
-                            ? messages.editor.slugDescription(slugPattern.replace('[slug]', slug === '' ? '…' : slug))
+                            ? (isDeep ? messages.editor.slugPathDescription : messages.editor.slugDescription)(slugPattern.replace(slugName, slug === '' ? '…' : slug))
                             : messages.editor.slugAsIdentifier
                         }
                         {...(slugProblem !== null && { errorMessage: slugProblem })}

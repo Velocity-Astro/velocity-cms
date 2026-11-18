@@ -1,4 +1,4 @@
-import type { Cms, ContentTypeDef, PageHead, PageInfo } from '@velocity/cms-core';
+import { isSlug, isSlugPath, type Cms, type ContentTypeDef, type PageHead, type PageInfo } from '@velocity/cms-core';
 import { sharedConnection, SITE } from './connection.js';
 import { isPreview, withPreviewDraft } from './preview.js';
 
@@ -13,14 +13,16 @@ export interface DrawnPage {
 
 /** A type's address pattern as something an address can be tried against: the slug, when it fits. */
 function slugIn(pattern: string, path: string): string | null {
-  // Only a pattern whose one name is the slug says which entry a page is for.
-  if (pattern.replace('[slug]', '').includes('[') || !pattern.includes('[slug]')) return null;
+  // Only a pattern whose one name is the slug says which entry a page is for. `[...slug]` is a
+  // slug that may have several parts, so pages can sit under other pages.
+  const name = pattern.includes('[...slug]') ? '[...slug]' : '[slug]';
+  if (pattern.replace(name, '').includes('[') || !pattern.includes(name)) return null;
   const trim = (text: string) => text.replace(/\/+$/, '');
-  const [before = '', after = ''] = trim(pattern).split('[slug]');
+  const [before = '', after = ''] = trim(pattern).split(name);
   const address = trim(path);
   if (!address.startsWith(before) || !address.endsWith(after) || address.length <= before.length + after.length) return null;
   const slug = address.slice(before.length, address.length - after.length);
-  return slug.includes('/') ? null : slug;
+  return (name === '[slug]' ? isSlug(slug) : isSlugPath(slug)) ? slug : null;
 }
 
 /** The entry whose own page is at `path`, if any: the published one, or in a preview the one being worked on. */
