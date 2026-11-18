@@ -66,6 +66,8 @@ export function defineFields(described: readonly NewField[], previous: readonly 
   const live = new Map(liveFields(previous).map((field) => [field.key, field]));
   const fields: FieldDef[] = [];
   for (const input of described) {
+    // A removed field sent back with the rest is stored state, not a description: it stays removed.
+    if (typeof (input as { deletedAt?: unknown }).deletedAt === 'string') continue;
     if (fields.some((field) => field.key === input.key)) {
       throw new ConflictError(`This content type already has a field with the key "${input.key}".`);
     }

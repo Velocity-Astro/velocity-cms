@@ -1,22 +1,25 @@
 import type { ContentTypeDef, FieldDef } from '@velocity/cms-core';
-import { Box, Button, ConfirmDialog, Dialog, EmptyState, Form, Heading, IconButton, Inline, Link, PageHeader, Stack, Table, Tag, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity/cms-ui';
-import { ArrowDown, ArrowUp, ListPlus, Pencil, Plus, Settings2, Shapes, Trash2 } from 'lucide-react';
+import { Box, Button, ConfirmDialog, EmptyState, Heading, IconButton, Inline, Link, PageHeader, Stack, Table, Tag, Text, toast, type TableColumn, type TableRow } from '@velocity/cms-ui';
+import { ArrowDown, ArrowUp, LayoutList, ListPlus, ListTree, Pencil, Plus, Settings2, Shapes, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { useParams } from 'react-router';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
-import { paths } from '../../app/paths.js';
-import { AdminRequestError } from '../../client/errors.js';
-import { useArrangeFields, useContentTypes, useRemoveField, useRestoreField, useUpdateContentType } from '../../client/queries.js';
-import { NO_SECTION, moved, placesOf } from '../../lib/arrangement.js';
+import { WITHIN, paths } from '../../app/paths.js';
+import { useArrangeFields, useContentTypes, useRemoveField, useRestoreField } from '../../client/queries.js';
+import { innerFields } from '../../fields/settings.js';
+import { NO_SECTION, moved, movedWithin, placesOf, type FieldPlace } from '../../lib/arrangement.js';
 import { localized } from '../../lib/content.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 import { FieldDialog } from './FieldDialog.js';
+import { SectionsDialog } from './SectionsDialog.js';
+import { SettingsDialog } from './SettingsDialog.js';
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /** One content type: its fields as the editor shows them, and the ways to add, change, order and remove them. */
 export function ContentTypeScreen() {
   const { typeKey = '' } = useParams();
+  const [search] = useSearchParams();
   const messages = useMessages();
   const types = useContentTypes();
 
@@ -33,10 +36,38 @@ export function ContentTypeScreen() {
       />
     );
   }
-  return <TypeBuilder type={type} />;
+  // The address may lead into a group: each id names the field that holds the next.
+  const holders: FieldDef[] = [];
+  let fields: readonly FieldDef[] = type.fields;
+  for (const id of search.getAll(WITHIN)) {
+    const holder = fields.find((candidate) => candidate.id === id && candidate.deletedAt === undefined);
+    const inner = holder ? innerFields(holder) : null;
+    if (!holder || !inner) {
+      return (
+        <EmptyState
+          icon={Shapes}
+          title={messages.builder.notFoundTitle}
+          description={messages.builder.notFoundDescription}
+          action={<Link href={paths.type(type.key)}>{messages.builder.backTo(type.key)}</Link>}
+        />
+      );
+    }
+    holders.push(holder);
+    fields = inner;
+  }
+  // Made anew for each place, so nothing chosen in one is left open in another.
+  return <TypeBuilder key={holders.map((holder) => holder.id).join('/')} type={type} holders={holders} fields={fields} />;
 }
 
-function TypeBuilder({ type }: { readonly type: ContentTypeDef }) {
+interface TypeBuilderProps {
+  readonly type: ContentTypeDef;
+  /** The fields that hold the ones shown, from the top down. Empty for the type's own fields. */
+  readonly holders: readonly FieldDef[];
+  /** The fields shown, removed ones among them. */
+  readonly fields: readonly FieldDef[];
+}
+
+function TypeBuilder({ type, holders, fields }: TypeBuilderProps) {
   const messages = useMessages();
   const locale = useLocale();
   const arrange = useArrangeFields();
@@ -44,18 +75,23 @@ function TypeBuilder({ type }: { readonly type: ContentTypeDef }) {
   const restore = useRestoreField();
   const [isAdding, setAdding] = useState(false);
   const [isChangingSettings, setChangingSettings] = useState(false);
+  const [isChangingSections, setChangingSections] = useState(false);
+  const navigate = useNavigate();
+  const within = holders.map((holder) => holder.id);
+  const holder = holders.at(-1);
   const [editing, setEditing] = useState<FieldDef | null>(null);
   const [leaving, setLeaving] = useState<FieldDef | null>(null);
 
   const name = localized(type.label, locale);
-  const places = placesOf(type);
+  // A group's fields are one list. Sections lay out only a type's own.
+  const places: FieldPlace[] = holder ? [{ key: NO_SECTION, fields: fields.filter((field) => field.deletedAt === undefined) }] : placesOf(type);
   const hasSections = places.length > 1;
-  const gone = type.fields.filter((field) => field.deletedAt !== undefined);
+  const gone = fields.filter((field) => field.deletedAt !== undefined);
   const hasFields = places.some((place) => place.fields.length > 0);
   const labelOf = (field: FieldDef) => localized(field.label, locale);
 
   const move = (field: FieldDef, by: -1 | 1) =>
-    arrange.mutate({ typeId: type.id, arrangement: moved(type, field.id, by) }, { onError: (error) => toast({ title: messages.builder.notMoved, description: messageOf(error), tone: 'danger' }) });
+    arrange.mutate({ typeId: type.id, arrangement: holder ? movedWithin(fields, field.id, by, within) : moved(type, field.id, by) }, { onError: (error) => toast({ title: messages.builder.notMoved, description: messageOf(error), tone: 'danger' }) });
 
   const columns: TableColumn[] = [
     { id: 'field', label: messages.builder.columnField },
@@ -63,14 +99,17 @@ function TypeBuilder({ type }: { readonly type: ContentTypeDef }) {
     { id: 'rules', label: messages.builder.columnRules },
     { id: 'actions', label: messages.builder.columnActions, align: 'end' },
   ];
-  const nameCell = (field: FieldDef) => (
-    <Stack gap={0}>
-      <Text weight="semibold">{labelOf(field)}</Text>
-      <Text size="sm" tone="muted">
-        {field.key}
-      </Text>
-    </Stack>
-  );
+  const nameCell = (field: FieldDef) => {
+    const inner = innerFields(field);
+    return (
+      <Stack gap={0}>
+        <Text weight="semibold">{labelOf(field)}</Text>
+        <Text size="sm" tone="muted">
+          {inner ? `${field.key} · ${messages.builder.holdsFields(inner.filter((held) => held.deletedAt === undefined).length)}` : field.key}
+        </Text>
+      </Stack>
+    );
+  };
   const kindCell = (field: FieldDef) => <Tag>{messages.builder.kinds[field.type]?.name ?? field.type}</Tag>;
   const rowsOf = (fields: readonly FieldDef[]): TableRow[] =>
     fields.map((field, index) => ({
@@ -86,6 +125,9 @@ function TypeBuilder({ type }: { readonly type: ContentTypeDef }) {
         ),
         actions: (
           <Inline gap={1} justify="end">
+            {innerFields(field) && (
+              <IconButton size="sm" label={messages.builder.fieldsInside(labelOf(field))} icon={ListTree} onPress={() => void navigate(paths.type(type.key, [...within, field.id]))} />
+            )}
             <IconButton size="sm" label={messages.builder.moveUp(labelOf(field))} icon={ArrowUp} isDisabled={index === 0 || arrange.isPending} onPress={() => move(field, -1)} />
             <IconButton size="sm" label={messages.builder.moveDown(labelOf(field))} icon={ArrowDown} isDisabled={index === fields.length - 1 || arrange.isPending} onPress={() => move(field, 1)} />
             <IconButton size="sm" label={messages.builder.edit(labelOf(field))} icon={Pencil} onPress={() => setEditing(field)} />
@@ -103,22 +145,32 @@ function TypeBuilder({ type }: { readonly type: ContentTypeDef }) {
   return (
     <Box paddingX={12} paddingY={10}>
       <Stack gap={8}>
-        <Stack gap={2}>
-          <Link href={paths.types}>{messages.builder.backToTypes}</Link>
-          <PageHeader
-            title={name}
-            description={[messages.builder.keyIs(type.key), type.urlPattern ?? messages.builder.noAddress].join(' · ')}
-            actions={
-              <Inline gap={2}>
-                <Button variant="secondary" icon={Settings2} onPress={() => setChangingSettings(true)}>
-                  {messages.builder.settings}
-                </Button>
-                {addField}
-              </Inline>
-            }
-          />
-          <Link href={paths.contentList(type.key)}>{messages.builder.viewEntries}</Link>
-        </Stack>
+        {holder ? (
+          <Stack gap={2}>
+            <Link href={paths.type(type.key, within.slice(0, -1))}>{messages.builder.backTo(holders.length > 1 ? labelOf(holders.at(-2) as FieldDef) : name)}</Link>
+            <PageHeader title={labelOf(holder)} description={messages.builder.insideOf(labelOf(holder), name)} actions={addField} />
+          </Stack>
+        ) : (
+          <Stack gap={2}>
+            <Link href={paths.types}>{messages.builder.backToTypes}</Link>
+            <PageHeader
+              title={name}
+              description={[messages.builder.keyIs(type.key), type.urlPattern ?? messages.builder.noAddress].join(' · ')}
+              actions={
+                <Inline gap={2}>
+                  <Button variant="secondary" icon={Settings2} onPress={() => setChangingSettings(true)}>
+                    {messages.builder.settings}
+                  </Button>
+                  <Button variant="secondary" icon={LayoutList} onPress={() => setChangingSections(true)}>
+                    {messages.builder.sections}
+                  </Button>
+                  {addField}
+                </Inline>
+              }
+            />
+            <Link href={paths.contentList(type.key)}>{messages.builder.viewEntries}</Link>
+          </Stack>
+        )}
 
         {!hasFields && <EmptyState icon={ListPlus} title={messages.builder.noFieldsTitle} description={messages.builder.noFieldsDescription} action={addField} />}
         {hasFields &&
@@ -170,7 +222,7 @@ function TypeBuilder({ type }: { readonly type: ContentTypeDef }) {
                       isDisabled={restore.isPending}
                       onPress={() =>
                         restore.mutate(
-                          { typeId: type.id, fieldId: field.id },
+                          { typeId: type.id, fieldId: field.id, within },
                           {
                             onSuccess: () => toast({ title: messages.builder.restored(labelOf(field)), tone: 'success' }),
                             onError: (error) => toast({ title: messages.builder.notRestored, description: messageOf(error), tone: 'danger' }),
@@ -189,8 +241,9 @@ function TypeBuilder({ type }: { readonly type: ContentTypeDef }) {
       </Stack>
 
       {/* Each window is made anew when it opens, so it never shows the last field's details. */}
-      {isAdding && <FieldDialog type={type} onClose={() => setAdding(false)} />}
-      {editing && <FieldDialog type={type} field={editing} onClose={() => setEditing(null)} />}
+      {isAdding && <FieldDialog type={type} within={within} onClose={() => setAdding(false)} />}
+      {editing && <FieldDialog type={type} field={editing} within={within} onClose={() => setEditing(null)} />}
+      {isChangingSections && <SectionsDialog type={type} onClose={() => setChangingSections(false)} />}
       {isChangingSettings && <SettingsDialog type={type} onClose={() => setChangingSettings(false)} />}
       <ConfirmDialog
         isOpen={leaving !== null}
@@ -203,7 +256,7 @@ function TypeBuilder({ type }: { readonly type: ContentTypeDef }) {
         onConfirm={() => {
           if (!leaving) return;
           remove.mutate(
-            { typeId: type.id, fieldId: leaving.id },
+            { typeId: type.id, fieldId: leaving.id, within },
             {
               onSuccess: () => toast({ title: messages.builder.removed(labelOf(leaving)), tone: 'success' }),
               onError: (error) => toast({ title: messages.builder.notRemoved, description: messageOf(error), tone: 'danger' }),
@@ -215,66 +268,5 @@ function TypeBuilder({ type }: { readonly type: ContentTypeDef }) {
         {messages.builder.removeDescription}
       </ConfirmDialog>
     </Box>
-  );
-}
-
-/** The window a content type's own name and address are changed in. */
-function SettingsDialog({ type, onClose }: { readonly type: ContentTypeDef; readonly onClose: () => void }) {
-  const messages = useMessages();
-  const locale = useLocale();
-  const update = useUpdateContentType();
-  const [name, setName] = useState(localized(type.label, locale));
-  const [address, setAddress] = useState(type.urlPattern ?? '');
-  const [problems, setProblems] = useState<Readonly<Record<string, string>>>({});
-
-  const send = () => {
-    if (name.trim() === '') return setProblems({ label: messages.builder.typeNameNeeded });
-    setProblems({});
-    update.mutate(
-      { id: type.id, changes: { label: { ...type.label, [locale.split('-')[0] ?? locale]: name.trim() }, urlPattern: address.trim() === '' ? null : address.trim() } },
-      {
-        onSuccess: () => {
-          toast({ title: messages.builder.settingsSaved, tone: 'success' });
-          onClose();
-        },
-        onError: (error) => {
-          const issues = error instanceof AdminRequestError ? error.issues : [];
-          setProblems({ [String(issues[0]?.path[0] ?? 'urlPattern')]: messageOf(error) });
-          toast({ title: messages.builder.settingsNotSaved, description: messageOf(error), tone: 'danger' });
-        },
-      },
-    );
-  };
-
-  const title = messages.builder.settingsTitle(localized(type.label, locale));
-  return (
-    <Dialog
-      isOpen
-      onOpenChange={(isOpen) => !isOpen && onClose()}
-      title={title}
-      closeLabel={messages.app.dismiss}
-      footer={
-        <>
-          <Button variant="secondary" onPress={onClose}>
-            {messages.editor.cancel}
-          </Button>
-          <Button isPending={update.isPending} onPress={send}>
-            {messages.builder.settingsSave}
-          </Button>
-        </>
-      }
-    >
-      <Form label={title} gap={4} onSubmit={send}>
-        <TextField label={messages.builder.typeName} value={name} onChange={setName} isRequired autoFocus autoComplete="off" {...(problems['label'] !== undefined && { errorMessage: problems['label'] })} />
-        <TextField
-          label={messages.builder.typeAddress}
-          description={messages.builder.typeAddressHelp}
-          value={address}
-          onChange={setAddress}
-          autoComplete="off"
-          {...(problems['urlPattern'] !== undefined && { errorMessage: problems['urlPattern'] })}
-        />
-      </Form>
-    </Dialog>
   );
 }

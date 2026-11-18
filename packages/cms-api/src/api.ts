@@ -1,4 +1,4 @@
-import type { Cms, ContentTypeChanges, FieldChanges, NewField, Role } from '@velocity/cms-core';
+import type { Cms, ContentTypeChanges, FieldArrangement, FieldChanges, FieldSection, NewField, Role } from '@velocity/cms-core';
 import { z } from 'zod';
 import type { ApiSession, Authenticator } from './authenticator.js';
 import { ApiError, errorResponse, isFault, json } from './http.js';
@@ -53,7 +53,16 @@ const roleChange = z.strictObject({ role: z.string() });
 const words = z.record(z.string(), z.string());
 const settings = z.record(z.string(), z.unknown());
 const newType = z.strictObject({ key: z.string(), kind: z.enum(['collection', 'single']), label: words, urlPattern: z.string().optional() });
-const typeChanges = z.strictObject({ label: words.optional(), urlPattern: z.string().nullable().optional() });
+const path = z.array(z.string()).min(1);
+const typeChanges = z.strictObject({
+  label: words.optional(),
+  urlPattern: z.string().nullable().optional(),
+  titlePath: path.nullable().optional(),
+  list: z.strictObject({ imagePath: path.optional(), fieldPaths: z.array(path).optional() }).nullable().optional(),
+});
+const sectionList = z.strictObject({
+  sections: z.array(z.strictObject({ key: z.string(), label: words, fieldIds: z.array(z.string()), aside: z.boolean().optional() })),
+});
 const newField = z.strictObject({
   key: z.string(),
   type: z.string(),
@@ -73,7 +82,7 @@ const fieldChanges = z.strictObject({
   translated: z.boolean().optional(),
   options: settings.optional(),
 });
-const arrangement = z.strictObject({ order: z.array(z.string()), sections: z.record(z.string(), z.array(z.string())).optional() });
+const arrangement = z.strictObject({ order: z.array(z.string()), sections: z.record(z.string(), z.array(z.string())).optional(), within: z.array(z.string()).optional() });
 const publishRequest = z.strictObject({ expectedRevision: z.number().int().positive() });
 
 /**
@@ -113,21 +122,28 @@ export class CmsApi {
       .add('POST', '/content-types/:id/fields', async (call) => {
         const who = actor(call);
         const { section, ...field } = parse(newField, await this.#body(call.request));
-        return json(await schema.addField(who, param(call, 'id'), given<NewField>(field), section), 201);
+        const place = { within: within(call), ...(section !== undefined && { section }) };
+        return json(await schema.addField(who, param(call, 'id'), given<NewField>(field), place), 201);
       })
       .add('PUT', '/content-types/:id/fields', async (call) => {
         const who = actor(call);
-        const { order, sections } = parse(arrangement, await this.#body(call.request));
-        return json(await schema.arrangeFields(who, param(call, 'id'), { order, ...(sections !== undefined && { sections }) }));
+        return json(await schema.arrangeFields(who, param(call, 'id'), given<FieldArrangement>(parse(arrangement, await this.#body(call.request)))));
+      })
+      .add('PUT', '/content-types/:id/sections', async (call) => {
+        const who = actor(call);
+        const { sections } = parse(sectionList, await this.#body(call.request));
+        return json(await schema.setSections(who, param(call, 'id'), sections.map((section) => given<FieldSection>(section))));
       })
       .add('PATCH', '/content-types/:id/fields/:fieldId', async (call) => {
         const who = actor(call);
         const body = parse(fieldChanges, await this.#body(call.request));
-        return json(await schema.changeField(who, param(call, 'id'), param(call, 'fieldId'), given<FieldChanges>(body)));
+        return json(await schema.changeField(who, param(call, 'id'), param(call, 'fieldId'), given<FieldChanges>(body), within(call)));
       })
-      .add('DELETE', '/content-types/:id/fields/:fieldId', async (call) => json(await schema.removeField(actor(call), param(call, 'id'), param(call, 'fieldId'))))
+      .add('DELETE', '/content-types/:id/fields/:fieldId', async (call) =>
+        json(await schema.removeField(actor(call), param(call, 'id'), param(call, 'fieldId'), within(call))),
+      )
       .add('POST', '/content-types/:id/fields/:fieldId/restore', async (call) =>
-        json(await schema.restoreField(actor(call), param(call, 'id'), param(call, 'fieldId'))),
+        json(await schema.restoreField(actor(call), param(call, 'id'), param(call, 'fieldId'), within(call))),
       )
       .add('GET', '/field-types', async (call) => {
         actor(call);
@@ -297,6 +313,11 @@ function actor(call: Call) {
 /** What was sent without the properties that were left out, which a service reads as "not given". */
 function given<T>(body: object): T {
   return Object.fromEntries(Object.entries(body).filter(([, value]) => value !== undefined)) as T;
+}
+
+/** The fields that hold the one a request is about, from the top down: `?within=<id>&within=<id>`. None for a type's own field. */
+function within(call: Call): string[] {
+  return call.url.searchParams.getAll('within');
 }
 
 function param(call: Call, name: string): string {

@@ -179,6 +179,10 @@ export class GroupField extends FieldType<Record<string, unknown>, { fields: Fie
   override inner(options: Readonly<Record<string, unknown>>): readonly FieldDef[] {
     return Array.isArray(options['fields']) ? (options['fields'] as FieldDef[]) : [];
   }
+
+  override withInner(options: Readonly<Record<string, unknown>>, inner: readonly FieldDef[]) {
+    return { ...options, fields: [...inner] };
+  }
 }
 
 interface ListOptions {
@@ -218,6 +222,18 @@ export class ListField extends FieldType<unknown[], ListOptions> {
     const before = previous?.['of'] as { type: string; options?: Record<string, unknown> } | undefined;
     const item = context.fields.get(of.type);
     return { ...described, of: { type: of.type, options: item.define(of.options ?? {}, before?.type === of.type ? before.options : undefined, context) } };
+  }
+
+  /** A list of groups holds the fields of its items. */
+  override inner(options: Readonly<Record<string, unknown>>, fields?: Registry<FieldType>): readonly FieldDef[] {
+    const of = options['of'] as { type: string; options?: Record<string, unknown> } | undefined;
+    return of && fields?.has(of.type) ? fields.get(of.type).inner(of.options ?? {}, fields) : [];
+  }
+
+  override withInner(options: Readonly<Record<string, unknown>>, inner: readonly FieldDef[], fields?: Registry<FieldType>) {
+    const of = options['of'] as { type: string; options?: Record<string, unknown> } | undefined;
+    const held = of && fields?.has(of.type) ? fields.get(of.type).withInner(of.options ?? {}, inner, fields) : null;
+    return of && held ? { ...options, of: { type: of.type, options: held } } : null;
   }
 }
 

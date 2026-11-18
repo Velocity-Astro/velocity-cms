@@ -69,8 +69,16 @@ export abstract class FieldType<TValue = unknown, TOptions extends object = obje
     return described;
   }
 
-  /** The fields this type holds, for a type that holds fields. */
-  inner(_options: Readonly<Record<string, unknown>>): readonly FieldDef[] {
+  /** The fields this type holds, for a type that holds fields. A list asks the type of its items. */
+  inner(_options: Readonly<Record<string, unknown>>, _fields?: Registry<FieldType>): readonly FieldDef[] {
     return [];
+  }
+
+  /**
+   * The settings with other fields in place of the ones it holds, or `null` for a type that
+   * holds none. It is how a field inside a group is added, changed or removed.
+   */
+  withInner(_options: Readonly<Record<string, unknown>>, _inner: readonly FieldDef[], _fields?: Registry<FieldType>): Readonly<Record<string, unknown>> | null {
+    return null;
   }
 }

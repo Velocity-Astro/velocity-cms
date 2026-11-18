@@ -56,3 +56,12 @@ export function placed(type: ContentTypeDef, fieldId: string, key: string): Fiel
     }),
   );
 }
+
+/** The fields a group holds, with one a step earlier (`-1`) or later (`1`). */
+export function movedWithin(fields: readonly FieldDef[], fieldId: string, by: -1 | 1, within: readonly string[]): FieldArrangement {
+  const order = liveFields([...fields]).map((field) => field.id);
+  const from = order.indexOf(fieldId);
+  const to = from + by;
+  if (from !== -1 && to >= 0 && to < order.length) order.splice(to, 0, ...order.splice(from, 1));
+  return { order, within };
+}

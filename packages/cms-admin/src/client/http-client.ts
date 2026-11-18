@@ -1,4 +1,4 @@
-import { readImage, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type Entry, type NewUpload, type Page, type PreviewLink, type SiteImage } from '@velocity/cms-core';
+import { readImage, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PreviewLink, type SiteImage } from '@velocity/cms-core';
 import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Person, SessionUser } from './admin-client.js';
 import { AdminRequestError, type RequestErrorCode, type RequestIssue } from './errors.js';
 
@@ -70,24 +70,28 @@ export class HttpAdminClient implements AdminClient {
     return this.#send('PATCH', `/content-types/${encodeURIComponent(id)}`, changes);
   }
 
-  addField(typeId: string, field: NewTypeField): Promise<ContentTypeDef> {
-    return this.#send('POST', `/content-types/${encodeURIComponent(typeId)}/fields`, field);
+  addField(typeId: string, field: NewTypeField, within?: readonly string[]): Promise<ContentTypeDef> {
+    return this.#send('POST', `/content-types/${encodeURIComponent(typeId)}/fields${holders(within)}`, field);
   }
 
-  changeField(typeId: string, fieldId: string, changes: FieldChanges): Promise<ContentTypeDef> {
-    return this.#send('PATCH', `/content-types/${encodeURIComponent(typeId)}/fields/${encodeURIComponent(fieldId)}`, changes);
+  changeField(typeId: string, fieldId: string, changes: FieldChanges, within?: readonly string[]): Promise<ContentTypeDef> {
+    return this.#send('PATCH', `/content-types/${encodeURIComponent(typeId)}/fields/${encodeURIComponent(fieldId)}${holders(within)}`, changes);
   }
 
-  removeField(typeId: string, fieldId: string): Promise<ContentTypeDef> {
-    return this.#send('DELETE', `/content-types/${encodeURIComponent(typeId)}/fields/${encodeURIComponent(fieldId)}`, {});
+  removeField(typeId: string, fieldId: string, within?: readonly string[]): Promise<ContentTypeDef> {
+    return this.#send('DELETE', `/content-types/${encodeURIComponent(typeId)}/fields/${encodeURIComponent(fieldId)}${holders(within)}`, {});
   }
 
-  restoreField(typeId: string, fieldId: string): Promise<ContentTypeDef> {
-    return this.#send('POST', `/content-types/${encodeURIComponent(typeId)}/fields/${encodeURIComponent(fieldId)}/restore`, {});
+  restoreField(typeId: string, fieldId: string, within?: readonly string[]): Promise<ContentTypeDef> {
+    return this.#send('POST', `/content-types/${encodeURIComponent(typeId)}/fields/${encodeURIComponent(fieldId)}/restore${holders(within)}`, {});
   }
 
   arrangeFields(typeId: string, arrangement: FieldArrangement): Promise<ContentTypeDef> {
     return this.#send('PUT', `/content-types/${encodeURIComponent(typeId)}/fields`, arrangement);
+  }
+
+  setSections(typeId: string, sections: readonly FieldSection[]): Promise<ContentTypeDef> {
+    return this.#send('PUT', `/content-types/${encodeURIComponent(typeId)}/sections`, { sections });
   }
 
   async listFieldTypes(): Promise<readonly FieldTypeInfo[]> {
@@ -184,6 +188,11 @@ export class HttpAdminClient implements AdminClient {
     if (response.ok) return body as T;
     throw refusal(body, response.status);
   }
+}
+
+/** The fields that hold the one a request is about, as the API reads them: `?within=<id>&within=<id>`. */
+function holders(within: readonly string[] = []): string {
+  return within.length > 0 ? `?${new URLSearchParams(within.map((id) => ['within', id]))}` : '';
 }
 
 /** The error for a response that was not a success, in the server's own words when it gave any. */

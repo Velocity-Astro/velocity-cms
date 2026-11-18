@@ -162,6 +162,34 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       expect((await client.listContentTypes()).map((type) => type.key)).toEqual(['agents', 'listings', 'news']);
     });
 
+    it('builds what a group holds, sets sections and chooses what lists show', async () => {
+      const address = (type: { fields: readonly { key: string; options: Readonly<Record<string, unknown>> }[] }) =>
+        (type.fields.find((field) => field.key === 'address')?.options['fields'] as { id: string; key: string; deletedAt?: string }[]).map((field) => [field.key, field.deletedAt === undefined]);
+      const added = await client.addField('type-listings', { key: 'zip', type: 'text', label: { en: 'ZIP code' } }, ['f-address']);
+      const zip = (added.fields.find((field) => field.key === 'address')?.options['fields'] as { id: string }[])[2]?.id as string;
+      expect(address(added)).toEqual([['street', true], ['city', true], ['zip', true]]);
+      expect(address(await client.changeField('type-listings', zip, { key: 'postcode' }, ['f-address']))).toContainEqual(['postcode', true]);
+      expect(address(await client.arrangeFields('type-listings', { order: [zip, 'f-street', 'f-city'], within: ['f-address'] }))[0]).toEqual(['postcode', true]);
+      expect(address(await client.removeField('type-listings', zip, ['f-address']))).toContainEqual(['postcode', false]);
+      expect(address(await client.restoreField('type-listings', zip, ['f-address']))).toContainEqual(['postcode', true]);
+
+      const sections = await client.setSections('type-listings', [
+        { key: 'main', label: { en: 'Main' }, fieldIds: ['f-title', 'f-description'] },
+        { key: 'facts', label: { en: 'Facts' }, fieldIds: ['f-price'], aside: true },
+      ]);
+      expect(sections.sections).toEqual([
+        { key: 'main', label: { en: 'Main' }, fieldIds: ['f-title', 'f-description'] },
+        { key: 'facts', label: { en: 'Facts' }, fieldIds: ['f-price'], aside: true },
+      ]);
+      expect(await client.setSections('type-listings', [])).not.toHaveProperty('sections');
+      await expect(client.setSections('type-listings', [{ key: 'main', label: { en: 'Main' }, fieldIds: ['nothing'] }])).rejects.toMatchObject({ code: 'validation_failed' });
+
+      const chosen = await client.updateContentType('type-listings', { titlePath: ['f-address', 'f-city'], list: { fieldPaths: [['f-price'], ['f-stage']] } });
+      expect(chosen).toMatchObject({ titlePath: ['f-address', 'f-city'], list: { fieldPaths: [['f-price'], ['f-stage']] } });
+      expect(await client.updateContentType('type-listings', { titlePath: null, list: null })).not.toHaveProperty('titlePath');
+      await expect(client.addField('type-listings', { key: 'x', type: 'text', label: { en: 'X' } }, ['f-title'])).rejects.toMatchObject({ code: 'conflict' });
+    });
+
     it('refuses a content type or a field that could not work, in words for the person', async () => {
       await expect(client.createContentType({ key: 'listings', kind: 'collection', label: { en: 'Again' } })).rejects.toMatchObject({ code: 'conflict' });
       await expect(client.createContentType({ key: 'My News', kind: 'collection', label: { en: 'News' } })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['key'] }] });

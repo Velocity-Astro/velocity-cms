@@ -1,4 +1,4 @@
-import { Registry } from '@velocity/cms-core';
+import { Registry, type FieldDef } from '@velocity/cms-core';
 import { Checkbox, NumberField, Select, TextArea } from '@velocity/cms-ui';
 import { useState, type ComponentType } from 'react';
 import { useContentTypes } from '../client/queries.js';
@@ -36,6 +36,8 @@ export interface FieldSettings {
   readonly problem?: (options: FieldOptions, messages: Messages) => string | undefined;
   /** True when a list can hold items of this kind. */
   readonly canBeListed?: boolean;
+  /** The fields a field of this kind holds, for a kind that holds fields: a group, a list of groups. */
+  readonly inner?: (options: FieldOptions) => readonly FieldDef[] | null;
 }
 
 export type FieldSettingsRegistry = Registry<FieldSettings>;
@@ -155,8 +157,24 @@ export const fieldSettings: FieldSettingsRegistry = new Registry<FieldSettings>(
     problem: (options, messages) => (typeof options['to'] === 'string' && options['to'] !== '' ? undefined : messages.builder.referenceNeeded),
   })
   .register({
+    type: 'group',
+    initial: { fields: [] },
+    canBeListed: true,
+    inner: (options) => (Array.isArray(options['fields']) ? (options['fields'] as FieldDef[]) : []),
+  })
+  .register({
     type: 'list',
     initial: {},
     Component: ListSettings,
+    // A list holds fields when its items do.
+    inner: (options) => {
+      const of = options['of'] as { type?: string; options?: FieldOptions } | undefined;
+      return of?.type !== undefined && fieldSettings.has(of.type) ? (fieldSettings.get(of.type).inner?.(of.options ?? {}) ?? null) : null;
+    },
     problem: (options, messages) => (typeof (options['of'] as { type?: unknown } | undefined)?.type === 'string' ? undefined : messages.builder.listOfNeeded),
   });
+
+/** The fields a field holds, or `null` when it is not of a kind that holds any. */
+export function innerFields(field: FieldDef): readonly FieldDef[] | null {
+  return fieldSettings.has(field.type) ? (fieldSettings.get(field.type).inner?.(field.options) ?? null) : null;
+}

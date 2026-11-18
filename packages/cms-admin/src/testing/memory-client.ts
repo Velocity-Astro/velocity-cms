@@ -8,6 +8,7 @@ import {
   type ContentTypeDef,
   type FieldArrangement,
   type FieldChanges,
+  type FieldSection,
   type Entry,
   type NewUpload,
   type Page,
@@ -120,24 +121,28 @@ export class MemoryAdminClient implements AdminClient {
     return this.#request((actor) => this.#cms.schema.update(actor, id, changes));
   }
 
-  addField(typeId: string, { section, ...field }: NewTypeField): Promise<ContentTypeDef> {
-    return this.#request((actor) => this.#cms.schema.addField(actor, typeId, field, section));
+  addField(typeId: string, { section, ...field }: NewTypeField, within: readonly string[] = []): Promise<ContentTypeDef> {
+    return this.#request((actor) => this.#cms.schema.addField(actor, typeId, field, { within, ...(section !== undefined && { section }) }));
   }
 
-  changeField(typeId: string, fieldId: string, changes: FieldChanges): Promise<ContentTypeDef> {
-    return this.#request((actor) => this.#cms.schema.changeField(actor, typeId, fieldId, changes));
+  changeField(typeId: string, fieldId: string, changes: FieldChanges, within?: readonly string[]): Promise<ContentTypeDef> {
+    return this.#request((actor) => this.#cms.schema.changeField(actor, typeId, fieldId, changes, within));
   }
 
-  removeField(typeId: string, fieldId: string): Promise<ContentTypeDef> {
-    return this.#request((actor) => this.#cms.schema.removeField(actor, typeId, fieldId));
+  removeField(typeId: string, fieldId: string, within?: readonly string[]): Promise<ContentTypeDef> {
+    return this.#request((actor) => this.#cms.schema.removeField(actor, typeId, fieldId, within));
   }
 
-  restoreField(typeId: string, fieldId: string): Promise<ContentTypeDef> {
-    return this.#request((actor) => this.#cms.schema.restoreField(actor, typeId, fieldId));
+  restoreField(typeId: string, fieldId: string, within?: readonly string[]): Promise<ContentTypeDef> {
+    return this.#request((actor) => this.#cms.schema.restoreField(actor, typeId, fieldId, within));
   }
 
   arrangeFields(typeId: string, arrangement: FieldArrangement): Promise<ContentTypeDef> {
     return this.#request((actor) => this.#cms.schema.arrangeFields(actor, typeId, arrangement));
+  }
+
+  setSections(typeId: string, sections: readonly FieldSection[]): Promise<ContentTypeDef> {
+    return this.#request((actor) => this.#cms.schema.setSections(actor, typeId, sections));
   }
 
   listFieldTypes(): Promise<readonly FieldTypeInfo[]> {

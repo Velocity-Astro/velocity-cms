@@ -1,4 +1,4 @@
-import type { ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, LocalizedText, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
+import type { ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, LocalizedText, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
@@ -101,16 +101,21 @@ export interface AdminClient {
   createContentType(type: NewType): Promise<ContentTypeDef>;
   /** Changes what a content type is called, or where its entries live. */
   updateContentType(id: string, changes: ContentTypeChanges): Promise<ContentTypeDef>;
-  /** Adds a field to a content type. Refused when a field already has its key. */
-  addField(typeId: string, field: NewTypeField): Promise<ContentTypeDef>;
+  /**
+   * Adds a field to a content type. Refused when a field already has its key. `within` leads to
+   * the field that holds it, by id from the top down, for a field inside a group.
+   */
+  addField(typeId: string, field: NewTypeField, within?: readonly string[]): Promise<ContentTypeDef>;
   /** Changes a field in place. Its content stays. */
-  changeField(typeId: string, fieldId: string, changes: FieldChanges): Promise<ContentTypeDef>;
+  changeField(typeId: string, fieldId: string, changes: FieldChanges, within?: readonly string[]): Promise<ContentTypeDef>;
   /** Hides a field from the editor and the site. Its content is kept, so it can be restored. */
-  removeField(typeId: string, fieldId: string): Promise<ContentTypeDef>;
+  removeField(typeId: string, fieldId: string, within?: readonly string[]): Promise<ContentTypeDef>;
   /** Brings a removed field back, with its content. */
-  restoreField(typeId: string, fieldId: string): Promise<ContentTypeDef>;
-  /** Puts a type's fields in order, and says which section shows which. */
+  restoreField(typeId: string, fieldId: string, within?: readonly string[]): Promise<ContentTypeDef>;
+  /** Puts fields in order: a type's own, saying which section shows which, or those a group holds. */
   arrangeFields(typeId: string, arrangement: FieldArrangement): Promise<ContentTypeDef>;
+  /** Says which sections the editor shows for a type, in order, and which fields each shows. */
+  setSections(typeId: string, sections: readonly FieldSection[]): Promise<ContentTypeDef>;
   /** The working versions of a type's entries, newest first. */
   listEntries(query: EntryListQuery): Promise<Page<Entry>>;
   /** Every field type the site has, built in or from a plugin, with the control that edits it. */
