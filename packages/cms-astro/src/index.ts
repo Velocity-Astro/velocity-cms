@@ -2,6 +2,7 @@ export { sharedConnection, type Connection, type ConnectionOptions } from './con
 export { AdminFiles, type EditorPageConfig } from './admin-files.js';
 export { EditorHost, LogMailer, type EditorHostOptions } from './editor.js';
 export { default, type VelocityCmsOptions } from './integration.js';
+export { ResendMailer, englishMailWords, mailerFromEnv, type MailWords, type ResendMailerOptions } from './resend-mailer.js';
 export { EditorNotSetUpError, editorOrigin, siteEditorHost, withEditor, type SiteEditorSettings } from './site-editor.js';
 export {
   cmsLiveLoader,

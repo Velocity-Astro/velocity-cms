@@ -1,10 +1,21 @@
-import type { ContentTypeDef, Entry, EntryData, NewUpload, Page, PreviewLink, SiteImage } from '@velocity/cms-core';
+import type { ContentTypeDef, Entry, EntryData, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
   readonly id: string;
   readonly email: string;
   readonly name: string;
+  /** What they may do. The screens use it to leave out what the server would refuse anyway. */
+  readonly role: Role;
+}
+
+/** Someone who can sign in to the editor. */
+export type Person = SessionUser;
+
+export interface NewPerson {
+  readonly email: string;
+  readonly name: string;
+  readonly role: Role;
 }
 
 export interface EntryListQuery {
@@ -93,4 +104,14 @@ export interface AdminClient {
    * has no page of its own, or the site makes no previews.
    */
   previewEntry(id: string): Promise<PreviewLink>;
+  /** Everyone who can sign in, by name. Owners only, like every method about people. */
+  listPeople(): Promise<readonly Person[]>;
+  /** Lets someone in, and emails them a link. Refused for an address that is already here. */
+  invitePerson(person: NewPerson): Promise<Person>;
+  /** Changes what someone may do. Refused when it would leave the site without an owner. */
+  changePersonRole(id: string, role: Role): Promise<Person>;
+  /** Takes away someone's access at once. Refused for yourself and for the last owner. */
+  removePerson(id: string): Promise<void>;
+  /** Asks the browser to make a passkey for the signed-in person, called `name` in their list. */
+  addPasskey(name: string): Promise<void>;
 }

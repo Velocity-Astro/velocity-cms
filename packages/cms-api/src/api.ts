@@ -1,12 +1,15 @@
-import type { Cms } from '@velocity/cms-core';
+import type { Cms, Role } from '@velocity/cms-core';
 import { z } from 'zod';
 import type { ApiSession, Authenticator } from './authenticator.js';
 import { ApiError, errorResponse, isFault, json } from './http.js';
+import type { People } from './people.js';
 import { Router } from './router.js';
 
 export interface CmsApiOptions {
   readonly cms: Cms;
   readonly authenticator: Authenticator;
+  /** Who can sign in. Without it the API has nothing under `/people`. */
+  readonly people?: People;
   /** Where the API is mounted on the site. Defaults to `/api/cms`. */
   readonly basePath?: string;
   /** The language an entry is written in when the request names none. Defaults to `en`. */
@@ -45,6 +48,8 @@ const entryList = z.object({
 const data = z.record(z.string(), z.unknown());
 const newEntry = z.strictObject({ type: z.string().min(1), locale: z.string().min(1).optional(), slug: z.string(), data });
 const entryChanges = z.strictObject({ slug: z.string(), data, expectedRevision: z.number().int().positive() });
+const newPerson = z.strictObject({ email: z.string(), name: z.string(), role: z.string() });
+const roleChange = z.strictObject({ role: z.string() });
 const publishRequest = z.strictObject({ expectedRevision: z.number().int().positive() });
 
 /**
@@ -66,7 +71,7 @@ export class CmsApi {
     const defaultLocale = options.defaultLocale ?? 'en';
 
     this.#router
-      .add('GET', '/session', async ({ session }) => json({ user: session?.user ?? null }))
+      .add('GET', '/session', async ({ session }) => json({ user: session ? { ...session.user, role: session.actor.role } : null }))
       .add('GET', '/content-types', async (call) => {
         actor(call);
         return json({ items: await schema.list() });
@@ -112,6 +117,27 @@ export class CmsApi {
       })
       .add('POST', '/entries/:id/preview', async (call) => json(await previews.link(actor(call), param(call, 'id'))))
       .add('POST', '/entries/:id/unpublish', async (call) => json(await content.unpublish(actor(call), param(call, 'id'))));
+
+    const { people } = options;
+    if (people) {
+      this.#router
+        .add('GET', '/people', async (call) => json({ items: await people.listUsers(actor(call)) }))
+        .add('POST', '/people', async (call) => {
+          const who = actor(call);
+          const { role, ...person } = parse(newPerson, await this.#body(call.request));
+          // Which roles there are is the people service's to say, in its own words.
+          return json(await people.invite(who, { ...person, role: role as Role }), 201);
+        })
+        .add('PATCH', '/people/:id', async (call) => {
+          const who = actor(call);
+          const { role } = parse(roleChange, await this.#body(call.request));
+          return json(await people.changeRole(who, param(call, 'id'), role as Role));
+        })
+        .add('DELETE', '/people/:id', async (call) => {
+          await people.remove(actor(call), param(call, 'id'));
+          return json({});
+        });
+    }
   }
 
   /** Answers one request. Never throws: whatever goes wrong becomes a response. */

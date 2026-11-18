@@ -9,6 +9,7 @@ import {
   type NewUpload,
   type Page,
   type PreviewLink,
+  type Role,
   type SiteImage,
 } from '@velocity/cms-core';
 import {
@@ -18,7 +19,8 @@ import {
   InMemoryMediaStore,
   InMemorySchemaRepository,
 } from '@velocity/cms-core/in-memory';
-import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, SessionUser } from '../client/admin-client.js';
+import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, Person, SessionUser } from '../client/admin-client.js';
+import { MemoryPeople } from './memory-people.js';
 import { AdminRequestError, type RequestErrorCode } from '../client/errors.js';
 
 export interface MemoryAdminClientOptions {
@@ -32,6 +34,8 @@ export interface MemoryAdminClientOptions {
   readonly images?: readonly SiteImage[];
   /** Whether the site takes uploads. Defaults to `true`. */
   readonly uploads?: boolean;
+  /** Everyone who can sign in. Defaults to the person signed in at the start. */
+  readonly people?: readonly Person[];
   /** The language new entries are written in. Defaults to `en`. */
   readonly defaultLocale?: string;
 }
@@ -50,6 +54,8 @@ const PREVIEW_SECRET = 'memory-admin-client-preview-secret';
 export class MemoryAdminClient implements AdminClient {
   /** Every address a sign-in link was asked for, in order. */
   readonly linkRequests: string[] = [];
+  /** The name of every passkey that was added, in order. */
+  readonly passkeys: string[] = [];
   /** Set to make the next request fail with this message. */
   failNextWith: string | null = null;
 
@@ -57,6 +63,7 @@ export class MemoryAdminClient implements AdminClient {
   readonly #passkeyUser: SessionUser | null;
   readonly #defaultLocale: string;
   readonly #cms: Cms;
+  readonly #people: MemoryPeople;
   /** Settles once the content given to the constructor is in place. Every request waits for it. */
   readonly #ready: Promise<void>;
 
@@ -64,6 +71,7 @@ export class MemoryAdminClient implements AdminClient {
     this.#user = options.user ?? null;
     this.#passkeyUser = options.passkeyUser ?? null;
     this.#defaultLocale = options.defaultLocale ?? 'en';
+    this.#people = new MemoryPeople(options.people ?? (options.user ? [options.user] : []));
     const types = new InMemorySchemaRepository();
     const entries = new InMemoryEntryRepository();
     const storage = { files: new InMemoryMediaRepository(), store: new InMemoryMediaStore() };
@@ -162,13 +170,33 @@ export class MemoryAdminClient implements AdminClient {
     return this.#request((actor) => this.#cms.previews.link(actor, id));
   }
 
+  listPeople(): Promise<readonly Person[]> {
+    return this.#request((actor) => this.#people.listUsers(actor));
+  }
+
+  invitePerson(person: NewPerson): Promise<Person> {
+    return this.#request((actor) => this.#people.invite(actor, person));
+  }
+
+  changePersonRole(id: string, role: Role): Promise<Person> {
+    return this.#request((actor) => this.#people.changeRole(actor, id, role));
+  }
+
+  removePerson(id: string): Promise<void> {
+    return this.#request((actor) => this.#people.remove(actor, id));
+  }
+
+  addPasskey(name: string): Promise<void> {
+    return this.#request(async () => void this.passkeys.push(name));
+  }
+
   /** Runs one signed-in request against the CMS, and reports a refusal the way a server would. */
   async #request<T>(run: (actor: Actor) => Promise<T>): Promise<T> {
     this.#failIfAsked();
     if (!this.#user) throw new AdminRequestError('Sign in to continue.', 'unauthenticated');
     await this.#ready;
     try {
-      return await run({ kind: 'user', id: this.#user.id, role: 'owner' });
+      return await run({ kind: 'user', id: this.#user.id, role: this.#user.role });
     } catch (error) {
       if (!(error instanceof CmsError)) throw error;
       const code = KNOWN_CODES.has(error.code) ? (error.code as RequestErrorCode) : 'unknown';

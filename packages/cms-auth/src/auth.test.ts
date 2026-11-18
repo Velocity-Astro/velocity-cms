@@ -50,7 +50,21 @@ describe('inviting people', () => {
       { email: 'ben@example.com', name: 'Ben', role: 'author' },
       { email: 'dana@example.com', name: 'Dana', role: 'editor' },
     ]);
+    // An invitation points at the editor and carries nothing that signs anyone in.
     expect(mailer.sent).toEqual([]);
+    expect(mailer.invitations).toEqual([
+      { email: 'dana@example.com', name: 'Dana', url: 'https://site.test/admin', siteName: 'Lakeshore Realty' },
+      { email: 'ben@example.com', name: 'Ben', url: 'https://site.test/admin', siteName: 'Lakeshore Realty' },
+    ]);
+  });
+
+  it('adds nobody when the invitation cannot be sent, and says so', async () => {
+    mailer.sendInvitation = () => Promise.reject(new Error('The provider said no.'));
+    await expect(auth.invite(owner, { email: 'dana@example.com', name: 'Dana', role: 'editor' })).rejects.toMatchObject({
+      code: 'conflict',
+      message: expect.stringContaining('could not be sent, so nobody was added'),
+    });
+    expect(await auth.listUsers(owner)).toEqual([]);
   });
 
   it('refuses anyone but an owner', async () => {
@@ -67,6 +81,47 @@ describe('inviting people', () => {
     await expect(auth.invite(owner, { email: 'a@example.com', name: 'A', role: 'admin' as never })).rejects.toMatchObject({ issues: [{ path: ['role'] }] });
     await auth.invite(owner, { email: 'dana@example.com', name: 'Dana', role: 'editor' });
     await expect(auth.invite(owner, { email: 'DANA@example.com', name: 'Dana again', role: 'owner' })).rejects.toMatchObject({ code: 'conflict' });
+  });
+});
+
+describe('changing and removing people', () => {
+  it('changes a role, which the next request already sees', async () => {
+    const dana = await auth.invite(owner, { email: 'dana@example.com', name: 'Dana', role: 'author' });
+    const { cookie } = await open(await auth.createSignInLink('dana@example.com'));
+    expect((await auth.authenticate(withCookie(cookie)))?.actor.role).toBe('author');
+    expect(await auth.changeRole(owner, dana.id, 'editor')).toMatchObject({ id: dana.id, role: 'editor' });
+    expect((await auth.authenticate(withCookie(cookie)))?.actor.role).toBe('editor');
+    await expect(auth.changeRole(owner, dana.id, 'admin' as never)).rejects.toMatchObject({ code: 'validation_failed' });
+    await expect(auth.changeRole(owner, 'nobody', 'editor')).rejects.toMatchObject({ code: 'not_found' });
+  });
+
+  it('removes a person, and signs them out everywhere at once', async () => {
+    const dana = await auth.invite(owner, { email: 'dana@example.com', name: 'Dana', role: 'editor' });
+    const { cookie } = await open(await auth.createSignInLink('dana@example.com'));
+    expect(await auth.authenticate(withCookie(cookie))).not.toBeNull();
+    await auth.remove(owner, dana.id);
+    expect(await auth.authenticate(withCookie(cookie))).toBeNull();
+    expect(await auth.listUsers(owner)).toEqual([]);
+    await askForLink('dana@example.com');
+    expect(mailer.sent).toEqual([]);
+  });
+
+  it('always leaves the site an owner, and nobody removes themselves', async () => {
+    const first = await auth.invite(owner, { email: 'first@example.com', name: 'First', role: 'owner' });
+    await expect(auth.changeRole(owner, first.id, 'editor')).rejects.toMatchObject({ code: 'conflict', message: expect.stringContaining('only owner') });
+    await expect(auth.remove(owner, first.id)).rejects.toMatchObject({ code: 'conflict' });
+    const second = await auth.invite(owner, { email: 'second@example.com', name: 'Second', role: 'owner' });
+    const asFirst: Actor = { kind: 'user', id: first.id, role: 'owner' };
+    await expect(auth.remove(asFirst, first.id)).rejects.toMatchObject({ code: 'conflict', message: expect.stringContaining('yourself') });
+    await auth.remove(asFirst, second.id);
+    expect((await auth.listUsers(owner)).map((user) => user.email)).toEqual(['first@example.com']);
+  });
+
+  it('refuses anyone but an owner', async () => {
+    const dana = await auth.invite(owner, { email: 'dana@example.com', name: 'Dana', role: 'editor' });
+    const editor: Actor = { kind: 'user', id: dana.id, role: 'editor' };
+    await expect(auth.changeRole(editor, dana.id, 'owner')).rejects.toMatchObject({ code: 'forbidden' });
+    await expect(auth.remove(editor, dana.id)).rejects.toMatchObject({ code: 'forbidden' });
   });
 });
 

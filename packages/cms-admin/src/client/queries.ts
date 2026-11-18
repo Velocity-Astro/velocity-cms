@@ -1,6 +1,6 @@
 import { MutationCache, QueryCache, QueryClient, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Entry, NewUpload } from '@velocity/cms-core';
-import type { EntryChanges, EntryListQuery, ImageList, NewEntry } from './admin-client.js';
+import type { Entry, NewUpload, Role } from '@velocity/cms-core';
+import type { EntryChanges, EntryListQuery, ImageList, NewEntry, NewPerson } from './admin-client.js';
 import { AdminRequestError } from './errors.js';
 import { useClient } from './client-context.js';
 
@@ -13,6 +13,7 @@ const keys = {
   contentTypes: ['content-types'] as const,
   fieldTypes: ['field-types'] as const,
   images: ['images'] as const,
+  people: ['people'] as const,
   /** Every list of entries starts with this, so one call marks them all out of date. */
   entryLists: ['entries'] as const,
   entries: (query: EntryListQuery) => ['entries', query] as const,
@@ -140,6 +141,37 @@ export function useUnpublishEntry() {
 export function usePreviewEntry() {
   const client = useClient();
   return useMutation({ mutationFn: (id: string) => client.previewEntry(id) });
+}
+
+export function usePeople() {
+  const client = useClient();
+  return useQuery({ queryKey: keys.people, queryFn: () => client.listPeople() });
+}
+
+/** What every change to who can sign in does afterwards: read the list again. */
+function usePeopleChanged() {
+  const cache = useQueryClient();
+  return () => void cache.invalidateQueries({ queryKey: keys.people });
+}
+
+export function useInvitePerson() {
+  const client = useClient();
+  return useMutation({ mutationFn: (person: NewPerson) => client.invitePerson(person), onSuccess: usePeopleChanged() });
+}
+
+export function useChangePersonRole() {
+  const client = useClient();
+  return useMutation({ mutationFn: ({ id, role }: { id: string; role: Role }) => client.changePersonRole(id, role), onSuccess: usePeopleChanged() });
+}
+
+export function useRemovePerson() {
+  const client = useClient();
+  return useMutation({ mutationFn: (id: string) => client.removePerson(id), onSuccess: usePeopleChanged() });
+}
+
+export function useAddPasskey() {
+  const client = useClient();
+  return useMutation({ mutationFn: (name: string) => client.addPasskey(name) });
 }
 
 export function useRequestSignInLink() {

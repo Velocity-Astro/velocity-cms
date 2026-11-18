@@ -55,6 +55,7 @@ it('signs in with a passkey and opens the editor', async () => {
   await user.click(await screen.findByRole('button', { name: 'Sign in with a passkey' }));
   expect(await screen.findByRole('heading', { level: 1, name: /, Dana$/ })).toBeTruthy();
   expect(screen.getByRole('button', { name: /^Account\s*Dana/ })).toBeTruthy();
+  expect(await screen.findByRole('alertdialog', { name: 'Signed in as Dana' })).toBeTruthy();
 });
 
 it('says so when the passkey does not work, and stays on the screen', async () => {
@@ -83,4 +84,6 @@ it('shows the sign-in screen when the session has ended and the next request is 
   await client.signOut();
   await user.click(screen.getByRole('link', { name: 'Agents' }));
   expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeTruthy();
+  const message = await screen.findByRole('alertdialog', { name: 'You were signed out' });
+  expect(message.textContent).toContain('Your session ended. Sign in again to continue.');
 });

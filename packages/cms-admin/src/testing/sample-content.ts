@@ -2,7 +2,7 @@ import type { ContentTypeDef, Entry, FieldDef } from '@velocity/cms-core';
 import type { SessionUser } from '../client/admin-client.js';
 
 /** A small real-estate site, for tests and the development preview. */
-export const sampleUser: SessionUser = { id: 'u1', email: 'dana@example.com', name: 'Dana' };
+export const sampleUser: SessionUser = { id: 'u1', email: 'dana@example.com', name: 'Dana', role: 'owner' };
 
 const field = (id: string, key: string, type: string, label: string, changes: Partial<FieldDef> = {}): FieldDef => ({
   id,

@@ -8,11 +8,11 @@ import { sampleContentTypes, sampleEntries, sampleUser } from '../../testing/sam
 
 const signedIn = { user: sampleUser, contentTypes: sampleContentTypes, entries: sampleEntries() };
 
-it('has every type in the navigation, after Home', async () => {
+it('has every type in the navigation, after Home, and People for an owner', async () => {
   renderApp('/content/agents', signedIn);
   expect(await screen.findByRole('heading', { level: 1, name: 'Agents' })).toBeTruthy();
   const nav = screen.getByRole('navigation', { name: 'Main' });
-  expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Home', 'Agents', 'Listings']);
+  expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Home', 'Agents', 'Listings', 'People']);
   expect(within(nav).getByRole('link', { name: 'Agents' }).getAttribute('aria-current')).toBe('page');
 });
 
@@ -124,6 +124,20 @@ it('signs out from the account menu and returns to the sign-in screen', async ()
   await user.click(await screen.findByRole('button', { name: /^Account\s*Dana/ }));
   await user.click(screen.getByRole('menuitem', { name: 'Sign out' }));
   expect(await screen.findByRole('heading', { level: 1, name: 'Sign in' })).toBeTruthy();
+  // Said on the sign-in screen, and not mistaken for a session that ran out.
+  expect(await screen.findByRole('alertdialog', { name: 'Signed out' })).toBeTruthy();
+  expect(screen.queryByText('You were signed out')).toBeNull();
+});
+
+it('says so when signing out fails, and stays signed in', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/content/listings', signedIn);
+  await user.click(await screen.findByRole('button', { name: /^Account\s*Dana/ }));
+  client.failNextWith = 'The server could not be reached.';
+  await user.click(screen.getByRole('menuitem', { name: 'Sign out' }));
+  const message = await screen.findByRole('alertdialog', { name: 'Not signed out' });
+  expect(message.textContent).toContain('The server could not be reached.');
+  expect(screen.getByRole('button', { name: /^Account\s*Dana/ })).toBeTruthy();
 });
 
 it('shows labels in the language asked for', async () => {

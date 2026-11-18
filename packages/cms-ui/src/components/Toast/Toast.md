@@ -1,7 +1,8 @@
 # Toast
 
-A short message that confirms something happened, shown in the top corner without taking focus. It sits clear of the
-`SaveBar` at the foot of a screen, so a message never covers the buttons it is about.
+A short message that confirms something happened, shown in the bottom corner without taking focus. It sits clear of the
+`SaveBar` and a page's main action at the top of a screen, so a message never covers the buttons it is about.
+Several messages show as a stack of cards, the newest in front; pointing at the stack or moving focus into it fans it out so each can be read and closed.
 Put one `<Toast />` in the app; call `toast()` from anywhere to show a message.
 
 ## Use it for

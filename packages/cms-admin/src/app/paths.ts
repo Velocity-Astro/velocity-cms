@@ -5,6 +5,7 @@ export const NEW_ENTRY = 'new';
 export const paths = {
   home: '/',
   signIn: '/sign-in',
+  people: '/people',
   contentList: (typeKey: string) => `/content/${encodeURIComponent(typeKey)}`,
   entry: (typeKey: string, entryId: string) => `/content/${encodeURIComponent(typeKey)}/${encodeURIComponent(entryId)}`,
   newEntry: (typeKey: string) => `/content/${encodeURIComponent(typeKey)}/${NEW_ENTRY}`,

@@ -2,6 +2,7 @@ import { AuthSetupError, type Mailer } from '@velocity/cms-auth';
 import type { ImageLibrary } from '@velocity/cms-core';
 import { sharedConnection } from './connection.js';
 import { EditorHost, LogMailer } from './editor.js';
+import { mailerFromEnv } from './resend-mailer.js';
 import { siteSecret } from './secret.js';
 
 /** What the integration tells the editor's routes about the site. */
@@ -56,7 +57,8 @@ async function createHost(origin: string, settings: SiteEditorSettings): Promise
       origin,
       siteName: settings.siteName,
       adminPath: settings.adminPath,
-      mailer: settings.mailer ?? new LogMailer(),
+      // The site's own mailer first, then Resend from its settings, then the server's log.
+      mailer: settings.mailer ?? mailerFromEnv() ?? new LogMailer(),
       ...(settings.images && { images: settings.images }),
       onFault: (error) => console.error('[velocity-cms]', error),
     });

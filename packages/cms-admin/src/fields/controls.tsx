@@ -1,5 +1,5 @@
 import { fromPlainText, liveFields, type FieldDef, type RichText } from '@velocity/cms-core';
-import { DateField, Fieldset, ImagePicker, NumberField, Repeater, RichTextEditor, Select, Switch, Text, TextArea, TextField } from '@velocity/cms-ui';
+import { DateField, Fieldset, ImagePicker, NumberField, Repeater, RichTextEditor, Select, Switch, Text, TextArea, TextField, toast } from '@velocity/cms-ui';
 import { useState } from 'react';
 import { useContentTypes, useEntries, useImages, useUploadImage, useUploadRules } from '../client/queries.js';
 import { prepareImage } from '../lib/prepare-image.js';
@@ -183,6 +183,7 @@ function ImageControl({ field, label, help, isLabelHidden = false, value, onChan
     }
     const image = await uploading.mutateAsync(prepared);
     onChange(image.name);
+    toast({ title: messages.editor.imageUploaded, description: messages.editor.imageUploadedDescription, tone: 'success' });
   };
   const uploadError = notRead ? messages.editor.imageNotRead : uploading.error?.message;
   const current = typeof value === 'string' && value !== '' ? value : null;

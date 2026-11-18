@@ -1,4 +1,4 @@
-import { AuthShell, Button, Form, Inline, Logo, Stack, Text, TextField } from '@velocity/cms-ui';
+import { AuthShell, Button, Form, Inline, Logo, Stack, Text, TextField, toast } from '@velocity/cms-ui';
 import { KeyRound } from 'lucide-react';
 import { useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router';
@@ -84,7 +84,14 @@ export function SignInScreen({ siteName }: SignInScreenProps) {
           icon={KeyRound}
           fullWidth
           isPending={passkey.isPending}
-          onPress={() => passkey.mutate(undefined, { onSuccess: () => void navigate(paths.home) })}
+          onPress={() =>
+            passkey.mutate(undefined, {
+              onSuccess: (user) => {
+                void navigate(paths.home);
+                toast({ title: messages.signIn.signedIn(user.name), tone: 'success' });
+              },
+            })
+          }
         >
           {messages.signIn.usePasskey}
         </Button>

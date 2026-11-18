@@ -373,6 +373,7 @@ it('uploads a photo from the computer, chooses it and saves it with the entry', 
   await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Choose an image' })).toBeNull());
   expect(cover.getByText('front-porch')).toBeTruthy();
   expect(cover.getByRole('button', { name: 'Change' })).toBeTruthy();
+  expect((await screen.findByRole('alertdialog', { name: 'Image uploaded' })).textContent).toContain('Save the entry to keep it.');
 
   await user.click(screen.getByRole('button', { name: 'Save draft' }));
   expect(await screen.findByText('Draft saved')).toBeTruthy();
