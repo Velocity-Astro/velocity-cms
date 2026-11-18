@@ -369,13 +369,26 @@ const pages = {
 /** One link of a menu: what it says, and the page or address it goes to. */
 const menuLink = group('item', 'Link', [text('label', 'Label', { required: true }), field('link')('link', 'Goes to', { required: true })]);
 
+/** One column of the large menu that opens under a header link: a heading, and links or a list the template keeps. */
+const menuColumn = group('column', 'Column', [
+  text('title', 'Heading', { required: true }),
+  choice('show', 'Shows', { links: 'The links below', neighborhoods: 'Every neighborhood, kept up to date' }),
+  list('links', 'Links', menuLink),
+]);
+/** A header link can open a large menu: it does when it has columns. */
+const headerLink = group('item', 'Link', [
+  text('label', 'Label', { required: true }),
+  field('link')('link', 'Goes to', { required: true }),
+  list('columns', 'Menu columns', menuColumn, { max: 3, help: 'Up to three. With columns, the link opens a large menu. Without, it is a plain link.' }),
+]);
+
 const navigation = {
   key: 'navigation',
   kind: 'single',
   label: { en: 'Navigation', es: 'Navegación' },
   fields: [
-    list('header', 'Header links', menuLink, {
-      help: 'The links across the top of every page, in order. A link to Homes for sale or to Property management keeps its menu. With no links here, the template\'s own are shown.',
+    list('header', 'Header links', headerLink, {
+      help: 'The links across the top of every page, in order. With no links here, the template\'s own are shown.',
     }),
     list('footer', 'Footer links', menuLink, { help: 'The links under "Company" at the foot of every page. With no links here, the template\'s own are shown.' }),
   ],
@@ -393,10 +406,44 @@ export const importedTypes = ['listings', 'agents', 'neighborhoods', 'reviews'];
  */
 export const sampleMenus = {
   header: [
-    { label: 'Buy', href: '/homes-for-sale/' },
+    {
+      label: 'Buy',
+      href: '/homes-for-sale/',
+      columns: [
+        { title: 'Search', show: 'links', links: [
+          { label: 'All homes for sale', href: '/homes-for-sale/' },
+          { label: 'Open houses', href: '/homes-for-sale/?open=yes' },
+          { label: 'Newest listings', href: '/homes-for-sale/?sort=listed' },
+          { label: 'Rent', href: '/rentals/' },
+        ] },
+        { title: 'Neighborhoods', show: 'neighborhoods' },
+        { title: 'Tools', show: 'links', links: [
+          { label: 'Mortgage calculator', href: '/mortgage-calculator/' },
+          { label: 'Schedule a tour', href: '/schedule-a-tour/' },
+          { label: 'Saved homes', href: '/saved-homes/' },
+          { label: 'Agents', href: '/agents/' },
+        ] },
+      ],
+    },
     { label: 'Rent', href: '/rentals/' },
     { label: 'Sell', href: '/sell/' },
-    { label: 'Property management', href: '/property-management/' },
+    {
+      label: 'Property management',
+      href: '/property-management/',
+      columns: [
+        { title: 'For owners', show: 'links', links: [
+          { label: 'How management works', href: '/property-management/' },
+          { label: 'Plans and pricing', href: '/property-management/#plans' },
+          { label: 'Free rental analysis', href: '/property-management/#analysis' },
+        ] },
+        { title: 'For residents', show: 'links', links: [
+          { label: 'Resident center', href: '/residents/' },
+          { label: 'Maintenance request', href: '/residents/#maintenance' },
+          { label: 'Pay rent', href: '/residents/#pay' },
+          { label: 'Rent', href: '/rentals/' },
+        ] },
+      ],
+    },
     { label: 'Agents', href: '/agents/' },
     { label: 'About', href: '/about/' },
   ],

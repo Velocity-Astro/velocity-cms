@@ -169,27 +169,56 @@ export function convert(project) {
 
   // 12. The header's links and the footer's "Company" column are a menu people edit in the CMS.
   //     A language with no menu yet keeps the template's own links, and so does a site whose
-  //     menu cannot be read. A link to the page a mega menu opens for keeps that menu.
+  //     menu cannot be read. A header link with columns opens a large menu made of them; a
+  //     column can ask for every neighborhood, which the template keeps up to date.
   edit('src/components/site/SiteHeader.astro', (source) => {
     let next = must(source, "import Header from '@/components/layout/Header.astro';", "import { menuLinks } from '@velocity/cms-astro';\nimport Header from '@/components/layout/Header.astro';");
     next = must(next, 'const ordered = [\n', 'const own = [\n');
-    return must(
+    next = must(
       next,
       '].sort((a, b) => a.order - b.order);\n',
       `].sort((a, b) => a.order - b.order);
 const samePage = (a: string, b: string) => a.replace(/\\/$/, '') === b.replace(/\\/$/, '');
 const edited = await menuLinks(Astro, { type: 'navigation', field: 'header' });
-const ordered =
+interface BigMenu {
+  href: string;
+  active: boolean;
+  columns: { title: string; links: { label: string; href: string }[] }[];
+  /** What fills the fourth column: the featured home, the rental analysis, or nothing. */
+  card: 'listing' | 'analysis' | 'none';
+}
+const shown: Record<string, BigMenu> = edited.length === 0 ? { buy: { ...menus.buy, card: 'listing' }, management: { ...menus.management, card: 'analysis' } } : {};
+const everyNeighborhood = [
+  ...neighborhoods.map(({ data }) => ({ label: data.name, href: neighborhoodUrl(data, locale) })),
+  { label: t('header.menu.allNeighborhoods'), href: route('neighborhoods') },
+];
+const ordered: ({ kind: 'menu'; id: string; label: string; order: number } | { kind: 'link'; label: string; href: string; active: boolean; order: number })[] =
   edited.length === 0
     ? own
     : edited.map((link, order) => {
-        const id = (['buy', 'management'] as const).find((menu) => samePage(menus[menu].href, link.href));
-        return id
-          ? { kind: 'menu' as const, id, label: link.label, order }
-          : { kind: 'link' as const, label: link.label, href: link.href, active: !link.external && isActive(link.href), order };
+        // A link with columns opens a large menu, and one without is a plain link. The template's
+        // own two menus keep their fourth column, which is not a list of links.
+        const known = (['buy', 'management'] as const).find((menu) => samePage(menus[menu].href, link.href));
+        const columns = (link.columns ?? []).slice(0, 3).map((column) => ({ title: column.title, links: column.show === 'neighborhoods' ? everyNeighborhood : [...column.links] }));
+        if (columns.length === 0) return { kind: 'link' as const, label: link.label, href: link.href, active: !link.external && isActive(link.href), order };
+        const id = known ?? \`menu-\${order}\`;
+        shown[id] = {
+          href: link.href,
+          active: known ? menus[known].active : isActive(link.href),
+          columns,
+          card: known === 'buy' ? 'listing' : known === 'management' ? 'analysis' : 'none',
+        };
+        return { kind: 'menu' as const, id, label: link.label, order };
       });
 `,
     );
+    // Every place the header read one of its two menus now reads whichever menus are shown.
+    next = next.replaceAll('menus[item.id]', 'shown[item.id]');
+    next = must(next, "{(['buy', 'management'] as const).map((id) => (", '{Object.keys(shown).map((id) => (');
+    next = must(next, '{menus[id].columns.map((column) => (', '{shown[id].columns.map((column) => (');
+    next = must(next, "{id === 'buy' && featured ? (", "{shown[id].card === 'none' ? null : shown[id].card === 'listing' && featured ? (");
+    if (next.includes('menus[id]') || next.includes('menus[item.id]')) throw new Error('The header still reads a menu the old way. Has the template changed?');
+    return next;
   });
   edit('src/components/site/SiteFooter.astro', (source) => {
     let next = must(source, "import Footer from '@/components/layout/Footer.astro';", "import { menuLinks } from '@velocity/cms-astro';\nimport Footer from '@/components/layout/Footer.astro';");

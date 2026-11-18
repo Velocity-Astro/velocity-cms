@@ -14,6 +14,19 @@ export interface MenuLink {
   readonly href: string;
   /** True when the link leaves the site. */
   readonly external: boolean;
+  /** What opens under the link, when it has anything: a large menu's columns. Left out otherwise. */
+  readonly columns?: readonly MenuColumn[];
+}
+
+/** One column of the menu that opens under a link: a heading and its own links. */
+export interface MenuColumn {
+  readonly title: string;
+  readonly links: readonly MenuLink[];
+  /**
+   * What the template is asked to fill the column with, when the item has a `show` choice: the
+   * template's own word for it, such as `neighborhoods`. Left out, the column shows its links.
+   */
+  readonly show?: string;
 }
 
 export interface MenuOptions {
@@ -24,6 +37,12 @@ export interface MenuOptions {
   /** The keys of an item's label and link fields. `label` and `link` unless told otherwise. */
   readonly labelKey?: string;
   readonly linkKey?: string;
+  /**
+   * The key of an item's list of columns: `columns` unless told otherwise. Each column is a group
+   * with a `title`, a list of `links` (label and link, as above) and, if the template has columns
+   * it fills itself, a `show` choice.
+   */
+  readonly columnsKey?: string;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -52,26 +71,50 @@ export async function menuLinksFrom(cms: Cms, locale: string, options: MenuOptio
   if (!Array.isArray(items)) return [];
 
   const read = new Map<string, Promise<Entry[]>>();
-  const links: MenuLink[] = [];
-  for (const item of items) {
-    if (!isRecord(item)) continue;
+  /** One item as a link, or nothing when it has no label or leads nowhere a visitor can go. */
+  const linkOf = async (item: unknown): Promise<MenuLink | undefined> => {
+    if (!isRecord(item)) return undefined;
     const label = item[options.labelKey ?? 'label'];
     const link = item[options.linkKey ?? 'link'];
-    if (typeof label !== 'string' || label.trim() === '' || !isRecord(link)) continue;
+    if (typeof label !== 'string' || label.trim() === '' || !isRecord(link)) return undefined;
     if (link['kind'] === 'address' && typeof link['href'] === 'string') {
-      links.push({ label, href: link['href'], external: /^[a-z][a-z0-9+.-]*:/i.test(link['href']) });
-      continue;
+      return { label, href: link['href'], external: /^[a-z][a-z0-9+.-]*:/i.test(link['href']) };
     }
     // A link to an entry goes to wherever that entry's page is now, in this language if it has
     // one. An entry that is gone, or not published, has no page: the link is left out.
     const type = types.find((candidate) => candidate.key === link['type']);
-    if (link['kind'] !== 'entry' || !type) continue;
+    if (link['kind'] !== 'entry' || !type) return undefined;
     if (!read.has(type.id)) read.set(type.id, entriesOf(cms, type));
     const versions = ((await read.get(type.id)) ?? []).filter((entry) => entry.translationGroup === link['entry']);
     const target = versions.find((entry) => entry.locale === locale) ?? versions.find((entry) => entry.locale === DEFAULT_LOCALE);
     const shown = target && (preview ? { slug: target.slug, data: target.data } : target.published);
     const href = target && shown ? pageAddress(type, { locale: target.locale, slug: shown.slug, data: shown.data }, DEFAULT_LOCALE) : null;
-    if (href !== null) links.push({ label, href, external: false });
+    return href === null ? undefined : { label, href, external: false };
+  };
+  const linksOf = async (list: unknown): Promise<MenuLink[]> => {
+    const found: MenuLink[] = [];
+    for (const item of Array.isArray(list) ? list : []) {
+      const link = await linkOf(item);
+      if (link) found.push(link);
+    }
+    return found;
+  };
+
+  const links: MenuLink[] = [];
+  for (const item of items) {
+    const link = await linkOf(item);
+    if (!link || !isRecord(item)) continue;
+    const columns: MenuColumn[] = [];
+    const described = item[options.columnsKey ?? 'columns'];
+    for (const column of Array.isArray(described) ? described : []) {
+      if (!isRecord(column)) continue;
+      const title = typeof column['title'] === 'string' ? column['title'] : '';
+      const show = typeof column['show'] === 'string' && column['show'] !== 'links' ? column['show'] : undefined;
+      const inside = await linksOf(column['links']);
+      // A column with nothing in it, and nothing the template fills it with, is left out.
+      if (inside.length > 0 || show !== undefined) columns.push({ title, links: inside, ...(show !== undefined && { show }) });
+    }
+    links.push(columns.length > 0 ? { ...link, columns } : link);
   }
   return links;
 }

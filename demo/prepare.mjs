@@ -30,7 +30,12 @@ const PACKAGES = ['cms-core', 'cms-db', 'cms-api', 'cms-auth', 'cms-ui', 'cms-ad
 // 1. Content types and content, before the conversion moves the files.
 const connection = await connect({});
 try {
-  const isNew = (await connection.cms.schema.list()).length === 0;
+  const before = await connection.cms.schema.list();
+  const isNew = before.length === 0;
+  const hadColumns = before
+    .find((type) => type.key === 'navigation')
+    ?.fields.find((field) => field.key === 'header')
+    ?.options.of.options.fields.some((field) => field.key === 'columns' && !field.deletedAt);
   // Every deploy: the types are made to match the template's description. Field ids are kept,
   // so what was edited on the demo stays.
   const types = new Map();
@@ -58,18 +63,39 @@ try {
   }
   // The menus are an entry too. A site with none gets the template's own links to edit.
   const navigation = types.get('navigation');
-  if ((await connection.cms.content.find(OWNER, { typeId: navigation.id, limit: 1 })).total === 0) {
+  {
     const made = (await connection.cms.content.find(OWNER, { typeId: pages.id, limit: 500 })).items;
-    const links = (items) =>
-      items.flatMap(({ label, href, page }) => {
+    const links = (items = []) =>
+      items.flatMap(({ label, href, page, columns }) => {
         const entry = made.find((candidate) => candidate.locale === 'en' && candidate.slug === page);
-        if (href) return [{ label, link: { kind: 'address', href } }];
-        return entry ? [{ label, link: { kind: 'entry', type: 'pages', entry: entry.translationGroup } }] : [];
+        const link = href ? { kind: 'address', href } : entry ? { kind: 'entry', type: 'pages', entry: entry.translationGroup } : undefined;
+        const inside = columns?.map((column) => ({ title: column.title, show: column.show, ...(column.links && { links: links(column.links) }) }));
+        return link ? [{ label, link, ...(inside && { columns: inside }) }] : [];
       });
-    const menus = { header: links(sampleMenus.header), footer: links(sampleMenus.footer) };
-    const draft = await connection.cms.content.create(OWNER, { typeId: navigation.id, locale: 'en', slug: 'navigation', data: toStored(navigation.fields, menus) });
-    await connection.cms.content.publish(OWNER, draft.id);
-    console.log('Added the header and footer menus.');
+    const menus = toStored(navigation.fields, { header: links(sampleMenus.header), footer: links(sampleMenus.footer) });
+    const [existing] = (await connection.cms.content.find(OWNER, { typeId: navigation.id, limit: 1 })).items;
+    if (!existing) {
+      const draft = await connection.cms.content.create(OWNER, { typeId: navigation.id, locale: 'en', slug: 'navigation', data: menus });
+      await connection.cms.content.publish(OWNER, draft.id);
+      console.log('Added the header and footer menus.');
+    } else if (!hadColumns) {
+      // The first deploy with large menus to edit: a header link that still goes where the
+      // sample's does gains the sample's columns, so the menus the template drew are there to
+      // edit. Labels and order are left as people made them, and it happens once.
+      const header = navigation.fields.find((candidate) => candidate.key === 'header');
+      const [linkId, columnsId] = ['link', 'columns'].map((key) => header.options.of.options.fields.find((candidate) => candidate.key === key).id);
+      const same = (one, other) => JSON.stringify(one) === JSON.stringify(other);
+      const items = (existing.data[header.id] ?? []).map((item) => {
+        const sample = menus[header.id].find((candidate) => same(candidate[linkId], item[linkId]));
+        return sample?.[columnsId] && !item[columnsId]?.length ? { ...item, [columnsId]: sample[columnsId] } : item;
+      });
+      if (!same(items, existing.data[header.id])) {
+        const wasLive = existing.published !== undefined && same(existing.published.data, existing.data);
+        const saved = await connection.cms.content.update(OWNER, existing.id, { data: { ...existing.data, [header.id]: items }, expectedRevision: existing.revision });
+        if (wasLive) await connection.cms.content.publish(OWNER, saved.id);
+        console.log(`The header's large menus have their columns to edit${wasLive ? '' : ' (saved as a draft: the menu had changes not yet published)'}.`);
+      }
+    }
   }
 } finally {
   connection.close();
