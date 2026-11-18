@@ -25,6 +25,7 @@ export {
   TextField,
   UrlField,
   EmailField,
+  FormField,
   PhoneField,
   createFieldRegistry,
   defineBlock,

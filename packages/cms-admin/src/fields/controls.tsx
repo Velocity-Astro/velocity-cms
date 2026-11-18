@@ -2,7 +2,7 @@ import { fromPlainText, liveFields, type FieldDef, type RichText } from '@veloci
 import { DateField, Fieldset, ImagePicker, NumberField, Repeater, SectionList, Select, Skeleton, SkeletonGroup, Stack, Switch, Text, TextArea, TextField, toast } from '@velocity/cms-ui';
 import { Copy, Trash2 } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
-import { useContentTypes, useEntries, useImages, useUploadImage, useUploadRules } from '../client/queries.js';
+import { useContentTypes, useEntries, useForms, useImages, useUploadImage, useUploadRules } from '../client/queries.js';
 import { prepareImage } from '../lib/prepare-image.js';
 import { entryTitle, groupTranslations, localized, sameData, withValue } from '../lib/content.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
@@ -166,6 +166,39 @@ function ReferenceControl({ field, label, help, isLabelHidden = false, value, on
       isRequired={field.required}
       {...(current !== undefined && { value: current })}
       {...(help !== undefined && { description: help })}
+      {...(wrong !== undefined && { errorMessage: wrong })}
+    />
+  );
+}
+
+/**
+ * One of the site's forms, chosen by name. What is stored is the form's id, so renaming a form
+ * breaks nothing. A form that is no longer there is still offered, so opening and saving never
+ * drops the choice: the site leaves the form out until another is chosen.
+ */
+function FormControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const forms = useForms();
+  const options = (forms.data ?? [])
+    .map((form) => ({ id: form.id, label: form.open ? localized(form.label, locale) : messages.editor.formClosed(localized(form.label, locale)) }))
+    .sort((a, b) => a.label.localeCompare(b.label, locale));
+  const current = typeof value === 'string' ? value : undefined;
+  const missing = current !== undefined && !options.some((option) => option.id === current);
+  const wrong = problem ?? (forms.isError ? messages.editor.linkNotLoaded : undefined);
+  const empty = forms.isSuccess && options.length === 0 ? messages.editor.noForms : undefined;
+  const description = empty ?? help;
+
+  return (
+    <Select
+      label={label}
+      isLabelHidden={isLabelHidden}
+      options={missing ? [{ id: current, label: forms.isSuccess ? messages.editor.formMissing : messages.editor.formLoading }, ...options] : options}
+      placeholder={messages.editor.choose}
+      onChange={onChange}
+      isRequired={field.required}
+      {...(current !== undefined && { value: current })}
+      {...(description !== undefined && { description })}
       {...(wrong !== undefined && { errorMessage: wrong })}
     />
   );
@@ -437,6 +470,7 @@ export function createFieldControls(): FieldControls {
     .register({ type: 'switch', Component: SwitchControl })
     .register({ type: 'select', Component: SelectControl, width: 'compact', Summary: SelectSummary })
     .register({ type: 'reference', Component: ReferenceControl, width: 'compact' })
+    .register({ type: 'form-picker', Component: FormControl, width: 'compact' })
     .register({ type: 'link', Component: LinkControl })
     .register({ type: 'image', Component: ImageControl })
     .register({ type: 'rich-text', Component: RichTextControl })

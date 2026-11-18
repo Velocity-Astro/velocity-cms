@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { connect } from '../packages/cms-astro/dist/connection.js';
 import { convert } from '../prototypes/live-site/convert.mjs';
 import { OWNER, importRecords, toStored } from '../prototypes/publish-speed/lib.mjs';
-import { importedTypes, realEstateModel, sampleMenus, samplePages } from './real-estate-model.mjs';
+import { importedTypes, realEstateModel, sampleForms, sampleMenus, samplePages } from './real-estate-model.mjs';
 
 const [projectArg] = process.argv.slice(2);
 if (!projectArg) throw new Error('Usage: prepare.mjs <assembled real-estate project>');
@@ -81,6 +81,19 @@ try {
       console.log(`Imported ${records.length} ${name}.`);
     }
   }
+  // A site that has never had a form gets the sample ones. One that was moved to the trash stays there.
+  if ((await connection.cms.forms.list(OWNER)).length === 0 && (await connection.cms.forms.listTrashed(OWNER)).length === 0) {
+    for (const form of sampleForms) await connection.cms.forms.create(OWNER, form);
+    console.log(`Added ${sampleForms.length} sample form${sampleForms.length === 1 ? '' : 's'}: ${sampleForms.map((form) => form.key).join(', ')}.`);
+  }
+  const forms = await connection.cms.forms.list(OWNER);
+  /** A sample page names its form by key; a section whose form the site does not have is left out. */
+  const withForms = (body) =>
+    body.flatMap((section) => {
+      if (section.block !== 'form') return [section];
+      const form = forms.find((candidate) => candidate.key === section.data.form);
+      return form ? [{ ...section, data: { ...section.data, form: form.id } }] : [];
+    });
   // Pages built in the editor have no file to come from. A site with none gets one to open.
   const pages = types.get('pages');
   // Each sample page is added once, by its slug, so a deploy brings a new one to a site that
@@ -105,7 +118,7 @@ try {
       typeId: pages.id,
       locale: page.locale,
       slug: page.slug,
-      data: toStored(pages.fields, record),
+      data: toStored(pages.fields, { ...record, body: withForms(record.body) }),
       ...(first && { translationGroup: first.translationGroup }),
     });
     await connection.cms.content.publish(OWNER, draft.id);

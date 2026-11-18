@@ -1,0 +1,97 @@
+---
+/**
+ * One of the site's forms, chosen in the editor, with a heading beside it. The form's fields
+ * come from the CMS as they are today, so a field added under Forms is on the page at once.
+ * A form that is closed or gone leaves the whole section out.
+ *
+ * It posts to the CMS as a plain form. With scripts on, /cms-form.js sends it in place and
+ * writes each problem under its field.
+ */
+import { FORM_SCRIPT, siteForm } from '@velocity/cms-astro';
+import Checkbox from '@/components/ui/form/Checkbox/Checkbox.astro';
+import Input from '@/components/ui/form/Input/Input.astro';
+import Select from '@/components/ui/form/Select/Select.astro';
+import Textarea from '@/components/ui/form/Textarea/Textarea.astro';
+import Band from '@/components/estate/Band.astro';
+import EstateButton from '@/components/estate/EstateButton.astro';
+import { getLocale, useTranslations } from '@/i18n';
+
+interface Props {
+  eyebrow?: string;
+  title?: string;
+  lead?: string;
+  /** The id of the form, as the CMS keeps the choice. */
+  form?: string;
+  tone?: 'default' | 'secondary';
+}
+
+type Words = Readonly<Record<string, string>>;
+
+const { eyebrow, title, lead, form: chosen, tone = 'default' } = Astro.props;
+const locale = getLocale(Astro);
+const t = useTranslations(locale);
+const form = chosen ? await siteForm(Astro, { id: chosen }) : null;
+const say = (words: Words | undefined) => words?.[locale] ?? words?.en ?? Object.values(words ?? {})[0];
+
+/** What the browser should know about each kind of field a visitor fills in. */
+const inputs: Record<string, { type: string; autocomplete?: string; inputmode?: 'decimal' | 'tel' }> = {
+  text: { type: 'text' },
+  number: { type: 'text', inputmode: 'decimal' },
+  date: { type: 'date' },
+  url: { type: 'url', autocomplete: 'url' },
+  email: { type: 'email', autocomplete: 'email' },
+  phone: { type: 'tel', autocomplete: 'tel', inputmode: 'tel' },
+};
+const fields = (form?.fields ?? []).map((field) => {
+  const options = field.options as { multiline?: boolean; maxLength?: number; choices?: string[]; labels?: Record<string, Words> };
+  const kind = field.type === 'boolean' ? 'check' : field.type === 'select' ? 'choice' : options.multiline ? 'long' : field.type in inputs ? 'line' : 'none';
+  return { ...field, kind, label: say(field.label) ?? field.key, hint: say(field.help), options };
+});
+---
+
+{
+  form && (
+    <Band tone={tone} width="wide">
+      <div class="grid gap-10 lg:grid-cols-2 lg:gap-16">
+        <div class="flex flex-col gap-4">
+          {eyebrow && <p class="estate-eyebrow">{eyebrow}</p>}
+          <h2 class="estate-display text-3xl sm:text-4xl">{title ?? say(form.label)}</h2>
+          {lead && <p class="text-foreground-secondary text-lg">{lead}</p>}
+        </div>
+        <form action={form.action} method="post" class="grid gap-4" data-cms-form data-cms-form-failed={t('forms.failed')}>
+          {Object.entries(form.hidden).map(([name, value]) => <input type="hidden" name={name} value={value} />)}
+          {fields.map((field) => (
+            <div>
+              {field.kind === 'line' && (
+                <Input label={field.label} name={field.key} hint={field.hint} required={field.required} maxlength={field.options.maxLength} {...inputs[field.type]} />
+              )}
+              {field.kind === 'long' && (
+                <Textarea label={field.label} name={field.key} hint={field.hint} rows={5} required={field.required} maxlength={field.options.maxLength} />
+              )}
+              {field.kind === 'choice' && (
+                <Select
+                  label={field.label}
+                  name={field.key}
+                  hint={field.hint}
+                  required={field.required}
+                  options={[{ value: '', label: '' }, ...(field.options.choices ?? []).map((value) => ({ value, label: say(field.options.labels?.[value]) ?? value }))]}
+                />
+              )}
+              {field.kind === 'check' && <Checkbox label={field.label} name={field.key} description={field.hint} required={field.required} />}
+              <p class="text-destructive mt-1.5 text-sm font-medium" data-cms-form-error={field.key} role="alert" hidden />
+            </div>
+          ))}
+          <div class="hidden" aria-hidden="true">
+            <input type="text" name={form.trap} tabindex="-1" autocomplete="off" />
+          </div>
+          <div class="flex flex-wrap items-center gap-4">
+            <EstateButton type="submit" size="lg" data-cms-form-sending={t('forms.sending')}>{say(form.submitLabel) ?? t('forms.send')}</EstateButton>
+            <p class="text-foreground-secondary text-[0.9375rem] font-medium" role="status" data-cms-form-status hidden />
+          </div>
+        </form>
+      </div>
+    </Band>
+  )
+}
+
+{form && <script is:inline type="module" src={FORM_SCRIPT} />}

@@ -199,6 +199,16 @@ describe('signing in and publishing', () => {
     await host.api(json(`/api/cms/entries/${entry.id}/publish`, cookie, { expectedRevision: entry.revision }));
     expect(host.takePublished()).toEqual([]);
   });
+
+  it('reports a change to a form, so a kept page that draws it is cleared', async () => {
+    const form = await connection.cms.forms.create(installer, { key: 'contact', label: { en: 'Contact' }, fields: [{ key: 'email', type: 'email', label: { en: 'Email' } }] });
+    expect(host.takePublished()).toEqual([]);
+    expect(host.takePublished()).toBeNull();
+    await connection.cms.forms.update(installer, form.id, { open: false, expectedRevision: form.revision });
+    expect(host.takePublished()).toEqual([]);
+    await connection.cms.forms.trash(installer, form.id);
+    expect(host.takePublished()).toEqual([]);
+  });
 });
 
 describe('the address links are made for', () => {

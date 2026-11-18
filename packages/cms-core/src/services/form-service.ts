@@ -54,6 +54,25 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const MAX_RETENTION_DAYS = 3650;
 export const MAX_FORM_FIELDS = 50;
 
+/** A form as a page may draw it, or `null` for one that is closed, in the trash or not there. */
+function forPage(form: FormDef | null): PublicForm | null {
+  if (!form || !form.open || form.deletedAt !== undefined) return null;
+  return {
+    key: form.key,
+    label: form.label,
+    fields: liveFields(form.fields).map(({ key: fieldKey, type, label, help, required, options }) => ({
+      key: fieldKey,
+      type,
+      label,
+      ...(help !== undefined && { help }),
+      required,
+      options,
+    })),
+    ...(form.submitLabel !== undefined && { submitLabel: form.submitLabel }),
+    ...(form.success !== undefined && { success: form.success }),
+  };
+}
+
 /**
  * Owns forms: what each asks, and who hears of an answer. Every write takes the same four
  * steps as an entry's: check permission, validate, save, announce.
@@ -90,22 +109,15 @@ export class FormService {
    * is no such form, or it is closed or in the trash, so a page leaves it out.
    */
   async forSite(key: string): Promise<PublicForm | null> {
-    const form = await this.forms.getByKey(key);
-    if (!form || !form.open) return null;
-    return {
-      key: form.key,
-      label: form.label,
-      fields: liveFields(form.fields).map(({ key: fieldKey, type, label, help, required, options }) => ({
-        key: fieldKey,
-        type,
-        label,
-        ...(help !== undefined && { help }),
-        required,
-        options,
-      })),
-      ...(form.submitLabel !== undefined && { submitLabel: form.submitLabel }),
-      ...(form.success !== undefined && { success: form.success }),
-    };
+    return forPage(await this.forms.getByKey(key));
+  }
+
+  /**
+   * The same by the form's id, which is what a field of type `form` holds: the form a section
+   * of a page chose, whatever its key is today.
+   */
+  async forSiteById(id: string): Promise<PublicForm | null> {
+    return forPage(await this.forms.get(id));
   }
 
   async create(actor: Actor, input: NewForm): Promise<FormDef> {
