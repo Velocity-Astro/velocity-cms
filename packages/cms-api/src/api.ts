@@ -1,4 +1,4 @@
-import type { Cms, ContentTypeChanges, FieldArrangement, FieldChanges, FieldSection, NewField, Role } from '@velocity/cms-core';
+import type { Cms, ContentTypeChanges, FieldArrangement, FieldChanges, FieldSection, FormChanges, NewField, NewForm, Role } from '@velocity/cms-core';
 import { z } from 'zod';
 import type { ApiSession, Authenticator } from './authenticator.js';
 import { ApiError, errorResponse, isFault, json } from './http.js';
@@ -90,6 +90,47 @@ const fieldChanges = z.strictObject({
   options: settings.optional(),
 });
 const arrangement = z.strictObject({ order: z.array(z.string()), sections: z.record(z.string(), z.array(z.string())).optional(), within: z.array(z.string()).optional() });
+const formField = z.strictObject({
+  /** The id the field was loaded with, so it keeps what was sent under it through a new key. */
+  id: z.string().optional(),
+  key: z.string(),
+  type: z.string(),
+  label: words,
+  help: words.optional(),
+  required: z.boolean().optional(),
+  options: settings.optional(),
+});
+const formContact = z.strictObject({ name: z.string().optional(), email: z.string().optional(), phone: z.string().optional() });
+const newForm = z.strictObject({
+  key: z.string(),
+  label: words,
+  fields: z.array(formField.omit({ id: true })).optional(),
+  submitLabel: words.optional(),
+  success: words.optional(),
+  notify: z.array(z.string()).optional(),
+  contact: formContact.optional(),
+  retentionDays: z.number().optional(),
+  open: z.boolean().optional(),
+});
+const formChanges = z.strictObject({
+  key: z.string().optional(),
+  label: words.optional(),
+  fields: z.array(formField).optional(),
+  submitLabel: words.nullable().optional(),
+  success: words.nullable().optional(),
+  notify: z.array(z.string()).optional(),
+  contact: formContact.optional(),
+  retentionDays: z.number().nullable().optional(),
+  open: z.boolean().optional(),
+  expectedRevision: z.number().int().positive(),
+});
+const submissionList = z.object({
+  status: z.enum(['new', 'handled', 'spam']).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+const submissionMark = z.strictObject({ status: z.enum(['new', 'handled', 'spam']) });
+const forgetRequest = z.strictObject({ email: z.string() });
 const publishRequest = z.strictObject({ expectedRevision: z.number().int().positive() });
 
 /**
@@ -107,7 +148,7 @@ export class CmsApi {
   constructor(options: CmsApiOptions) {
     this.#options = options;
     this.#basePath = `/${(options.basePath ?? '/api/cms').split('/').filter(Boolean).join('/')}`;
-    const { schema, content, fields, media, previews, plugins } = options.cms;
+    const { schema, content, fields, media, previews, plugins, forms, submissions } = options.cms;
     const defaultLocale = options.defaultLocale ?? 'en';
 
     this.#router
@@ -170,7 +211,7 @@ export class CmsApi {
       )
       .add('GET', '/field-types', async (call) => {
         actor(call);
-        return json({ items: fields.list().map(({ type, editor }) => ({ type, editor })) });
+        return json({ items: fields.list().map(({ type, editor, takesSubmissions }) => ({ type, editor, takesSubmissions })) });
       })
       .add('GET', '/images', async (call) => {
         const items = await media.images(actor(call));
@@ -222,6 +263,45 @@ export class CmsApi {
       .add('DELETE', '/trash/:id', async (call) => {
         await content.delete(actor(call), param(call, 'id'));
         return json({});
+      })
+      .add('GET', '/forms', async (call) => json({ items: await forms.list(actor(call)) }))
+      .add('POST', '/forms', async (call) => {
+        const who = actor(call);
+        const body = parse(newForm, await this.#body(call.request));
+        return json(await forms.create(who, deep<NewForm>(body)), 201);
+      })
+      .add('GET', '/forms/trash', async (call) => json({ items: await forms.listTrashed(actor(call)) }))
+      .add('DELETE', '/forms/trash/:id', async (call) => {
+        await forms.delete(actor(call), param(call, 'id'));
+        return json({});
+      })
+      .add('PATCH', '/forms/:id', async (call) => {
+        const who = actor(call);
+        const body = parse(formChanges, await this.#body(call.request));
+        return json(await forms.update(who, param(call, 'id'), deep<FormChanges>(body)));
+      })
+      .add('DELETE', '/forms/:id', async (call) => json(await forms.trash(actor(call), param(call, 'id'))))
+      .add('POST', '/forms/:id/restore', async (call) => json(await forms.restore(actor(call), param(call, 'id'))))
+      .add('GET', '/forms/:id/submissions', async (call) => {
+        const query = parse(submissionList, Object.fromEntries(call.url.searchParams));
+        return json(await submissions.find(actor(call), { formId: param(call, 'id'), limit: query.limit, offset: query.offset, ...(query.status !== undefined && { status: query.status }) }));
+      })
+      .add('GET', '/forms/:id/submission-counts', async (call) => json(await submissions.counts(actor(call), param(call, 'id'))))
+      // The file's text inside JSON: every answer here has one shape, and the editor saves it as a file.
+      .add('GET', '/forms/:id/export', async (call) => json({ csv: await submissions.export(actor(call), param(call, 'id')) }))
+      .add('PATCH', '/submissions/:id', async (call) => {
+        const who = actor(call);
+        const { status } = parse(submissionMark, await this.#body(call.request));
+        return json(await submissions.mark(who, param(call, 'id'), status));
+      })
+      .add('DELETE', '/submissions/:id', async (call) => {
+        await submissions.delete(actor(call), param(call, 'id'));
+        return json({});
+      })
+      .add('POST', '/submissions/forget', async (call) => {
+        const who = actor(call);
+        const { email } = parse(forgetRequest, await this.#body(call.request));
+        return json({ removed: await submissions.erase(who, email) });
       });
 
     const { people } = options;
@@ -366,6 +446,17 @@ function actor(call: Call) {
 /** What was sent without the properties that were left out, which a service reads as "not given". */
 function given<T>(body: object): T {
   return Object.fromEntries(Object.entries(body).filter(([, value]) => value !== undefined)) as T;
+}
+
+/** `given`, for a body that holds a list of objects: what was left out of each is left out too. */
+function deep<T>(body: object): T {
+  const clean = (value: unknown): unknown =>
+    Array.isArray(value)
+      ? value.map(clean)
+      : typeof value === 'object' && value !== null
+        ? Object.fromEntries(Object.entries(value).filter(([, inner]) => inner !== undefined).map(([key, inner]) => [key, clean(inner)]))
+        : value;
+  return clean(body) as T;
 }
 
 /** The fields that hold the one a request is about, from the top down: `?within=<id>&within=<id>`. None for a type's own field. */
