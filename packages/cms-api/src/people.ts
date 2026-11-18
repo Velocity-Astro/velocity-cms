@@ -6,6 +6,8 @@ export interface Person {
   readonly email: string;
   readonly name: string;
   readonly role: Role;
+  /** Whether they have ever signed in. Left out by a host that cannot tell. */
+  readonly hasSignedIn?: boolean;
 }
 
 export interface NewPerson {

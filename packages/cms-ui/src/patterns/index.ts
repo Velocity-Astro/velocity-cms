@@ -7,3 +7,4 @@ export * from './Repeater/index.js';
 export * from './SaveBar/index.js';
 export * from './ImagePicker/index.js';
 export * from './Split/index.js';
+export * from './MediaGrid/index.js';

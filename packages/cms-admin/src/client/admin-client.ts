@@ -10,7 +10,18 @@ export interface SessionUser {
 }
 
 /** Someone who can sign in to the editor. */
-export type Person = SessionUser;
+export interface Person extends SessionUser {
+  /** Whether they have ever signed in. `false` for someone invited who has not yet; left out where the site cannot tell. */
+  readonly hasSignedIn?: boolean;
+}
+
+/** One of the signed-in person's own passkeys, by the name they gave it. */
+export interface Passkey {
+  readonly id: string;
+  readonly name: string;
+  /** When it was added, as an ISO date, where the site knows. */
+  readonly createdAt?: string;
+}
 
 export interface NewPerson {
   readonly email: string;
@@ -130,6 +141,8 @@ export interface AdminClient {
   listImages(): Promise<ImageList>;
   /** Adds an image. Refused unless the file is a JPEG, PNG or WebP the site has room for. */
   uploadImage(upload: NewUpload): Promise<SiteImage>;
+  /** Removes an uploaded image for good. Refused for an image the site came with. */
+  removeImage(name: string): Promise<void>;
   getEntry(id: string): Promise<Entry>;
   /** Creates a draft. Required fields may still be empty: they are checked on publish. */
   createEntry(entry: NewEntry): Promise<Entry>;
@@ -154,4 +167,8 @@ export interface AdminClient {
   removePerson(id: string): Promise<void>;
   /** Asks the browser to make a passkey for the signed-in person, called `name` in their list. */
   addPasskey(name: string): Promise<void>;
+  /** The signed-in person's own passkeys, oldest first. */
+  listPasskeys(): Promise<readonly Passkey[]>;
+  /** Removes one of the signed-in person's own passkeys. That device then signs in with a link. */
+  removePasskey(id: string): Promise<void>;
 }

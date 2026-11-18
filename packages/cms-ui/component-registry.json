@@ -194,6 +194,15 @@
       "uses": ["Button", "IconButton"]
     },
     {
+      "name": "MediaGrid",
+      "layer": "pattern",
+      "group": "Media",
+      "description": "A library of pictures to look through, each with its name and a line about it. Opening one says which.",
+      "example": "<MediaGrid label=\"Photos\" items={photos} onAction={open} emptyText=\"No photos match.\" />",
+      "useInstead": "ImagePicker to choose an image for a field.",
+      "uses": []
+    },
+    {
       "name": "ImagePicker",
       "layer": "pattern",
       "group": "Forms",
@@ -318,6 +327,15 @@
       "example": "<SkeletonGroup label=\"Loading listings\"><Skeleton shape=\"title\" width=\"1/3\" /><Skeleton /></SkeletonGroup>",
       "useInstead": "Button isPending for an action under way; Spinner where there is no layout to keep.",
       "uses": []
+    },
+    {
+      "name": "FileButton",
+      "layer": "component",
+      "group": "Actions",
+      "description": "A button that opens the computer's file chooser and hands back the file that was picked.",
+      "example": "<FileButton accept=\"image\" onSelect={upload}>Upload a photo</FileButton>",
+      "useInstead": "ImagePicker to choose one of the site's images for a field.",
+      "uses": ["Button"]
     },
     {
       "name": "Spinner",

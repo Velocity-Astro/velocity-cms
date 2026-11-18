@@ -58,7 +58,7 @@ describe('MediaService', () => {
     const bytes = tinyPng(1600, 900);
     const image = await media.upload(author, { fileName: 'C:\\Photos\\Été à la Maison (1).PNG', bytes });
 
-    expect(image).toEqual({ name: 'ete-a-la-maison-1', url: '/media/ete-a-la-maison-1.png', width: 1600, height: 900 });
+    expect(image).toMatchObject({ name: 'ete-a-la-maison-1', url: '/media/ete-a-la-maison-1.png', width: 1600, height: 900 });
     expect(await files.get('ete-a-la-maison-1')).toMatchObject({ key: 'ete-a-la-maison-1.png', contentType: 'image/png', size: bytes.length, createdBy: 'u2' });
     expect((await media.file('ete-a-la-maison-1.png')).contentType).toBe('image/png');
     expect(announced).toEqual(['ete-a-la-maison-1']);

@@ -1,6 +1,6 @@
 import { fromPlainText, liveFields, type FieldDef, type RichText } from '@velocity/cms-core';
-import { DateField, Fieldset, ImagePicker, NumberField, Repeater, RichTextEditor, Select, Switch, Text, TextArea, TextField, toast } from '@velocity/cms-ui';
-import { useState } from 'react';
+import { DateField, Fieldset, ImagePicker, NumberField, Repeater, Select, Skeleton, SkeletonGroup, Stack, Switch, Text, TextArea, TextField, toast } from '@velocity/cms-ui';
+import { lazy, Suspense, useState } from 'react';
 import { useContentTypes, useEntries, useImages, useUploadImage, useUploadRules } from '../client/queries.js';
 import { prepareImage } from '../lib/prepare-image.js';
 import { entryTitle, groupTranslations, localized, sameData, withValue } from '../lib/content.js';
@@ -219,22 +219,39 @@ function ImageControl({ field, label, help, isLabelHidden = false, value, onChan
 const isPlainText = (value: unknown): value is string | string[] =>
   typeof value === 'string' || (Array.isArray(value) && value.every((item) => typeof item === 'string'));
 
+/**
+ * The rich text editor is the largest part of the editor by far, and many forms have no rich
+ * text. It is fetched the first time a form shows one, not with the first screen.
+ */
+const RichTextEditor = lazy(async () => ({ default: (await import('@velocity/cms-ui/rich-text')).RichTextEditor }));
+
 /** Text with headings, lists, quotes, bold, italics and links. */
 function RichTextControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {
   const messages = useMessages();
   const text = isPlainText(value) ? fromPlainText(value) : typeof value === 'object' && value !== null ? (value as RichText) : null;
   return (
-    <RichTextEditor
-      label={label}
-      isLabelHidden={isLabelHidden}
-      value={text}
-      // Nothing to read is an empty field, so "required" means what it says.
-      onChange={(next) => onChange(next ?? undefined)}
-      isRequired={field.required}
-      words={messages.editor.richText}
-      {...(help !== undefined && { description: help })}
-      {...(problem !== undefined && { errorMessage: problem })}
-    />
+    <Suspense
+      fallback={
+        <SkeletonGroup label={messages.app.loading}>
+          <Stack gap={2}>
+            <Skeleton width="sm" />
+            <Skeleton shape="block" />
+          </Stack>
+        </SkeletonGroup>
+      }
+    >
+      <RichTextEditor
+        label={label}
+        isLabelHidden={isLabelHidden}
+        value={text}
+        // Nothing to read is an empty field, so "required" means what it says.
+        onChange={(next) => onChange(next ?? undefined)}
+        isRequired={field.required}
+        words={messages.editor.richText}
+        {...(help !== undefined && { description: help })}
+        {...(problem !== undefined && { errorMessage: problem })}
+      />
+    </Suspense>
   );
 }
 

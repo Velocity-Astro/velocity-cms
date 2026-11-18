@@ -20,6 +20,14 @@ export interface AuthClientOptions {
   readonly fetch?: typeof globalThis.fetch;
 }
 
+/** One of the signed-in person's passkeys, by the name they gave it. Nothing secret is in it. */
+export interface PasskeySummary {
+  readonly id: string;
+  readonly name: string;
+  /** When it was added, as an ISO date, where the server knows. */
+  readonly createdAt?: string;
+}
+
 /** What the editor's `HttpAdminClient` takes as `auth`, plus adding a passkey once signed in. */
 export interface AuthClient {
   requestSignInLink(email: string): Promise<void>;
@@ -27,6 +35,10 @@ export interface AuthClient {
   signOut(): Promise<void>;
   /** Adds a passkey for the person signed in. `name` tells their passkeys apart: "Work laptop". */
   registerPasskey(name: string): Promise<void>;
+  /** The signed-in person's own passkeys, oldest first. */
+  listPasskeys(): Promise<PasskeySummary[]>;
+  /** Removes one of the signed-in person's own passkeys. The server refuses anyone else's. */
+  removePasskey(id: string): Promise<void>;
 }
 
 /** Signing in could not be completed. The message can be shown as it is. */
@@ -42,7 +54,9 @@ export function createAuthClient(options: AuthClientOptions = {}): AuthClient {
   const adminPath = options.adminPath ?? '/admin';
   const send = options.fetch ?? ((input, init) => globalThis.fetch(input, init));
 
-  async function call(path: string, body?: unknown): Promise<unknown> {
+  const SIGN_IN_FAILED = 'Signing in did not work. Try again, or ask for a new sign-in link.';
+
+  async function call(path: string, body?: unknown, refused = SIGN_IN_FAILED): Promise<unknown> {
     let response: Response;
     try {
       response = await send(`${basePath}${path}`, {
@@ -57,7 +71,7 @@ export function createAuthClient(options: AuthClientOptions = {}): AuthClient {
     const answer: unknown = await response.json().catch(() => null);
     if (response.ok) return answer;
     if (response.status === 429) throw new SignInError('Too many attempts. Wait a minute, then try again.');
-    throw new SignInError('Signing in did not work. Try again, or ask for a new sign-in link.');
+    throw new SignInError(refused);
   }
 
   /** The browser's passkey support, or an explanation of why it cannot be used here. */
@@ -96,6 +110,18 @@ export function createAuthClient(options: AuthClientOptions = {}): AuthClient {
       const credential = (await navigator.credentials.create({ publicKey: support.parseCreationOptionsFromJSON(offered) })) as PublicKeyCredential | null;
       if (!credential) throw new SignInError('No passkey was created.');
       await call('/passkey/verify-registration', { response: credential.toJSON(), name });
+    },
+
+    async listPasskeys() {
+      const rows = await call('/passkey/list-user-passkeys', undefined, 'Your passkeys could not be read. Try again.');
+      if (!Array.isArray(rows)) return [];
+      return (rows as { id: string; name?: string | null; createdAt?: string | null }[])
+        .map(({ id, name, createdAt }) => ({ id, name: name ?? '', ...(typeof createdAt === 'string' && { createdAt }) }))
+        .sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? ''));
+    },
+
+    async removePasskey(id) {
+      await call('/passkey/delete-passkey', { id }, 'The passkey could not be removed. Try again.');
     },
   };
 }

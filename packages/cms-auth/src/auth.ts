@@ -14,6 +14,8 @@ export interface AuthUser {
   readonly email: string;
   readonly name: string;
   readonly role: Role;
+  /** Whether they have ever signed in. Until then they were only invited. */
+  readonly hasSignedIn: boolean;
 }
 
 export interface Invitation {
@@ -138,7 +140,7 @@ export class CmsAuth implements Authenticator {
     this.#access.require(actor, 'user:manage');
     const rows = await this.#options.db.select().from(authUser);
     return rows
-      .map(({ id, email, name, role }) => ({ id, email, name, role: isRole(role) ? role : 'author' }))
+      .map(({ id, email, name, role, emailVerified }) => ({ id, email, name, role: isRole(role) ? role : 'author', hasSignedIn: emailVerified }))
       .sort((a, b) => a.name.localeCompare(b.name) || a.email.localeCompare(b.email));
   }
 
@@ -230,17 +232,18 @@ export class CmsAuth implements Authenticator {
     if (await this.#find(address)) throw new ConflictError(`${address} can already sign in.`);
 
     // Written straight to the table this package owns, not through the library's internals,
-    // which change between its versions. The address is taken as verified: the only way in is
-    // a link sent to it.
+    // which change between its versions. The address starts out unverified: the only way in is
+    // a link sent to it, and using one is what verifies it. That is also how the People screen
+    // tells who was invited from who has signed in.
     const id = globalThis.crypto.randomUUID();
-    await this.#options.db.insert(authUser).values({ id, email: address, name: name.trim(), emailVerified: true, role });
-    return { id, email: address, name: name.trim(), role };
+    await this.#options.db.insert(authUser).values({ id, email: address, name: name.trim(), emailVerified: false, role });
+    return { id, email: address, name: name.trim(), role, hasSignedIn: false };
   }
 
   async #get(userId: string): Promise<AuthUser> {
     const [user] = await this.#options.db.select().from(authUser).where(eq(authUser.id, userId)).limit(1);
     if (!user) throw new NotFoundError('Person', userId);
-    return { id: user.id, email: user.email, name: user.name, role: isRole(user.role) ? user.role : 'author' };
+    return { id: user.id, email: user.email, name: user.name, role: isRole(user.role) ? user.role : 'author', hasSignedIn: user.emailVerified };
   }
 
   /** Refuses a change that would leave the site with no owner, who alone can let people in. */

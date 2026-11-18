@@ -52,10 +52,19 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
 
     it('takes an uploaded image, names it after its file and lists it with the others', async () => {
       const image = await client.uploadImage({ fileName: 'Front Porch.PNG', bytes: tinyPng(1600, 900) });
-      expect(image).toEqual({ name: 'front-porch', url: '/media/front-porch.png', width: 1600, height: 900 });
+      expect(image).toMatchObject({ name: 'front-porch', url: '/media/front-porch.png', width: 1600, height: 900, size: tinyPng(1600, 900).length });
+      expect(image.uploadedAt).toBeTypeOf('string');
       // A name the site already has is not taken twice.
       expect((await client.uploadImage({ fileName: 'kitchen.jpg', bytes: tinyJpeg() })).name).toBe('kitchen-2');
       expect((await client.listImages()).items.map((item) => item.name)).toEqual(['front-porch', 'kitchen', 'kitchen-2', 'porch']);
+    });
+
+    it('removes an uploaded image for good, and leaves the site\'s own alone', async () => {
+      const image = await client.uploadImage({ fileName: 'porch-at-dusk.png', bytes: tinyPng() });
+      await client.removeImage(image.name);
+      expect((await client.listImages()).items.map((item) => item.name)).toEqual(['kitchen', 'porch']);
+      await expect(client.removeImage(image.name)).rejects.toMatchObject({ code: 'not_found' });
+      await expect(client.removeImage('kitchen')).rejects.toMatchObject({ code: 'conflict' });
     });
 
     it('refuses a file that is not an image, in words for the person', async () => {
@@ -133,6 +142,16 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       expect((await client.listPeople()).map((person) => person.name)).toEqual(['Ben', 'Dana']);
       await client.removePerson(ben.id);
       expect(await client.listPeople()).toHaveLength(1);
+    });
+
+    it('keeps the person\'s own passkeys by name, and removes the one asked for', async () => {
+      expect(await client.listPasskeys()).toEqual([]);
+      await client.addPasskey('Work laptop');
+      await client.addPasskey('Phone');
+      const [laptop, phone] = await client.listPasskeys();
+      expect([laptop?.name, phone?.name]).toEqual(['Work laptop', 'Phone']);
+      await client.removePasskey(laptop?.id ?? '');
+      expect((await client.listPasskeys()).map((passkey) => passkey.name)).toEqual(['Phone']);
     });
 
     it('refuses what would lock the site or cannot work, in words for the person', async () => {

@@ -32,7 +32,7 @@ export class MemoryPeople {
     const [first] = issues;
     if (first) throw new ValidationError(first.message, issues);
     if (this.#people.some((other) => other.email === email)) throw new ConflictError(`${email} can already sign in.`);
-    const added: Person = { id: `person-${this.#people.length + 1}`, email, name: person.name.trim(), role: person.role };
+    const added: Person = { id: `person-${this.#people.length + 1}`, email, name: person.name.trim(), role: person.role, hasSignedIn: false };
     this.#people.push(added);
     return added;
   }

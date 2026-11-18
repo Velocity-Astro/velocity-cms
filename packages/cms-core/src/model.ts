@@ -171,6 +171,9 @@ export interface SiteImage {
   readonly url: string;
   readonly width?: number;
   readonly height?: number;
+  /** Set for an image someone uploaded: when, and how large the file is in bytes. An image the site came with has neither, and cannot be removed here. */
+  readonly uploadedAt?: Timestamp;
+  readonly size?: number;
 }
 
 /** An image someone uploaded. The record says what the file is; the file itself is in a `MediaStore`. */

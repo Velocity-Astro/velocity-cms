@@ -8,7 +8,7 @@ import { HttpAdminClient } from './http-client.js';
 adminClientContract('MemoryAdminClient', async (seed) => new MemoryAdminClient({ ...seed, user: sampleUser }));
 adminClientContract('HttpAdminClient with CmsApi', async (seed) => (await createHttpServer(seed, sampleUser)).client);
 
-const auth = { requestSignInLink: async () => undefined, signInWithPasskey: async () => sampleUser, signOut: async () => undefined, registerPasskey: async () => undefined };
+const auth = { requestSignInLink: async () => undefined, signInWithPasskey: async () => sampleUser, signOut: async () => undefined, registerPasskey: async () => undefined, listPasskeys: async () => [], removePasskey: async () => undefined };
 
 it('says who is signed in, and that nobody is once the session ends', async () => {
   const { client, authenticator } = await createHttpServer({ contentTypes: sampleContentTypes, entries: [] }, sampleUser);

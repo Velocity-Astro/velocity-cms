@@ -1,15 +1,15 @@
-import { AppShell, Button, Dialog, Form, Logo, Stack, Text, TextField, dismissToasts, toast, type AppShellNavItem } from '@velocity/cms-ui';
-import { House, KeyRound, LogOut, Shapes, Users } from 'lucide-react';
+import { AppShell, Logo, dismissToasts, toast, type AppShellNavItem } from '@velocity/cms-ui';
+import { House, KeyRound, LogOut, Shapes, Users, Images } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router';
 import { useGo } from './use-go.js';
-import { useAddPasskey, useContentTypes, useSession, useSignOut } from '../client/queries.js';
+import { useContentTypes, useSession, useSignOut } from '../client/queries.js';
 import { localized } from '../lib/content.js';
 import { typeIcon } from '../lib/type-icon.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
 import { paths } from './paths.js';
 import { ErrorState, LoadingState } from './RequestState.js';
-import { useClosing } from '../lib/use-closing.js';
+import { PasskeysDialog } from './PasskeysDialog.js';
 
 export interface AdminLayoutProps {
   /** The site's name, shown at the top of the sidebar. */
@@ -25,7 +25,7 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
   const session = useSession();
   const types = useContentTypes();
   const signOut = useSignOut();
-  const [isAddingPasskey, setAddingPasskey] = useState(false);
+  const [isShowingPasskeys, setShowingPasskeys] = useState(false);
 
   // Someone who was signed in and no longer is, without having asked: the session ran out, or
   // an owner took their access away. They are told why the sign-in screen is back.
@@ -64,13 +64,14 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
         nav={[
           { id: 'top', items: [{ id: 'home', label: messages.app.home, href: paths.home, icon: House, isCurrent: location.pathname === paths.home }] },
           { id: 'content', label: messages.app.contentGroup, items: nav },
-          // Only owners manage people and content types, so only they are shown the way there.
-          ...(session.data.role === 'owner'
-            ? [
-                {
-                  id: 'site',
-                  label: messages.app.siteGroup,
-                  items: [
+          {
+            id: 'site',
+            label: messages.app.siteGroup,
+            items: [
+              { id: 'media', label: messages.app.media, href: paths.media, icon: Images, isCurrent: location.pathname === paths.media },
+              // Only owners manage people and content types, so only they are shown the way there.
+              ...(session.data.role === 'owner'
+                ? [
                     {
                       id: 'types',
                       label: messages.app.types,
@@ -79,21 +80,21 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
                       isCurrent: location.pathname === paths.types || location.pathname.startsWith(`${paths.types}/`),
                     },
                     { id: 'people', label: messages.app.people, href: paths.people, icon: Users, isCurrent: location.pathname === paths.people },
-                  ],
-                },
-              ]
-            : []),
+                  ]
+                : []),
+            ],
+          },
         ]}
         account={{
           name: session.data.name,
           detail: session.data.email,
           label: messages.app.accountMenu,
           actions: [
-            { id: 'passkey', label: messages.app.addPasskey, icon: KeyRound },
+            { id: 'passkey', label: messages.app.passkeys, icon: KeyRound },
             { id: 'sign-out', label: messages.app.signOut, icon: LogOut },
           ],
           onAction: (id) => {
-            if (id === 'passkey') return setAddingPasskey(true);
+            if (id === 'passkey') return setShowingPasskeys(true);
             isSigningOut.current = true;
             signOut.mutate(undefined, {
               onSuccess: () => {
@@ -112,61 +113,7 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
       >
         <Outlet />
       </AppShell>
-      {isAddingPasskey && <PasskeyDialog onClose={() => setAddingPasskey(false)} />}
+      {isShowingPasskeys && <PasskeysDialog onClose={() => setShowingPasskeys(false)} />}
     </>
-  );
-}
-
-/** Asks what to call a new passkey, then lets the browser make it. */
-function PasskeyDialog({ onClose }: { readonly onClose: () => void }) {
-  const { close, dialog } = useClosing(onClose);
-  const messages = useMessages();
-  const add = useAddPasskey();
-  const [name, setName] = useState<string>(messages.app.passkeyDefaultName);
-  const [problem, setProblem] = useState<string | null>(null);
-
-  const make = () => {
-    setProblem(null);
-    add.mutate(name.trim() === '' ? messages.app.passkeyDefaultName : name.trim(), {
-      onSuccess: () => {
-        toast({ title: messages.app.passkeyAdded, description: messages.app.passkeyAddedDescription, tone: 'success' });
-        close();
-      },
-      // The browser's prompt was closed, or the device has no way to make one. The window stays
-      // open so the person can try again.
-      onError: (error) => setProblem(error instanceof Error ? error.message : String(error)),
-    });
-  };
-
-  return (
-    <Dialog
-      {...dialog}
-      title={messages.app.passkeyTitle}
-      closeLabel={messages.app.dismiss}
-      footer={
-        <>
-          <Button variant="secondary" onPress={close}>
-            {messages.editor.cancel}
-          </Button>
-          <Button isPending={add.isPending} onPress={make}>
-            {messages.app.passkeyAdd}
-          </Button>
-        </>
-      }
-    >
-      <Stack gap={4}>
-        <Text tone="secondary">{messages.app.passkeyDescription}</Text>
-        <Form label={messages.app.passkeyTitle} onSubmit={make}>
-          <TextField
-            label={messages.app.passkeyName}
-            description={messages.app.passkeyNameHelp}
-            value={name}
-            onChange={setName}
-            autoFocus
-            {...(problem !== null && { errorMessage: `${messages.app.passkeyNotAdded}. ${problem}` })}
-          />
-        </Form>
-      </Stack>
-    </Dialog>
   );
 }

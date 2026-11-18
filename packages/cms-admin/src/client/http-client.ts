@@ -1,5 +1,5 @@
 import { readImage, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PreviewLink, type SiteImage } from '@velocity/cms-core';
-import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Person, SessionUser } from './admin-client.js';
+import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, SessionUser } from './admin-client.js';
 import { AdminRequestError, type RequestErrorCode, type RequestIssue } from './errors.js';
 
 /**
@@ -13,6 +13,10 @@ export interface AuthClient {
   signOut(): Promise<void>;
   /** Makes a passkey for the signed-in person. */
   registerPasskey(name: string): Promise<void>;
+  /** The signed-in person's own passkeys. */
+  listPasskeys(): Promise<readonly Passkey[]>;
+  /** Removes one of the signed-in person's own passkeys. */
+  removePasskey(id: string): Promise<void>;
 }
 
 export interface HttpAdminClientOptions {
@@ -124,6 +128,10 @@ export class HttpAdminClient implements AdminClient {
     });
   }
 
+  async removeImage(name: string): Promise<void> {
+    await this.#send('DELETE', `/images/${encodeURIComponent(name)}`, {});
+  }
+
   listEntries(query: EntryListQuery): Promise<Page<Entry>> {
     const search = new URLSearchParams({ type: query.type });
     if (query.locale !== undefined) search.set('locale', query.locale);
@@ -174,6 +182,14 @@ export class HttpAdminClient implements AdminClient {
 
   addPasskey(name: string): Promise<void> {
     return this.#auth.registerPasskey(name);
+  }
+
+  listPasskeys(): Promise<readonly Passkey[]> {
+    return this.#auth.listPasskeys();
+  }
+
+  removePasskey(id: string): Promise<void> {
+    return this.#auth.removePasskey(id);
   }
 
   #get<T>(path: string): Promise<T> {

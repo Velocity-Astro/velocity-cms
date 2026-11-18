@@ -12,6 +12,7 @@ export interface CmsEvents {
   'entry.published': { entry: Entry; before: Entry; actor: Actor };
   'entry.unpublished': { entry: Entry; before: Entry; actor: Actor };
   'media.uploaded': { file: MediaFile; actor: Actor };
+  'media.removed': { file: MediaFile; actor: Actor };
 }
 
 type Listener<T> = (payload: T) => void | Promise<void>;

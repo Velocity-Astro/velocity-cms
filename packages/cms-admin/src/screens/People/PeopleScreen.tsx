@@ -39,9 +39,10 @@ export function PeopleScreen() {
           <Inline gap={2}>
             <Text weight="semibold">{person.name}</Text>
             {person.id === me && <Tag>{messages.people.you}</Tag>}
+            {person.hasSignedIn === false && <Tag tone="warning">{messages.people.invitedTag}</Tag>}
           </Inline>
           <Text size="sm" tone="muted">
-            {person.email}
+            {person.hasSignedIn === false ? `${person.email} · ${messages.people.invitedHelp}` : person.email}
           </Text>
         </Stack>
       ),
