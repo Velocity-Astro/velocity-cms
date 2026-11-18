@@ -408,3 +408,38 @@ it('offers no upload on a site that has nowhere to keep one', async () => {
   expect(dialog.getByRole('option', { name: 'porch' })).toBeTruthy();
   expect(dialog.queryByRole('button', { name: 'Upload an image' })).toBeNull();
 });
+
+/** The sample listings with a description: rich text in a field that used to be a list of paragraphs. */
+const withDescription = () => {
+  const contentTypes = sampleContentTypes.map((type) =>
+    type.key === 'listings'
+      ? { ...type, fields: [...type.fields, { id: 'f-about', key: 'about', type: 'richtext', label: { en: 'About the home' }, required: true, translated: false, options: {} }] }
+      : type,
+  );
+  const entries = sampleEntries().map((entry) => (entry.id === 'e2' ? { ...entry, data: { ...entry.data, 'f-about': ['Four bedrooms.', 'A dock on the lake.'] } } : entry));
+  return new MemoryAdminClient({ ...signedIn(), contentTypes, entries });
+};
+
+// The rich text editor asks what is under the pointer; a page with no layout has no answer.
+it('shows text saved as plain paragraphs in the rich text editor, and saves it formatted', async () => {
+  document.elementFromPoint = () => null;
+  const user = userEvent.setup();
+  const client = withDescription();
+  render(<AdminApp client={client} siteName="Lakeshore" initialPath="/content/listings/e2" />);
+  const about = await screen.findByRole('textbox', { name: /^About the home/ });
+  expect(within(about).getByText('Four bedrooms.')).toBeTruthy();
+  expect(within(about).getByText('A dock on the lake.')).toBeTruthy();
+  // Opening it changed nothing, so there is nothing to save yet.
+  expect(screen.getByRole('button', { name: 'Save draft' })).toHaveProperty('disabled', true);
+
+  await user.click(within(screen.getByRole('toolbar', { name: 'Formatting' })).getByRole('button', { name: 'Heading' }));
+  await user.click(screen.getByRole('button', { name: 'Save draft' }));
+  expect(await screen.findByText('Draft saved')).toBeTruthy();
+  expect((await client.getEntry('e2')).data['f-about']).toEqual({
+    type: 'doc',
+    content: [
+      { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Four bedrooms.' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: 'A dock on the lake.' }] },
+    ],
+  });
+});

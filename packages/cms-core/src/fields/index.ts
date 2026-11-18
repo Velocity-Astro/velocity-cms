@@ -3,6 +3,7 @@ import { defineFields, type NewField } from '../define-fields.js';
 import { FieldType, type DefineContext, type FieldContext } from '../field-type.js';
 import type { FieldDef } from '../model.js';
 import { Registry } from '../registry.js';
+import { fromPlainText, richTextHtml, richTextParagraphs, richTextSchema, type RichText } from '../rich-text.js';
 import { buildFieldsSchema, toPublicData } from '../schema-builder.js';
 
 const noOptions = z.object({});
@@ -124,6 +125,35 @@ export class ImageField extends FieldType<string, NoOptions> {
   }
 }
 
+/** Formatted text as the site receives it. */
+export interface PublicRichText {
+  /** Ready to show: every word in it is escaped. */
+  readonly html: string;
+  /** The words alone, one entry per paragraph, heading or list item. */
+  readonly paragraphs: readonly string[];
+}
+
+/**
+ * Text with headings, lists, bold, italics and links. Stored as a tree, never as HTML, and given
+ * to the site as HTML made from that tree. A field that was plain text, or a list of
+ * paragraphs, can be changed to this type: what is stored is read as paragraphs.
+ */
+export class RichTextField extends FieldType<RichText, NoOptions> {
+  readonly type = 'richtext';
+  readonly editor = 'rich-text';
+  readonly options = noOptions;
+
+  schema() {
+    return richTextSchema;
+  }
+
+  override toPublic(value: RichText | string | readonly string[]): PublicRichText {
+    // What was saved before the field became rich text is still plain.
+    const text = typeof value === 'string' || Array.isArray(value) ? fromPlainText(value as string | readonly string[]) : (value as RichText);
+    return { html: richTextHtml(text), paragraphs: richTextParagraphs(text) };
+  }
+}
+
 /** The settings of a field that holds other fields. */
 const fieldDefs = z.custom<FieldDef[]>((value) => Array.isArray(value), 'Expected a list of fields');
 
@@ -202,6 +232,7 @@ export function createFieldRegistry(): Registry<FieldType> {
     .register(new SelectField())
     .register(new ReferenceField())
     .register(new ImageField())
+    .register(new RichTextField())
     .register(new GroupField())
     .register(new ListField());
 }

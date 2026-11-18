@@ -13,6 +13,8 @@ const date = field('date');
 const toggle = field('boolean');
 const url = field('url');
 const image = field('image');
+/** Text a person shapes: headings, lists, bold and links. */
+const rich = field('richtext');
 const link = (key, label, to, extra = {}) => field('reference')(key, label, { ...extra, options: { to } });
 const long = (key, label, extra = {}) => text(key, label, { ...extra, options: { multiline: true } });
 const choice = (key, label, choices, extra = {}) =>
@@ -73,7 +75,7 @@ const listings = {
     text('floorPlan', 'Floor plan'),
     url('tourUrl', 'Virtual tour link'),
 
-    list('description', 'Description', long('paragraph', 'Paragraph'), { required: true, help: 'One item per paragraph.' }),
+    rich('description', 'Description', { required: true }),
     list('highlights', 'Highlights', text('highlight', 'Highlight'), { help: 'Short chips such as "Pool" or "Home office".' }),
     list('features', 'Features', group('feature', 'Feature', [text('title', 'Heading', { required: true }), list('items', 'Items', text('item', 'Item'))]), {
       help: 'Grouped under headings such as Interior, Exterior and Systems.',
@@ -122,7 +124,7 @@ const agents = {
     text('name', 'Name', { required: true }),
     text('role', 'Role', { required: true }),
     text('summary', 'Summary', { required: true, help: 'One sentence, shown on cards.' }),
-    list('bio', 'Biography', long('paragraph', 'Paragraph'), { required: true, help: 'One item per paragraph.' }),
+    rich('bio', 'Biography', { required: true }),
     image('photo', 'Photo', { help: 'Without one, the card shows initials.' }),
     group('phone', 'Phone', [text('display', 'As shown', { required: true }), text('href', 'Link', { required: true, help: 'As tel:+12145550143.' })], { required: true }),
     text('email', 'Email', { required: true }),

@@ -130,6 +130,51 @@
   z-index: var(--layer-toast);
 }
 
+/*
+ * Formatted text as a person wrote it: headings, lists, quotes and links inside one box. The
+ * parts have no classes of their own, because the text is the person's, so they are drawn here.
+ */
+@utility rich-text {
+  & > * + * {
+    margin-top: 0.75em;
+  }
+  & h2 {
+    font-family: var(--font-heading);
+    font-size: var(--type-xl);
+    line-height: var(--type-xl-leading);
+    font-weight: 600;
+  }
+  & h3 {
+    font-family: var(--font-heading);
+    font-size: var(--type-lg);
+    line-height: var(--type-lg-leading);
+    font-weight: 600;
+  }
+  & ul,
+  & ol {
+    padding-left: 1.5em;
+  }
+  & ul {
+    list-style: disc;
+  }
+  & ol {
+    list-style: decimal;
+  }
+  & li + li {
+    margin-top: 0.25em;
+  }
+  & blockquote {
+    border-left: 2px solid var(--border-strong);
+    padding-left: 1em;
+    color: var(--foreground-secondary);
+  }
+  & a {
+    color: var(--foreground);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+}
+
 @layer base {
   body {
     background: var(--background);

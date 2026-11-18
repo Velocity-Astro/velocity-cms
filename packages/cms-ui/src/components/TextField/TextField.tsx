@@ -24,6 +24,8 @@ export interface TextFieldProps extends TextFieldVariants {
   readonly isRequired?: boolean;
   readonly isDisabled?: boolean;
   readonly isReadOnly?: boolean;
+  /** Takes focus when it appears. For the one field of a small panel, and nowhere else. */
+  readonly autoFocus?: boolean;
 }
 
 /** One line of text, with its label, help and error. */
@@ -42,6 +44,7 @@ export function TextField({
   isRequired = false,
   isDisabled = false,
   isReadOnly = false,
+  autoFocus = false,
   width,
 }: TextFieldProps) {
   return (
@@ -52,6 +55,7 @@ export function TextField({
       isDisabled={isDisabled}
       isReadOnly={isReadOnly}
       isInvalid={errorMessage !== undefined}
+      autoFocus={autoFocus}
       {...(value !== undefined && { value })}
       {...(defaultValue !== undefined && { defaultValue })}
       {...(onChange && { onChange })}

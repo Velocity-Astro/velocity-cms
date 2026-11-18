@@ -246,6 +246,15 @@
       ]
     },
     {
+      "name": "RichTextEditor",
+      "layer": "component",
+      "group": "Forms",
+      "description": "Text with headings, lists, quotes, bold, italics and links, with its label, help and error.",
+      "example": "<RichTextEditor label=\"Description\" value={text} onChange={setText} words={words} />",
+      "useInstead": "TextArea for plain text of several lines.",
+      "uses": ["Button", "TextField", "Tooltip"]
+    },
+    {
       "name": "TextArea",
       "layer": "component",
       "group": "Forms",
