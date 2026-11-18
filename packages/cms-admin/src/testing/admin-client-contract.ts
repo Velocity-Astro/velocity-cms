@@ -196,6 +196,32 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       expect((await site.getPluginSettings('seo')).values).toEqual({ [suffix]: ' | Lakeshore' });
     });
 
+    it('names the plugins that add to the editor, and reaches a plugin\'s own addresses', async () => {
+      expect(await client.listPluginEditors()).toEqual([]);
+      const site = await make({
+        contentTypes: [],
+        entries: [],
+        plugins: [
+          definePlugin({
+            name: 'notes',
+            apiVersion: 1,
+            label: { en: 'Notes' },
+            editor: 'export default () => {};',
+            setup(plugin) {
+              plugin.routes.add('GET', '/notes/:id', ({ params, query }) => ({ id: params['id'], full: query['full'] === 'yes' }));
+              plugin.routes.add('PUT', '/notes/:id', async ({ params, body }) => void (await plugin.store.set(`note:${params['id'] ?? ''}`, body)));
+              plugin.routes.add('GET', '/stored/:id', async ({ params }) => ({ note: await plugin.store.get(`note:${params['id'] ?? ''}`) }));
+            },
+          }),
+        ],
+      });
+      expect(await site.listPluginEditors()).toEqual([{ name: 'notes', label: { en: 'Notes' } }]);
+      expect(await site.callPlugin('notes', 'GET', '/notes/7', { query: { full: 'yes' } })).toEqual({ id: '7', full: true });
+      expect(await site.callPlugin('notes', 'PUT', '/notes/7', { body: { text: 'hello' } })).toEqual({});
+      expect(await site.callPlugin('notes', 'GET', '/stored/7')).toEqual({ note: { text: 'hello' } });
+      await expect(site.callPlugin('notes', 'GET', '/nowhere')).rejects.toMatchObject({ code: 'not_found' });
+    });
+
     it('keeps the person\'s own passkeys by name, and removes the one asked for', async () => {
       expect(await client.listPasskeys()).toEqual([]);
       await client.addPasskey('Work laptop');

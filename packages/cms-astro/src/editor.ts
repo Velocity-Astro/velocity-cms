@@ -54,6 +54,8 @@ export class EditorHost {
   readonly auth: CmsAuth;
   readonly #api: CmsApi;
   readonly #files: AdminFiles;
+  readonly #pluginFile: RegExp;
+  readonly #plugins: Connection['cms']['plugins'];
   /** Whether anything was published or taken down since `takePublished` was last called. */
   #published = false;
   /** The addresses of the pages that changed with it, where they are known. */
@@ -83,6 +85,9 @@ export class EditorHost {
       basePath: apiPath,
       ...(options.onFault && { onFault: options.onFault }),
     });
+    this.#plugins = cms.plugins;
+    // `/admin/plugins/<name>.js`: what a running plugin adds to the editor.
+    this.#pluginFile = new RegExp(`^${adminPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/plugins/([a-z][a-z0-9-]{0,39})\\.js$`);
     this.#files = new AdminFiles(options.editorDirectory ?? builtEditorDirectory(), { siteName: options.siteName, adminPath, apiPath, authPath });
 
     // The site keeps what it read from the CMS for a moment. A publish must be seen at once.
@@ -119,9 +124,20 @@ export class EditorHost {
     return this.auth.handle(request);
   }
 
-  /** Answers a request for the editor's page or one of its files. */
-  admin(request: Request): Response {
-    return this.#files.respond(request);
+  /**
+   * Answers a request for the editor's page or one of its files, which include the file of each
+   * running plugin that adds to the editor. A plugin's file is code the site's owner installed,
+   * like the editor's own, and holds nothing private; it is never kept by a browser, so a plugin
+   * that is switched off or updated is gone or new on the next load.
+   */
+  async admin(request: Request): Promise<Response> {
+    const name = this.#pluginFile.exec(new URL(request.url).pathname)?.[1];
+    if (name === undefined) return this.#files.respond(request);
+    if (request.method !== 'GET' && request.method !== 'HEAD') return new Response(null, { status: 405, headers: { allow: 'GET, HEAD' } });
+    const file = await this.#plugins.editorFile(name);
+    // Not the editor's page: a browser asked for a script, and would try to run it.
+    if (file === null) return new Response(null, { status: 404, headers: { 'cache-control': 'no-store' } });
+    return new Response(file, { headers: { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' } });
   }
 
   /**

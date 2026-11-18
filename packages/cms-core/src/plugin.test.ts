@@ -53,7 +53,7 @@ describe('starting plugins', () => {
       }),
     ]);
     expect(await cms.plugins.list(owner)).toEqual([
-      { name: 'ratings', label: { en: 'Ratings' }, description: { en: 'Stars for reviews.' }, version: '1.2.0', permissions: [], status: 'on', hasSettings: false, faults: 0 },
+      { name: 'ratings', label: { en: 'Ratings' }, description: { en: 'Stars for reviews.' }, version: '1.2.0', permissions: [], status: 'on', hasSettings: false, hasEditor: false, adds: { fieldTypes: ['rating'], checks: 0, events: [] }, faults: 0 },
     ]);
     const reviews = await cms.schema.create(owner, { key: 'reviews', kind: 'collection', label: { en: 'Reviews' }, fields: [{ key: 'stars', type: 'rating', label: { en: 'Stars' } }] });
     expect(reviews.fields[0]?.type).toBe('rating');
@@ -322,4 +322,48 @@ describe('a plugin\'s own addresses and store', () => {
 it('shows the plugins to owners only', async () => {
   expect(await cms.plugins.list(owner)).toEqual([]);
   await expect(cms.plugins.list(editor)).rejects.toBeInstanceOf(ForbiddenError);
+});
+
+describe('what a plugin adds to the editor', () => {
+  const seo = () =>
+    definePlugin({
+      name: 'seo',
+      apiVersion: 1,
+      label: { en: 'SEO' },
+      editor: 'export default () => {};',
+      setup(plugin) {
+        plugin.fields.register(new RatingField());
+        plugin.events.on('entry.published', () => undefined);
+        plugin.checks.add('publish', () => []);
+        plugin.checks.add('publish', () => []);
+      },
+    });
+  const quiet = definePlugin({ name: 'quiet', apiVersion: 1, label: { en: 'Quiet' }, setup: () => undefined });
+
+  it('lists the running plugins that have an editor file, for anyone signed in, and hands over the file', async () => {
+    await cms.plugins.load([seo(), quiet]);
+    expect(await cms.plugins.editors(editor)).toEqual([{ name: 'seo', label: { en: 'SEO' } }]);
+    expect(await cms.plugins.editorFile('seo')).toBe('export default () => {};');
+    expect(await cms.plugins.editorFile('quiet')).toBeNull();
+    expect(await cms.plugins.editorFile('nothing')).toBeNull();
+  });
+
+  it('has no editor file to hand over while the plugin is switched off', async () => {
+    await cms.plugins.load([seo()]);
+    await cms.plugins.setEnabled(owner, 'seo', false);
+    expect(await cms.plugins.editors(owner)).toEqual([]);
+    expect(await cms.plugins.editorFile('seo')).toBeNull();
+    await cms.plugins.setEnabled(owner, 'seo', true);
+    expect(await cms.plugins.editorFile('seo')).toBe('export default () => {};');
+  });
+
+  it('says what a running plugin does on the server, and nothing for one that is off', async () => {
+    await cms.plugins.load([seo(), quiet]);
+    const [, first] = await cms.plugins.list(owner);
+    expect(first).toMatchObject({ name: 'seo', hasEditor: true, adds: { fieldTypes: ['rating'], checks: 2, events: ['entry.published'] } });
+    expect((await cms.plugins.list(owner))[0]).toMatchObject({ name: 'quiet', hasEditor: false, adds: { fieldTypes: [], checks: 0, events: [] } });
+    expect(await cms.plugins.setEnabled(owner, 'seo', false)).toMatchObject({ adds: { fieldTypes: [], checks: 0, events: [] } });
+    // Switched on again, it is counted once, not twice.
+    expect(await cms.plugins.setEnabled(owner, 'seo', true)).toMatchObject({ adds: { fieldTypes: ['rating'], checks: 2, events: ['entry.published'] } });
+  });
 });

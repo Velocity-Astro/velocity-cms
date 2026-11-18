@@ -1,5 +1,5 @@
 import { AppShell, Logo, dismissToasts, toast, type AppShellNavItem } from '@velocity/cms-ui';
-import { House, Images, KeyRound, LogOut, Puzzle, Shapes, Users } from 'lucide-react';
+import { Blocks, House, Images, KeyRound, LogOut, Puzzle, Shapes, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router';
 import { useGo } from './use-go.js';
@@ -7,6 +7,7 @@ import { useContentTypes, useSession, useSignOut } from '../client/queries.js';
 import { localized } from '../lib/content.js';
 import { typeIcon } from '../lib/type-icon.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
+import { useLoadPluginEditors, usePluginExtensions } from '../plugins/plugin-editor.js';
 import { paths } from './paths.js';
 import { ErrorState, LoadingState } from './RequestState.js';
 import { PasskeysDialog } from './PasskeysDialog.js';
@@ -39,7 +40,12 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
     wasSignedIn.current = isSignedIn;
   }, [isSignedIn, session.data, messages]);
 
-  if (session.isPending) return <LoadingState shape="spinner" />;
+  // What plugins add is fetched once someone is signed in, and the frame waits for it, so no
+  // screen is drawn before a plugin's control for one of its fields is there.
+  const hasPlugins = useLoadPluginEditors(isSignedIn);
+  const { screens } = usePluginExtensions();
+
+  if (session.isPending || (isSignedIn && !hasPlugins)) return <LoadingState shape="spinner" />;
   if (session.isError) return <ErrorState error={session.error} onRetry={() => void session.refetch()} />;
   if (session.data === null) return <Navigate to={paths.signIn} replace />;
 
@@ -53,6 +59,16 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
       isCurrent: location.pathname === href || location.pathname.startsWith(`${href}/`),
     };
   });
+
+  const pluginNav: AppShellNavItem[] = [
+    ...screens.map((screen) => {
+      const href = paths.pluginScreen(screen.plugin, screen.id);
+      return { id: `plugin:${screen.plugin}:${screen.id}`, label: screen.label, href, icon: Blocks, isCurrent: location.pathname === href };
+    }),
+    ...(session.data.role === 'owner'
+      ? [{ id: 'plugins', label: messages.app.plugins, href: paths.plugins, icon: Puzzle, isCurrent: location.pathname === paths.plugins }]
+      : []),
+  ];
 
   return (
     <>
@@ -69,7 +85,7 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
             label: messages.app.siteGroup,
             items: [
               { id: 'media', label: messages.app.media, href: paths.media, icon: Images, isCurrent: location.pathname === paths.media },
-              // Only owners manage people, plugins and content types, so only they are shown the way there.
+              // Only owners manage people and content types, so only they are shown the way there.
               ...(session.data.role === 'owner'
                 ? [
                     {
@@ -79,12 +95,15 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
                       icon: Shapes,
                       isCurrent: location.pathname === paths.types || location.pathname.startsWith(`${paths.types}/`),
                     },
-                    { id: 'plugins', label: messages.app.plugins, href: paths.plugins, icon: Puzzle, isCurrent: location.pathname === paths.plugins },
                     { id: 'people', label: messages.app.people, href: paths.people, icon: Users, isCurrent: location.pathname === paths.people },
                   ]
                 : []),
             ],
           },
+          // Plugins have a section of their own: the screens they added, for everyone (what each
+          // may do there is the server's to say), then the way to manage them, for owners. With
+          // neither, the section is left out.
+          ...(pluginNav.length > 0 ? [{ id: 'plugins', label: messages.app.pluginsGroup, items: pluginNav }] : []),
         ]}
         account={{
           name: session.data.name,

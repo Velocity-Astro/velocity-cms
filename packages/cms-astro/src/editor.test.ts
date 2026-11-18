@@ -51,10 +51,34 @@ afterEach(() => {
   fs.rmSync(directory, { recursive: true });
 });
 
+describe('a plugin\'s editor file', () => {
+  const plugin = { name: 'publish-log', apiVersion: 1, label: { en: 'Publish log' }, editor: 'export default () => {};', setup: () => undefined };
+
+  it('is served beside the editor while the plugin is on, as a script and never kept', async () => {
+    await connection.cms.plugins.load([plugin]);
+    const file = await host.admin(get('/admin/plugins/publish-log.js'));
+    expect(await file.text()).toBe('export default () => {};');
+    expect(file.headers.get('content-type')).toContain('text/javascript');
+    expect(file.headers.get('cache-control')).toBe('no-store');
+    expect((await host.admin(get('/admin/plugins/publish-log.js', { method: 'POST' }))).status).toBe(405);
+
+    await connection.cms.plugins.setEnabled(installer, 'publish-log', false);
+    expect((await host.admin(get('/admin/plugins/publish-log.js'))).status).toBe(404);
+  });
+
+  it('is never the editor\'s page: a plugin nobody installed has nothing there', async () => {
+    const missing = await host.admin(get('/admin/plugins/nothing.js'));
+    expect(missing.status).toBe(404);
+    expect(await missing.text()).toBe('');
+    // The Plugins screen keeps its own address.
+    expect((await host.admin(get('/admin/plugins'))).headers.get('content-type')).toContain('text/html');
+  });
+});
+
 describe('the editor\'s page', () => {
   it('is served at every address under /admin, with the site\'s settings and nothing cacheable', async () => {
     for (const address of ['/admin', '/admin/', '/admin/content/listings/e1', '/admin/notes.txt']) {
-      const response = host.admin(get(address));
+      const response = await host.admin(get(address));
       const page = await response.text();
       expect(response.status).toBe(200);
       expect(response.headers.get('content-type')).toContain('text/html');
@@ -69,13 +93,13 @@ describe('the editor\'s page', () => {
   });
 
   it('serves the files it was built with, to be kept, and nothing else', async () => {
-    const file = host.admin(get('/admin/assets/index-abc.js'));
+    const file = await host.admin(get('/admin/assets/index-abc.js'));
     expect(await file.text()).toBe('console.log("editor")');
     expect(file.headers.get('content-type')).toContain('text/javascript');
     expect(file.headers.get('cache-control')).toContain('immutable');
-    expect(host.admin(get('/admin/assets/missing.js')).status).toBe(404);
-    expect(host.admin(get('/admin/assets/../../package.json')).headers.get('content-type')).not.toContain('json');
-    expect(host.admin(get('/admin', { method: 'POST' })).status).toBe(405);
+    expect((await host.admin(get('/admin/assets/missing.js'))).status).toBe(404);
+    expect((await host.admin(get('/admin/assets/../../package.json'))).headers.get('content-type')).not.toContain('json');
+    expect((await host.admin(get('/admin', { method: 'POST' }))).status).toBe(405);
   });
 
   it('says how to build the editor when it has not been built', () => {

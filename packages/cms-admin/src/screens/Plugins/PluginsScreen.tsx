@@ -1,12 +1,15 @@
 import type { PluginInfo } from '@velocity/cms-core';
 import { Box, Button, EmptyState, Inline, PageHeader, Stack, Switch, Table, Tag, Text, toast, type TableColumn, type TableRow } from '@velocity/cms-ui';
-import { Puzzle, Settings2 } from 'lucide-react';
+import { ArrowRight, Puzzle, Settings2 } from 'lucide-react';
 import { useState } from 'react';
+import { paths } from '../../app/paths.js';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
+import { useGo } from '../../app/use-go.js';
 import { usePlugins, useSetPluginEnabled } from '../../client/queries.js';
 import { localized } from '../../lib/content.js';
 import { relativeTime } from '../../lib/relative-time.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
+import { usePluginExtensions } from '../../plugins/plugin-editor.js';
 import { PluginSettingsDialog } from './PluginSettingsDialog.js';
 
 const TONES = { on: 'success', off: 'neutral', failed: 'danger', unsupported: 'warning', invalid: 'danger' } as const;
@@ -20,6 +23,8 @@ export function PluginsScreen() {
   const locale = useLocale();
   const plugins = usePlugins();
   const setEnabled = useSetPluginEnabled();
+  const go = useGo();
+  const extensions = usePluginExtensions();
   const [settingUp, setSettingUp] = useState<PluginInfo | null>(null);
 
   const flip = (plugin: PluginInfo, enabled: boolean) => {
@@ -51,6 +56,16 @@ export function PluginsScreen() {
     const description = plugin.description ? localized(plugin.description, locale) : null;
     const problem = trouble(plugin);
     const name = localized(plugin.label, locale);
+    // What activating it brings, in words: what it added to this editor, then what it does on the server.
+    const screens = extensions.screens.filter((screen) => screen.plugin === plugin.name);
+    const adds = [
+      ...screens.map((screen) => messages.plugins.addsScreen(screen.label)),
+      ...extensions.panels.filter((panel) => panel.plugin === plugin.name).map((panel) => messages.plugins.addsPanel(panel.title)),
+      ...(plugin.adds.fieldTypes.length > 0 ? [messages.plugins.addsFieldTypes(plugin.adds.fieldTypes.length)] : []),
+      ...(plugin.adds.checks > 0 ? [messages.plugins.addsChecks(plugin.adds.checks)] : []),
+      ...(plugin.adds.events.length > 0 ? [messages.plugins.addsEvents(plugin.adds.events.map((event) => messages.plugins.events[event] ?? event))] : []),
+    ];
+    const editorProblem = extensions.problems.get(plugin.name);
     return {
       id: plugin.name,
       cells: {
@@ -67,6 +82,7 @@ export function PluginsScreen() {
             <Text size="sm" tone="muted">
               {description ?? plugin.name}
             </Text>
+            {plugin.status === 'on' && <Text size="sm">{adds.length > 0 ? messages.plugins.adds(adds) : messages.plugins.addsNothing}</Text>}
           </Stack>
         ),
         state: (
@@ -76,6 +92,7 @@ export function PluginsScreen() {
               {plugin.status === 'on' && plugin.faults > 0 && <Tag tone="warning">{messages.plugins.hasFailed}</Tag>}
             </Inline>
             {problem !== null && <Text size="sm">{problem}</Text>}
+            {editorProblem !== undefined && <Text size="sm">{messages.plugins.editorFailed(editorProblem)}</Text>}
           </Stack>
         ),
         may: (
@@ -85,6 +102,11 @@ export function PluginsScreen() {
         ),
         actions: (
           <Inline gap={3} justify="end">
+            {screens.map((screen) => (
+              <Button key={screen.id} variant="ghost" size="sm" icon={ArrowRight} onPress={() => go(paths.pluginScreen(screen.plugin, screen.id))}>
+                {messages.plugins.open(screen.label)}
+              </Button>
+            ))}
             {plugin.hasSettings && (
               <Button variant="secondary" size="sm" icon={Settings2} onPress={() => setSettingUp(plugin)}>
                 {messages.plugins.settingsOf(name)}

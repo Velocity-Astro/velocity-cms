@@ -12,6 +12,8 @@ import { relativeTime } from '../../lib/relative-time.js';
 import { slugify } from '../../lib/slug.js';
 import { useLeaveGuard } from '../../lib/use-leave-guard.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
+import { PluginBoundary } from '../../plugins/PluginBoundary.js';
+import { usePluginExtensions } from '../../plugins/plugin-editor.js';
 
 const STATE_TONE = { draft: 'neutral', scheduled: 'info', published: 'success', unpublishedChanges: 'warning' } as const satisfies Record<
   EntryState,
@@ -190,6 +192,16 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
     })),
     ...(rest.length > 0 ? [{ key: '$rest', ...(type.sections?.length && { title: messages.editor.otherFields }), aside: false, fields: rest }] : []),
   ];
+  // What plugins show beside this entry: a card each, which gets what is in the form now.
+  const panels = usePluginExtensions()
+    .panels.filter((panel) => panel.types === undefined || panel.types.includes(type.key))
+    .map((panel) => (
+      <Card key={`${panel.plugin}/${panel.id}`} title={panel.title}>
+        <PluginBoundary>
+          <panel.Component type={type} entry={entry} data={data} />
+        </PluginBoundary>
+      </Card>
+    ));
   const savedNote =
     entry === null ? messages.editor.notSavedYet : hasChanges ? messages.editor.unsavedChanges : messages.editor.saved(relativeTime(entry.updatedAt, locale));
 
@@ -249,7 +261,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
       />
       <Box paddingX={12} paddingY={8} grow>
         <Form label={messages.editor.form} gap={5} onSubmit={() => void run('save')}>
-          {isSingle && !sections.some((section) => section.aside) ? (
+          {isSingle && panels.length === 0 && !sections.some((section) => section.aside) ? (
             // Nothing to show beside the content, so the content has the page.
             <Stack gap={6}>{sections.map(card)}</Stack>
           ) : (
@@ -277,6 +289,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
                     </Card>
                   )}
                   {sections.filter((section) => section.aside).map(card)}
+                  {panels}
                 </>
               }
             >

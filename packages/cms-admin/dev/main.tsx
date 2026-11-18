@@ -8,9 +8,12 @@
  * `?slow` to make every request take a while, to see what each screen shows while it waits.
  */
 import '@velocity/cms-ui/styles.css';
+import { definePlugin } from '@velocity/cms-core';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AdminApp } from '../src/index.js';
+// The demo site's own plugin file, so the preview shows what a real site would.
+import publishLogEditor from '../../../prototypes/live-site/files/publish-log-editor.js';
+import { AdminApp, type PluginEditorModule } from '../src/index.js';
 import { MemoryAdminClient, sampleContentTypes, sampleEntries, sampleUser } from '../src/testing/index.js';
 
 const options = new URLSearchParams(location.search);
@@ -21,7 +24,24 @@ const client = new MemoryAdminClient({
   passkeyUser: sampleUser,
   showUploads: true,
   plugins: [
-    { name: 'publish-log', apiVersion: 1, label: { en: 'Publish log' }, description: { en: "Notes every publish in the server's log." }, version: '1.0.0', setup: () => undefined },
+    definePlugin({
+      name: 'publish-log',
+      apiVersion: 1,
+      label: { en: 'Publish log' },
+      description: { en: 'Keeps a list of what was published and when.' },
+      version: '1.1.0',
+      // Any text will do here: the preview hands the editor the file itself, below.
+      editor: 'preview',
+      setup(cms) {
+        cms.events.on('entry.published', async ({ entry }) => {
+          const type = await cms.schema.get(entry.typeId);
+          const before = await cms.store.get('log');
+          const line = { slug: entry.slug, locale: entry.locale, type: type.label['en'] ?? type.key, at: new Date().toISOString() };
+          await cms.store.set('log', [line, ...(Array.isArray(before) ? (before as unknown[]) : [])].slice(0, 50));
+        });
+        cms.routes.add('GET', '/log', async () => ({ items: (await cms.store.get('log')) ?? [] }));
+      },
+    }),
     {
       name: 'seo',
       apiVersion: 1,
@@ -47,6 +67,14 @@ const client = new MemoryAdminClient({
 
 createRoot(document.getElementById('root') as HTMLElement).render(
   <StrictMode>
-    <AdminApp client={client} siteName="Lakeshore Realty" basePath="/" />
+    <AdminApp
+      client={client}
+      siteName="Lakeshore Realty"
+      basePath="/"
+      pluginEditors={async (name) => {
+        if (name !== 'publish-log') throw new Error(`The preview has no editor file for "${name}".`);
+        return { default: publishLogEditor } as PluginEditorModule;
+      }}
+    />
   </StrictMode>,
 );

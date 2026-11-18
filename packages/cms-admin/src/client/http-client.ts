@@ -1,5 +1,5 @@
-import { readImage, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PluginSettings, type EntryData, type PreviewLink, type SiteImage } from '@velocity/cms-core';
-import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, SessionUser } from './admin-client.js';
+import { readImage, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PluginSettings, type PluginEditorInfo, type PluginRouteMethod, type EntryData, type PreviewLink, type SiteImage } from '@velocity/cms-core';
+import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser } from './admin-client.js';
 import { AdminRequestError, type RequestErrorCode, type RequestIssue } from './errors.js';
 
 /**
@@ -186,6 +186,16 @@ export class HttpAdminClient implements AdminClient {
 
   async listPlugins(): Promise<readonly PluginInfo[]> {
     return (await this.#get<{ items: PluginInfo[] }>('/plugins')).items;
+  }
+
+  async listPluginEditors(): Promise<readonly PluginEditorInfo[]> {
+    return (await this.#get<{ items: PluginEditorInfo[] }>('/plugin-editors')).items;
+  }
+
+  callPlugin(name: string, method: PluginRouteMethod, path: string, input: PluginCall = {}): Promise<unknown> {
+    const query = new URLSearchParams(input.query).toString();
+    const address = `/plugins/${encodeURIComponent(name)}${path}${query === '' ? '' : `?${query}`}`;
+    return method === 'GET' ? this.#get(address) : this.#send(method, address, input.body ?? {});
   }
 
   setPluginEnabled(name: string, enabled: boolean): Promise<PluginInfo> {

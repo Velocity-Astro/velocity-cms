@@ -447,6 +447,15 @@ describe('plugins', () => {
     expect((await call('PATCH', '/plugins/nothing', { enabled: true })).status).toBe(404);
   });
 
+  it('tells anyone signed in which running plugins add to the editor', async () => {
+    expect((await call('GET', '/plugin-editors')).body).toEqual({ items: [] });
+    await cms.plugins.load([definePlugin({ name: 'log', apiVersion: 1, label: { en: 'Log' }, editor: 'export default () => {};', setup: () => undefined })]);
+    authenticator.session = as('author');
+    expect((await call('GET', '/plugin-editors')).body).toEqual({ items: [{ name: 'log', label: { en: 'Log' } }] });
+    authenticator.session = null;
+    expect((await call('GET', '/plugin-editors')).status).toBe(401);
+  });
+
   it('hands a request at a plugin\'s own address to the plugin, as the person who asked', async () => {
     authenticator.session = as('author');
     expect((await call('GET', '/plugins/seo/report/lakeshore-farmhouse?full=yes')).body).toEqual({ slug: 'lakeshore-farmhouse', full: true });

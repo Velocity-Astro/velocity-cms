@@ -58,6 +58,13 @@ export interface PluginDefinition {
    * available, and an owner activates it in the editor.
    */
   readonly enabledByDefault?: boolean;
+  /**
+   * What the plugin adds to the editor, as the text of one prebuilt JavaScript module. The site
+   * serves it at `/admin/plugins/<name>.js` while the plugin is on, and the editor runs its
+   * default export with `{ React, ui, client, register }`. It must bring no React of its own:
+   * it uses the one it is handed. In a site's own plugin, `import editor from './editor.js?raw'`.
+   */
+  readonly editor?: string;
   /** Runs when the plugin is switched on: at the site's start, or when an owner activates it. Whatever it throws switches the plugin off. */
   setup(cms: PluginContext): void | Promise<void>;
 }
@@ -139,6 +146,24 @@ export interface PluginFault {
   readonly message: string;
 }
 
+/** What a running plugin has added on the server. Empty for one that is off. */
+export interface PluginAdds {
+  /** The kinds of field it brought, by name. */
+  readonly fieldTypes: readonly string[];
+  /** How many rules it checks before a publish. */
+  readonly checks: number;
+  /** What it listens for, such as `entry.published`. */
+  readonly events: readonly string[];
+}
+
+/** A plugin that adds to the editor, as the editor needs to know it to load its file. */
+export interface PluginEditorInfo {
+  readonly name: string;
+  readonly label: LocalizedText;
+}
+
+const NOTHING_ADDED: PluginAdds = { fieldTypes: [], checks: 0, events: [] };
+
 /** A plugin as the Plugins screen shows it. */
 export interface PluginInfo {
   readonly name: string;
@@ -149,6 +174,10 @@ export interface PluginInfo {
   readonly status: PluginStatus;
   /** Whether it has settings for an owner to fill in. */
   readonly hasSettings: boolean;
+  /** Whether it adds anything to the editor: screens, panels on an entry, controls. */
+  readonly hasEditor: boolean;
+  /** What it does on the server while it is on, so an owner can see what activating it means. */
+  readonly adds: PluginAdds;
   /** Why it is not on, and what to do about it. */
   readonly problem?: string;
   /** How many times it has failed since the site started, and the last time. */
@@ -244,6 +273,23 @@ export class PluginHost {
     return [...this.#plugins.values()].map((held) => held.info).sort((a, b) => a.name.localeCompare(b.name));
   }
 
+  /** The running plugins that add to the editor, for anyone signed in: the editor loads each one's file. */
+  async editors(actor: Actor): Promise<PluginEditorInfo[]> {
+    this.#parts.access.require(actor, 'entry:read');
+    await this.#sync();
+    return [...this.#plugins.values()]
+      .filter((held) => held.info.status === 'on' && held.info.hasEditor)
+      .map((held) => ({ name: held.info.name, label: held.info.label }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /** The text of a running plugin's editor file, or `null` when there is none to serve. */
+  async editorFile(name: string): Promise<string | null> {
+    await this.#sync();
+    const held = this.#plugins.get(name);
+    return held?.info.status === 'on' && held.info.hasEditor ? (held.definition?.editor ?? null) : null;
+  }
+
   /** Switches a plugin on or off, for every running copy of the site. Owners only. */
   async setEnabled(actor: Actor, name: string, enabled: boolean): Promise<PluginInfo> {
     this.#parts.access.require(actor, 'plugin:manage');
@@ -324,7 +370,7 @@ export class PluginHost {
     const fallback = `plugin-${index + 1}`;
     const label = isRecord(given['label']) ? (given['label'] as LocalizedText) : { en: name ?? fallback };
     const refuse = (status: PluginStatus, problem: string, as = name ?? fallback) => {
-      this.#plugins.set(as, { info: { name: as, label, permissions: [], status, hasSettings: false, problem, faults: 0 }, stops: [], routes: [], fields: [], registered: new Set() });
+      this.#plugins.set(as, { info: { name: as, label, permissions: [], status, hasSettings: false, hasEditor: false, adds: NOTHING_ADDED, problem, faults: 0 }, stops: [], routes: [], fields: [], registered: new Set() });
       this.#parts.onFault?.(as, new Error(problem));
       return null;
     };
@@ -360,6 +406,8 @@ export class PluginHost {
         permissions: [...asked],
         status: 'off',
         hasSettings: false,
+        hasEditor: typeof definition.editor === 'string' && definition.editor.length > 0,
+        adds: NOTHING_ADDED,
         faults: 0,
       },
       definition,
@@ -377,7 +425,7 @@ export class PluginHost {
     const { definition } = held;
     if (!definition) return;
     const { problem: _before, ...info } = held.info;
-    held.info = { ...info, status: 'on' };
+    held.info = { ...info, status: 'on', adds: { ...NOTHING_ADDED, fieldTypes: [...held.registered] } };
     try {
       await definition.setup(this.#context(held, definition.permissions ?? []));
     } catch (error) {
@@ -392,6 +440,7 @@ export class PluginHost {
     for (const stop of held.stops) stop();
     held.stops = [];
     held.routes = [];
+    held.info = { ...held.info, adds: NOTHING_ADDED };
   }
 
   /** Makes this running copy match what the owner chose. */
@@ -465,6 +514,7 @@ export class PluginHost {
           if (held.registered.has(type.type)) return;
           fields.register(type);
           held.registered.add(type.type);
+          held.info = { ...held.info, adds: { ...held.info.adds, fieldTypes: [...held.registered] } };
         },
       },
       events: {
@@ -477,6 +527,7 @@ export class PluginHost {
             }
           });
           held.stops.push(stop);
+          if (!held.info.adds.events.includes(event)) held.info = { ...held.info, adds: { ...held.info.adds, events: [...held.info.adds.events, event] } };
           return stop;
         },
       },
@@ -491,6 +542,7 @@ export class PluginHost {
             }
           });
           held.stops.push(stop);
+          held.info = { ...held.info, adds: { ...held.info.adds, checks: held.info.adds.checks + 1 } };
           return stop;
         },
       },

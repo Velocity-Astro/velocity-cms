@@ -47,7 +47,7 @@ it('says how plugins get here when the site has none', async () => {
 it('is for owners: an editor has no way in and is told why', async () => {
   renderApp('/plugins', site({ user: { ...sampleUser, role: 'editor' as const } }));
   expect(await screen.findByText(/does not allow/)).toBeTruthy();
-  expect(screen.queryByRole('link', { name: 'Plugins' })).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Manage plugins' })).toBeNull();
 });
 
 const seo = () =>
