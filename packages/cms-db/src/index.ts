@@ -1,6 +1,8 @@
 export { authAccount, authPasskey, authSession, authUser, authVerification } from './auth-tables.js';
 export { openDatabase, type Database, type DatabaseOptions, type Db } from './database.js';
 export { SqliteEntryRepository } from './entry-repository.js';
+export { SqliteFormRepository } from './form-repository.js';
+export { SqliteSubmissionRepository } from './submission-repository.js';
 export { SqliteMediaRepository } from './media-repository.js';
 export { SqlitePluginStore } from './plugin-store.js';
 export { SqliteSchemaRepository } from './schema-repository.js';

@@ -143,6 +143,8 @@ export const fieldSettings: FieldSettingsRegistry = new Registry<FieldSettings>(
   .register({ type: 'boolean', initial: {} })
   .register({ type: 'date', initial: {}, canBeListed: true })
   .register({ type: 'url', initial: {}, canBeListed: true })
+  .register({ type: 'email', initial: {}, canBeListed: true })
+  .register({ type: 'phone', initial: {}, canBeListed: true })
   .register({
     type: 'select',
     initial: { choices: [] },

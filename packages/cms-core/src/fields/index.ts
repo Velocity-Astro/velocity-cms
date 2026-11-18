@@ -25,6 +25,10 @@ export class TextField extends FieldType<string, { maxLength?: number | undefine
   schema({ maxLength }: { maxLength?: number | undefined }) {
     return maxLength ? z.string().max(maxLength) : z.string();
   }
+
+  override get takesSubmissions() {
+    return true;
+  }
 }
 
 export class NumberField extends FieldType<
@@ -45,6 +49,19 @@ export class NumberField extends FieldType<
     if (max !== undefined) schema = schema.max(max);
     return schema;
   }
+
+  override get takesSubmissions() {
+    return true;
+  }
+
+  /** A number typed into a form arrives as text. Text that is no number is left for the schema to refuse. */
+  override fromSubmitted(raw: unknown) {
+    if (typeof raw !== 'string') return raw ?? undefined;
+    const text = raw.trim();
+    if (text === '') return undefined;
+    const value = Number(text);
+    return Number.isNaN(value) ? text : value;
+  }
 }
 
 export class BooleanField extends FieldType<boolean, NoOptions> {
@@ -54,6 +71,15 @@ export class BooleanField extends FieldType<boolean, NoOptions> {
 
   schema() {
     return z.boolean();
+  }
+
+  override get takesSubmissions() {
+    return true;
+  }
+
+  /** A tick arrives as `on`; a box left empty does not arrive at all, so a required one must be ticked. */
+  override fromSubmitted(raw: unknown) {
+    return raw === true || raw === 'on' || raw === 'true' ? true : undefined;
   }
 }
 
@@ -66,6 +92,10 @@ export class DateField extends FieldType<string, NoOptions> {
   schema() {
     return z.iso.date();
   }
+
+  override get takesSubmissions() {
+    return true;
+  }
 }
 
 export class UrlField extends FieldType<string, NoOptions> {
@@ -75,6 +105,40 @@ export class UrlField extends FieldType<string, NoOptions> {
 
   schema() {
     return z.url();
+  }
+
+  override get takesSubmissions() {
+    return true;
+  }
+}
+
+/** An email address, such as the one a visitor leaves to be answered at. */
+export class EmailField extends FieldType<string, NoOptions> {
+  readonly type = 'email';
+  readonly editor = 'email-input';
+  readonly options = noOptions;
+
+  schema() {
+    return z.email().max(254);
+  }
+
+  override get takesSubmissions() {
+    return true;
+  }
+}
+
+/** A phone number as it was typed: people write them in too many ways to hold to one. */
+export class PhoneField extends FieldType<string, NoOptions> {
+  readonly type = 'phone';
+  readonly editor = 'phone-input';
+  readonly options = noOptions;
+
+  schema() {
+    return z.string().regex(/^[+]?[\d\s().-]{5,30}$/, 'Enter a phone number, such as 512 555 0142.');
+  }
+
+  override get takesSubmissions() {
+    return true;
   }
 }
 
@@ -91,6 +155,10 @@ export class SelectField extends FieldType<string, { choices: string[]; labels?:
 
   schema({ choices }: { choices: string[] }) {
     return z.enum(choices as [string, ...string[]]);
+  }
+
+  override get takesSubmissions() {
+    return true;
   }
 }
 
@@ -250,6 +318,8 @@ export function createFieldRegistry(): Registry<FieldType> {
     .register(new BooleanField())
     .register(new DateField())
     .register(new UrlField())
+    .register(new EmailField())
+    .register(new PhoneField())
     .register(new SelectField())
     .register(new ReferenceField())
     .register(new ImageField())

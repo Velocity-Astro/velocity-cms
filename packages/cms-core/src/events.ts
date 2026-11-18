@@ -1,5 +1,6 @@
 import type { Actor } from './access.js';
-import type { ContentTypeDef, Entry, MediaFile } from './model.js';
+import type { Permission } from './access.js';
+import type { ContentTypeDef, Entry, FormDef, MediaFile, Submission } from './model.js';
 
 /** Everything the CMS announces, and what each announcement carries. */
 export interface CmsEvents {
@@ -17,6 +18,17 @@ export interface CmsEvents {
   'entry.restored': { entry: Entry; actor: Actor };
   /** The entry and its history are gone for good. `entry` is what it was. */
   'entry.deleted': { entry: Entry; actor: Actor };
+  'form.saved': { form: FormDef; actor: Actor };
+  /** The form went to the trash, came back from it, or is gone for good with its submissions. */
+  'form.trashed': { form: FormDef; actor: Actor };
+  'form.restored': { form: FormDef; actor: Actor };
+  'form.deleted': { form: FormDef; actor: Actor };
+  /** A visitor sent a form. Nobody is acting: the sender is not a user of the CMS. */
+  'submission.received': { submission: Submission; form: FormDef };
+  /** A submission was marked new, handled or spam. */
+  'submission.changed': { submission: Submission; actor: Actor };
+  /** Submissions are gone for good: deleted, erased for a person, or past the time they are kept. */
+  'submission.deleted': { formId: string; ids: readonly string[]; actor: Actor };
   'media.uploaded': { file: MediaFile; actor: Actor };
   'media.removed': { file: MediaFile; actor: Actor };
   /** A plugin was switched on or off, or its settings were saved. */
@@ -24,6 +36,15 @@ export interface CmsEvents {
   /** A plugin says the site's pages would now come out differently, so kept copies are stale. */
   'pages.changed': { plugin: string };
 }
+
+/**
+ * What a listener must be allowed before it is told of an event. Submissions are personal data,
+ * so a plugin hears of them only if it declared that it reads them.
+ */
+export const EVENT_NEEDS: Readonly<Partial<Record<keyof CmsEvents, Permission>>> = {
+  'submission.received': 'submission:read',
+  'submission.changed': 'submission:read',
+};
 
 type Listener<T> = (payload: T) => void | Promise<void>;
 

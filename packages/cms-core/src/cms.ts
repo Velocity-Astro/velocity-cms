@@ -5,10 +5,12 @@ import { createFieldRegistry } from './fields/index.js';
 import { PublishChecks } from './checks.js';
 import { PageHeads } from './pages.js';
 import { PluginHost } from './plugin.js';
-import type { Clock, EntryRepository, IdGenerator, PluginStore, SchemaRepository } from './ports.js';
-import { InMemoryPluginStore } from './testing/in-memory.js';
+import type { Clock, EntryRepository, FormRepository, IdGenerator, PluginStore, SchemaRepository, SubmissionRepository } from './ports.js';
+import { InMemoryFormRepository, InMemoryPluginStore, InMemorySubmissionRepository } from './testing/in-memory.js';
 import type { Registry } from './registry.js';
 import { ContentService } from './services/content-service.js';
+import { FormService } from './services/form-service.js';
+import { SubmissionService } from './services/submission-service.js';
 import { MediaService, type MediaServiceOptions } from './services/media-service.js';
 import { PreviewService, type PreviewServiceOptions } from './services/preview-service.js';
 import { SchemaService } from './services/schema-service.js';
@@ -22,6 +24,12 @@ export interface CmsOptions {
   readonly media?: MediaServiceOptions;
   /** The secret that signs preview links, and the language of the pages at a type's `urlPattern`. Without a secret there are no previews. */
   readonly previews?: PreviewServiceOptions;
+  /**
+   * Where forms and what visitors send through them are kept. Without them both are kept in
+   * memory and forgotten when the server stops, which only suits tests.
+   */
+  readonly forms?: FormRepository;
+  readonly submissions?: SubmissionRepository;
   readonly clock?: Clock;
   readonly ids?: IdGenerator;
   /**
@@ -38,6 +46,9 @@ export interface Cms {
   readonly schema: SchemaService;
   readonly content: ContentService;
   readonly media: MediaService;
+  /** The forms visitors fill in, and what they sent. */
+  readonly forms: FormService;
+  readonly submissions: SubmissionService;
   readonly previews: PreviewService;
   readonly fields: Registry<FieldType>;
   readonly events: EventBus;
@@ -66,7 +77,11 @@ export function createCms(options: CmsOptions): Cms {
   const pages = new PageHeads();
   const content = new ContentService(options.entries, schema, fields, access, events, clock, ids, checks);
   const media = new MediaService(access, events, clock, options.media);
+  const formStore = options.forms ?? new InMemoryFormRepository();
+  const submissionStore = options.submissions ?? new InMemorySubmissionRepository();
+  const forms = new FormService(formStore, submissionStore, fields, access, events, clock, ids);
+  const submissions = new SubmissionService(submissionStore, formStore, fields, access, events, clock, ids);
   const previews = new PreviewService(content, schema, clock, options.previews);
   const plugins = new PluginHost({ fields, events, checks, pages, store: options.pluginStore ?? new InMemoryPluginStore(), ids, schema, content, access, clock, ...(options.onPluginFault && { onFault: options.onPluginFault }) });
-  return { schema, content, media, previews, fields, events, access, plugins, pages };
+  return { schema, content, media, forms, submissions, previews, fields, events, access, plugins, pages };
 }

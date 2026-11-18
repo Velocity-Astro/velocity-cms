@@ -244,3 +244,83 @@ export interface MediaFile {
   /** The id of whoever uploaded it. */
   readonly createdBy: string;
 }
+
+/**
+ * A form visitors fill in on the site: its fields, what they see afterwards and who is told.
+ * Its fields are `FieldDef`s like a content type's, so they are built and checked the same way.
+ */
+export interface FormDef {
+  readonly id: string;
+  /** The name templates and the site's pages use, e.g. `contact`. Unique among forms not in the trash. */
+  readonly key: string;
+  readonly label: LocalizedText;
+  /** In the order a visitor meets them. A removed field is kept, marked, so old submissions still read. */
+  readonly fields: readonly FieldDef[];
+  /** The words on the button. Left out, the template's own. */
+  readonly submitLabel?: LocalizedText;
+  /** What a visitor is told once it is sent. Left out, the template's own. */
+  readonly success?: LocalizedText;
+  /** Who is emailed about each submission. */
+  readonly notify: readonly string[];
+  /** The ids of the fields that hold the sender's name, email and phone: what ties a submission to a person. */
+  readonly contact?: FormContactFields;
+  /** How many days a submission is kept. Left out, until someone deletes it. */
+  readonly retentionDays?: number;
+  /** False for a form that takes no submissions for now. */
+  readonly open: boolean;
+  /** Starts at 1 and goes up by one on every save. */
+  readonly revision: number;
+  readonly createdAt: Timestamp;
+  readonly updatedAt: Timestamp;
+  /** Set while the form is in the trash: it takes no submissions and its key is free. */
+  readonly deletedAt?: Timestamp;
+}
+
+export interface FormContactFields {
+  readonly name?: string;
+  readonly email?: string;
+  readonly phone?: string;
+}
+
+/** A form as the site reads it, to draw it: fields by key, removed ones left out. */
+export interface PublicForm {
+  readonly key: string;
+  readonly label: LocalizedText;
+  readonly fields: readonly PublicFormField[];
+  readonly submitLabel?: LocalizedText;
+  readonly success?: LocalizedText;
+}
+
+export interface PublicFormField {
+  readonly key: string;
+  readonly type: string;
+  readonly label: LocalizedText;
+  readonly help?: LocalizedText;
+  readonly required: boolean;
+  readonly options: Readonly<Record<string, unknown>>;
+}
+
+/** `spam` is a submission the checks suspected: kept apart, never dropped. */
+export type SubmissionStatus = 'new' | 'handled' | 'spam';
+
+/**
+ * What one visitor sent through a form. It is personal data about someone who is not a user of
+ * the CMS: it never reaches a page, the search index or a cache.
+ */
+export interface Submission {
+  readonly id: string;
+  readonly formId: string;
+  readonly status: SubmissionStatus;
+  /** The values by field id, checked against the form as it was when they arrived. */
+  readonly data: EntryData;
+  /** The sender's email in lower case, when the form marks a field as holding it. */
+  readonly email?: string;
+  /** The language of the page it was sent from. */
+  readonly locale?: string;
+  /** The path of the page it was sent from, e.g. `/contact/`. */
+  readonly page?: string;
+  readonly createdAt: Timestamp;
+  readonly handledAt?: Timestamp;
+  /** The id of whoever marked it handled. */
+  readonly handledBy?: string;
+}

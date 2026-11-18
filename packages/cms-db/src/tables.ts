@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import type { ContentTypeDef, EntryData, EntryStatus } from '@velocity/cms-core';
+import type { ContentTypeDef, EntryData, EntryStatus, FormDef, SubmissionStatus } from '@velocity/cms-core';
 
 /**
  * One row per content type. The definition is stored whole, as JSON: it is always read and
@@ -94,4 +94,42 @@ export const pluginData = sqliteTable(
     updatedAt: text('updated_at').notNull(),
   },
   (table) => [primaryKey({ columns: [table.plugin, table.key] })],
+);
+
+/**
+ * One row per form. The definition is stored whole, as JSON, like a content type's. `revision`
+ * and `deleted_at` are repeated beside it for the checks a save makes.
+ */
+export const forms = sqliteTable(
+  'forms',
+  {
+    id: text('id').primaryKey(),
+    key: text('key').notNull(),
+    revision: integer('revision').notNull(),
+    definition: text('definition', { mode: 'json' }).$type<FormDef>().notNull(),
+    deletedAt: text('deleted_at'),
+  },
+  // A form in the trash holds no key, so another form may take it.
+  (table) => [uniqueIndex('forms_key').on(table.key).where(sql`${table.deletedAt} is null`)],
+);
+
+/** What visitors sent through forms. Personal data: read only through the submission service. */
+export const formSubmissions = sqliteTable(
+  'form_submissions',
+  {
+    id: text('id').primaryKey(),
+    formId: text('form_id').notNull(),
+    status: text('status').$type<SubmissionStatus>().notNull(),
+    data: text('data', { mode: 'json' }).$type<EntryData>().notNull(),
+    email: text('email'),
+    locale: text('locale'),
+    page: text('page'),
+    createdAt: text('created_at').notNull(),
+    handledAt: text('handled_at'),
+    handledBy: text('handled_by'),
+  },
+  (table) => [
+    index('form_submissions_form_created').on(table.formId, table.createdAt),
+    index('form_submissions_email').on(table.email),
+  ],
 );

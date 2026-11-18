@@ -8,7 +8,7 @@ export {
   ValidationError,
   type ValidationIssue,
 } from './errors.js';
-export { EventBus, type CmsEvents } from './events.js';
+export { EVENT_NEEDS, EventBus, type CmsEvents } from './events.js';
 export { FieldType, type FieldContext, type ValidationMode } from './field-type.js';
 export {
   BlocksField,
@@ -24,6 +24,8 @@ export {
   LinkField,
   TextField,
   UrlField,
+  EmailField,
+  PhoneField,
   createFieldRegistry,
   defineBlock,
   type AddressLink,
@@ -63,6 +65,12 @@ export {
   type ListSummary,
   type LocalizedText,
   type MediaFile,
+  type FormDef,
+  type FormContactFields,
+  type PublicForm,
+  type PublicFormField,
+  type Submission,
+  type SubmissionStatus,
   type Page,
   type PublicBlock,
   type PublicEntry,
@@ -82,6 +90,9 @@ export type {
   PluginStore,
   SaveOptions,
   SchemaRepository,
+  FormRepository,
+  SubmissionQuery,
+  SubmissionRepository,
   SearchDocument,
   SearchHit,
   SearchIndex,
@@ -131,3 +142,5 @@ export {
 } from './services/media-service.js';
 export { SchemaService, type ContentTypeChanges, type FieldArrangement, type FieldChanges, type FieldPlace, type NewContentType, type NewSection } from './services/schema-service.js';
 export type { NewField } from './define-fields.js';
+export { FormService, MAX_FORM_FIELDS, MAX_RETENTION_DAYS, type FormChanges, type FormContactKeys, type NewForm } from './services/form-service.js';
+export { SubmissionService, MAX_ANSWER_LENGTH, type SubmissionSource } from './services/submission-service.js';

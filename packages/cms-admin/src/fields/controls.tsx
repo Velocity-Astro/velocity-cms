@@ -32,20 +32,26 @@ function TextControl({ field, label, help, isLabelHidden = false, value, onChang
   return field.options['multiline'] === true ? <TextArea {...shared} /> : <TextField {...shared} />;
 }
 
-function UrlControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {
-  return (
-    <TextField
-      type="url"
-      label={label}
-      isLabelHidden={isLabelHidden}
-      value={typeof value === 'string' ? value : ''}
-      onChange={(next) => onChange(next === '' ? undefined : next)}
-      isRequired={field.required}
-      {...(help !== undefined && { description: help })}
-      {...(problem !== undefined && { errorMessage: problem })}
-    />
-  );
-}
+/** A control for one line of a kind the browser knows: an address, an email, a phone number. */
+const typedControl = (type: 'url' | 'email' | 'tel') =>
+  function TypedControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {
+    return (
+      <TextField
+        type={type}
+        label={label}
+        isLabelHidden={isLabelHidden}
+        value={typeof value === 'string' ? value : ''}
+        onChange={(next) => onChange(next === '' ? undefined : next)}
+        isRequired={field.required}
+        {...(help !== undefined && { description: help })}
+        {...(problem !== undefined && { errorMessage: problem })}
+      />
+    );
+  };
+
+const UrlControl = typedControl('url');
+const EmailControl = typedControl('email');
+const PhoneControl = typedControl('tel');
 
 function NumberControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {
   const min = numberOption(field, 'min');
@@ -424,6 +430,8 @@ export function createFieldControls(): FieldControls {
   return createFieldControlRegistry()
     .register({ type: 'text-input', Component: TextControl })
     .register({ type: 'url-input', Component: UrlControl })
+    .register({ type: 'email-input', Component: EmailControl })
+    .register({ type: 'phone-input', Component: PhoneControl })
     .register({ type: 'number-input', Component: NumberControl, width: 'compact', Summary: NumberSummary, summaryAlign: 'end' })
     .register({ type: 'date-picker', Component: DateControl, width: 'compact' })
     .register({ type: 'switch', Component: SwitchControl })

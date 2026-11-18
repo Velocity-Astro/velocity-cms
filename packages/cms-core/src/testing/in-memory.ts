@@ -1,9 +1,12 @@
 import { ConflictError } from '../errors.js';
-import type { ContentTypeDef, Entry, MediaFile, Page, Revision, SiteImage } from '../model.js';
+import type { ContentTypeDef, Entry, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus } from '../model.js';
 import type {
   Clock,
   EntryQuery,
   EntryRepository,
+  FormRepository,
+  SubmissionQuery,
+  SubmissionRepository,
   IdGenerator,
   ImageLibrary,
   MediaRepository,
@@ -82,6 +85,84 @@ export class InMemoryEntryRepository implements EntryRepository {
   async remove(id: string): Promise<void> {
     this.#entries.delete(id);
     this.#history.delete(id);
+  }
+}
+
+export class InMemoryFormRepository implements FormRepository {
+  readonly #forms = new Map<string, FormDef>();
+
+  async get(id: string): Promise<FormDef | null> {
+    return this.#forms.get(id) ?? null;
+  }
+
+  async getByKey(key: string): Promise<FormDef | null> {
+    return [...this.#forms.values()].find((form) => form.key === key && form.deletedAt === undefined) ?? null;
+  }
+
+  async list(options: { readonly trashed?: boolean } = {}): Promise<FormDef[]> {
+    return [...this.#forms.values()]
+      .filter((form) => (form.deletedAt !== undefined) === (options.trashed === true))
+      .sort((a, b) => a.key.localeCompare(b.key) || a.id.localeCompare(b.id));
+  }
+
+  async save(form: FormDef, expectedRevision: number | null): Promise<FormDef> {
+    if ((this.#forms.get(form.id)?.revision ?? null) !== expectedRevision) {
+      throw new ConflictError(`Form "${form.id}" changed since it was read.`);
+    }
+    const other = form.deletedAt === undefined ? await this.getByKey(form.key) : null;
+    if (other && other.id !== form.id) throw new ConflictError(`Another form already uses the key "${form.key}".`);
+    this.#forms.set(form.id, form);
+    return form;
+  }
+
+  async remove(id: string): Promise<void> {
+    this.#forms.delete(id);
+  }
+}
+
+export class InMemorySubmissionRepository implements SubmissionRepository {
+  readonly #submissions = new Map<string, Submission>();
+
+  async get(id: string): Promise<Submission | null> {
+    return this.#submissions.get(id) ?? null;
+  }
+
+  async find(query: SubmissionQuery = {}): Promise<Page<Submission>> {
+    const matches = [...this.#submissions.values()]
+      .filter(
+        (submission) =>
+          (query.formId === undefined || submission.formId === query.formId) &&
+          (query.status === undefined || submission.status === query.status) &&
+          (query.email === undefined || submission.email === query.email) &&
+          (query.before === undefined || submission.createdAt < query.before),
+      )
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
+    const offset = query.offset ?? 0;
+    return { items: matches.slice(offset, offset + (query.limit ?? 50)), total: matches.length };
+  }
+
+  async counts(formId: string): Promise<Readonly<Record<SubmissionStatus, number>>> {
+    const counts = { new: 0, handled: 0, spam: 0 };
+    for (const submission of this.#submissions.values()) if (submission.formId === formId) counts[submission.status] += 1;
+    return counts;
+  }
+
+  async add(submission: Submission): Promise<Submission> {
+    if (this.#submissions.has(submission.id)) throw new ConflictError(`Submission "${submission.id}" already exists.`);
+    this.#submissions.set(submission.id, submission);
+    return submission;
+  }
+
+  async update(submission: Submission): Promise<void> {
+    if (this.#submissions.has(submission.id)) this.#submissions.set(submission.id, submission);
+  }
+
+  async remove(ids: readonly string[]): Promise<void> {
+    for (const id of ids) this.#submissions.delete(id);
+  }
+
+  async removeOfForm(formId: string): Promise<void> {
+    for (const submission of [...this.#submissions.values()]) if (submission.formId === formId) this.#submissions.delete(submission.id);
   }
 }
 

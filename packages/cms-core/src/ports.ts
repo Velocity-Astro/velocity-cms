@@ -2,7 +2,7 @@
  * What the core needs from the outside world. The core ships no implementation of these:
  * an adapter package implements each one and proves it with the contract tests in `./testing`.
  */
-import type { ContentTypeDef, Entry, EntryStatus, MediaFile, Page, Revision, SiteImage, Timestamp } from './model.js';
+import type { ContentTypeDef, Entry, EntryStatus, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus, Timestamp } from './model.js';
 
 export interface EntryQuery {
   readonly typeId?: string;
@@ -57,6 +57,50 @@ export interface SchemaRepository {
   list(): Promise<ContentTypeDef[]>;
   /** Creates or replaces. Refuses, with a `ConflictError`, a key another type already uses. */
   save(type: ContentTypeDef): Promise<ContentTypeDef>;
+}
+
+export interface FormRepository {
+  get(id: string): Promise<FormDef | null>;
+  /** The form with this key that is not in the trash. */
+  getByKey(key: string): Promise<FormDef | null>;
+  /** Forms ordered by key: those outside the trash, or with `trashed` only those in it. */
+  list(options?: { readonly trashed?: boolean }): Promise<FormDef[]>;
+  /**
+   * Creates or replaces. `expectedRevision` is the revision the caller last saw, or `null` for a
+   * new form: a form that has moved on is refused with a `ConflictError`, and so is a key another
+   * form outside the trash already uses. A form in the trash holds no key.
+   */
+  save(form: FormDef, expectedRevision: number | null): Promise<FormDef>;
+  /** Removes the form for good. Its submissions are the caller's to remove. An id nothing has is ignored. */
+  remove(id: string): Promise<void>;
+}
+
+export interface SubmissionQuery {
+  readonly formId?: string;
+  readonly status?: SubmissionStatus;
+  /** The sender's email, in lower case. */
+  readonly email?: string;
+  /** Only submissions that arrived before this time. */
+  readonly before?: Timestamp;
+  /** Defaults to 50. */
+  readonly limit?: number;
+  readonly offset?: number;
+}
+
+export interface SubmissionRepository {
+  get(id: string): Promise<Submission | null>;
+  /** Newest first, then by id, so paging never skips or repeats one. */
+  find(query?: SubmissionQuery): Promise<Page<Submission>>;
+  /** How many of a form's submissions have each status. */
+  counts(formId: string): Promise<Readonly<Record<SubmissionStatus, number>>>;
+  /** Adds a submission. Refuses, with a `ConflictError`, an id another already has. */
+  add(submission: Submission): Promise<Submission>;
+  /** Replaces a submission that exists. One that does not is ignored. */
+  update(submission: Submission): Promise<void>;
+  /** Removes submissions for good. Ids nothing has are ignored. */
+  remove(ids: readonly string[]): Promise<void>;
+  /** Removes every submission of a form for good. */
+  removeOfForm(formId: string): Promise<void>;
 }
 
 /** The current time. Passed in so tests can fix it. */
