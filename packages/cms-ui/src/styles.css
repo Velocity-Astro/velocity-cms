@@ -117,6 +117,152 @@
   transition-duration: var(--motion-base);
   transition-timing-function: var(--motion-ease);
 }
+/*
+ * How things arrive and leave. React Aria marks a part `data-entering` while it opens and
+ * `data-exiting` while it closes, and waits for the animation before taking it away. Leaving is
+ * quicker than arriving: the person has already moved on.
+ */
+@keyframes motion-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes motion-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes motion-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem) scale(0.96);
+  }
+}
+@keyframes motion-pop-out {
+  to {
+    opacity: 0;
+    transform: translateY(0.25rem) scale(0.98);
+  }
+}
+@keyframes motion-sheet-in {
+  from {
+    transform: translateX(100%);
+  }
+}
+@keyframes motion-sheet-out {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes motion-float-in {
+  from {
+    opacity: 0;
+    transform: translate(var(--float-x, 0), var(--float-y, 0)) scale(0.97);
+  }
+}
+@keyframes motion-float-out {
+  to {
+    opacity: 0;
+    transform: translate(var(--float-x, 0), var(--float-y, 0)) scale(0.97);
+  }
+}
+@keyframes motion-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.25rem);
+  }
+}
+
+/*
+ * The veil behind a dialog. Its colour fades, not the veil itself, which would fade the window
+ * inside it too. It leaves over the same time as the slowest window in front of it.
+ */
+@keyframes motion-scrim-in {
+  from {
+    background-color: transparent;
+  }
+}
+@keyframes motion-scrim-out {
+  to {
+    background-color: transparent;
+  }
+}
+@utility motion-scrim {
+  &[data-entering] {
+    animation: motion-scrim-in var(--motion-slow) var(--motion-ease);
+  }
+  &[data-exiting] {
+    animation: motion-scrim-out var(--motion-slow) var(--motion-ease-exit) forwards;
+  }
+}
+/* A window in the middle of the page: it grows a little into place. */
+@utility motion-pop {
+  &[data-entering] {
+    animation: motion-pop-in var(--motion-slow) var(--motion-ease-enter);
+  }
+  &[data-exiting] {
+    animation: motion-pop-out var(--motion-base) var(--motion-ease-exit)
+      forwards;
+  }
+}
+/* A panel at the side of the page: it slides in from the edge it sits on. */
+@utility motion-sheet {
+  &[data-entering] {
+    animation: motion-sheet-in var(--motion-slower) var(--motion-ease-enter);
+  }
+  &[data-exiting] {
+    animation: motion-sheet-out var(--motion-slow) var(--motion-ease-exit)
+      forwards;
+  }
+}
+/* A list, menu or tooltip beside what opened it: it comes from that side. */
+@utility motion-float {
+  &[data-placement^="bottom"] {
+    --float-y: -0.25rem;
+    transform-origin: top;
+  }
+  &[data-placement^="top"] {
+    --float-y: 0.25rem;
+    transform-origin: bottom;
+  }
+  &[data-placement^="left"] {
+    --float-x: 0.25rem;
+    transform-origin: right;
+  }
+  &[data-placement^="right"] {
+    --float-x: -0.25rem;
+    transform-origin: left;
+  }
+  &[data-entering] {
+    animation: motion-float-in var(--motion-base) var(--motion-ease-enter);
+  }
+  &[data-exiting] {
+    animation: motion-float-out var(--motion-fast) var(--motion-ease-exit)
+      forwards;
+  }
+}
+/* Something that appears in the page, such as a message that there is nothing here yet. */
+@utility motion-rise {
+  animation: motion-rise-in var(--motion-slow) var(--motion-ease-enter);
+}
+/* A control that gives a little under a press. */
+@utility motion-press {
+  transition-property:
+    color, background-color, border-color, opacity, box-shadow, transform;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-ease);
+  &[data-pressed] {
+    transform: scale(0.97);
+  }
+}
+
+/* Going from one screen to the next: the old one fades as the new one comes in. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--motion-base);
+  animation-timing-function: var(--motion-ease);
+}
+
 @utility layer-raised {
   z-index: var(--layer-raised);
 }

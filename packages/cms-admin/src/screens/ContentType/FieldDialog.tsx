@@ -8,6 +8,7 @@ import { NO_SECTION, placeOf, placed } from '../../lib/arrangement.js';
 import { localized } from '../../lib/content.js';
 import { fieldKeyFrom } from '../../lib/keys.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
+import { useClosing } from '../../lib/use-closing.js';
 
 const NO_PROBLEMS: Readonly<Record<string, string>> = {};
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -23,6 +24,7 @@ export interface FieldDialogProps {
 
 /** The panel a field is added or changed in: what it is called, its kind, its rules and its settings. */
 export function FieldDialog({ type, field, within, onClose }: FieldDialogProps) {
+  const { close, dialog } = useClosing(onClose);
   const messages = useMessages();
   const locale = useLocale();
   const language = locale.split('-')[0] ?? locale;
@@ -87,7 +89,7 @@ export function FieldDialog({ type, field, within, onClose }: FieldDialogProps) 
         {
           onSuccess: () => {
             toast({ title: messages.builder.fieldAdded(name.trim()), tone: 'success' });
-            onClose();
+            close();
           },
           onError: refused(messages.builder.fieldNotAdded),
         },
@@ -112,7 +114,7 @@ export function FieldDialog({ type, field, within, onClose }: FieldDialogProps) 
       {
         onSuccess: () => {
           toast({ title: messages.builder.fieldSaved(name.trim()), tone: 'success' });
-          onClose();
+          close();
         },
         onError: refused(messages.builder.fieldNotSaved),
       },
@@ -122,14 +124,13 @@ export function FieldDialog({ type, field, within, onClose }: FieldDialogProps) 
   const title = field ? messages.builder.editFieldTitle(localized(field.label, locale)) : messages.builder.addFieldTitle;
   return (
     <Dialog
-      isOpen
+      {...dialog}
       placement="side"
-      onOpenChange={(isOpen) => !isOpen && onClose()}
       title={title}
       closeLabel={messages.app.dismiss}
       footer={
         <>
-          <Button variant="secondary" onPress={onClose}>
+          <Button variant="secondary" onPress={close}>
             {messages.editor.cancel}
           </Button>
           <Button isPending={isPending} onPress={send}>

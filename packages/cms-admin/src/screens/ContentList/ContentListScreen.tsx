@@ -16,7 +16,8 @@ import {
 } from '@velocity/cms-ui';
 import { FileQuestion, Inbox, Plus, SearchX } from 'lucide-react';
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useParams } from 'react-router';
+import { useGo } from '../../app/use-go.js';
 import { paths } from '../../app/paths.js';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { useContentTypes, useEntries, useImages } from '../../client/queries.js';
@@ -49,7 +50,7 @@ const PAGE = 200;
 export function ContentListScreen() {
   const messages = useMessages();
   const locale = useLocale();
-  const navigate = useNavigate();
+  const go = useGo();
   const { typeKey = '' } = useParams();
   const types = useContentTypes();
   const entries = useEntries({ type: typeKey, limit: PAGE });
@@ -138,7 +139,7 @@ export function ContentListScreen() {
   });
 
   const newEntry = (
-    <Button icon={Plus} onPress={() => void navigate(paths.newEntry(type.key))}>
+    <Button icon={Plus} onPress={() => go(paths.newEntry(type.key))}>
       {messages.contentList.newEntry}
     </Button>
   );
@@ -179,7 +180,7 @@ export function ContentListScreen() {
             {rows.length === 0 ? (
               <EmptyState icon={SearchX} title={messages.contentList.noMatchesTitle} description={messages.contentList.noMatchesDescription} />
             ) : (
-              <Table label={name} columns={columns} rows={rows} onRowAction={(id) => void navigate(paths.entry(type.key, id))} />
+              <Table label={name} columns={columns} rows={rows} onRowAction={(id) => go(paths.entry(type.key, id))} />
             )}
           </>
         )}

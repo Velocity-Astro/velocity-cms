@@ -1,6 +1,6 @@
 import { cva, type VariantProps } from 'class-variance-authority';
 
-export const dialogOverlayVariants = cva('fixed inset-0 layer-overlay flex bg-scrim', {
+export const dialogOverlayVariants = cva('fixed inset-0 layer-overlay flex bg-scrim motion-scrim', {
   variants: {
     placement: {
       center: 'items-center justify-center p-4',
@@ -14,8 +14,8 @@ export const dialogOverlayVariants = cva('fixed inset-0 layer-overlay flex bg-sc
 export const dialogVariants = cva('flex w-full flex-col overflow-hidden border-border bg-background-elevated shadow-xl outline-none', {
   variants: {
     placement: {
-      center: 'max-h-full rounded-lg border',
-      side: 'h-full border-l',
+      center: 'max-h-full rounded-lg border motion-pop',
+      side: 'h-full border-l motion-sheet',
     },
     size: {
       sm: 'max-w-sm',

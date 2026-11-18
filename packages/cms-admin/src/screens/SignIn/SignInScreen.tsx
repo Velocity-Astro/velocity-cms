@@ -1,7 +1,8 @@
 import { AuthShell, Button, Form, Inline, Logo, Stack, Text, TextField, toast } from '@velocity/cms-ui';
 import { KeyRound } from 'lucide-react';
 import { useState } from 'react';
-import { Navigate, useNavigate, useSearchParams } from 'react-router';
+import { Navigate, useSearchParams } from 'react-router';
+import { useGo } from '../../app/use-go.js';
 import { paths } from '../../app/paths.js';
 import { useRequestSignInLink, useSession, useSignInWithPasskey } from '../../client/queries.js';
 import { useMessages } from '../../messages/messages-context.js';
@@ -19,7 +20,7 @@ const LINK_FAILED = 'link';
 /** Sign in with a passkey, or ask for a sign-in link by email. */
 export function SignInScreen({ siteName }: SignInScreenProps) {
   const messages = useMessages();
-  const navigate = useNavigate();
+  const go = useGo();
   const session = useSession();
   const sendLink = useRequestSignInLink();
   const passkey = useSignInWithPasskey();
@@ -87,7 +88,7 @@ export function SignInScreen({ siteName }: SignInScreenProps) {
           onPress={() =>
             passkey.mutate(undefined, {
               onSuccess: (user) => {
-                void navigate(paths.home);
+                go(paths.home);
                 toast({ title: messages.signIn.signedIn(user.name), tone: 'success' });
               },
             })

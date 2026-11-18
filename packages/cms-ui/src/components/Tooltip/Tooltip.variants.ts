@@ -1,4 +1,4 @@
-export const tooltipClass = 'layer-toast rounded-md bg-foreground px-2 py-1 text-xs font-medium text-background shadow-md';
+export const tooltipClass = 'layer-toast motion-float rounded-md bg-foreground px-2 py-1 text-xs font-medium text-background shadow-md';
 
 /** How long the pointer rests on the control before the tooltip shows, in milliseconds. */
 export const tooltipDelay = 500;
