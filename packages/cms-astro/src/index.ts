@@ -22,12 +22,14 @@ export { pageHead, type DrawnPage } from './page-head.js';
 export { entryPage, entryPageAddresses, type EntryPage, type EntryPageOptions } from './entry-page.js';
 export { linkTo, type LinkTarget } from './link.js';
 export {
+  FORM_ABOUT_FIELD,
   FORM_LOCALE_FIELD,
   FORM_PAGE_FIELD,
   FORM_TOKEN_FIELD,
   FORM_TRAP_FIELD,
   FormPosts,
   MemoryRateLimiter,
+  aboutMark,
   englishFormPostWords,
   type FormPostWords,
   type FormPostsOptions,
@@ -35,7 +37,7 @@ export {
   type RateLimiter,
   type SubmissionNotice,
 } from './form-post.js';
-export { FORM_SCRIPT, siteForm, siteFormPosts, type FormChoice, type SiteForm } from './site-forms.js';
+export { FORM_SCRIPT, siteForm, siteFormPosts, type FormChoice, type SiteForm, type SiteFormOptions } from './site-forms.js';
 export { menuLinks, type MenuColumn, type MenuLink, type MenuOptions } from './menu.js';
 export type { PageHead } from '@velocity/cms-core';
 export { cmsLoader, type CmsLoaderOptions } from './loader.js';

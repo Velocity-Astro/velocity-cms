@@ -35,6 +35,7 @@ export function FormSettingsDialog({ form, onClose }: FormSettingsDialogProps) {
   const [success, setSuccess] = useState(form.success ? localized(form.success, locale) : '');
   const [submitLabel, setSubmitLabel] = useState(form.submitLabel ? localized(form.submitLabel, locale) : '');
   const [days, setDays] = useState<number | null>(form.retentionDays ?? null);
+  const [startsDeal, setStartsDeal] = useState(form.startsDeal === true);
   const [problems, setProblems] = useState(NO_PROBLEMS);
 
   // Each mark is offered the fields of the kind that can hold it.
@@ -59,6 +60,7 @@ export function FormSettingsDialog({ form, onClose }: FormSettingsDialogProps) {
           success: words(success, form.success),
           submitLabel: words(submitLabel, form.submitLabel),
           retentionDays: days,
+          startsDeal,
           expectedRevision: form.revision,
         },
       },
@@ -105,6 +107,10 @@ export function FormSettingsDialog({ form, onClose }: FormSettingsDialogProps) {
         <Select label={messages.forms.senderEmail} description={messages.forms.senderHelp} options={choices('email')} value={senderEmail} onChange={setSenderEmail} />
         <Select label={messages.forms.senderName} options={choices('text')} value={senderName} onChange={setSenderName} />
         <Select label={messages.forms.senderPhone} options={choices('phone')} value={senderPhone} onChange={setSenderPhone} />
+        <Switch label={messages.forms.startsDeal} isSelected={startsDeal} onChange={setStartsDeal} />
+        <Text size="sm" tone="muted">
+          {messages.forms.startsDealHelp}
+        </Text>
         <TextField label={messages.forms.success} description={messages.forms.successHelp} value={success} onChange={setSuccess} autoComplete="off" />
         <TextField label={messages.forms.submitLabel} description={messages.forms.submitLabelHelp} value={submitLabel} onChange={setSubmitLabel} autoComplete="off" />
         <NumberField

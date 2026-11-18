@@ -321,6 +321,45 @@ describe('deals', () => {
     expect(heard).toEqual(['deal.saved', 'deal.saved', 'deal.saved', 'deal.deleted']);
   });
 
+  it('are started by a form sent from the page of an entry deals can be about, once for each person', async () => {
+    const listings = await cms.schema.create(owner, { key: 'listings', kind: 'collection', label: { en: 'Listings' }, fields: [{ key: 'address', type: 'text', label: { en: 'Address' } }], titleField: 'address', forDeals: true });
+    const address = listings.fields[0]?.id ?? '';
+    const alder = await cms.content.create(editor, { typeId: listings.id, locale: 'en', slug: 'alder', data: { [address]: '18 Alder Court' } });
+    const about = { typeId: listings.id, entry: alder.translationGroup };
+    const ask = await cms.forms.create(editor, { key: 'ask', label: { en: 'Ask about this home' }, fields: [{ key: 'email', type: 'email', label: { en: 'Email' } }], contact: { email: 'email' }, startsDeal: true });
+    const plainForm = await cms.forms.create(editor, { key: 'plain', label: { en: 'Contact' }, fields: [{ key: 'email', type: 'email', label: { en: 'Email' } }], contact: { email: 'email' } });
+    expect(ask.startsDeal).toBe(true);
+    expect(plainForm.startsDeal).toBeUndefined();
+    heard = [];
+
+    const sent = await cms.submissions.submit('ask', { email: 'ana@example.com' }, { page: '/listings/alder/', about });
+    expect(sent.about).toEqual(about);
+    const ana = (await cms.contacts.find(editor, { search: 'ana@example.com' })).items[0];
+    const [deal] = (await cms.deals.find(editor, { about })).items;
+    expect(deal).toMatchObject({ contactId: ana?.id, title: '18 Alder Court', value: 0, stage: 'new', about });
+    expect(heard).toEqual(['deal.saved']);
+
+    // Asking again about the same home adds nothing while the deal is open; once it is lost, a new one starts.
+    await cms.submissions.submit('ask', { email: 'ana@example.com' }, { about });
+    expect((await cms.deals.find(editor, { about })).total).toBe(1);
+    await cms.deals.update(editor, deal?.id ?? '', { stage: 'lost', expectedRevision: 1 });
+    await cms.submissions.submit('ask', { email: 'ana@example.com' }, { about });
+    expect((await cms.deals.find(editor, { about })).total).toBe(2);
+
+    // Nothing starts from a form that does not ask for it, from spam, from a page that is no entry's, or for a kind deals are not about.
+    await cms.submissions.submit('plain', { email: 'ben@example.com' }, { about });
+    await cms.submissions.submit('ask', { email: 'cy@example.com' }, { about, suspected: true });
+    await cms.submissions.submit('ask', { email: 'di@example.com' }, { page: '/contact/' });
+    await cms.submissions.submit('ask', { email: 'ed@example.com' }, { about: { typeId: listings.id, entry: 'nothing' } });
+    await cms.schema.update(owner, listings.id, { forDeals: false });
+    await cms.submissions.submit('ask', { email: 'flo@example.com' }, { about });
+    expect((await cms.deals.find(editor, {})).total).toBe(2);
+
+    // A setting that is not mentioned stays, and it can be switched off.
+    expect((await cms.forms.update(editor, ask.id, { label: { en: 'Ask' }, expectedRevision: 1 })).startsDeal).toBe(true);
+    expect((await cms.forms.update(editor, ask.id, { startsDeal: false, expectedRevision: 2 })).startsDeal).toBeUndefined();
+  });
+
   it('can be about an entry of a content type that takes deals, and are found by it', async () => {
     const listings = await cms.schema.create(owner, { key: 'listings', kind: 'collection', label: { en: 'Listings' } });
     const alder = await cms.content.create(editor, { typeId: listings.id, locale: 'en', slug: 'alder', data: {} });

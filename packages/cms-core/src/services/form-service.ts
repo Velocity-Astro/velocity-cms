@@ -24,6 +24,8 @@ export interface NewForm {
   readonly notify?: readonly string[];
   readonly contact?: FormContactKeys;
   readonly retentionDays?: number;
+  /** True when a submission sent from an entry's own page starts a deal about that entry. */
+  readonly startsDeal?: boolean;
   /** Defaults to true. */
   readonly open?: boolean;
 }
@@ -44,6 +46,8 @@ export interface FormChanges {
   readonly contact?: FormContactKeys;
   /** `null` keeps submissions until someone deletes them. */
   readonly retentionDays?: number | null;
+  /** Whether a submission sent from an entry's own page starts a deal about that entry. */
+  readonly startsDeal?: boolean;
   readonly open?: boolean;
   /** The revision the editor loaded. The update is refused if someone saved in between. */
   readonly expectedRevision: number;
@@ -135,6 +139,7 @@ export class FormService {
       notify: addresses(input.notify ?? []),
       ...this.contact(input.contact, fields),
       ...(input.retentionDays !== undefined && { retentionDays: days(input.retentionDays) }),
+      ...(input.startsDeal === true && { startsDeal: true as const }),
       open: input.open ?? true,
       revision: 1,
       createdAt: now,
@@ -154,7 +159,7 @@ export class FormService {
     if (change.key !== undefined) requireKey(change.key, 'form');
     const fields = change.fields === undefined ? current.fields : this.described(change.fields, current.fields);
     // The marks are kept by field id, so they follow a field through a new key and go with one that is removed.
-    const { contact: marked, submitLabel, success, retentionDays, ...rest } = current;
+    const { contact: marked, submitLabel, success, retentionDays, startsDeal, ...rest } = current;
     const contact =
       change.contact !== undefined
         ? this.contact(change.contact, fields)
@@ -175,6 +180,7 @@ export class FormService {
         notify: change.notify === undefined ? current.notify : addresses(change.notify),
         ...contact,
         ...(nextDays !== undefined && { retentionDays: nextDays }),
+        ...((change.startsDeal ?? startsDeal === true) && { startsDeal: true as const }),
         open: change.open ?? current.open,
         revision: current.revision + 1,
         updatedAt: this.clock.now(),

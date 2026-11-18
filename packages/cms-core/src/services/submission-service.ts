@@ -2,7 +2,7 @@ import type { AccessControl, Actor } from '../access.js';
 import { NotFoundError, ValidationError, type ValidationIssue } from '../errors.js';
 import type { EventBus } from '../events.js';
 import type { FieldType } from '../field-type.js';
-import { liveFields, type Contact, type FormDef, type Page, type Submission, type SubmissionStatus } from '../model.js';
+import { liveFields, type Contact, type DealSubject, type FormDef, type Page, type Submission, type SubmissionStatus } from '../model.js';
 import type { Clock, FormRepository, IdGenerator, SubmissionQuery, SubmissionRepository } from '../ports.js';
 import type { Registry } from '../registry.js';
 import { buildFieldsSchema } from '../schema-builder.js';
@@ -14,12 +14,22 @@ export interface SubmissionSource {
   readonly locale?: string;
   /** True when the checks on the way in suspected it. It is kept, apart from the rest. */
   readonly suspected?: boolean;
+  /**
+   * The entry whose own page the form was on, as the server worked it out from the page's
+   * address. Never taken from what the visitor sent.
+   */
+  readonly about?: DealSubject;
 }
 
 /** What the submission service asks of whoever keeps contacts, so each sender becomes one. */
 export interface SenderBook {
   noted(form: FormDef, submission: Submission): Promise<Contact | null>;
   forgotten(actor: Actor, email: string): Promise<void>;
+}
+
+/** What the submission service asks of whoever keeps deals, so an enquiry about an entry becomes one. */
+export interface DealStarter {
+  started(form: FormDef, submission: Submission, contact: Contact): Promise<unknown>;
 }
 
 /** The longest one answer may be, whatever its field allows. */
@@ -41,6 +51,7 @@ export class SubmissionService {
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
     private readonly senders?: SenderBook,
+    private readonly deals?: DealStarter,
   ) {}
 
   /**
@@ -96,6 +107,7 @@ export class SubmissionService {
       ...(typeof email === 'string' && { email: email.toLowerCase() }),
       ...(source.locale !== undefined && LOCALE.test(source.locale) && { locale: source.locale }),
       ...(isOwnPath(source.page) && { page: source.page }),
+      ...(source.about !== undefined && { about: { typeId: source.about.typeId, entry: source.about.entry } }),
       createdAt: this.clock.now(),
     };
     const stored = await this.submissions.add(submission);
@@ -195,7 +207,8 @@ export class SubmissionService {
   /** The sender becomes a contact. A contact that cannot be made never loses the submission: `contacts.catchUp` makes it later. */
   private async note(form: FormDef, submission: Submission): Promise<void> {
     try {
-      await this.senders?.noted(form, submission);
+      const contact = await this.senders?.noted(form, submission);
+      if (contact) await this.deals?.started(form, submission, contact);
     } catch {
       // The submission is stored, and that is what the visitor was promised.
     }

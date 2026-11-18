@@ -37,6 +37,8 @@ const listings = {
   kind: 'collection',
   label: { en: 'Listings', es: 'Propiedades' },
   titleField: 'address.street',
+  // A question asked on a listing's page starts a deal about the listing.
+  forDeals: true,
   listImage: 'photos',
   listFields: ['price', 'status'],
   fields: [
@@ -425,6 +427,22 @@ export const sampleForms = [
     submitLabel: en('Send message'),
     success: en('Thanks. We will get back to you within one business day.'),
     contact: { name: 'name', email: 'email', phone: 'phone' },
+    retentionDays: 365,
+  },
+  // Drawn on every listing's page, which says which listing it is on.
+  {
+    key: 'ask',
+    label: en('Ask about this home'),
+    fields: [
+      text('name', 'Your name', { required: true, options: { maxLength: 80 } }),
+      field('email')('email', 'Email', { required: true }),
+      field('phone')('phone', 'Phone'),
+      text('message', 'Message', { required: true, options: { multiline: true, maxLength: 3000 } }),
+    ],
+    submitLabel: en('Send question'),
+    success: en('Thanks. The listing agent will get back to you soon.'),
+    contact: { name: 'name', email: 'email', phone: 'phone' },
+    startsDeal: true,
     retentionDays: 365,
   },
 ];

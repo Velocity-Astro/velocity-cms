@@ -1,7 +1,7 @@
 import { createCms, type Actor, type Cms } from '@velocity/cms-core';
 import { FakeClock, InMemoryEntryRepository, InMemorySchemaRepository, SequentialIds } from '@velocity/cms-core/testing';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { FORM_LOCALE_FIELD, FORM_PAGE_FIELD, FORM_TOKEN_FIELD, FORM_TRAP_FIELD, FormPosts, MAX_FORM_POST_BYTES, MemoryRateLimiter, type FormPostsOptions, type SubmissionNotice } from './form-post.js';
+import { FORM_ABOUT_FIELD, FORM_LOCALE_FIELD, FORM_PAGE_FIELD, FORM_TOKEN_FIELD, FORM_TRAP_FIELD, FormPosts, MAX_FORM_POST_BYTES, MemoryRateLimiter, aboutMark, type FormPostsOptions, type SubmissionNotice } from './form-post.js';
 import { ResendMailer } from './resend-mailer.js';
 
 const owner: Actor = { kind: 'user', id: 'maya', role: 'owner' };
@@ -209,6 +209,39 @@ describe('what keeps a form from being abused', () => {
     const [submission] = await kept();
     expect(submission?.page).toBeUndefined();
     expect(sent[0]?.page).toBeUndefined();
+  });
+
+  it('keeps which entry the page belongs to as the server finds it, never as the post says', async () => {
+    const about = { typeId: 'listings', entry: 'alder' };
+    const asked: string[] = [];
+    const taker = posts({
+      entryAt: async (path) => {
+        asked.push(path);
+        if (path === '/broken/') throw new Error('no database');
+        return path === '/listings/alder/' ? about : undefined;
+      },
+    });
+    await taker.handle(plain(await filled(taker, answers, { [FORM_PAGE_FIELD]: '/listings/alder/', about: 'something else' })), 'contact');
+    await taker.handle(plain(await filled(taker, answers, { [FORM_PAGE_FIELD]: '/broken/' })), 'contact');
+    await taker.handle(plain(await filled(taker)), 'contact');
+    expect(asked).toEqual(['/listings/alder/', '/broken/', '/contact/']);
+    // Newest first: the page of no entry, the one that could not be looked up, then the listing's.
+    expect((await kept()).map((submission) => submission.about)).toEqual([undefined, undefined, about]);
+  });
+
+  it('takes the entry a page names only with a mark this site signed for this form', async () => {
+    const about = { typeId: 'listings', entry: 'alder' };
+    const taker = posts({ entryAt: async () => ({ typeId: 'pages', entry: 'contact' }) });
+    const mark = (await aboutMark(SECRET, 'contact', about)) ?? '';
+    const send = async (value: string) => taker.handle(plain(await filled(taker, answers, { [FORM_ABOUT_FIELD]: value })), 'contact');
+    await send(mark);
+    // A mark for another form, one that was changed, and one signed with another secret fall back to the page's address.
+    await send((await aboutMark(SECRET, 'tour', about)) ?? '');
+    await send(mark.replace('alder', 'birch'));
+    await send((await aboutMark('another-secret-of-thirty-two-characters!', 'contact', about)) ?? '');
+    expect((await kept()).map((submission) => submission.about?.entry)).toEqual(['contact', 'contact', 'contact', 'alder']);
+    expect(await aboutMark(undefined, 'contact', about)).toBeUndefined();
+    expect(await aboutMark(SECRET, 'contact', { typeId: 'a.b', entry: 'x' })).toBeUndefined();
   });
 });
 
