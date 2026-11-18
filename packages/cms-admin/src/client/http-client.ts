@@ -1,4 +1,4 @@
-import { readImage, type ContentTypeDef, type Entry, type NewUpload, type Page, type SiteImage } from '@velocity/cms-core';
+import { readImage, type ContentTypeDef, type Entry, type NewUpload, type Page, type PreviewLink, type SiteImage } from '@velocity/cms-core';
 import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, SessionUser } from './admin-client.js';
 import { AdminRequestError, type RequestErrorCode, type RequestIssue } from './errors.js';
 
@@ -95,6 +95,10 @@ export class HttpAdminClient implements AdminClient {
 
   unpublishEntry(id: string): Promise<Entry> {
     return this.#send('POST', `/entries/${encodeURIComponent(id)}/unpublish`, {});
+  }
+
+  previewEntry(id: string): Promise<PreviewLink> {
+    return this.#send('POST', `/entries/${encodeURIComponent(id)}/preview`, {});
   }
 
   #get<T>(path: string): Promise<T> {

@@ -1,4 +1,4 @@
-import type { ContentTypeDef, Entry, EntryData, NewUpload, Page, SiteImage } from '@velocity/cms-core';
+import type { ContentTypeDef, Entry, EntryData, NewUpload, Page, PreviewLink, SiteImage } from '@velocity/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
@@ -88,4 +88,9 @@ export interface AdminClient {
   publishEntry(id: string, expectedRevision: number): Promise<Entry>;
   /** Takes the entry off the site. Its content is kept as a draft. */
   unpublishEntry(id: string): Promise<Entry>;
+  /**
+   * A link to the entry's page showing the saved draft, good for a while. Refused when its type
+   * has no page of its own, or the site makes no previews.
+   */
+  previewEntry(id: string): Promise<PreviewLink>;
 }

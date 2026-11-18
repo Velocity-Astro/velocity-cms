@@ -122,5 +122,12 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       expect(draft.status).toBe('draft');
       expect(draft).not.toHaveProperty('published');
     });
+
+    it('gives a link to a draft\'s page, and says why when its type has none', async () => {
+      const link = await client.previewEntry('e2');
+      expect(link.path).toMatch(/^\/listings\/18-alder-court\/\?preview=\d+\.[0-9a-f]{64}$/);
+      expect(Date.parse(link.expiresAt)).toBeGreaterThan(Date.now());
+      await expect(client.previewEntry('missing')).rejects.toMatchObject({ code: 'not_found' });
+    });
   });
 }

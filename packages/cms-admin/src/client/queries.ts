@@ -136,6 +136,12 @@ export function useUnpublishEntry() {
   return useMutation({ mutationFn: (id: string) => client.unpublishEntry(id), onSuccess: useEntryChanged() });
 }
 
+/** Asks for a link each time: a link runs out, so it is never kept. */
+export function usePreviewEntry() {
+  const client = useClient();
+  return useMutation({ mutationFn: (id: string) => client.previewEntry(id) });
+}
+
 export function useRequestSignInLink() {
   const client = useClient();
   return useMutation({ mutationFn: (email: string) => client.requestSignInLink(email) });

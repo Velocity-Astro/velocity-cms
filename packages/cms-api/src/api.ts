@@ -62,7 +62,7 @@ export class CmsApi {
   constructor(options: CmsApiOptions) {
     this.#options = options;
     this.#basePath = `/${(options.basePath ?? '/api/cms').split('/').filter(Boolean).join('/')}`;
-    const { schema, content, fields, media } = options.cms;
+    const { schema, content, fields, media, previews } = options.cms;
     const defaultLocale = options.defaultLocale ?? 'en';
 
     this.#router
@@ -110,6 +110,7 @@ export class CmsApi {
         const { expectedRevision } = parse(publishRequest, await this.#body(call.request));
         return json(await content.publish(who, param(call, 'id'), expectedRevision));
       })
+      .add('POST', '/entries/:id/preview', async (call) => json(await previews.link(actor(call), param(call, 'id'))))
       .add('POST', '/entries/:id/unpublish', async (call) => json(await content.unpublish(actor(call), param(call, 'id'))));
   }
 

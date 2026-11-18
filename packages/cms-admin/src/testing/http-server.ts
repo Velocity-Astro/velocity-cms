@@ -26,7 +26,7 @@ export async function createHttpServer(seed: AdminClientSeed, user: SessionUser)
 
   const authenticator = new FixedAuthenticator({ user, actor: { kind: 'user', id: user.id, role: 'owner' } });
   const storage = { files: new InMemoryMediaRepository(), store: new InMemoryMediaStore() };
-  const cms = createCms({ types, entries, ...(seed.uploads !== false && { media: { storage } }) });
+  const cms = createCms({ types, entries, previews: { secret: 'http-test-server-preview-secret-0' }, ...(seed.uploads !== false && { media: { storage } }) });
   cms.media.include(new InMemoryImageLibrary(seed.images));
   const api = new CmsApi({ cms, authenticator });
   const requests: Request[] = [];

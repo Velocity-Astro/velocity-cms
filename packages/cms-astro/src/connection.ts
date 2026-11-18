@@ -1,6 +1,7 @@
 import { createCms, type Actor, type Cms, type SearchIndex } from '@velocity/cms-core';
 import { openDatabase, SqliteEntryRepository, SqliteMediaRepository, SqliteSchemaRepository, SqliteSearchIndex, type Db } from '@velocity/cms-db';
 import { mediaStoreFromEnv } from './media-store.js';
+import { siteSecret } from './secret.js';
 
 export interface ConnectionOptions {
   /**
@@ -31,9 +32,12 @@ export async function connect(options: ConnectionOptions): Promise<Connection> {
   const url = resolveUrl(options);
   const database = await openDatabase({ url, ...(authToken !== undefined && { authToken }) });
   const store = mediaStoreFromEnv(url);
+  const secret = siteSecret();
   const cms = createCms({
     entries: new SqliteEntryRepository(database.db),
     types: new SqliteSchemaRepository(database.db),
+    // A secret too short to sign with is the editor's to report, not a reason to read no content.
+    ...(secret !== undefined && secret.length >= 32 && { previews: { secret } }),
     ...(store && { media: { storage: { files: new SqliteMediaRepository(database.db), store } } }),
   });
   return { cms, search: new SqliteSearchIndex(database.db), db: database.db, close: () => database.close() };

@@ -21,7 +21,7 @@ import { paths } from '../../app/paths.js';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { useContentTypes, useEntries, useImages } from '../../client/queries.js';
 import { FieldSummary, useControlFor } from '../../fields/index.js';
-import { entryImage, entryState, entryTitle, fieldAt, groupTranslations, localized, type EntryState } from '../../lib/content.js';
+import { entryAddress, entryImage, entryState, entryTitle, fieldAt, groupTranslations, localized, type EntryState } from '../../lib/content.js';
 import { relativeTime } from '../../lib/relative-time.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 
@@ -110,7 +110,7 @@ export function ContentListScreen() {
             <Stack gap={0}>
               <Text weight="semibold">{entryTitle(type, primary.data) ?? messages.contentList.untitled}</Text>
               <Text size="sm" tone="muted" mono>
-                {type.urlPattern ? type.urlPattern.replace('[slug]', primary.slug) : primary.slug}
+                {entryAddress(type, primary) ?? primary.slug}
               </Text>
             </Stack>
           </Inline>

@@ -6,6 +6,9 @@ const encoder = new TextEncoder();
 const toHex = (bytes: ArrayBuffer) => [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 const fromHex = (hex: string) => new Uint8Array((hex.match(/../g) ?? []).map((pair) => parseInt(pair, 16)));
 
+/** The name a preview's token goes by in an address: `?preview=<token>`. */
+export const PREVIEW_PARAMETER = 'preview';
+
 /**
  * Makes and checks the token in a preview link. Whoever holds a valid token sees the site with
  * the versions being worked on, until the token expires. Nobody else ever sees a draft.

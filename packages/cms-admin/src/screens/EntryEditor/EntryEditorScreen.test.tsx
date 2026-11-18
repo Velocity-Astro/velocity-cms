@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { TextField, dismissToasts } from '@velocity/cms-ui';
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { AdminApp } from '../../app/AdminApp.js';
 import { createFieldControlRegistry, createFieldControls } from '../../fields/index.js';
 import { tinyPng } from '@velocity/cms-core/in-memory';
@@ -407,6 +407,52 @@ it('offers no upload on a site that has nowhere to keep one', async () => {
   const dialog = within(await screen.findByRole('dialog', { name: 'Choose an image' }));
   expect(dialog.getByRole('option', { name: 'porch' })).toBeTruthy();
   expect(dialog.queryByRole('button', { name: 'Upload an image' })).toBeNull();
+});
+
+/** Stands in for the browser's new tab, and remembers where it was sent. */
+function newTab() {
+  const tab = { location: { href: '' }, close: vi.fn() };
+  const open = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window);
+  return { tab, open };
+}
+
+it('previews a draft: saves what was typed, then opens its page in a new tab', async () => {
+  const user = userEvent.setup();
+  const { tab, open } = newTab();
+  const { client } = renderApp('/content/listings/e1', signedIn());
+  const title = await field('Title');
+  await user.clear(title);
+  await user.type(title, '6214 Lakeshore Drive, renovated');
+  await user.click(saveBar().getByRole('button', { name: 'Preview' }));
+
+  await waitFor(() => expect(tab.location.href).toMatch(/\/listings\/6214-lakeshore-drive\/\?preview=\d+\.[0-9a-f]{64}$/));
+  expect(open).toHaveBeenCalledWith('', '_blank');
+  // The preview shows what is saved, so the draft was saved first. Visitors still see the old one.
+  const saved = await client.getEntry('e1');
+  expect(saved.data['f-title']).toBe('6214 Lakeshore Drive, renovated');
+  expect(saved.published?.data['f-title']).toBe('6214 Lakeshore Drive');
+  expect(saveBar().getByRole('button', { name: 'Save draft' })).toHaveProperty('disabled', true);
+  open.mockRestore();
+});
+
+it('closes the tab and says why when there is no preview, and offers none for a type without pages', async () => {
+  const user = userEvent.setup();
+  const { tab, open } = newTab();
+  const client = new MemoryAdminClient(signedIn());
+  client.previewEntry = () => Promise.reject(new Error('This site has no previews.'));
+  render(<AdminApp client={client} siteName="Lakeshore" initialPath="/content/listings/e1" />);
+  await user.click(await screen.findByRole('button', { name: 'Preview' }));
+  expect(await screen.findByText('This site has no previews.')).toBeTruthy();
+  expect(tab.close).toHaveBeenCalled();
+  expect(tab.location.href).toBe('');
+  open.mockRestore();
+});
+
+it('offers no preview for a type whose entries have no page of their own', async () => {
+  const contentTypes = sampleContentTypes.map(({ urlPattern: _pattern, ...type }) => type);
+  render(<AdminApp client={new MemoryAdminClient({ ...signedIn(), contentTypes })} siteName="Lakeshore" initialPath="/content/listings/e1" />);
+  await screen.findByRole('button', { name: 'Save draft' });
+  expect(screen.queryByRole('button', { name: 'Preview' })).toBeNull();
 });
 
 /** The sample listings with a description: rich text in a field that used to be a list of paragraphs. */
