@@ -10,7 +10,8 @@ export const dialogOverlayVariants = cva('fixed inset-0 layer-overlay flex bg-sc
   defaultVariants: { placement: 'center' },
 });
 
-export const dialogVariants = cva('w-full overflow-hidden border-border bg-background-elevated shadow-xl outline-none', {
+// A column, so the window's height limit reaches its content and the body scrolls inside it.
+export const dialogVariants = cva('flex w-full flex-col overflow-hidden border-border bg-background-elevated shadow-xl outline-none', {
   variants: {
     placement: {
       center: 'max-h-full rounded-lg border',
@@ -25,10 +26,10 @@ export const dialogVariants = cva('w-full overflow-hidden border-border bg-backg
   defaultVariants: { placement: 'center', size: 'md' },
 });
 
-export const dialogContentVariants = cva('flex flex-col outline-none', {
+export const dialogContentVariants = cva('flex min-h-0 flex-col outline-none', {
   variants: {
     placement: {
-      center: 'max-h-full',
+      center: '',
       side: 'h-full',
     },
   },
@@ -37,7 +38,7 @@ export const dialogContentVariants = cva('flex flex-col outline-none', {
 
 export const dialogHeaderClass = 'flex items-start justify-between gap-4 px-6 pt-5 pb-2';
 export const dialogTitleClass = 'pt-1 text-lg font-semibold tracking-tight text-foreground';
-export const dialogBodyClass = 'flex-1 overflow-auto px-6 py-2 text-base text-foreground-secondary';
+export const dialogBodyClass = 'min-h-0 flex-1 overflow-auto px-6 py-2 text-base text-foreground-secondary';
 export const dialogFooterClass = 'flex items-center justify-end gap-2 px-6 pt-4 pb-5';
 
 export type DialogVariants = VariantProps<typeof dialogVariants>;
