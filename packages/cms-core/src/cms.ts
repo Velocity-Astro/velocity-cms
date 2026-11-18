@@ -27,6 +27,8 @@ export interface CmsOptions {
   readonly media?: MediaServiceOptions;
   /** The secret that signs preview links, and the language of the pages at a type's `urlPattern`. Without a secret there are no previews. */
   readonly previews?: PreviewServiceOptions;
+  /** What plugins' keys and passwords are sealed with. Left out, the previews' secret is used; with neither, none can be saved. */
+  readonly secret?: string;
   /**
    * Where forms and what visitors send through them are kept. Without them both are kept in
    * memory and forgotten when the server stops, which only suits tests.
@@ -104,6 +106,7 @@ export function createCms(options: CmsOptions): Cms {
   const deals = new DealService(dealStore, contactStore, contacts, pipeline, access, events, clock, ids);
   const submissions = new SubmissionService(submissionStore, formStore, fields, access, events, clock, ids, contacts);
   const previews = new PreviewService(content, schema, clock, options.previews);
-  const plugins = new PluginHost({ fields, events, checks, pages, store: options.pluginStore ?? new InMemoryPluginStore(), ids, schema, content, access, clock, ...(options.onPluginFault && { onFault: options.onPluginFault }) });
+  const sealWith = options.secret ?? options.previews?.secret;
+  const plugins = new PluginHost({ fields, events, checks, pages, store: options.pluginStore ?? new InMemoryPluginStore(), ids, schema, content, access, clock, ...(sealWith !== undefined && { secret: sealWith }), ...(options.onPluginFault && { onFault: options.onPluginFault }) });
   return { schema, content, media, forms, submissions, contacts, pipeline, deals, previews, fields, events, access, plugins, pages };
 }

@@ -19,6 +19,7 @@ const keys = {
   plugins: ['plugins'] as const,
   pluginEditors: ['plugin-editors'] as const,
   pluginSettings: (name: string) => ['plugins', name, 'settings'] as const,
+  pluginTasks: (name: string) => ['plugins', name, 'tasks'] as const,
   /** Every list of entries starts with this, so one call marks them all out of date. */
   entryLists: ['entries'] as const,
   trash: ['entries', 'trash'] as const,
@@ -631,6 +632,31 @@ export function useSavePluginSettings(name: string) {
   return useMutation({
     mutationFn: (values: EntryData) => client.savePluginSettings(name, values),
     onSuccess: (saved) => cache.setQueryData(keys.pluginSettings(name), saved),
+  });
+}
+
+/** Saves or removes one of a plugin's keys or passwords. */
+export function useSetPluginSecret(name: string) {
+  const client = useClient();
+  const cache = useQueryClient();
+  return useMutation({
+    mutationFn: ({ key, value }: { key: string; value: string | null }) => client.setPluginSecret(name, key, value),
+    onSuccess: (saved) => cache.setQueryData(keys.pluginSettings(name), saved),
+  });
+}
+
+/** What a plugin was asked to do, newest first. Asked for each time it is looked at: it changes by itself. */
+export function usePluginTasks(name: string, enabled: boolean) {
+  const client = useClient();
+  return useQuery({ queryKey: keys.pluginTasks(name), queryFn: () => client.listPluginTasks(name), enabled, refetchOnMount: 'always' });
+}
+
+export function useRetryPluginTask(name: string) {
+  const client = useClient();
+  const cache = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => client.retryPluginTask(name, id),
+    onSettled: () => cache.invalidateQueries({ queryKey: keys.pluginTasks(name) }),
   });
 }
 

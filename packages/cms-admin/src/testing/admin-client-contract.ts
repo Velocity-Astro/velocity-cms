@@ -388,6 +388,46 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       expect((await site.getPluginSettings('seo')).values).toEqual({ [suffix]: ' | Lakeshore' });
     });
 
+    it('saves a plugin\'s secret without ever sending it back, and shows its work with a way to try again', async () => {
+      let works = false;
+      const site = await make({
+        contentTypes: [],
+        entries: [],
+        plugins: [
+          definePlugin({
+            name: 'mail',
+            apiVersion: 1,
+            label: { en: 'Mail' },
+            secrets: [{ key: 'apiKey', label: { en: 'API key' } }],
+            setup(plugin) {
+              plugin.tasks.define('send', () => {
+                if (!works) throw new Error('The service answered 500.');
+              });
+              plugin.routes.add('POST', '/send', () => plugin.tasks.add('send', { to: 'ana@example.com' }, { label: 'A message' }));
+              plugin.routes.add('GET', '/key', async () => ({ key: await plugin.secrets.get('apiKey') }));
+            },
+          }),
+        ],
+      });
+      expect((await site.getPluginSettings('mail')).secrets).toEqual([{ key: 'apiKey', label: { en: 'API key' }, isSet: false }]);
+      await expect(site.setPluginSecret('mail', 'apiKey', ' ')).rejects.toMatchObject({ code: 'validation_failed' });
+      const saved = await site.setPluginSecret('mail', 'apiKey', 'sk-12345');
+      expect(saved.secrets[0]?.isSet).toBe(true);
+      expect(JSON.stringify(saved)).not.toContain('sk-12345');
+      expect(await site.callPlugin('mail', 'GET', '/key')).toEqual({ key: 'sk-12345' });
+      expect((await site.setPluginSecret('mail', 'apiKey', null)).secrets[0]?.isSet).toBe(false);
+
+      expect(await site.listPluginTasks('mail')).toEqual([]);
+      await site.callPlugin('mail', 'POST', '/send');
+      const [task] = await site.listPluginTasks('mail');
+      expect(task).toMatchObject({ kind: 'send', label: 'A message', status: 'waiting', attempts: 1, lastError: 'The service answered 500.', canRetry: false });
+      expect(JSON.stringify(task)).not.toContain('ana@example.com');
+      // Only work that was given up on can be tried again by hand.
+      await expect(site.retryPluginTask('mail', task?.id ?? '')).rejects.toMatchObject({ code: 'conflict' });
+      await expect(site.retryPluginTask('mail', 'nothing')).rejects.toMatchObject({ code: 'not_found' });
+      works = true;
+    });
+
     it('names the plugins that add to the editor, and reaches a plugin\'s own addresses', async () => {
       expect(await client.listPluginEditors()).toEqual([]);
       const site = await make({

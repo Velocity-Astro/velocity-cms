@@ -30,6 +30,7 @@ beforeEach(() => {
   store = new InMemoryPluginStore();
   cms = createCms({
     pluginStore: store,
+    secret: 'a-test-secret-that-is-long-enough-0123456789',
     entries: new InMemoryEntryRepository(),
     types: new InMemorySchemaRepository(),
     clock: new FakeClock(),
@@ -53,7 +54,7 @@ describe('starting plugins', () => {
       }),
     ]);
     expect(await cms.plugins.list(owner)).toEqual([
-      { name: 'ratings', label: { en: 'Ratings' }, description: { en: 'Stars for reviews.' }, version: '1.2.0', permissions: [], status: 'on', hasSettings: false, hasEditor: false, adds: { fieldTypes: ['rating'], checks: 0, pageHead: false, events: [] }, faults: 0 },
+      { name: 'ratings', label: { en: 'Ratings' }, description: { en: 'Stars for reviews.' }, version: '1.2.0', permissions: [], status: 'on', hasSettings: false, hasEditor: false, adds: { fieldTypes: ['rating'], checks: 0, pageHead: false, events: [], tasks: [] }, faults: 0 },
     ]);
     const reviews = await cms.schema.create(owner, { key: 'reviews', kind: 'collection', label: { en: 'Reviews' }, fields: [{ key: 'stars', type: 'rating', label: { en: 'Stars' } }] });
     expect(reviews.fields[0]?.type).toBe('rating');
@@ -416,5 +417,129 @@ describe('what a plugin adds to the site\'s pages', () => {
     expect(await context?.store.list('written:')).toEqual({ 'written:e1': { title: 'One' }, 'written:e2': { title: 'Two' } });
     await context?.pages.changed();
     expect(heard).toEqual(['seo']);
+  });
+});
+
+describe('secrets', () => {
+  const mail = (use: (plugin: PluginContext) => void = () => undefined) =>
+    definePlugin({ name: 'mail', apiVersion: 1, label: { en: 'Mail' }, secrets: [{ key: 'apiKey', label: { en: 'API key' } }], setup: use });
+
+  it('keeps a secret sealed, hands it to the plugin and never back to the editor', async () => {
+    let context: PluginContext | undefined;
+    await cms.plugins.load([mail((plugin) => void (context = plugin))]);
+    expect((await cms.plugins.list(owner))[0]).toMatchObject({ hasSettings: true });
+    expect((await cms.plugins.settings(owner, 'mail')).secrets).toEqual([{ key: 'apiKey', label: { en: 'API key' }, isSet: false }]);
+    expect(await context?.secrets.get('apiKey')).toBeUndefined();
+
+    const saved = await cms.plugins.setSecret(owner, 'mail', 'apiKey', '  sk-12345  ');
+    expect(saved.secrets).toEqual([{ key: 'apiKey', label: { en: 'API key' }, isSet: true }]);
+    expect(JSON.stringify(saved)).not.toContain('sk-12345');
+    expect(JSON.stringify(await store.list('mail', ''))).not.toContain('sk-12345');
+    expect(await context?.secrets.get('apiKey')).toBe('sk-12345');
+
+    await cms.plugins.setSecret(owner, 'mail', 'apiKey', null);
+    expect(await context?.secrets.get('apiKey')).toBeUndefined();
+    expect((await cms.plugins.settings(owner, 'mail')).secrets[0]?.isSet).toBe(false);
+  });
+
+  it('refuses an empty one, one the plugin did not name, and anyone but an owner', async () => {
+    await cms.plugins.load([mail()]);
+    await expect(cms.plugins.setSecret(owner, 'mail', 'apiKey', '   ')).rejects.toBeInstanceOf(ValidationError);
+    await expect(cms.plugins.setSecret(owner, 'mail', 'other', 'x')).rejects.toBeInstanceOf(NotFoundError);
+    await expect(cms.plugins.setSecret(editor, 'mail', 'apiKey', 'x')).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it('saves none on a site with no secret to seal with', async () => {
+    const bare = createCms({ entries: new InMemoryEntryRepository(), types: new InMemorySchemaRepository(), clock: new FakeClock(), ids: new SequentialIds() });
+    await bare.plugins.load([mail()]);
+    await expect(bare.plugins.setSecret(owner, 'mail', 'apiKey', 'sk-1')).rejects.toThrow(/VELOCITY_CMS_SECRET/);
+  });
+});
+
+describe('work that is tried again', () => {
+  /** A plugin whose work fails until `failures` runs out. */
+  const sender = (failures: { left: number }, sent: unknown[], hold: { context?: PluginContext } = {}) =>
+    definePlugin({
+      name: 'sender',
+      apiVersion: 1,
+      label: { en: 'Sender' },
+      setup(plugin) {
+        hold.context = plugin;
+        plugin.tasks.define('send', (payload) => {
+          if (failures.left > 0) {
+            failures.left -= 1;
+            throw new Error('The other side answered 500.');
+          }
+          sent.push(payload);
+        });
+      },
+    });
+
+  it('does the work at once, and keeps what it carried no longer', async () => {
+    const sent: unknown[] = [];
+    const hold: { context?: PluginContext } = {};
+    await cms.plugins.load([sender({ left: 0 }, sent, hold)]);
+    expect((await cms.plugins.list(owner))[0]?.adds.tasks).toEqual(['send']);
+    await hold.context?.tasks.add('send', { email: 'ana@example.com' }, { label: 'https://example.com/hook' });
+    expect(sent).toEqual([{ email: 'ana@example.com' }]);
+    expect(await cms.plugins.tasks(owner, 'sender')).toMatchObject([{ kind: 'send', label: 'https://example.com/hook', status: 'done', attempts: 1, canRetry: false }]);
+    expect(JSON.stringify(await store.list('sender', ''))).not.toContain('ana@example.com');
+    await expect(cms.plugins.tasks(editor, 'sender')).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it('tries failed work again later, and says why it failed meanwhile', async () => {
+    const sent: unknown[] = [];
+    const hold: { context?: PluginContext } = {};
+    await cms.plugins.load([sender({ left: 2 }, sent, hold)]);
+    await hold.context?.tasks.add('send', 'hello');
+    expect(await cms.plugins.tasks(owner, 'sender')).toMatchObject([{ status: 'waiting', attempts: 1, lastError: 'The other side answered 500.' }]);
+    // The fake clock moves a second each time it is read: the waits pass as work is looked for.
+    for (let looks = 0; looks < 400 && sent.length === 0; looks += 1) await cms.plugins.work({ now: true });
+    expect(sent).toEqual(['hello']);
+    const [task] = await cms.plugins.tasks(owner, 'sender');
+    expect(task).toMatchObject({ status: 'done', attempts: 3 });
+    expect(task?.lastError).toBeUndefined();
+  });
+
+  it('gives up after the last try, notes the fault, and lets an owner have it tried again', async () => {
+    const sent: unknown[] = [];
+    const failures = { left: 1000 };
+    const hold: { context?: PluginContext } = {};
+    await cms.plugins.load([sender(failures, sent, hold)]);
+    await hold.context?.tasks.add('send', 'hello');
+    const [waiting] = await cms.plugins.tasks(owner, 'sender');
+    if (!waiting) throw new Error('No task.');
+    // Tried again by hand until it is given up on, as the waits would.
+    let task = waiting;
+    for (let tries = 0; task.status === 'waiting' && tries < 10; tries += 1) {
+      await store.set('sender', `task:${task.id}`, { ...(await store.get('sender', `task:${task.id}`) as object), nextAt: '2000-01-01T00:00:00.000Z' });
+      await cms.plugins.work({ now: true });
+      task = (await cms.plugins.tasks(owner, 'sender'))[0] ?? task;
+    }
+    expect(task).toMatchObject({ status: 'failed', attempts: 6, canRetry: true });
+    expect((await cms.plugins.list(owner))[0]).toMatchObject({ faults: 1, lastFault: { where: 'task send' } });
+
+    failures.left = 0;
+    await expect(cms.plugins.retryTask(editor, 'sender', task.id)).rejects.toBeInstanceOf(ForbiddenError);
+    expect(await cms.plugins.retryTask(owner, 'sender', task.id)).toMatchObject({ status: 'done', attempts: 1, canRetry: false });
+    expect(sent).toEqual(['hello']);
+    await expect(cms.plugins.retryTask(owner, 'sender', task.id)).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it('refuses work of a kind the plugin never defined', async () => {
+    const hold: { context?: PluginContext } = {};
+    await cms.plugins.load([sender({ left: 0 }, [], hold)]);
+    await expect(hold.context?.tasks.add('other', 1)).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it('lets a plugin that declared it hear of contacts, and no other', async () => {
+    await cms.plugins.load([
+      definePlugin({ name: 'crm', apiVersion: 1, label: { en: 'CRM' }, permissions: ['contact:read'], setup: (plugin) => void plugin.events.on('contact.saved', () => undefined) }),
+      definePlugin({ name: 'nosy', apiVersion: 1, label: { en: 'Nosy' }, setup: (plugin) => void plugin.events.on('contact.saved', () => undefined) }),
+    ]);
+    expect(await state()).toEqual([
+      ['crm', 'on'],
+      ['nosy', 'failed'],
+    ]);
   });
 });

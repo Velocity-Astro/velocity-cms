@@ -1,6 +1,6 @@
 import type { PluginInfo } from '@velocity/cms-core';
 import { Box, Button, EmptyState, Inline, PageHeader, Stack, Switch, Table, Tag, Text, toast, type TableColumn, type TableRow } from '@velocity/cms-ui';
-import { ArrowRight, Puzzle, Settings2 } from 'lucide-react';
+import { ArrowRight, History, Puzzle, Settings2 } from 'lucide-react';
 import { useState } from 'react';
 import { paths } from '../../app/paths.js';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
@@ -10,6 +10,7 @@ import { localized } from '../../lib/content.js';
 import { relativeTime } from '../../lib/relative-time.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 import { usePluginExtensions } from '../../plugins/plugin-editor.js';
+import { PluginActivityDialog } from './PluginActivityDialog.js';
 import { PluginSettingsDialog } from './PluginSettingsDialog.js';
 
 const TONES = { on: 'success', off: 'neutral', failed: 'danger', unsupported: 'warning', invalid: 'danger' } as const;
@@ -26,6 +27,7 @@ export function PluginsScreen() {
   const go = useGo();
   const extensions = usePluginExtensions();
   const [settingUp, setSettingUp] = useState<PluginInfo | null>(null);
+  const [watching, setWatching] = useState<PluginInfo | null>(null);
 
   const flip = (plugin: PluginInfo, enabled: boolean) => {
     const name = localized(plugin.label, locale);
@@ -64,6 +66,7 @@ export function PluginsScreen() {
       ...(plugin.adds.fieldTypes.length > 0 ? [messages.plugins.addsFieldTypes(plugin.adds.fieldTypes.length)] : []),
       ...(plugin.adds.checks > 0 ? [messages.plugins.addsChecks(plugin.adds.checks)] : []),
       ...(plugin.adds.pageHead ? [messages.plugins.addsPageHead] : []),
+      ...(plugin.adds.tasks.length > 0 ? [messages.plugins.addsTasks] : []),
       ...(plugin.adds.events.length > 0 ? [messages.plugins.addsEvents(plugin.adds.events.map((event) => messages.plugins.events[event] ?? event))] : []),
     ];
     const editorProblem = extensions.problems.get(plugin.name);
@@ -108,6 +111,11 @@ export function PluginsScreen() {
                 {messages.plugins.open(screen.label)}
               </Button>
             ))}
+            {plugin.adds.tasks.length > 0 && (
+              <Button variant="ghost" size="sm" icon={History} onPress={() => setWatching(plugin)}>
+                {messages.plugins.activityOf(name)}
+              </Button>
+            )}
             {plugin.hasSettings && (
               <Button variant="secondary" size="sm" icon={Settings2} onPress={() => setSettingUp(plugin)}>
                 {messages.plugins.settingsOf(name)}
@@ -133,6 +141,7 @@ export function PluginsScreen() {
       </Stack>
       {/* Made anew each time it opens, so it never shows another plugin's settings. */}
       {settingUp && <PluginSettingsDialog key={settingUp.name} plugin={settingUp} onClose={() => setSettingUp(null)} />}
+      {watching && <PluginActivityDialog key={watching.name} plugin={watching} onClose={() => setWatching(null)} />}
     </Box>
   );
 }

@@ -33,6 +33,7 @@ import {
   type EntryData,
   type PluginInfo,
   type PluginSettings,
+  type PluginTask,
   type PluginEditorInfo,
   type PluginRouteMethod,
   type PreviewLink,
@@ -492,6 +493,18 @@ export class MemoryAdminClient implements AdminClient {
 
   savePluginSettings(name: string, values: EntryData): Promise<PluginSettings> {
     return this.#request((actor) => this.#cms.plugins.saveSettings(actor, name, values));
+  }
+
+  setPluginSecret(name: string, key: string, value: string | null): Promise<PluginSettings> {
+    return this.#request((actor) => this.#cms.plugins.setSecret(actor, name, key, value));
+  }
+
+  listPluginTasks(name: string): Promise<readonly PluginTask[]> {
+    return this.#request((actor) => this.#cms.plugins.tasks(actor, name));
+  }
+
+  retryPluginTask(name: string, id: string): Promise<PluginTask> {
+    return this.#request((actor) => this.#cms.plugins.retryTask(actor, name, id));
   }
 
   listPasskeys(): Promise<readonly Passkey[]> {

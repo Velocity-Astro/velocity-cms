@@ -55,6 +55,8 @@ const entryChanges = z.strictObject({ slug: z.string(), data, expectedRevision: 
 const pluginSwitch = z.strictObject({ enabled: z.boolean() });
 // What each setting may hold is the plugin's fields' to say, in the service.
 const pluginValues = z.strictObject({ values: z.record(z.string(), z.unknown()) });
+// A secret to save, or `null` to take the saved one away.
+const pluginSecret = z.strictObject({ value: z.string().nullable() });
 const newPerson = z.strictObject({ email: z.string(), name: z.string(), role: z.string() });
 const roleChange = z.strictObject({ role: z.string() });
 const words = z.record(z.string(), z.string());
@@ -230,6 +232,13 @@ export class CmsApi {
         const { values } = parse(pluginValues, await this.#body(call.request));
         return json(await plugins.saveSettings(who, param(call, 'name'), values));
       })
+      .add('PUT', '/plugin-secrets/:name/:key', async (call) => {
+        const who = actor(call);
+        const { value } = parse(pluginSecret, await this.#body(call.request));
+        return json(await plugins.setSecret(who, param(call, 'name'), param(call, 'key'), value));
+      })
+      .add('GET', '/plugin-tasks/:name', async (call) => json({ items: await plugins.tasks(actor(call), param(call, 'name')) }))
+      .add('POST', '/plugin-tasks/:name/:id/retry', async (call) => json(await plugins.retryTask(actor(call), param(call, 'name'), param(call, 'id'))))
       .add('GET', '/content-types/archived', async (call) => json({ items: await schema.listArchived(actor(call)) }))
       .add('DELETE', '/content-types/:id', async (call) => json(await schema.archive(actor(call), param(call, 'id'))))
       .add('POST', '/content-types/:id/restore', async (call) => json(await schema.restore(actor(call), param(call, 'id'))))
