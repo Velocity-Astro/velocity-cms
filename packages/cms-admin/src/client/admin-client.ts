@@ -1,4 +1,4 @@
-import type { PluginSettings, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
+import type { Contact, ContactChanges, ContactNote, NewContact, TimelineItem, PluginSettings, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
@@ -79,6 +79,14 @@ export interface SubmissionListQuery {
 }
 
 /** How many of a form's submissions have each status. */
+export interface ContactListQuery {
+  /** Words to find in the name, email or phone. */
+  readonly search?: string;
+  /** Defaults to 50. */
+  readonly limit?: number;
+  readonly offset?: number;
+}
+
 export type SubmissionCounts = Readonly<Record<SubmissionStatus, number>>;
 
 export interface NewEntry {
@@ -204,6 +212,20 @@ export interface AdminClient {
   exportSubmissions(formId: string): Promise<string>;
   /** Deletes everything one person sent, through every form, for good. Answers with how many went. */
   forgetSender(email: string): Promise<number>;
+  /** The people who wrote to the site, newest first. Only for those who may read contacts. */
+  listContacts(query?: ContactListQuery): Promise<Page<Contact>>;
+  getContact(id: string): Promise<Contact>;
+  /** Adds a contact by hand. An email a contact already has is refused, naming the field. */
+  createContact(input: NewContact): Promise<Contact>;
+  updateContact(id: string, changes: ContactChanges): Promise<Contact>;
+  /** Deletes a contact for good, with their notes and everything they sent. Answers with how many submissions went. */
+  eraseContact(id: string): Promise<number>;
+  /** What happened with a contact, newest first: what they sent and what the team noted. */
+  contactTimeline(id: string): Promise<readonly TimelineItem[]>;
+  addContactNote(id: string, text: string): Promise<ContactNote>;
+  deleteContactNote(id: string, noteId: string): Promise<void>;
+  /** Everything held about one person, as the text of a JSON file. */
+  exportContact(id: string): Promise<string>;
   /**
    * A link to the entry's page showing the saved draft, good for a while. Refused when its type
    * has no page of its own, or the site makes no previews.

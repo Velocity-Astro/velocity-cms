@@ -563,6 +563,45 @@ describe('forms and what they were sent', () => {
     expect((await call('POST', '/submissions/forget', { email: 'ana@example.com' })).status).toBe(403);
   });
 
+  it('lists, finds, adds, changes, notes, exports and erases contacts', async () => {
+    await call('POST', '/forms', { ...formBody, contact: { email: 'email' } });
+    await cms.submissions.submit('contact', { email: 'Ana@Example.com' });
+    const made = await call('POST', '/contacts', { email: 'Tom@example.com', name: 'Tom Lee' });
+    expect(made).toMatchObject({ status: 201, body: { email: 'tom@example.com', name: 'Tom Lee', revision: 1 } });
+    const tom = String(made.body['id']);
+    expect((await call('POST', '/contacts', { email: 'tom@example.com' })).status).toBe(422);
+    expect((await call('POST', '/contacts', { email: 'x@example.com', stage: 'won' })).status).toBe(400);
+    expect((await call('GET', '/contacts')).body).toMatchObject({ total: 2 });
+    const found = (await call('GET', '/contacts?search=ana')).body['items'] as { id: string; email: string }[];
+    expect(found.map((contact) => contact.email)).toEqual(['ana@example.com']);
+    const ana = String(found[0]?.id);
+    expect((await call('GET', `/contacts/${ana}`)).body).toMatchObject({ email: 'ana@example.com' });
+    expect((await call('PATCH', `/contacts/${tom}`, { name: null, phone: '512 555 0199', expectedRevision: 1 })).body).toMatchObject({ phone: '512 555 0199', revision: 2 });
+    expect((await call('PATCH', `/contacts/${tom}`, { name: 'T', expectedRevision: 1 })).status).toBe(409);
+    const note = await call('POST', `/contacts/${ana}/notes`, { text: 'Called back.' });
+    expect(note).toMatchObject({ status: 201, body: { text: 'Called back.', createdBy: 'u1' } });
+    const timeline = (await call('GET', `/contacts/${ana}/timeline`)).body['items'] as { kind: string }[];
+    expect(timeline.map((item) => item.kind).sort()).toEqual(['note', 'submission']);
+    expect(String((await call('GET', `/contacts/${ana}/export`)).body['file'])).toContain('"email": "ana@example.com"');
+    expect(await call('DELETE', `/contacts/${ana}/notes/${String(note.body['id'])}`)).toEqual({ status: 200, body: {} });
+    expect(await call('DELETE', `/contacts/${ana}`)).toEqual({ status: 200, body: { removed: 1 } });
+    expect((await call('GET', `/contacts/${ana}`)).status).toBe(404);
+    expect((await call('GET', '/contacts')).body).toMatchObject({ total: 1 });
+  });
+
+  it('keeps contacts from an author, and never lets a browser keep one', async () => {
+    const made = await call('POST', '/contacts', { email: 'tom@example.com' });
+    const tom = String(made.body['id']);
+    expect((await send('GET', '/contacts')).headers.get('cache-control')).toBe('no-store');
+    expect((await send('GET', `/contacts/${tom}/export`)).headers.get('cache-control')).toBe('no-store');
+    authenticator.session = as('author');
+    for (const path of ['/contacts', `/contacts/${tom}`, `/contacts/${tom}/timeline`, `/contacts/${tom}/export`]) {
+      expect((await call('GET', path)).status).toBe(403);
+    }
+    expect((await call('POST', '/contacts', { email: 'x@example.com' })).status).toBe(403);
+    expect((await call('DELETE', `/contacts/${tom}`)).status).toBe(403);
+  });
+
   it('never lets a browser keep what a visitor sent', async () => {
     const id = String((await call('POST', '/forms', formBody)).body['id']);
     expect((await send('GET', `/forms/${id}/submissions`)).headers.get('cache-control')).toBe('no-store');

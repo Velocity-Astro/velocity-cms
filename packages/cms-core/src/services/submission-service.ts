@@ -2,7 +2,7 @@ import type { AccessControl, Actor } from '../access.js';
 import { NotFoundError, ValidationError, type ValidationIssue } from '../errors.js';
 import type { EventBus } from '../events.js';
 import type { FieldType } from '../field-type.js';
-import { liveFields, type FormDef, type Page, type Submission, type SubmissionStatus } from '../model.js';
+import { liveFields, type Contact, type FormDef, type Page, type Submission, type SubmissionStatus } from '../model.js';
 import type { Clock, FormRepository, IdGenerator, SubmissionQuery, SubmissionRepository } from '../ports.js';
 import type { Registry } from '../registry.js';
 import { buildFieldsSchema } from '../schema-builder.js';
@@ -14,6 +14,12 @@ export interface SubmissionSource {
   readonly locale?: string;
   /** True when the checks on the way in suspected it. It is kept, apart from the rest. */
   readonly suspected?: boolean;
+}
+
+/** What the submission service asks of whoever keeps contacts, so each sender becomes one. */
+export interface SenderBook {
+  noted(form: FormDef, submission: Submission): Promise<Contact | null>;
+  forgotten(actor: Actor, email: string): Promise<void>;
 }
 
 /** The longest one answer may be, whatever its field allows. */
@@ -34,6 +40,7 @@ export class SubmissionService {
     private readonly events: EventBus,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
+    private readonly senders?: SenderBook,
   ) {}
 
   /**
@@ -92,6 +99,7 @@ export class SubmissionService {
       createdAt: this.clock.now(),
     };
     const stored = await this.submissions.add(submission);
+    await this.note(form, stored);
     await this.events.emit('submission.received', { submission: stored, form });
     return { submission: stored, form };
   }
@@ -120,6 +128,11 @@ export class SubmissionService {
     const { handledAt, handledBy, ...rest } = current;
     const marked: Submission = { ...rest, status, ...(status === 'handled' && { handledAt: this.clock.now(), handledBy: actor.id }) };
     await this.submissions.update(marked);
+    // One that was kept as spam and turns out to be a person: they become a contact now.
+    if (current.status === 'spam') {
+      const form = await this.forms.get(marked.formId);
+      if (form) await this.note(form, marked);
+    }
     await this.events.emit('submission.changed', { submission: marked, actor });
     return marked;
   }
@@ -157,7 +170,9 @@ export class SubmissionService {
     this.access.require(actor, 'submission:manage');
     const address = email.trim().toLowerCase();
     if (address === '') throw new ValidationError('Give the email address of the person to forget.', [{ path: ['email'], message: 'This is needed.' }]);
-    return this.removeWhere(actor, { email: address });
+    const removed = await this.removeWhere(actor, { email: address });
+    await this.senders?.forgotten(actor, address);
+    return removed;
   }
 
   /** Removes what each form has kept longer than it says to. A host runs it now and then. */
@@ -173,17 +188,16 @@ export class SubmissionService {
     return removed;
   }
 
-  private async removeWhere(actor: Actor, query: SubmissionQuery): Promise<number> {
-    let removed = 0;
-    for (;;) {
-      // Always the first page: what was found last time is gone.
-      const { items } = await this.submissions.find({ ...query, limit: BATCH });
-      if (items.length === 0) return removed;
-      await this.submissions.remove(items.map((item) => item.id));
-      const byForm = new Map<string, string[]>();
-      for (const item of items) byForm.set(item.formId, [...(byForm.get(item.formId) ?? []), item.id]);
-      for (const [formId, ids] of byForm) await this.events.emit('submission.deleted', { formId, ids, actor });
-      removed += items.length;
+  private removeWhere(actor: Actor, query: SubmissionQuery): Promise<number> {
+    return removeSubmissions(this.submissions, this.events, actor, query);
+  }
+
+  /** The sender becomes a contact. A contact that cannot be made never loses the submission: `contacts.catchUp` makes it later. */
+  private async note(form: FormDef, submission: Submission): Promise<void> {
+    try {
+      await this.senders?.noted(form, submission);
+    } catch {
+      // The submission is stored, and that is what the visitor was promised.
     }
   }
 
@@ -199,6 +213,21 @@ export class SubmissionService {
     const submission = await this.submissions.get(id);
     if (!submission) throw new NotFoundError('Submission', id);
     return submission;
+  }
+}
+
+/** Removes every submission a query finds, for good, and announces them form by form. Answers with how many went. */
+export async function removeSubmissions(submissions: SubmissionRepository, events: EventBus, actor: Actor, query: SubmissionQuery): Promise<number> {
+  let removed = 0;
+  for (;;) {
+    // Always the first page: what was found last time is gone.
+    const { items } = await submissions.find({ ...query, limit: BATCH });
+    if (items.length === 0) return removed;
+    await submissions.remove(items.map((item) => item.id));
+    const byForm = new Map<string, string[]>();
+    for (const item of items) byForm.set(item.formId, [...(byForm.get(item.formId) ?? []), item.id]);
+    for (const [formId, ids] of byForm) await events.emit('submission.deleted', { formId, ids, actor });
+    removed += items.length;
   }
 }
 

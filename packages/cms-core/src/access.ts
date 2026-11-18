@@ -2,7 +2,7 @@ import { ForbiddenError } from './errors.js';
 
 export type Role = 'owner' | 'editor' | 'author';
 
-export type Permission = 'schema:write' | 'entry:read' | 'entry:write' | 'entry:publish' | 'entry:delete' | 'form:write' | 'submission:read' | 'submission:manage' | 'user:manage' | 'plugin:manage';
+export type Permission = 'schema:write' | 'entry:read' | 'entry:write' | 'entry:publish' | 'entry:delete' | 'form:write' | 'submission:read' | 'submission:manage' | 'contact:read' | 'contact:manage' | 'user:manage' | 'plugin:manage';
 
 /**
  * Whoever is asking for something: a signed-in person, a plugin, the CLI or an AI agent.
@@ -20,8 +20,8 @@ export interface Actor {
 }
 
 const GRANTS: Readonly<Record<Role, ReadonlySet<Permission>>> = {
-  owner: new Set(['schema:write', 'entry:read', 'entry:write', 'entry:publish', 'entry:delete', 'form:write', 'submission:read', 'submission:manage', 'user:manage', 'plugin:manage']),
-  editor: new Set(['entry:read', 'entry:write', 'entry:publish', 'entry:delete', 'form:write', 'submission:read', 'submission:manage']),
+  owner: new Set(['schema:write', 'entry:read', 'entry:write', 'entry:publish', 'entry:delete', 'form:write', 'submission:read', 'submission:manage', 'contact:read', 'contact:manage', 'user:manage', 'plugin:manage']),
+  editor: new Set(['entry:read', 'entry:write', 'entry:publish', 'entry:delete', 'form:write', 'submission:read', 'submission:manage', 'contact:read', 'contact:manage']),
   author: new Set(['entry:read', 'entry:write']),
 };
 

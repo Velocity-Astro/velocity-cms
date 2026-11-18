@@ -15,6 +15,11 @@ import {
   type FormDef,
   type NewForm,
   type Submission,
+  type Contact,
+  type ContactChanges,
+  type ContactNote,
+  type NewContact,
+  type TimelineItem,
   type SubmissionStatus,
   type NewUpload,
   type Page,
@@ -34,7 +39,7 @@ import {
   InMemoryMediaStore,
   InMemorySchemaRepository,
 } from '@velocity/cms-core/in-memory';
-import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from '../client/admin-client.js';
+import type { AdminClient, ContactListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from '../client/admin-client.js';
 import { MemoryPeople } from './memory-people.js';
 import { AdminRequestError, type RequestErrorCode } from '../client/errors.js';
 
@@ -340,6 +345,44 @@ export class MemoryAdminClient implements AdminClient {
 
   forgetSender(email: string): Promise<number> {
     return this.#request((actor) => this.#cms.submissions.erase(actor, email));
+  }
+
+  listContacts(query: ContactListQuery = {}): Promise<Page<Contact>> {
+    return this.#request((actor) =>
+      this.#cms.contacts.find(actor, { limit: query.limit ?? 50, offset: query.offset ?? 0, ...(query.search !== undefined && query.search !== '' && { search: query.search }) }),
+    );
+  }
+
+  getContact(id: string): Promise<Contact> {
+    return this.#request((actor) => this.#cms.contacts.get(actor, id));
+  }
+
+  createContact(input: NewContact): Promise<Contact> {
+    return this.#request((actor) => this.#cms.contacts.create(actor, input));
+  }
+
+  updateContact(id: string, changes: ContactChanges): Promise<Contact> {
+    return this.#request((actor) => this.#cms.contacts.update(actor, id, changes));
+  }
+
+  eraseContact(id: string): Promise<number> {
+    return this.#request((actor) => this.#cms.contacts.erase(actor, id));
+  }
+
+  contactTimeline(id: string): Promise<readonly TimelineItem[]> {
+    return this.#request((actor) => this.#cms.contacts.timeline(actor, id));
+  }
+
+  addContactNote(id: string, text: string): Promise<ContactNote> {
+    return this.#request((actor) => this.#cms.contacts.addNote(actor, id, text));
+  }
+
+  deleteContactNote(id: string, noteId: string): Promise<void> {
+    return this.#request((actor) => this.#cms.contacts.deleteNote(actor, id, noteId));
+  }
+
+  exportContact(id: string): Promise<string> {
+    return this.#request((actor) => this.#cms.contacts.export(actor, id));
   }
 
   /** Takes what a visitor sends through a form, as the site's public address would. For tests. */

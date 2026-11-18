@@ -252,6 +252,38 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       await expect(client.forgetSender(' ')).rejects.toMatchObject({ code: 'validation_failed' });
     });
 
+    it('keeps a contact for everyone who wrote in, and adds, changes, notes, exports and erases one', async () => {
+      const listed = await client.listContacts();
+      expect(listed.items.map((contact) => contact.email).sort()).toEqual(['ana@example.com', 'tom@example.com']);
+      const [ana] = (await client.listContacts({ search: 'ANA' })).items;
+      if (!ana) throw new Error('No contact for Ana');
+      expect(ana).toMatchObject({ name: 'Ana Ruiz', source: { page: '/contact/' } });
+      expect(await client.getContact(ana.id)).toEqual(ana);
+
+      const li = await client.createContact({ email: ' Li@Example.com ', name: 'Li Wei' });
+      expect(li).toMatchObject({ email: 'li@example.com', name: 'Li Wei', revision: 1 });
+      await expect(client.createContact({ email: 'li@example.com' })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['email'] }] });
+      expect(await client.updateContact(li.id, { name: null, phone: '512 555 0199', expectedRevision: 1 })).toMatchObject({ phone: '512 555 0199', revision: 2 });
+      await expect(client.updateContact(li.id, { name: 'Li', expectedRevision: 1 })).rejects.toMatchObject({ code: 'conflict' });
+
+      const note = await client.addContactNote(ana.id, ' Called back. ');
+      expect(note).toMatchObject({ text: 'Called back.', contactId: ana.id });
+      const timeline = await client.contactTimeline(ana.id);
+      expect(timeline.map((item) => item.kind).sort()).toEqual(['note', 'submission', 'submission']);
+      const sent = timeline.find((item) => item.kind === 'submission');
+      expect(sent).toMatchObject({ formLabel: { en: expect.any(String) as string }, answers: expect.arrayContaining([expect.objectContaining({ key: 'email' })]) as unknown });
+      await client.deleteContactNote(ana.id, note.id);
+      expect(await client.contactTimeline(ana.id)).toHaveLength(2);
+
+      const file = JSON.parse(await client.exportContact(ana.id)) as { contact: { email: string }; submissions: unknown[] };
+      expect(file.contact.email).toBe('ana@example.com');
+      expect(file.submissions).toHaveLength(2);
+
+      expect(await client.eraseContact(ana.id)).toBe(2);
+      await expect(client.getContact(ana.id)).rejects.toMatchObject({ code: 'not_found' });
+      expect((await client.listContacts()).total).toBe(2);
+    });
+
     it('lists who can sign in, lets people in, changes what they may do and takes access away', async () => {
       expect(await client.listPeople()).toEqual([{ id: 'u1', email: 'dana@example.com', name: 'Dana', role: 'owner' }]);
       const ben = await client.invitePerson({ email: ' Ben@Example.com ', name: 'Ben', role: 'author' });

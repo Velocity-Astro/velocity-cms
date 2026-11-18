@@ -1,7 +1,9 @@
 import { ConflictError } from '../errors.js';
-import type { ContentTypeDef, Entry, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus } from '../model.js';
+import type { Contact, ContactNote, ContentTypeDef, Entry, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus } from '../model.js';
 import type {
   Clock,
+  ContactQuery,
+  ContactRepository,
   EntryQuery,
   EntryRepository,
   FormRepository,
@@ -342,5 +344,58 @@ export class InMemoryPluginStore implements PluginStore {
       .filter(([[owner, key]]) => owner === plugin && key.startsWith(prefix))
       .map(([[, key], value]): [string, unknown] => [key, JSON.parse(value) as unknown])
       .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  }
+}
+
+/** Keeps contacts and their notes in memory. */
+export class InMemoryContactRepository implements ContactRepository {
+  readonly #contacts = new Map<string, Contact>();
+  readonly #notes = new Map<string, ContactNote>();
+
+  async get(id: string): Promise<Contact | null> {
+    return this.#contacts.get(id) ?? null;
+  }
+
+  async getByEmail(email: string): Promise<Contact | null> {
+    return [...this.#contacts.values()].find((contact) => contact.email === email) ?? null;
+  }
+
+  async find(query: ContactQuery = {}): Promise<Page<Contact>> {
+    const words = (query.search ?? '').trim().toLowerCase();
+    const matches = [...this.#contacts.values()]
+      .filter((contact) => words === '' || [contact.name, contact.email, contact.phone].some((text) => text?.toLowerCase().includes(words)))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
+    const offset = query.offset ?? 0;
+    return { items: matches.slice(offset, offset + (query.limit ?? 50)), total: matches.length };
+  }
+
+  async save(contact: Contact, expectedRevision: number | null): Promise<Contact> {
+    const current = this.#contacts.get(contact.id);
+    if ((current?.revision ?? null) !== expectedRevision) {
+      throw new ConflictError(current ? 'This contact was saved by someone else. Reload it and try again.' : `Contact "${contact.id}" is not there to change.`);
+    }
+    const other = await this.getByEmail(contact.email);
+    if (other && other.id !== contact.id) throw new ConflictError(`Another contact has the email "${contact.email}".`);
+    this.#contacts.set(contact.id, contact);
+    return contact;
+  }
+
+  async remove(id: string): Promise<void> {
+    this.#contacts.delete(id);
+    for (const note of [...this.#notes.values()]) if (note.contactId === id) this.#notes.delete(note.id);
+  }
+
+  async notes(contactId: string): Promise<ContactNote[]> {
+    return [...this.#notes.values()].filter((note) => note.contactId === contactId).sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
+  }
+
+  async addNote(note: ContactNote): Promise<ContactNote> {
+    if (this.#notes.has(note.id)) throw new ConflictError(`Note "${note.id}" already exists.`);
+    this.#notes.set(note.id, note);
+    return note;
+  }
+
+  async removeNote(contactId: string, noteId: string): Promise<void> {
+    if (this.#notes.get(noteId)?.contactId === contactId) this.#notes.delete(noteId);
   }
 }

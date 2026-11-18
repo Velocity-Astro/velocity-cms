@@ -540,7 +540,7 @@ export class PluginHost {
         on: (event, listener) => {
           const needed = EVENT_NEEDS[event];
           if (needed !== undefined && !permissions.includes(needed)) {
-            throw new ForbiddenError(`The plugin "${name}" listens for "${event}", which carries what visitors sent. Declare "${needed}" in its permissions.`);
+            throw new ForbiddenError(`The plugin "${name}" listens for "${event}", which carries personal data. Declare "${needed}" in its permissions.`);
           }
           const stop = events.on(event, async (payload) => {
             try {

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ConflictError } from '../errors.js';
-import type { ContentTypeDef, Entry, FormDef, MediaFile, Submission } from '../model.js';
-import type { EntryRepository, FormRepository, SubmissionRepository, MediaRepository, MediaStore, PluginStore, SchemaRepository, SearchDocument, SearchIndex } from '../ports.js';
+import type { Contact, ContactNote, ContentTypeDef, Entry, FormDef, MediaFile, Submission } from '../model.js';
+import type { ContactRepository, EntryRepository, FormRepository, SubmissionRepository, MediaRepository, MediaStore, PluginStore, SchemaRepository, SearchDocument, SearchIndex } from '../ports.js';
 
 /**
  * The contract tests for storage adapters.
@@ -669,6 +669,106 @@ export function submissionRepositoryContract(name: string, create: () => Promise
       await repository.removeOfForm('m1');
       await repository.removeOfForm('nobody');
       expect(await ids({})).toEqual(['s4']);
+    });
+  });
+}
+
+const contact = (overrides: Partial<Contact> = {}): Contact => ({
+  id: 'c1',
+  email: 'ana@example.com',
+  name: 'Ana Ruiz',
+  phone: '512 555 0142',
+  source: { formId: 'm1', page: '/contact/' },
+  revision: 1,
+  createdAt: '2026-02-01T00:00:00.000Z',
+  updatedAt: '2026-02-01T00:00:00.000Z',
+  ...overrides,
+});
+const note = (overrides: Partial<ContactNote> = {}): ContactNote => ({ id: 'n1', contactId: 'c1', text: 'Called back.', createdBy: 'u1', createdAt: '2026-02-02T00:00:00.000Z', ...overrides });
+
+/** Run this against every `ContactRepository` adapter. */
+export function contactRepositoryContract(name: string, create: () => Promise<ContactRepository>): void {
+  describe(`${name}: ContactRepository contract`, () => {
+    let repository: ContactRepository;
+    beforeEach(async () => {
+      repository = await create();
+    });
+    const at = (day: number) => `2026-02-0${day}T00:00:00.000Z`;
+    const ids = async (query: Parameters<ContactRepository['find']>[0]) => (await repository.find(query)).items.map((item) => item.id);
+
+    it('answers null for a contact that does not exist', async () => {
+      expect(await repository.get('nobody')).toBeNull();
+      expect(await repository.getByEmail('nobody@example.com')).toBeNull();
+    });
+
+    it('gives back a contact exactly as it was saved, with or without what is optional, by id and by email', async () => {
+      const bare: Contact = { id: 'c2', email: 'tom@example.com', revision: 1, createdAt: at(2), updatedAt: at(2) };
+      const noPage = contact({ id: 'c3', email: 'li@example.com', source: { formId: 'm1' } });
+      await repository.save(contact(), null);
+      await repository.save(bare, null);
+      await repository.save(noPage, null);
+      expect(await repository.get('c1')).toEqual(contact());
+      expect(await repository.getByEmail('ana@example.com')).toEqual(contact());
+      expect(await repository.get('c2')).toEqual(bare);
+      expect(Object.keys((await repository.get('c2')) ?? {}).sort()).toEqual(['createdAt', 'email', 'id', 'revision', 'updatedAt']);
+      expect(await repository.get('c3')).toEqual(noPage);
+    });
+
+    it('refuses an email another contact has, a save from an old revision, and a change to one that is not there', async () => {
+      await repository.save(contact(), null);
+      await expect(repository.save(contact({ id: 'c2' }), null)).rejects.toBeInstanceOf(ConflictError);
+      await expect(repository.save(contact({ revision: 2 }), null)).rejects.toBeInstanceOf(ConflictError);
+      await expect(repository.save(contact({ id: 'c9', email: 'new@example.com', revision: 2 }), 1)).rejects.toBeInstanceOf(ConflictError);
+      const saved = await repository.save(contact({ name: 'Ana R.', revision: 2 }), 1);
+      expect(saved.name).toBe('Ana R.');
+      await expect(repository.save(contact({ revision: 2 }), 1)).rejects.toBeInstanceOf(ConflictError);
+      expect((await repository.get('c1'))?.name).toBe('Ana R.');
+    });
+
+    it('lists the newest first, pages in a stable order, reports the full total, and finds by name, email or phone', async () => {
+      await repository.save(contact({ id: 'c1', createdAt: at(1) }), null);
+      await repository.save(contact({ id: 'c3', email: 'tom@example.com', name: 'Tom Lee', phone: '512 555 0199', createdAt: at(3) }), null);
+      await repository.save(contact({ id: 'c2b', email: 'li@elsewhere.test', name: 'Li', createdAt: at(2) }), null);
+      await repository.save(contact({ id: 'c2a', email: 'sam@example.com', name: 'Sam', createdAt: at(2) }), null);
+      expect(await ids({})).toEqual(['c3', 'c2a', 'c2b', 'c1']);
+      const page = await repository.find({ limit: 2, offset: 1 });
+      expect(page.items.map((item) => item.id)).toEqual(['c2a', 'c2b']);
+      expect(page.total).toBe(4);
+      expect(await ids({ search: 'RUIZ' })).toEqual(['c1']);
+      expect(await ids({ search: 'elsewhere' })).toEqual(['c2b']);
+      expect(await ids({ search: '0199' })).toEqual(['c3']);
+      expect(await ids({ search: '100%' })).toEqual([]);
+      expect((await repository.find({ search: 'example.com', limit: 1 })).total).toBe(3);
+    });
+
+    it('keeps notes newest first, each with its contact, and removes one only for its own contact', async () => {
+      await repository.save(contact(), null);
+      await repository.save(contact({ id: 'c2', email: 'tom@example.com' }), null);
+      await repository.addNote(note());
+      await repository.addNote(note({ id: 'n2', text: 'Wants a tour.', createdAt: at(3) }));
+      await repository.addNote(note({ id: 'n3', contactId: 'c2' }));
+      await expect(repository.addNote(note())).rejects.toBeInstanceOf(ConflictError);
+      expect((await repository.notes('c1')).map((item) => item.id)).toEqual(['n2', 'n1']);
+      expect(await repository.notes('c1')).toContainEqual(note());
+      await repository.removeNote('c2', 'n1');
+      expect(await repository.notes('c1')).toHaveLength(2);
+      await repository.removeNote('c1', 'n1');
+      await repository.removeNote('c1', 'nothing');
+      expect((await repository.notes('c1')).map((item) => item.id)).toEqual(['n2']);
+    });
+
+    it('removes a contact with its notes, frees its email, and leaves the others', async () => {
+      await repository.save(contact(), null);
+      await repository.save(contact({ id: 'c2', email: 'tom@example.com' }), null);
+      await repository.addNote(note());
+      await repository.addNote(note({ id: 'n3', contactId: 'c2' }));
+      await repository.remove('c1');
+      await repository.remove('nobody');
+      expect(await repository.get('c1')).toBeNull();
+      expect(await repository.notes('c1')).toEqual([]);
+      expect(await repository.notes('c2')).toHaveLength(1);
+      await repository.save(contact({ id: 'c5' }), null);
+      expect((await repository.getByEmail('ana@example.com'))?.id).toBe('c5');
     });
   });
 }

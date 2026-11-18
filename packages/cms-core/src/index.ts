@@ -71,6 +71,11 @@ export {
   type PublicForm,
   type PublicFormField,
   type Submission,
+  type SubmissionAnswer,
+  type Contact,
+  type ContactNote,
+  type ContactSource,
+  type TimelineItem,
   type SubmissionStatus,
   type Page,
   type PublicBlock,
@@ -92,6 +97,8 @@ export type {
   SaveOptions,
   SchemaRepository,
   FormRepository,
+  ContactQuery,
+  ContactRepository,
   SubmissionQuery,
   SubmissionRepository,
   SearchDocument,
@@ -144,4 +151,5 @@ export {
 export { SchemaService, type ContentTypeChanges, type FieldArrangement, type FieldChanges, type FieldPlace, type NewContentType, type NewSection } from './services/schema-service.js';
 export type { NewField } from './define-fields.js';
 export { FormService, MAX_FORM_FIELDS, MAX_RETENTION_DAYS, type FormChanges, type FormContactKeys, type NewForm } from './services/form-service.js';
-export { SubmissionService, MAX_ANSWER_LENGTH, type SubmissionSource } from './services/submission-service.js';
+export { SubmissionService, MAX_ANSWER_LENGTH, type SenderBook, type SubmissionSource } from './services/submission-service.js';
+export { ContactService, MAX_CONTACT_NAME_LENGTH, MAX_NOTE_LENGTH, type ContactChanges, type NewContact } from './services/contact-service.js';
