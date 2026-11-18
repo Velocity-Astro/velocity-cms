@@ -1,4 +1,4 @@
-import { isSlug, isSlugPath, type Cms, type ContentTypeDef, type PageHead, type PageInfo } from '@velocity/cms-core';
+import { HOME_SLUG, isSlug, isSlugPath, type Cms, type ContentTypeDef, type PageHead, type PageInfo } from '@velocity/cms-core';
 import { sharedConnection, SITE } from './connection.js';
 import { isPreview, withPreviewDraft } from './preview.js';
 
@@ -20,9 +20,12 @@ function slugIn(pattern: string, path: string): string | null {
   const trim = (text: string) => text.replace(/\/+$/, '');
   const [before = '', after = ''] = trim(pattern).split(name);
   const address = trim(path);
+  // The top of a [...slug] pattern is the page called index, and that page has no other address.
+  if (name === '[...slug]' && address === trim(trim(before) + after)) return HOME_SLUG;
   if (!address.startsWith(before) || !address.endsWith(after) || address.length <= before.length + after.length) return null;
   const slug = address.slice(before.length, address.length - after.length);
-  return (name === '[slug]' ? isSlug(slug) : isSlugPath(slug)) ? slug : null;
+  if (name === '[slug]') return isSlug(slug) ? slug : null;
+  return isSlugPath(slug) && slug !== HOME_SLUG ? slug : null;
 }
 
 /** The entry whose own page is at `path`, if any: the published one, or in a preview the one being worked on. */

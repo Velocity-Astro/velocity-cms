@@ -31,3 +31,9 @@ export const SLUG_PATH_NAME = '...slug';
 export function takesSlugPath(type: { readonly urlPattern?: string | undefined; readonly localizedUrlPatterns?: Readonly<Record<string, string>> | undefined }): boolean {
   return [type.urlPattern, ...Object.values(type.localizedUrlPatterns ?? {})].some((pattern) => pattern?.includes(`[${SLUG_PATH_NAME}]`) === true);
 }
+
+/**
+ * The slug of the page at the top of a `[...slug]` pattern: with `/[...slug]`, the entry whose
+ * slug is `index` is the home page, at `/`, as a file named index is in a folder of pages.
+ */
+export const HOME_SLUG = 'index';

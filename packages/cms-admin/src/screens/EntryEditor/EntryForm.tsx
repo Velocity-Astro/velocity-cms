@@ -1,5 +1,5 @@
 import type { ContentTypeDef, Entry, EntryData, FieldDef } from '@velocity/cms-core';
-import { SLUG_PATH, isSlug, isSlugPath, liveFields, takesSlugPath } from '@velocity/cms-core';
+import { HOME_SLUG, SLUG_PATH, isSlug, isSlugPath, liveFields, takesSlugPath } from '@velocity/cms-core';
 import { Box, Button, Card, ConfirmDialog, Form, SaveBar, Segmented, Split, Stack, Tag, Text, TextField, Workbench, toast } from '@velocity/cms-ui';
 import { useState } from 'react';
 import { paths } from '../../app/paths.js';
@@ -174,6 +174,11 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
   // is a name other entries link by.
   const slugName = isDeep ? '[...slug]' : '[slug]';
   const slugPattern = type.urlPattern?.includes(slugName) ? type.urlPattern : undefined;
+  const slugHelp = (pattern: string) => {
+    // The page called index is the one at the top of the pattern: the home page.
+    if (isDeep && slug === HOME_SLUG) return messages.editor.slugHomeDescription(pattern.replace(slugName, ''));
+    return (isDeep ? messages.editor.slugPathDescription : messages.editor.slugDescription)(pattern.replace(slugName, slug === '' ? '…' : slug));
+  };
   // A type whose entries only show on other pages has nothing of its own to preview.
   const hasPage = type.urlPattern !== undefined || Object.keys(type.localizedUrlPatterns ?? {}).length > 0;
 
@@ -289,7 +294,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
                       isRequired
                       description={
                         slugPattern !== undefined
-                          ? (isDeep ? messages.editor.slugPathDescription : messages.editor.slugDescription)(slugPattern.replace(slugName, slug === '' ? '…' : slug))
+                          ? slugHelp(slugPattern)
                           : messages.editor.slugAsIdentifier
                       }
                       {...(slugProblem !== null && { errorMessage: slugProblem })}
@@ -321,7 +326,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
                         isRequired
                         description={
                           slugPattern !== undefined
-                            ? (isDeep ? messages.editor.slugPathDescription : messages.editor.slugDescription)(slugPattern.replace(slugName, slug === '' ? '…' : slug))
+                            ? slugHelp(slugPattern)
                             : messages.editor.slugAsIdentifier
                         }
                         {...(slugProblem !== null && { errorMessage: slugProblem })}

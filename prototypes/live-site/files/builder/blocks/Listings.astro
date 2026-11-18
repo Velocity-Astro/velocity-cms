@@ -1,0 +1,55 @@
+---
+/**
+ * Homes on the market now, straight from the listings: for sale, for rent, or both behind a
+ * switch that works without JavaScript. Always the newest, so the page never goes stale.
+ */
+import ToggleGroup from '@/components/ui/form/ToggleGroup/ToggleGroup.astro';
+import Band from '@/components/estate/Band.astro';
+import EstateButton from '@/components/estate/EstateButton.astro';
+import ListingCard from '@/components/estate/ListingCard.astro';
+import { getAvailable, getNeighborhoods } from '@/content/estate';
+import { getLocale, localizeRoute, useTranslations } from '@/i18n';
+
+interface Props {
+  eyebrow?: string;
+  title?: string;
+  show?: 'both' | 'sale' | 'rent';
+  count?: '3' | '6' | '9';
+}
+
+const { eyebrow, title, show = 'both', count = '6' } = Astro.props;
+const locale = getLocale(Astro);
+const t = useTranslations(locale);
+const route = (id: Parameters<typeof localizeRoute>[0]) => localizeRoute(id, locale);
+const most = Number(count) || 6;
+const [forSale, forRent, neighborhoods] = await Promise.all([getAvailable(locale, 'sale'), getAvailable(locale, 'rent'), getNeighborhoods(locale)]);
+const hoodName = new Map(neighborhoods.map(({ data }) => [data.slug, data.name]));
+---
+
+<Band id="featured" width="wide">
+  <div class={show === 'both' ? 'estate-tabs' : undefined}>
+    <div class="mb-10 flex flex-wrap items-end justify-between gap-5">
+      <div>
+        {eyebrow && <p class="estate-eyebrow mb-3">{eyebrow}</p>}
+        <h2 class="estate-display text-4xl sm:text-5xl">{title}</h2>
+      </div>
+      {show === 'both' && <ToggleGroup name="featured" label={t('home.listings.switch')} value="sale" class="estate-toggle estate-toggle-light" options={[{ value: 'sale', label: t('home.listings.sale') }, { value: 'rent', label: t('home.listings.rent') }]} />}
+    </div>
+    {show !== 'rent' && <div data-panel="sale">
+      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3" data-reveal-group>
+        {forSale.slice(0, most).map(({ data }) => <ListingCard listing={data} area={hoodName.get(data.neighborhood)} />)}
+      </div>
+      <div class="mt-10 flex justify-center">
+        <EstateButton tone="outline" href={route('buy')} trailingIcon="arrow-right">{t('home.listings.allSale', { count: forSale.length })}</EstateButton>
+      </div>
+    </div>}
+    {show !== 'sale' && <div data-panel="rent">
+      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {forRent.slice(0, most).map(({ data }) => <ListingCard listing={data} area={hoodName.get(data.neighborhood)} />)}
+      </div>
+      <div class="mt-10 flex justify-center">
+        <EstateButton tone="outline" href={route('rent')} trailingIcon="arrow-right">{t('home.listings.allRent', { count: forRent.length })}</EstateButton>
+      </div>
+    </div>}
+  </div>
+</Band>

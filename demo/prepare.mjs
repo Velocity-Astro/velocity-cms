@@ -48,9 +48,13 @@ try {
   }
   // Pages built in the editor have no file to come from. A site with none gets one to open.
   const pages = types.get('pages');
-  if ((await connection.cms.content.find(OWNER, { typeId: pages.id, limit: 1 })).total === 0) {
-    await importRecords(connection.cms, pages, samplePages);
-    console.log(`Added ${samplePages.length} sample page${samplePages.length === 1 ? '' : 's'}.`);
+  // Each sample page is added once, by its slug, so a deploy brings a new one to a site that
+  // already has the others and never touches a page someone has edited.
+  const have = (await connection.cms.content.find(OWNER, { typeId: pages.id, limit: 500 })).items;
+  const missing = samplePages.filter((page) => !have.some((entry) => entry.locale === page.locale && entry.slug === page.slug));
+  if (missing.length > 0) {
+    await importRecords(connection.cms, pages, missing);
+    console.log(`Added ${missing.length} sample page${missing.length === 1 ? '' : 's'}: ${missing.map((page) => page.slug).join(', ')}.`);
   }
   // The menus are an entry too. A site with none gets the template's own links to edit.
   const navigation = types.get('navigation');

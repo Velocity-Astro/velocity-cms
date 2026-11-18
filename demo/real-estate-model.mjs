@@ -213,7 +213,7 @@ const tone = (choices = { default: 'White', secondary: 'Warm stone' }) => choice
 const heading = [text('eyebrow', 'Small heading', { help: 'A word or two above the title.' }), text('title', 'Title')];
 const ICONS = {
   check: 'Check', handshake: 'Handshake', map: 'Map', 'map-pin': 'Map pin', 'message-circle': 'Speech bubble', 'shield-check': 'Shield', home: 'Home', key: 'Key',
-  'calendar-check': 'Calendar', 'badge-dollar-sign': 'Price', 'trending-up': 'Rising line', users: 'People', star: 'Star', clock: 'Clock', phone: 'Phone', 'file-text': 'Document',
+  signpost: 'Signpost', 'building-2': 'Building', 'calendar-check': 'Calendar', 'badge-dollar-sign': 'Price', 'trending-up': 'Rising line', users: 'People', star: 'Star', clock: 'Clock', phone: 'Phone', 'file-text': 'Document',
 };
 const button = (prefix, label) => [
   text(`${prefix}Label`, `${label} words`),
@@ -273,6 +273,80 @@ const pageBlocks = [
     image('photo', 'Photo'),
     ...button('button', 'First button'),
     ...button('second', 'Second button'),
+  ]),
+  block('home-hero', 'Home page opening', { description: 'A headline and the home search over a photo, with one listing beside it.', icon: 'house', group: 'Opening' }, [
+    text('eyebrow', 'Small heading', { help: 'A word or two above the title.' }),
+    text('title', 'Title', { required: true }),
+    text('titleAccent', 'Title, second line', { help: 'Shown in the brand colour after the title.' }),
+    long('lead', 'Lead', { help: 'One or two sentences under the title.' }),
+    image('photo', 'Photo', { help: 'Shown beside the title, and blurred behind it.' }),
+    text('photoAlt', 'What the photo shows', { help: 'Read aloud to people who cannot see it.' }),
+    list('points', 'Short points', text('point', 'Point'), { help: 'A few words each, shown with a tick under the search.' }),
+    link('listing', 'Listing on the photo', 'listings', { help: 'Left empty, the newest home for sale is shown.' }),
+  ]),
+  block('services', 'Services', { description: 'Photo cards that turn over, one for each thing you do.', icon: 'gallery-horizontal', group: 'Content' }, [
+    ...heading,
+    long('lead', 'Lead'),
+    list('items', 'Services', group('item', 'Service', [
+      text('title', 'Name', { required: true }),
+      long('text', 'A line about it'),
+      choice('icon', 'Icon', ICONS),
+      image('photo', 'Photo'),
+      ...button('link', 'Link'),
+    ]), { required: true }),
+  ]),
+  block('listings', 'Listings', { description: 'Homes on the market now, always the newest. For sale, for rent or both.', icon: 'house', group: 'From the CMS' }, [
+    ...heading,
+    choice('show', 'Show', { both: 'For sale and for rent, with a switch', sale: 'For sale', rent: 'For rent' }),
+    choice('count', 'How many', { 3: 'Three', 6: 'Six', 9: 'Nine' }),
+  ]),
+  block('listing-spotlight', 'One listing', { description: 'One home in full: its photos, price, facts and two buttons.', icon: 'star', group: 'From the CMS' }, [
+    text('eyebrow', 'Small heading'),
+    link('listing', 'Listing', 'listings', { help: 'Left empty, the newest home for sale is shown.' }),
+    text('buttonLabel', 'Button words'),
+    text('tourLabel', 'Tour button words'),
+  ]),
+  block('neighborhoods', 'Neighborhoods', { description: 'The neighborhood guides, the first one large.', icon: 'map', group: 'From the CMS' }, [
+    ...heading,
+    text('linkLabel', 'Link to all of them', { help: 'Left empty, there is no link.' }),
+  ]),
+  block('team', 'Team', { description: 'Everyone on the team, each linked to their page.', icon: 'users', group: 'From the CMS' }, [
+    ...heading,
+    text('linkLabel', 'Link to all of them', { help: 'Left empty, there is no link.' }),
+  ]),
+  block('reviews', 'Reviews', { description: 'What clients said, in one of four layouts.', icon: 'message-circle', group: 'From the CMS' }, [
+    ...heading,
+    choice('layout', 'Layout', { spotlight: 'One at a time, beside the home', cards: 'Cards', wall: 'A wall with a rating', people: 'Agents with a quote each' }),
+  ]),
+  block('journal', 'Guides', { description: 'The three newest guides from the blog.', icon: 'newspaper', group: 'From the CMS' }, [
+    ...heading,
+    text('linkLabel', 'Link to all of them', { help: 'Left empty, there is no link.' }),
+  ]),
+  block('photo-points', 'Photos and points', { description: 'Two photos and a figure beside a heading, short points and buttons.', icon: 'list-checks', group: 'Content' }, [
+    ...heading,
+    long('lead', 'Lead'),
+    image('photo', 'Photo'),
+    text('photoAlt', 'What the photo shows', { help: 'Read aloud to people who cannot see it.' }),
+    image('secondPhoto', 'Small photo'),
+    text('figure', 'Figure', { help: 'As it should read: 7% or 1,200. Left empty, there is no figure.' }),
+    text('figureLabel', 'Above the figure'),
+    text('figureUnit', 'Under the figure'),
+    list('points', 'Points', text('point', 'Point')),
+    ...button('button', 'First button'),
+    ...button('second', 'Second button'),
+  ]),
+  block('steps', 'Steps', { description: 'Numbered steps beside a heading and a photo.', icon: 'list-ordered', group: 'Content' }, [
+    ...heading,
+    image('photo', 'Photo'),
+    list('items', 'Steps', group('item', 'Step', [text('title', 'Name', { required: true }), long('text', 'What happens')]), { required: true }),
+  ]),
+  block('valuation', 'Valuation', { description: 'A field for a seller\'s address that starts a valuation, with recent results.', icon: 'badge-dollar-sign', group: 'Action' }, [
+    ...heading,
+    long('lead', 'Lead'),
+    text('buttonLabel', 'Button words'),
+    image('photo', 'Photo'),
+    text('photoAlt', 'What the photo shows', { help: 'Read aloud to people who cannot see it.' }),
+    choice('results', 'Recent results', { show: 'Show the last three', hide: 'Leave them out' }),
   ]),
 ];
 
@@ -335,8 +409,59 @@ export const sampleMenus = {
   ],
 };
 
-/** A page to start from, so the editor has one to open: written the way the site would be handed it, by key. */
+/**
+ * The pages to start from: the template's own Home and About, section for section, and one more
+ * made only in the editor. Written the way the site would be handed them, by key.
+ */
 export const samplePages = [
+  {
+    locale: 'en',
+    slug: 'index',
+    title: 'Homes for sale, rentals and property management',
+    description: 'Buy, sell or rent with an independent local brokerage, and let us manage your rental. Search homes, explore neighborhoods and book a tour.',
+    body: [
+      { block: 'home-hero', data: { eyebrow: 'Real estate and property management', title: 'Find a place you’ll love', titleAccent: 'coming home to.', lead: 'Buy, sell or rent with a local team that knows every neighborhood, and that manages homes for owners who’d rather not take the 2 a.m. calls.', photo: 'room-living-modern', photoAlt: 'A bright, open-plan living room with modern furniture', points: ['Licensed brokerage', 'Local and independent', 'Full-service management'], listing: 'lakeshore-farmhouse' } },
+      { block: 'services', data: { eyebrow: 'What we do', title: 'One team for every stage of owning a home', lead: 'Whatever brings you here, one local team handles it from the first call to the keys.', items: [
+        { title: 'Buy a home', text: 'Tour on your schedule and get an agent who negotiates like it’s their own money.', icon: 'home', photo: 'home-farmhouse', linkLabel: 'Start your search', linkLink: '/homes-for-sale/' },
+        { title: 'Sell your home', text: 'Pricing backed by local sales, professional photos and a launch plan built to sell.', icon: 'signpost', photo: 'home-brick', linkLabel: 'Get a valuation', linkLink: '/sell/' },
+        { title: 'Find a rental', text: 'Browse homes and apartments, apply online and move in without the runaround.', icon: 'key', photo: 'room-living-city', linkLabel: 'Browse rentals', linkLink: '/rentals/' },
+        { title: 'Property management', text: 'Leasing, rent, maintenance and reporting for single-family and small multifamily owners.', icon: 'building-2', photo: 'room-kitchen-white', linkLabel: 'For owners', linkLink: '/property-management/' },
+      ] } },
+      { block: 'listing-spotlight', data: { eyebrow: 'Featured listing', listing: 'lakeshore-farmhouse', buttonLabel: 'View the home', tourLabel: 'Schedule a tour' } },
+      { block: 'listings', data: { eyebrow: 'Featured properties', title: 'Homes on the market now', show: 'both', count: '6' } },
+      { block: 'photo-points', data: { eyebrow: 'Property management', title: 'Your rental, handled.', lead: 'We market your home, screen every applicant, collect rent and coordinate repairs with vetted local vendors. You get a clear monthly statement and a team that answers.', photo: 'room-kitchen-wood', photoAlt: 'A modern kitchen with wood cabinets and an island', secondPhoto: 'outdoor-pergola', figure: '7%', figureLabel: 'Full management from', figureUnit: 'of monthly rent', points: ['Tenant screening and leasing', 'Online rent collection', '24/7 maintenance line', 'Monthly owner statements', 'Vetted local vendors', 'Renewals and move-outs'], buttonLabel: 'Get a free rental analysis', buttonLink: '/property-management/#analysis', secondLabel: 'See plans and pricing', secondLink: '/property-management/#plans' } },
+      { block: 'neighborhoods', data: { eyebrow: 'Neighborhood guides', title: 'Explore where you could live', linkLabel: 'All neighborhoods' } },
+      { block: 'steps', data: { eyebrow: 'How it works', title: 'From first call to keys in hand', photo: 'outdoor-rooftop', items: [
+        { title: 'A free consultation', text: 'Tell us what you need. We’ll walk you through the market, timing and budget, with no obligation.' },
+        { title: 'A plan that fits', text: 'A clear strategy for buying, selling or leasing, with every cost laid out up front.' },
+        { title: 'We do the legwork', text: 'Showings, marketing, negotiation, inspections and paperwork, handled by your agent.' },
+        { title: 'Keys in hand', text: 'Close with confidence. Owners can hand the home straight to our management team.' },
+      ] } },
+      { block: 'reviews', data: { eyebrow: 'Reviews', title: 'What our clients say', layout: 'spotlight' } },
+      { block: 'valuation', data: { eyebrow: 'Thinking of selling?', title: 'Find out what your home is worth', lead: 'A free, no-obligation valuation prepared by a local agent who knows your street, not an algorithm.', buttonLabel: 'Get my valuation', photo: 'room-living-fireplace', photoAlt: 'A sunlit living room with a fireplace and a dining area', results: 'show' } },
+      { block: 'journal', data: { eyebrow: 'Guides', title: 'Advice for buyers, sellers and owners', linkLabel: 'All guides' } },
+      { block: 'call-to-action', data: { title: 'Ready to make a move?', lead: 'Talk to a local agent today. No pressure, just straight answers.', photo: 'home-modern', buttonLabel: 'Schedule a tour', buttonLink: '/schedule-a-tour/', secondLabel: 'Contact us', secondLink: '/contact/' } },
+    ],
+  },
+  {
+    locale: 'en',
+    slug: 'about',
+    title: 'About us',
+    description: 'An independent local brokerage that answers its own phones. Our story, what we believe and who we are.',
+    body: [
+      { block: 'page-hero', data: { eyebrow: 'About us', title: 'A local brokerage that answers its own phones.', lead: 'We buy, sell, lease and manage homes in the neighborhoods we live in, with a small team that knows its clients by name.', size: 'lg', background: 'glow', photo: 'room-lounge', photoAlt: 'A modern lounge with floor-to-ceiling windows' } },
+      { block: 'text', data: { title: 'Why we started', layout: 'beside', body: ['[Your story. This is sample copy.] Oakhaven started with a simple idea: real estate is personal, and the people who help you should know your street, your schools and your name.', 'We stayed small on purpose. Every client works with a named agent, every owner has a named manager, and every call reaches a person.', 'Today we help people buy, sell and rent, and we look after rental homes for owners across the city.'] } },
+      { block: 'feature-grid', data: { eyebrow: 'What we believe', title: 'How we work', columns: '4', tone: 'secondary', items: [
+        { icon: 'handshake', title: 'Straight answers', text: 'We’ll tell you what a home is worth, even when it isn’t what you hoped.' },
+        { icon: 'map', title: 'Truly local', text: 'We work where we live, so we know which streets flood and where the good coffee is.' },
+        { icon: 'message-circle', title: 'We pick up', text: 'A real person answers, and we call back the same day.' },
+        { icon: 'shield-check', title: 'Fair to everyone', text: 'Fair housing isn’t a box we tick. It’s how we screen, show and sell.' },
+      ] } },
+      { block: 'team', data: { eyebrow: 'The team', title: 'The people you’ll work with', linkLabel: 'Meet everyone' } },
+      { block: 'reviews', data: { eyebrow: 'Reviews', title: 'Our agents, in their clients’ words', layout: 'people' } },
+      { block: 'call-to-action', data: { title: 'Let’s talk', lead: 'Whatever you’re planning, we’re happy to help you think it through.', buttonLabel: 'Contact us', buttonLink: '/contact/', secondLabel: 'Browse homes', secondLink: '/homes-for-sale/' } },
+    ],
+  },
   {
     locale: 'en',
     slug: 'why-list-with-us',

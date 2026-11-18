@@ -1,0 +1,25 @@
+---
+/** Everyone on the team, straight from the CMS, each linked to their own page. */
+import AgentCard from '@/components/estate/AgentCard.astro';
+import Band from '@/components/estate/Band.astro';
+import EstateButton from '@/components/estate/EstateButton.astro';
+import { getAgents } from '@/content/estate';
+import { getLocale, localizeRoute } from '@/i18n';
+
+interface Props {
+  eyebrow?: string;
+  title?: string;
+  linkLabel?: string;
+}
+
+const { eyebrow, title, linkLabel } = Astro.props;
+const locale = getLocale(Astro);
+const agents = await getAgents(locale);
+---
+
+<Band eyebrow={eyebrow} title={title} width="wide">
+  {linkLabel && <EstateButton slot="action" tone="link" href={localizeRoute('agents', locale)} trailingIcon="arrow-right">{linkLabel}</EstateButton>}
+  <ul class="grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6" data-reveal-group>
+    {agents.map(({ data }) => <li><AgentCard agent={data} /></li>)}
+  </ul>
+</Band>
