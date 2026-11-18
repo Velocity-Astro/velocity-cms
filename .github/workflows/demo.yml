@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['packages/**', 'demo/**', 'prototypes/live-site/**', '.github/workflows/demo.yml']
+    paths: ['packages/**', '.github/workflows/demo.yml']
 
 concurrency:
   group: demo
@@ -179,7 +179,10 @@ jobs:
 
       - name: Import the content and convert the pages
         working-directory: templates/build/real-estate
-        run: node "$GITHUB_WORKSPACE/cms/demo/prepare.mjs" .
+        # The template's wiring to the CMS is kept with the template, in the private repository.
+        env:
+          VELOCITY_CMS_DIR: ${{ github.workspace }}/cms
+        run: node "$GITHUB_WORKSPACE/templates/cms/real-estate/prepare.mjs" .
 
       - name: Deploy to Vercel
         working-directory: templates/build/real-estate

@@ -46,7 +46,7 @@ export const mailchimp = definePlugin({
   name: 'mailchimp',
   apiVersion: 1,
   label: { en: 'Mailchimp' },
-  description: { en: 'Add the people who send your forms to a Mailchimp audience, with a confirmation email first unless you say otherwise.' },
+  description: { en: 'Add the people who send your forms to a Mailchimp audience, with a confirmation email first unless you say otherwise. Experimental: tested, but not yet tried against the real service.' },
   version: '1.0.0',
   permissions: ['submission:read'],
   enabledByDefault: false,
