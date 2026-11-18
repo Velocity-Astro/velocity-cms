@@ -167,20 +167,54 @@ it('refuses to overwrite a save someone else made in the meantime', async () => 
   expect(title.value).toBe('18 Alder Court West');
 });
 
+const more = async (user: ReturnType<typeof userEvent.setup>, action: string) => {
+  await user.click(await screen.findByRole('button', { name: 'More actions' }));
+  await user.click(await screen.findByRole('menuitem', { name: action }));
+};
+
 it('takes an entry off the site only after asking', async () => {
   const user = userEvent.setup();
   const { client } = renderApp('/content/listings/e1', signedIn());
-  await user.click(await screen.findByRole('button', { name: 'Unpublish' }));
+  await more(user, 'Unpublish');
   const dialog = within(await screen.findByRole('alertdialog', { name: 'Take this off the site?' }));
   await user.click(dialog.getByRole('button', { name: 'Cancel' }));
   expect((await client.getEntry('e1')).status).toBe('published');
 
-  await user.click(screen.getByRole('button', { name: 'Unpublish' }));
+  await more(user, 'Unpublish');
   await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Unpublish' }));
   expect(await screen.findByText('It is off the site. Its content is kept as a draft.')).toBeTruthy();
   expect(saveBar().getByText('Draft')).toBeTruthy();
-  expect(screen.queryByRole('button', { name: 'Unpublish' })).toBeNull();
+  await user.click(screen.getByRole('button', { name: 'More actions' }));
+  expect(await screen.findByRole('menuitem', { name: 'Move to trash' })).toBeTruthy();
+  expect(screen.queryByRole('menuitem', { name: 'Unpublish' })).toBeNull();
   expect((await client.getEntry('e1')).status).toBe('draft');
+});
+
+it('moves an entry to the trash only after asking, says what that means, and goes back to the list', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/content/listings/e1', signedIn());
+  await more(user, 'Move to trash');
+  const dialog = within(await screen.findByRole('alertdialog', { name: 'Move this to the trash?' }));
+  // It is on the site, so the question says visitors lose it.
+  expect(dialog.getByText(/Visitors will no longer find it/)).toBeTruthy();
+  await user.click(dialog.getByRole('button', { name: 'Cancel' }));
+  expect(await client.getEntry('e1')).not.toHaveProperty('deletedAt');
+
+  await more(user, 'Move to trash');
+  await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Move to trash' }));
+  expect(await screen.findByText('6214 Lakeshore Drive moved to the trash')).toBeTruthy();
+  expect(await screen.findByRole('heading', { level: 1, name: 'Listings' })).toBeTruthy();
+  expect(screen.queryByRole('rowheader', { name: /^6214 Lakeshore Drive/ })).toBeNull();
+  expect(await client.getEntry('e1')).toMatchObject({ status: 'draft' });
+  expect((await client.listTrash()).items.map((entry) => entry.id)).toEqual(['e1']);
+});
+
+it('says an entry is in the trash instead of opening it, with the way there', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/', signedIn());
+  await client.trashEntry('e2');
+  await user.click(await screen.findByRole('link', { name: 'Trash' }));
+  expect(await screen.findByRole('heading', { level: 1, name: 'Trash' })).toBeTruthy();
 });
 
 it('names a field it has no control for, and keeps its content', async () => {

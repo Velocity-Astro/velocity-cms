@@ -136,6 +136,28 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       expect(draft).not.toHaveProperty('published');
     });
 
+    it('moves an entry to the trash, brings it back as a draft, and deletes one for good', async () => {
+      await client.publishEntry('e2', 1);
+      const before = (await client.listEntries({ type: 'listings' })).total;
+      const trashed = await client.trashEntry('e2');
+      expect(trashed.status).toBe('draft');
+      expect(trashed.deletedAt).toBeDefined();
+      expect((await client.listEntries({ type: 'listings' })).total).toBe(before - 1);
+      expect((await client.listTrash()).items.map((entry) => entry.id)).toEqual(['e2']);
+      await expect(client.updateEntry('e2', { slug: trashed.slug, data: trashed.data, expectedRevision: trashed.revision })).rejects.toMatchObject({ code: 'conflict' });
+
+      const restored = await client.restoreEntry('e2');
+      expect(restored).toMatchObject({ status: 'draft', slug: '18-alder-court' });
+      expect(restored).not.toHaveProperty('deletedAt');
+      expect((await client.listTrash()).total).toBe(0);
+
+      await expect(client.deleteEntry('e2')).rejects.toMatchObject({ code: 'conflict' });
+      await client.trashEntry('e2');
+      await client.deleteEntry('e2');
+      await expect(client.getEntry('e2')).rejects.toMatchObject({ code: 'not_found' });
+      expect((await client.listTrash({ limit: 5 })).items).toEqual([]);
+    });
+
     it('lists who can sign in, lets people in, changes what they may do and takes access away', async () => {
       expect(await client.listPeople()).toEqual([{ id: 'u1', email: 'dana@example.com', name: 'Dana', role: 'owner' }]);
       const ben = await client.invitePerson({ email: ' Ben@Example.com ', name: 'Ben', role: 'author' });

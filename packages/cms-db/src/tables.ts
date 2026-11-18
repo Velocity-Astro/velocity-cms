@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import type { ContentTypeDef, EntryData, EntryStatus } from '@velocity/cms-core';
 
@@ -37,9 +38,12 @@ export const entries = sqliteTable(
     publishedAt: text('published_at'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
+    /** Set while the entry is in the trash. */
+    deletedAt: text('deleted_at'),
   },
   (table) => [
-    uniqueIndex('entries_type_locale_slug').on(table.typeId, table.locale, table.slug),
+    // An entry in the trash holds no slug, so another entry may take it.
+    uniqueIndex('entries_type_locale_slug').on(table.typeId, table.locale, table.slug).where(sql`${table.deletedAt} is null`),
     uniqueIndex('entries_type_locale_published_slug').on(table.typeId, table.locale, table.publishedSlug),
     index('entries_type_status').on(table.typeId, table.status),
     index('entries_translation_group').on(table.translationGroup),

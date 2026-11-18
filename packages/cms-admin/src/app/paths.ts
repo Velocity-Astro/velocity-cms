@@ -10,6 +10,7 @@ export const paths = {
   signIn: '/sign-in',
   people: '/people',
   media: '/media',
+  trash: '/trash',
   plugins: '/plugins',
   /** A screen a plugin added. */
   pluginScreen: (plugin: string, screen: string) => `/plugins/${encodeURIComponent(plugin)}/${encodeURIComponent(screen)}`,

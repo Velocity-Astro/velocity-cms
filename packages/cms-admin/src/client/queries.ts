@@ -21,6 +21,7 @@ const keys = {
   pluginSettings: (name: string) => ['plugins', name, 'settings'] as const,
   /** Every list of entries starts with this, so one call marks them all out of date. */
   entryLists: ['entries'] as const,
+  trash: ['entries', 'trash'] as const,
   entries: (query: EntryListQuery) => ['entries', query] as const,
   entry: (id: string) => ['entry', id] as const,
 };
@@ -257,6 +258,34 @@ export function useUnpublishEntry() {
 }
 
 /** Asks for a link each time: a link runs out, so it is never kept. */
+/** The entries in the trash. Kept with the lists, so whatever changes an entry refreshes it. */
+export function useTrash() {
+  const client = useClient();
+  return useQuery({ queryKey: keys.trash, queryFn: () => client.listTrash({ limit: 200 }) });
+}
+
+export function useTrashEntry() {
+  const client = useClient();
+  return useMutation({ mutationFn: (id: string) => client.trashEntry(id), onSuccess: useEntryChanged() });
+}
+
+export function useRestoreEntry() {
+  const client = useClient();
+  return useMutation({ mutationFn: (id: string) => client.restoreEntry(id), onSuccess: useEntryChanged() });
+}
+
+export function useDeleteEntry() {
+  const client = useClient();
+  const cache = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => client.deleteEntry(id),
+    onSuccess: (_, id) => {
+      cache.removeQueries({ queryKey: keys.entry(id) });
+      void cache.invalidateQueries({ queryKey: keys.entryLists });
+    },
+  });
+}
+
 export function usePreviewEntry() {
   const client = useClient();
   return useMutation({ mutationFn: (id: string) => client.previewEntry(id) });

@@ -1,5 +1,5 @@
 import { AppShell, Logo, dismissToasts, toast, type AppShellNavItem } from '@velocity/cms-ui';
-import { Blocks, House, Images, KeyRound, LogOut, Puzzle, Shapes, Users } from 'lucide-react';
+import { Blocks, House, Images, KeyRound, LogOut, Puzzle, Shapes, Trash2, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router';
 import { useGo } from './use-go.js';
@@ -98,6 +98,7 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
                     { id: 'people', label: messages.app.people, href: paths.people, icon: Users, isCurrent: location.pathname === paths.people },
                   ]
                 : []),
+              { id: 'trash', label: messages.app.trash, href: paths.trash, icon: Trash2, isCurrent: location.pathname === paths.trash },
             ],
           },
           // Plugins have a section of their own: the screens they added, for everyone (what each

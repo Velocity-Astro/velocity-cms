@@ -127,6 +127,47 @@ export function entryRepositoryContract(name: string, create: () => Promise<Entr
       await repository.save(entry({ id: 'e4', slug: 'first', locale: 'es' }), fresh);
     });
 
+    it('keeps an entry in the trash out of every search but the one for the trash', async () => {
+      const gone = entry({ id: 'e2', slug: 'second', revision: 2, deletedAt: '2026-01-03T00:00:00.000Z' });
+      await repository.save(entry(), fresh);
+      await repository.save(entry({ id: 'e2', slug: 'second' }), fresh);
+      await repository.save(gone, { expectedRevision: 1, actorId: 'tester' });
+      expect(await repository.get('e2')).toEqual(gone);
+      expect(await repository.get('e1')).not.toHaveProperty('deletedAt');
+      const found = async (query: Parameters<EntryRepository['find']>[0]) => {
+        const page = await repository.find(query);
+        return [page.items.map((item) => item.id), page.total];
+      };
+      expect(await found({})).toEqual([['e1'], 1]);
+      expect(await found({ slug: 'second' })).toEqual([[], 0]);
+      expect(await found({ trashed: false })).toEqual([['e1'], 1]);
+      expect(await found({ trashed: true })).toEqual([['e2'], 1]);
+      expect(await found({ trashed: true, slug: 'first' })).toEqual([[], 0]);
+    });
+
+    it('frees the slug of an entry in the trash, and lets two in the trash share one', async () => {
+      const at = '2026-01-03T00:00:00.000Z';
+      await repository.save(entry(), fresh);
+      await repository.save(entry({ revision: 2, deletedAt: at }), { expectedRevision: 1, actorId: 'tester' });
+      await repository.save(entry({ id: 'e2' }), fresh);
+      await repository.save(entry({ id: 'e2', revision: 2, deletedAt: at }), { expectedRevision: 1, actorId: 'tester' });
+      await repository.save(entry({ id: 'e3' }), fresh);
+      // Coming back, an entry needs its slug like any other.
+      await expect(repository.save(entry({ revision: 3 }), { expectedRevision: 2, actorId: 'tester' })).rejects.toBeInstanceOf(ConflictError);
+    });
+
+    it('removes an entry and its history, and ignores an id nothing has', async () => {
+      await repository.save(entry(), fresh);
+      await repository.save(entry({ id: 'e2', slug: 'second' }), fresh);
+      await repository.remove('e1');
+      await repository.remove('nobody');
+      expect(await repository.get('e1')).toBeNull();
+      expect(await repository.history('e1')).toEqual([]);
+      expect(await repository.history('e2')).toHaveLength(1);
+      // Nothing of it is left to refuse a new entry under the same id.
+      await repository.save(entry(), fresh);
+    });
+
     it('keeps every saved version in history, newest first', async () => {
       await repository.save(entry(), { expectedRevision: null, actorId: 'ana' });
       await repository.save(entry({ revision: 2, status: 'published', data: { f1: 'Second' } }), {

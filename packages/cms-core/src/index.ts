@@ -48,6 +48,7 @@ export {
 export {
   hasUnpublishedChanges,
   isLiveType,
+  isTrashed,
   liveFields,
   type BlockDef,
   type BlockValue,

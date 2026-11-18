@@ -32,6 +32,7 @@ export class InMemoryEntryRepository implements EntryRepository {
     const matches = [...this.#entries.values()]
       .filter(
         (entry) =>
+          (entry.deletedAt !== undefined) === (query.trashed === true) &&
           (query.typeId === undefined || entry.typeId === query.typeId) &&
           (query.locale === undefined || entry.locale === query.locale) &&
           (query.status === undefined || entry.status === query.status) &&
@@ -53,8 +54,8 @@ export class InMemoryEntryRepository implements EntryRepository {
       throw new ConflictError(`Entry "${entry.id}" changed since it was read.`);
     }
     const mine = [entry.slug, entry.published?.slug];
-    for (const other of this.#entries.values()) {
-      if (other.id === entry.id || other.typeId !== entry.typeId || other.locale !== entry.locale) continue;
+    for (const other of entry.deletedAt === undefined ? this.#entries.values() : []) {
+      if (other.deletedAt !== undefined || other.id === entry.id || other.typeId !== entry.typeId || other.locale !== entry.locale) continue;
       const taken = mine.find((slug) => slug !== undefined && (slug === other.slug || slug === other.published?.slug));
       if (taken !== undefined) {
         throw new ConflictError(`Another entry already uses the slug "${taken}" in ${entry.locale}.`);
@@ -76,6 +77,11 @@ export class InMemoryEntryRepository implements EntryRepository {
 
   async history(id: string): Promise<Revision[]> {
     return [...(this.#history.get(id) ?? [])];
+  }
+
+  async remove(id: string): Promise<void> {
+    this.#entries.delete(id);
+    this.#history.delete(id);
   }
 }
 

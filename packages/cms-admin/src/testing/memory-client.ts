@@ -29,7 +29,7 @@ import {
   InMemoryMediaStore,
   InMemorySchemaRepository,
 } from '@velocity/cms-core/in-memory';
-import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser } from '../client/admin-client.js';
+import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, TrashQuery } from '../client/admin-client.js';
 import { MemoryPeople } from './memory-people.js';
 import { AdminRequestError, type RequestErrorCode } from '../client/errors.js';
 
@@ -241,6 +241,24 @@ export class MemoryAdminClient implements AdminClient {
 
   unpublishEntry(id: string): Promise<Entry> {
     return this.#request((actor) => this.#cms.content.unpublish(actor, id));
+  }
+
+  trashEntry(id: string): Promise<Entry> {
+    return this.#request((actor) => this.#cms.content.trash(actor, id));
+  }
+
+  restoreEntry(id: string): Promise<Entry> {
+    return this.#request((actor) => this.#cms.content.restore(actor, id));
+  }
+
+  listTrash(query: TrashQuery = {}): Promise<Page<Entry>> {
+    return this.#request((actor) =>
+      this.#cms.content.find(actor, { trashed: true, order: 'updated', limit: query.limit ?? 50, offset: query.offset ?? 0 }),
+    );
+  }
+
+  deleteEntry(id: string): Promise<void> {
+    return this.#request((actor) => this.#cms.content.delete(actor, id));
   }
 
   previewEntry(id: string): Promise<PreviewLink> {

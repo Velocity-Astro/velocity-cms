@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, ne, or, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, ne, or, type SQL } from 'drizzle-orm';
 import {
   ConflictError,
   type Entry,
@@ -13,8 +13,9 @@ import { entries, revisions } from './tables.js';
 
 type EntryRow = typeof entries.$inferSelect;
 
-const toEntry = ({ publishAt, publishedSlug, publishedData, publishedRevision, publishedAt, ...row }: EntryRow): Entry => ({
+const toEntry = ({ publishAt, publishedSlug, publishedData, publishedRevision, publishedAt, deletedAt, ...row }: EntryRow): Entry => ({
   ...row,
+  ...(deletedAt !== null && { deletedAt }),
   ...(publishAt !== null && { publishAt }),
   ...(publishedSlug !== null &&
     publishedData !== null &&
@@ -27,6 +28,7 @@ const toEntry = ({ publishAt, publishedSlug, publishedData, publishedRevision, p
 const toRow = ({ published, ...entry }: Entry): EntryRow => ({
   ...entry,
   publishAt: entry.publishAt ?? null,
+  deletedAt: entry.deletedAt ?? null,
   publishedSlug: published?.slug ?? null,
   publishedData: published?.data ?? null,
   publishedRevision: published?.revision ?? null,
@@ -42,13 +44,13 @@ export class SqliteEntryRepository implements EntryRepository {
   }
 
   async find(query: EntryQuery = {}): Promise<Page<Entry>> {
-    const filters: SQL[] = [];
+    const filters: SQL[] = [query.trashed === true ? isNotNull(entries.deletedAt) : isNull(entries.deletedAt)];
     if (query.typeId !== undefined) filters.push(eq(entries.typeId, query.typeId));
     if (query.locale !== undefined) filters.push(eq(entries.locale, query.locale));
     if (query.status !== undefined) filters.push(eq(entries.status, query.status));
     if (query.slug !== undefined) filters.push(eq(entries.slug, query.slug));
     if (query.publishedSlug !== undefined) filters.push(eq(entries.publishedSlug, query.publishedSlug));
-    const where = filters.length > 0 ? and(...filters) : undefined;
+    const where = and(...filters);
 
     const rows = await this.db
       .select()
@@ -75,11 +77,12 @@ export class SqliteEntryRepository implements EntryRepository {
 
       // An address belongs to one entry, whether that entry is working under it or showing it to visitors.
       const mine = entry.published ? [entry.slug, entry.published.slug] : [entry.slug];
-      const [other] = await tx
+      const [other] = entry.deletedAt !== undefined ? [] : await tx
         .select({ slug: entries.slug, publishedSlug: entries.publishedSlug })
         .from(entries)
         .where(
           and(
+            isNull(entries.deletedAt),
             eq(entries.typeId, entry.typeId),
             eq(entries.locale, entry.locale),
             ne(entries.id, entry.id),
@@ -108,5 +111,12 @@ export class SqliteEntryRepository implements EntryRepository {
 
   history(id: string): Promise<Revision[]> {
     return this.db.select().from(revisions).where(eq(revisions.entryId, id)).orderBy(desc(revisions.revision));
+  }
+
+  async remove(id: string): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      await tx.delete(revisions).where(eq(revisions.entryId, id));
+      await tx.delete(entries).where(eq(entries.id, id));
+    });
   }
 }

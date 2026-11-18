@@ -12,6 +12,8 @@ export interface EntryQuery {
   readonly slug?: string;
   /** The slug visitors see. Matches published entries only. */
   readonly publishedSlug?: string;
+  /** `true` for the entries in the trash and no others. Left out, the trash is left out. */
+  readonly trashed?: boolean;
   /**
    * `created` (the default) is oldest first, which never reorders as people work. `updated` is
    * most recently saved first, which is what an editor's list shows.
@@ -39,10 +41,13 @@ export interface EntryRepository {
    * Stores the entry and adds it to its history, as one step. Also refuses, with a
    * `ConflictError`, a slug another entry of the same type and locale already uses, whether in
    * the version being worked on or in the published one: two pages can never share an address.
+   * An entry in the trash holds no slug: it neither refuses another's nor is refused.
    */
   save(entry: Entry, options: SaveOptions): Promise<Entry>;
   /** Every saved version, newest first. */
   history(id: string): Promise<Revision[]>;
+  /** Removes the entry and its history for good. An id nothing has is ignored. */
+  remove(id: string): Promise<void>;
 }
 
 export interface SchemaRepository {

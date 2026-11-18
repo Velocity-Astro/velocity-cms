@@ -43,6 +43,13 @@
       "when": 1794976271107,
       "tag": "0005_plugins",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1795014331750,
+      "tag": "0006_trash",
+      "breakpoints": true
     }
   ]
 }
