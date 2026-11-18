@@ -7,7 +7,8 @@ import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { paths } from '../../app/paths.js';
 import { useGo } from '../../app/use-go.js';
 import { AdminRequestError } from '../../client/errors.js';
-import { useAddContactNote, useContact, useContactTimeline, useCustomFields, useDeleteContactNote, useEraseContact, useExportContact, useForms, useSession, useUpdateContact } from '../../client/queries.js';
+import { useAddContactNote, useContact, useContactTimeline, useCustomFields, useDeleteContactNote, useEraseContact, useExportContact, useForms, usePipeline, useSession, useTeam, useUpdateContact } from '../../client/queries.js';
+import { useStageName } from '../Contacts/pipeline.js';
 import { CustomValueFields, useCustomValues } from '../../fields/custom-values.js';
 import { localized } from '../../lib/content.js';
 import { downloadText } from '../../lib/download.js';
@@ -176,6 +177,11 @@ function Timeline({ contact }: { readonly contact: Contact }) {
   const deleteNote = useDeleteContactNote();
   const [note, setNote] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
+  const pipeline = usePipeline();
+  const team = useTeam();
+  const stageName = useStageName();
+  // A stage that was removed since has no name left to give.
+  const stageOf = (id: string) => stageName((pipeline.data?.stages ?? []).find((stage) => stage.id === id)) || messages.contacts.stageGone;
 
   const add = () => {
     setProblem(null);
@@ -196,7 +202,17 @@ function Timeline({ contact }: { readonly contact: Contact }) {
   };
   const lines = (text: string) => text.split('\n').map((line, index) => <Text key={index}>{line}</Text>);
   const item = (entry: TimelineItem) =>
-    entry.kind === 'note' ? (
+    entry.kind === 'stage' ? (
+      <Stack key={entry.id} gap={1}>
+        <Inline gap={2}>
+          <Tag>{messages.contacts.movedLabel}</Tag>
+          <Text size="sm" tone="muted">
+            {relativeTime(entry.at, locale)}
+          </Text>
+        </Inline>
+        <Text>{messages.contacts.movedFromTo(stageOf(entry.from), stageOf(entry.to), (team.data ?? []).find((member) => member.id === entry.by)?.name)}</Text>
+      </Stack>
+    ) : entry.kind === 'note' ? (
       <Stack key={entry.note.id} gap={2}>
         <Inline gap={2} justify="between">
           <Inline gap={2}>

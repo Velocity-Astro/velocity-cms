@@ -204,6 +204,9 @@ export const contactNotes = sqliteTable(
     id: text('id').primaryKey(),
     contactId: text('contact_id').notNull(),
     text: text('text').notNull(),
+    /** Set on the record of a move to another stage: the stage left and the stage reached. */
+    movedFrom: text('moved_from'),
+    movedTo: text('moved_to'),
     createdBy: text('created_by').notNull(),
     createdAt: text('created_at').notNull(),
   },

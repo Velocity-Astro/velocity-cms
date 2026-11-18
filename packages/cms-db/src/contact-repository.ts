@@ -98,11 +98,13 @@ export class SqliteContactRepository implements ContactRepository {
   }
 
   async notes(contactId: string): Promise<ContactNote[]> {
-    return this.db.select().from(contactNotes).where(eq(contactNotes.contactId, contactId)).orderBy(desc(contactNotes.createdAt), asc(contactNotes.id));
+    const rows = await this.db.select().from(contactNotes).where(eq(contactNotes.contactId, contactId)).orderBy(desc(contactNotes.createdAt), asc(contactNotes.id));
+    return rows.map(({ movedFrom, movedTo, ...note }) => ({ ...note, ...(movedFrom !== null && movedTo !== null && { moved: { from: movedFrom, to: movedTo } }) }));
   }
 
   async addNote(note: ContactNote): Promise<ContactNote> {
-    const added = await this.db.insert(contactNotes).values(note).onConflictDoNothing().returning({ id: contactNotes.id });
+    const { moved, ...row } = note;
+    const added = await this.db.insert(contactNotes).values({ ...row, movedFrom: moved?.from ?? null, movedTo: moved?.to ?? null }).onConflictDoNothing().returning({ id: contactNotes.id });
     if (added.length === 0) throw new ConflictError(`Note "${note.id}" already exists.`);
     return note;
   }
