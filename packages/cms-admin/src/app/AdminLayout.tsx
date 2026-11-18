@@ -1,6 +1,6 @@
-import { AppShell, Button, Dialog, Form, Logo, Stack, Text, TextField, Toast, dismissToasts, toast, type AppShellNavItem } from '@velocity/cms-ui';
+import { AppShell, Button, Dialog, Form, Logo, Stack, Text, TextField, dismissToasts, toast, type AppShellNavItem } from '@velocity/cms-ui';
 import { House, KeyRound, LogOut, Users } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router';
 import { useAddPasskey, useContentTypes, useSession, useSignOut } from '../client/queries.js';
 import { localized } from '../lib/content.js';
@@ -24,6 +24,18 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
   const types = useContentTypes();
   const signOut = useSignOut();
   const [isAddingPasskey, setAddingPasskey] = useState(false);
+
+  // Someone who was signed in and no longer is, without having asked: the session ran out, or
+  // an owner took their access away. They are told why the sign-in screen is back.
+  const wasSignedIn = useRef(false);
+  const isSigningOut = useRef(false);
+  const isSignedIn = session.data !== null && session.data !== undefined;
+  useEffect(() => {
+    if (wasSignedIn.current && session.data === null && !isSigningOut.current) {
+      toast({ title: messages.app.sessionEnded, description: messages.app.sessionEndedDescription });
+    }
+    wasSignedIn.current = isSignedIn;
+  }, [isSignedIn, session.data, messages]);
 
   if (session.isPending) return <LoadingState />;
   if (session.isError) return <ErrorState error={session.error} onRetry={() => void session.refetch()} />;
@@ -71,11 +83,17 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
           ],
           onAction: (id) => {
             if (id === 'passkey') return setAddingPasskey(true);
+            isSigningOut.current = true;
             signOut.mutate(undefined, {
               onSuccess: () => {
                 // Messages about the last person's work are not for the next.
                 dismissToasts();
                 void navigate(paths.signIn);
+                toast({ title: messages.app.signedOut });
+              },
+              onError: (error) => {
+                isSigningOut.current = false;
+                toast({ title: messages.app.notSignedOut, description: error instanceof Error ? error.message : String(error), tone: 'danger' });
               },
             });
           },
@@ -84,7 +102,6 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
         <Outlet />
       </AppShell>
       {isAddingPasskey && <PasskeyDialog onClose={() => setAddingPasskey(false)} />}
-      <Toast label={messages.app.notifications} closeLabel={messages.app.dismiss} />
     </>
   );
 }

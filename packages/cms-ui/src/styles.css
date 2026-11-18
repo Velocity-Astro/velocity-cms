@@ -131,6 +131,65 @@
 }
 
 /*
+ * Messages as a stack of cards: the newest in front, up to two more peeking out behind it, each
+ * a little smaller. Pointing at the stack, or moving focus into it, fans it out into a list so
+ * every message can be read and closed. The newest message is the list's first child.
+ */
+@utility toast-stack {
+  display: grid;
+  /* Each card sits in a list item that draws no box of its own, so the cards are what is laid out. */
+  & > * > * {
+    grid-area: 1 / 1;
+    /* Every card takes the height of the tallest, so the ones behind line up with the front one. */
+    align-self: stretch;
+    transform-origin: bottom center;
+    transition-property: transform, opacity;
+    transition-duration: var(--motion-slow);
+    transition-timing-function: var(--motion-ease);
+    /* A new message rises into place. */
+    @starting-style {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+  }
+  & > * > * > * {
+    transition: opacity var(--motion-base) var(--motion-ease);
+  }
+  & > :nth-child(1) > * {
+    z-index: 3;
+  }
+  & > :nth-child(2) > * {
+    z-index: 2;
+    transform: translateY(-0.75rem) scale(0.95);
+  }
+  & > :nth-child(3) > * {
+    z-index: 1;
+    transform: translateY(-1.5rem) scale(0.9);
+  }
+  & > :nth-child(n + 4) > * {
+    transform: translateY(-1.5rem) scale(0.9);
+    opacity: 0;
+    pointer-events: none;
+  }
+  /* Behind the front card only the cards' edges show, not words cut in half. */
+  & > :nth-child(n + 2) > * > * {
+    opacity: 0;
+  }
+  &:hover,
+  &:focus-within {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+    & > * > *,
+    & > * > * > * {
+      transform: none;
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
+}
+
+/*
  * Formatted text as a person wrote it: headings, lists, quotes and links inside one box. The
  * parts have no classes of their own, because the text is the person's, so they are drawn here.
  */

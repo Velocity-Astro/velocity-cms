@@ -3,6 +3,7 @@ import {
   Text,
   UNSTABLE_Toast as AriaToast,
   UNSTABLE_ToastContent as ToastContent,
+  UNSTABLE_ToastList as ToastList,
   UNSTABLE_ToastQueue as ToastQueue,
   UNSTABLE_ToastRegion as ToastRegion,
 } from 'react-aria-components';
@@ -14,6 +15,7 @@ import {
   toastDuration,
   toastIconSize,
   toastIconVariants,
+  toastListClass,
   toastRegionClass,
   toastTitleClass,
   type ToastTone,
@@ -37,8 +39,14 @@ export interface ToastProps {
 
 const ICONS = { neutral: Info, success: CircleCheck, danger: CircleAlert } as const;
 
-/** One list of messages for the whole editor, so they stack in one place whoever sends them. */
+/**
+ * One list of messages for the whole editor, so they stack in one place whoever sends them. Three
+ * show as a stack; a fourth waits behind them and is seen when the stack is fanned out.
+ */
 const queue = new ToastQueue<ToastMessage>({ maxVisibleToasts: 4 });
+
+/** A message as the list hands it over: its content, and the key that closes it. */
+type QueuedMessage = (typeof queue)['visibleToasts'][number];
 
 /** Shows a message. Returns a function that takes it away early. */
 export function toast(message: ToastMessage): () => void {
@@ -55,26 +63,28 @@ export function dismissToasts(): void {
 export function Toast({ label, closeLabel }: ToastProps) {
   return (
     <ToastRegion queue={queue} aria-label={label} className={toastRegionClass}>
-      {({ toast: item }) => {
-        const tone = item.content.tone ?? 'neutral';
-        const Icon = ICONS[tone];
-        return (
-          <AriaToast toast={item} className={toastClass}>
-            <Icon aria-hidden size={toastIconSize} className={toastIconVariants({ tone })} />
-            <ToastContent className={toastContentClass}>
-              <Text slot="title" className={toastTitleClass}>
-                {item.content.title}
-              </Text>
-              {item.content.description !== undefined && (
-                <Text slot="description" className={toastDescriptionClass}>
-                  {item.content.description}
+      <ToastList className={toastListClass}>
+        {({ toast: item }: { toast: QueuedMessage }) => {
+          const tone = item.content.tone ?? 'neutral';
+          const Icon = ICONS[tone];
+          return (
+            <AriaToast toast={item} className={toastClass}>
+              <Icon aria-hidden size={toastIconSize} className={toastIconVariants({ tone })} />
+              <ToastContent className={toastContentClass}>
+                <Text slot="title" className={toastTitleClass}>
+                  {item.content.title}
                 </Text>
-              )}
-            </ToastContent>
-            <IconButton label={closeLabel} icon={X} size="sm" onPress={() => queue.close(item.key)} />
-          </AriaToast>
-        );
-      }}
+                {item.content.description !== undefined && (
+                  <Text slot="description" className={toastDescriptionClass}>
+                    {item.content.description}
+                  </Text>
+                )}
+              </ToastContent>
+              <IconButton label={closeLabel} icon={X} size="sm" onPress={() => queue.close(item.key)} />
+            </AriaToast>
+          );
+        }}
+      </ToastList>
     </ToastRegion>
   );
 }
