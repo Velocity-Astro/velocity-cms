@@ -9,6 +9,7 @@ import { FieldGrid } from '../../fields/index.js';
 import { entryState, entryTitle, languageName, localized, sameData, withValue, type EntryState } from '../../lib/content.js';
 import { relativeTime } from '../../lib/relative-time.js';
 import { slugify } from '../../lib/slug.js';
+import { useLeaveGuard } from '../../lib/use-leave-guard.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 
 const STATE_TONE = { draft: 'neutral', scheduled: 'info', published: 'success', unpublishedChanges: 'warning' } as const satisfies Record<
@@ -59,6 +60,10 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
   const slug = typedSlug ?? entry?.slug ?? slugify(title ?? '');
   const hasChanges = entry === null || slug !== entry.slug || !sameData(data, entry.data);
   const state = entry ? entryState(entry) : 'draft';
+  // What would be lost by leaving now. A new entry nobody has typed in holds nothing, and a save
+  // under way moves on by itself.
+  const hasTyped = entry === null ? typedSlug !== null || Object.keys(data).length > 0 : hasChanges;
+  const guard = useLeaveGuard(hasTyped && running === null);
 
   /** Shows why the server refused: on the fields when it named them, and always in a message. */
   function report(what: string, error: unknown) {
@@ -180,11 +185,10 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
                 label={messages.editor.language}
                 selected={entry.id}
                 onChange={(id) => onSwitch?.(id)}
-                // Leaving would drop what was typed, so the other languages wait for a save.
                 options={versions.map((version) => ({
                   id: version.id,
                   label: languageName(version.locale, locale),
-                  isDisabled: version.id !== entry.id && (hasChanges || isBusy),
+                  isDisabled: version.id !== entry.id && isBusy,
                 }))}
               />
             )}
@@ -233,6 +237,19 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
           </Split>
         </Form>
       </Box>
+      <ConfirmDialog
+        isOpen={guard.isAsking}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) guard.stay();
+        }}
+        title={messages.editor.leaveTitle}
+        confirmLabel={messages.editor.leave}
+        cancelLabel={messages.editor.keepEditing}
+        tone="danger"
+        onConfirm={guard.leave}
+      >
+        {messages.editor.leaveDescription}
+      </ConfirmDialog>
       {entry !== null && (
         <ConfirmDialog
           isOpen={isConfirmingUnpublish}
