@@ -1,6 +1,6 @@
 import { MutationCache, QueryCache, QueryClient, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, Page, PipelineChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity/cms-core';
-import type { ContactListQuery, EntryChanges, EntryListQuery, ImageList, NewEntry, NewPerson, NewType, NewTypeField, SubmissionListQuery } from './admin-client.js';
+import type { ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, DealChanges, NewDeal, Page, PipelineChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity/cms-core';
+import type { ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, ImageList, NewEntry, NewPerson, NewType, NewTypeField, SubmissionListQuery } from './admin-client.js';
 import { AdminRequestError } from './errors.js';
 import { useClient } from './client-context.js';
 
@@ -36,6 +36,10 @@ const keys = {
   contact: (id: string) => ['contacts', 'one', id] as const,
   contactTimeline: (id: string) => ['contacts', 'timeline', id] as const,
   pipeline: ['contacts', 'pipeline'] as const,
+  /** Everything about deals starts with this. A change to contacts or the pipeline marks it out of date too. */
+  deals: ['contacts', 'deals'] as const,
+  dealList: (query: DealListQuery) => ['contacts', 'deals', 'list', query] as const,
+  forecast: ['contacts', 'deals', 'forecast'] as const,
   team: ['team'] as const,
 };
 
@@ -432,6 +436,43 @@ export function useMoveContact() {
     mutationFn: ({ contact, stage }: { contact: Contact; stage: string }) => client.updateContact(contact.id, { stage, expectedRevision: contact.revision }),
     onSettled: () => cache.invalidateQueries({ queryKey: keys.contacts }),
   });
+}
+
+export function useDeals(query: DealListQuery = {}) {
+  const client = useClient();
+  return useQuery({ queryKey: keys.dealList(query), queryFn: () => client.listDeals(query), placeholderData: (previous) => previous });
+}
+
+/** One list of deals per query, asked for together: the columns of the board. */
+export function useDealLists(queries: readonly DealListQuery[]) {
+  const client = useClient();
+  return useQueries({ queries: queries.map((query) => ({ queryKey: keys.dealList(query), queryFn: () => client.listDeals(query) })) });
+}
+
+export function useForecast() {
+  const client = useClient();
+  return useQuery({ queryKey: keys.forecast, queryFn: () => client.getForecast() });
+}
+
+/** What every change to a deal does afterwards. It is awaited, so a change stays pending until the lists are fresh. */
+function useDealsChanged() {
+  const cache = useQueryClient();
+  return () => cache.invalidateQueries({ queryKey: keys.deals });
+}
+
+export function useCreateDeal() {
+  const client = useClient();
+  return useMutation({ mutationFn: (input: NewDeal) => client.createDeal(input), onSettled: useDealsChanged() });
+}
+
+export function useUpdateDeal() {
+  const client = useClient();
+  return useMutation({ mutationFn: ({ id, changes }: { id: string; changes: DealChanges }) => client.updateDeal(id, changes), onSettled: useDealsChanged() });
+}
+
+export function useDeleteDeal() {
+  const client = useClient();
+  return useMutation({ mutationFn: (id: string) => client.deleteDeal(id), onSettled: useDealsChanged() });
 }
 
 /** The stages a contact moves through. */

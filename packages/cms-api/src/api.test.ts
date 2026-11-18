@@ -612,6 +612,29 @@ describe('forms and what they were sent', () => {
     expect((await call('GET', '/team')).status).toBe(403);
   });
 
+  it('makes, lists, changes, forecasts and deletes deals, and keeps them from an author', async () => {
+    const tom = String((await call('POST', '/contacts', { email: 'tom@example.com' })).body['id']);
+    const made = await call('POST', '/deals', { contactId: tom, title: 'Sale of 18 Alder Court', value: 450000, closeOn: '2026-03-14' });
+    expect(made).toMatchObject({ status: 201, body: { title: 'Sale of 18 Alder Court', value: 450000, stage: 'new', revision: 1 } });
+    const id = String(made.body['id']);
+    expect((await call('POST', '/deals', { contactId: tom, title: '', value: 1 })).status).toBe(422);
+    expect((await call('POST', '/deals', { contactId: tom, title: 'x', value: '1' })).status).toBe(400);
+    expect((await call('GET', `/deals?contact=${tom}`)).body).toMatchObject({ total: 1 });
+    expect((await call('GET', '/deals?stage=won')).body).toMatchObject({ total: 0 });
+    expect((await call('GET', '/deals?owner=none')).body).toMatchObject({ total: 1 });
+    expect((await call('PATCH', `/deals/${id}`, { stage: 'qualified', ownerId: 'u1', expectedRevision: 1 })).body).toMatchObject({ stage: 'qualified', ownerId: 'u1', revision: 2 });
+    expect((await call('PATCH', `/deals/${id}`, { value: 1, expectedRevision: 1 })).status).toBe(409);
+    expect((await call('GET', `/deals/${id}`)).body).toMatchObject({ stage: 'qualified' });
+    expect((await call('GET', '/deals/forecast')).body).toMatchObject({ currency: 'USD', open: 450000, weighted: 270000, won: 0 });
+    expect((await call('PUT', '/pipeline', { stages: [{ id: 'new', kind: 'open', chance: 20 }], currency: 'EUR', assignTo: ['u1'], expectedRevision: 0 })).body).toMatchObject({ currency: 'EUR', assignTo: ['u1'] });
+    expect((await call('GET', '/deals/forecast')).body).toMatchObject({ currency: 'EUR', open: 450000, weighted: 90000 });
+    authenticator.session = as('author');
+    for (const path of ['/deals', `/deals/${id}`, '/deals/forecast']) expect((await call('GET', path)).status).toBe(403);
+    authenticator.session = as('owner');
+    expect(await call('DELETE', `/deals/${id}`)).toEqual({ status: 200, body: {} });
+    expect((await call('GET', `/deals/${id}`)).status).toBe(404);
+  });
+
   it('keeps contacts from an author, and never lets a browser keep one', async () => {
     const made = await call('POST', '/contacts', { email: 'tom@example.com' });
     const tom = String(made.body['id']);

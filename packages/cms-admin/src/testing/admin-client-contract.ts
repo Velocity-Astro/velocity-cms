@@ -275,6 +275,27 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       await expect(client.savePipeline({ stages: [{ id: 'new', kind: 'open' }], expectedRevision: 0 })).rejects.toMatchObject({ code: 'conflict' });
     });
 
+    it('keeps deals for a contact, forecasts them by stage, and gives new contacts to whoever the pipeline names', async () => {
+      const [ana] = (await client.listContacts({ search: 'ana' })).items;
+      if (!ana) throw new Error('No contact for Ana');
+      const deal = await client.createDeal({ contactId: ana.id, title: ' Sale of 18 Alder Court ', value: 450000, closeOn: '2026-03-14' });
+      expect(deal).toMatchObject({ title: 'Sale of 18 Alder Court', value: 450000, stage: 'new', closeOn: '2026-03-14', revision: 1 });
+      await expect(client.createDeal({ contactId: ana.id, title: '', value: -1 })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['title'] }, { path: ['value'] }] });
+      const moved = await client.updateDeal(deal.id, { stage: 'qualified', ownerId: 'u1', closeOn: null, expectedRevision: 1 });
+      expect(moved).toMatchObject({ stage: 'qualified', ownerId: 'u1', revision: 2 });
+      expect(moved.closeOn).toBeUndefined();
+      await expect(client.updateDeal(deal.id, { value: 1, expectedRevision: 1 })).rejects.toMatchObject({ code: 'conflict' });
+      expect((await client.listDeals({ contactId: ana.id })).items.map((item) => item.id)).toEqual([deal.id]);
+      expect((await client.listDeals({ stage: 'new' })).total).toBe(0);
+      expect((await client.listDeals({ ownerId: null })).total).toBe(0);
+      expect(await client.getForecast()).toMatchObject({ currency: 'USD', open: 450000, weighted: 270000, won: 0, lost: 0 });
+      const pipeline = await client.savePipeline({ stages: [{ id: 'new', kind: 'open' }, { id: 'qualified', kind: 'open', chance: 80 }, { id: 'won', kind: 'won' }], currency: 'EUR', assignTo: ['u1'], expectedRevision: 0 });
+      expect(pipeline).toMatchObject({ currency: 'EUR', assignTo: ['u1'] });
+      expect(await client.getForecast()).toMatchObject({ currency: 'EUR', weighted: 360000 });
+      await client.deleteDeal(deal.id);
+      expect((await client.listDeals()).total).toBe(0);
+    });
+
     it('keeps a contact for everyone who wrote in, and adds, changes, notes, exports and erases one', async () => {
       const listed = await client.listContacts();
       expect(listed.items.map((contact) => contact.email).sort()).toEqual(['ana@example.com', 'tom@example.com']);

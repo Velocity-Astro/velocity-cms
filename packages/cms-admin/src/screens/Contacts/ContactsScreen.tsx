@@ -176,7 +176,7 @@ function ContactList() {
         {contacts.isSuccess && rows.length > 0 && <Table label={messages.contacts.title} columns={columns} rows={rows} onRowAction={(id) => go(paths.contact(id))} />}
         </>}
       </Stack>
-      {isEditingStages && pipeline.data && <StagesDialog pipeline={pipeline.data} onClose={() => setEditingStages(false)} />}
+      {isEditingStages && pipeline.data && <StagesDialog pipeline={pipeline.data} team={team.data ?? []} onClose={() => setEditingStages(false)} />}
       {/* Made anew each time it opens, so it never shows what was typed last time. */}
       {isCreating && <NewContactDialog onClose={() => setCreating(false)} />}
     </Box>

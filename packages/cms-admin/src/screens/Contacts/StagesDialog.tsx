@@ -1,5 +1,5 @@
-import type { Pipeline, StageKind } from '@velocity/cms-core';
-import { Button, Dialog, Form, Grid, Repeater, Select, Stack, Text, TextField, toast } from '@velocity/cms-ui';
+import type { Pipeline, StageKind, TeamMember } from '@velocity/cms-core';
+import { Button, Checkbox, Dialog, Fieldset, Form, Grid, NumberField, Repeater, Select, Stack, Text, TextField, toast } from '@velocity/cms-ui';
 import { useRef, useState } from 'react';
 import { AdminRequestError } from '../../client/errors.js';
 import { useSavePipeline } from '../../client/queries.js';
@@ -12,6 +12,7 @@ interface Draft {
   readonly id?: string;
   readonly label: string;
   readonly kind: StageKind;
+  readonly chance: number | null;
 }
 
 const KINDS: readonly StageKind[] = ['open', 'won', 'lost'];
@@ -19,20 +20,28 @@ const MAX_STAGES = 12;
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /** The window the pipeline's stages are renamed, reordered, added and removed in. */
-export function StagesDialog({ pipeline, onClose }: { readonly pipeline: Pipeline; readonly onClose: () => void }) {
+export function StagesDialog({ pipeline, team, onClose }: { readonly pipeline: Pipeline; readonly team: readonly TeamMember[]; readonly onClose: () => void }) {
   const { close, dialog } = useClosing(onClose);
   const messages = useMessages();
   const save = useSavePipeline();
   const added = useRef(0);
   const builtIn: Readonly<Record<string, string>> = messages.contacts.stages;
-  const [stages, setStages] = useState<readonly Draft[]>(() => pipeline.stages.map((stage) => ({ row: stage.id, id: stage.id, label: stage.label ?? '', kind: stage.kind })));
+  const [stages, setStages] = useState<readonly Draft[]>(() => pipeline.stages.map((stage) => ({ row: stage.id, id: stage.id, label: stage.label ?? '', kind: stage.kind, chance: stage.chance ?? 50 })));
+  const [currency, setCurrency] = useState(pipeline.currency ?? 'USD');
+  const [assignTo, setAssignTo] = useState<readonly string[]>(pipeline.assignTo ?? []);
   const [problems, setProblems] = useState<Readonly<Record<string, string>>>({});
 
   const change = (row: string, changes: Partial<Draft>) => setStages(stages.map((stage) => (stage.row === row ? { ...stage, ...changes } : stage)));
   const send = () => {
     setProblems({});
     save.mutate(
-      { stages: stages.map(({ id, label, kind }) => ({ ...(id !== undefined && { id }), label, kind })), expectedRevision: pipeline.revision },
+      {
+        stages: stages.map(({ id, label, kind, chance }) => ({ ...(id !== undefined && { id }), label, kind, ...(kind === 'open' && chance !== null && { chance }) })),
+        currency,
+        // Someone who left is dropped from the list rather than refused.
+        assignTo: assignTo.filter((id) => team.some((member) => member.id === id)),
+        expectedRevision: pipeline.revision,
+      },
       {
         onSuccess: () => {
           toast({ title: messages.contacts.stagesSaved, tone: 'success' });
@@ -76,7 +85,7 @@ export function StagesDialog({ pipeline, onClose }: { readonly pipeline: Pipelin
           items={stages.map((stage, index) => ({
             id: stage.row,
             content: (
-              <Grid columns={2} gap={3}>
+              <Grid columns={3} gap={3}>
                 <TextField
                   label={messages.contacts.stageName}
                   value={stage.label}
@@ -92,6 +101,18 @@ export function StagesDialog({ pipeline, onClose }: { readonly pipeline: Pipelin
                   onChange={(kind) => change(stage.row, { kind: KINDS.find((candidate) => candidate === kind) ?? 'open' })}
                   {...(problems[`stages.${index}.kind`] !== undefined && { errorMessage: problems[`stages.${index}.kind`] })}
                 />
+                {/* A won stage is certain and a lost one is not: only an open stage has a chance to set. */}
+                {stage.kind === 'open' && (
+                  <NumberField
+                    label={messages.contacts.stageChance}
+                    value={stage.chance}
+                    onChange={(chance) => change(stage.row, { chance })}
+                    minValue={0}
+                    maxValue={100}
+                    isInteger
+                    {...(problems[`stages.${index}.chance`] !== undefined && { errorMessage: problems[`stages.${index}.chance`] })}
+                  />
+                )}
               </Grid>
             ),
           }))}
@@ -100,7 +121,7 @@ export function StagesDialog({ pipeline, onClose }: { readonly pipeline: Pipelin
           isFull={stages.length >= MAX_STAGES}
           onAdd={() => {
             added.current += 1;
-            setStages([...stages, { row: `added-${added.current}`, label: '', kind: 'open' }]);
+            setStages([...stages, { row: `added-${added.current}`, label: '', kind: 'open', chance: 50 }]);
           }}
           onRemove={(index) => setStages(stages.filter((_, at) => at !== index))}
           onMove={(from, to) => {
@@ -113,6 +134,32 @@ export function StagesDialog({ pipeline, onClose }: { readonly pipeline: Pipelin
           moveUpLabel={messages.contacts.moveStageUp}
           moveDownLabel={messages.contacts.moveStageDown}
         />
+        <Fieldset legend={messages.contacts.pipelineSettings}>
+          <Stack gap={4}>
+            <TextField
+              label={messages.contacts.currency}
+              description={messages.contacts.currencyHelp}
+              value={currency}
+              onChange={setCurrency}
+              autoComplete="off"
+              {...(problems['currency'] !== undefined && { errorMessage: problems['currency'] })}
+            />
+            {team.length > 0 && (
+              <Fieldset legend={messages.contacts.assignTo} description={messages.contacts.assignToHelp}>
+                <Stack gap={2}>
+                  {team.map((member) => (
+                    <Checkbox
+                      key={member.id}
+                      label={member.name}
+                      isSelected={assignTo.includes(member.id)}
+                      onChange={(isSelected) => setAssignTo(isSelected ? [...assignTo, member.id] : assignTo.filter((id) => id !== member.id))}
+                    />
+                  ))}
+                </Stack>
+              </Fieldset>
+            )}
+          </Stack>
+        </Fieldset>
       </Form>
     </Dialog>
   );

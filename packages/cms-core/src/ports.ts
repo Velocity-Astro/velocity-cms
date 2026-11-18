@@ -2,7 +2,7 @@
  * What the core needs from the outside world. The core ships no implementation of these:
  * an adapter package implements each one and proves it with the contract tests in `./testing`.
  */
-import type { ContentTypeDef, Entry, EntryStatus, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus, Timestamp, Contact, ContactNote, Pipeline, TeamMember } from './model.js';
+import type { ContentTypeDef, Entry, EntryStatus, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus, Timestamp, Contact, ContactNote, Deal, Pipeline, TeamMember } from './model.js';
 
 export interface EntryQuery {
   readonly typeId?: string;
@@ -142,6 +142,42 @@ export interface ContactRepository {
   addNote(note: ContactNote): Promise<ContactNote>;
   /** Removes one note of a contact. An id nothing has is ignored. */
   removeNote(contactId: string, noteId: string): Promise<void>;
+}
+
+export interface DealQuery {
+  readonly contactId?: string;
+  readonly stage?: string;
+  /** Only deals this person looks after, or with `null`, the ones nobody does. */
+  readonly ownerId?: string | null;
+  /** Defaults to 50. */
+  readonly limit?: number;
+  readonly offset?: number;
+}
+
+/** How many deals a stage holds, and what they are worth together. */
+export interface StageTotal {
+  readonly stage: string;
+  readonly count: number;
+  readonly value: number;
+}
+
+export interface DealRepository {
+  get(id: string): Promise<Deal | null>;
+  /** Newest first, then by id, so paging never skips or repeats one. */
+  find(query?: DealQuery): Promise<Page<Deal>>;
+  /** One total for each stage that holds a deal. */
+  totals(): Promise<StageTotal[]>;
+  /**
+   * Creates or replaces. `expectedRevision` is the revision the caller last saw, or `null` for a
+   * new deal: one that has moved on is refused with a `ConflictError`.
+   */
+  save(deal: Deal, expectedRevision: number | null): Promise<Deal>;
+  /** Puts every deal of one stage in another, as it is. Answers with how many moved. */
+  moveStage(from: string, to: string): Promise<number>;
+  /** Removes a deal for good. An id nothing has is ignored. */
+  remove(id: string): Promise<void>;
+  /** Removes every deal of a contact for good. Answers with how many went. */
+  removeOfContact(contactId: string): Promise<number>;
 }
 
 /** Where the site's pipeline is kept, once someone has changed the one the CMS comes with. */

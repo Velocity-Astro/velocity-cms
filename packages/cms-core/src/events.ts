@@ -1,6 +1,6 @@
 import type { Actor } from './access.js';
 import type { Permission } from './access.js';
-import type { Contact, ContentTypeDef, Entry, FormDef, MediaFile, Pipeline, Submission } from './model.js';
+import type { Contact, Deal, ContentTypeDef, Entry, FormDef, MediaFile, Pipeline, Submission } from './model.js';
 
 /** Everything the CMS announces, and what each announcement carries. */
 export interface CmsEvents {
@@ -33,6 +33,9 @@ export interface CmsEvents {
   'contact.saved': { contact: Contact; actor?: Actor };
   /** A contact is gone for good, with its notes. `contact` is what it was. */
   'contact.deleted': { contact: Contact; actor: Actor };
+  /** A deal was made or changed, or is gone for good. */
+  'deal.saved': { deal: Deal; actor: Actor };
+  'deal.deleted': { deal: Deal; actor: Actor };
   /** The stages contacts move through were changed. */
   'pipeline.saved': { pipeline: Pipeline; actor: Actor };
   'media.uploaded': { file: MediaFile; actor: Actor };
@@ -52,6 +55,8 @@ export const EVENT_NEEDS: Readonly<Partial<Record<keyof CmsEvents, Permission>>>
   'submission.changed': 'submission:read',
   'contact.saved': 'contact:read',
   'contact.deleted': 'contact:read',
+  'deal.saved': 'contact:read',
+  'deal.deleted': 'contact:read',
 };
 
 type Listener<T> = (payload: T) => void | Promise<void>;

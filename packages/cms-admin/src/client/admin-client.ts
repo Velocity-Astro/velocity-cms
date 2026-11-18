@@ -1,4 +1,4 @@
-import type { Contact, ContactChanges, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
+import type { Contact, ContactChanges, Deal, DealChanges, Forecast, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
@@ -88,6 +88,16 @@ export interface ContactListQuery {
   readonly ownerId?: string | null;
   /** Only contacts to get back to on or before this day (`2026-03-14`), soonest first. */
   readonly followUpBy?: string;
+  /** Defaults to 50. */
+  readonly limit?: number;
+  readonly offset?: number;
+}
+
+export interface DealListQuery {
+  readonly contactId?: string;
+  readonly stage?: string;
+  /** Only deals this person looks after, or with `null`, the ones nobody does. */
+  readonly ownerId?: string | null;
   /** Defaults to 50. */
   readonly limit?: number;
   readonly offset?: number;
@@ -226,6 +236,13 @@ export interface AdminClient {
   savePipeline(changes: PipelineChanges): Promise<Pipeline>;
   /** Who a contact can be given to, by name. For those who may read contacts. */
   listTeam(): Promise<readonly TeamMember[]>;
+  /** What contacts may buy, newest first. Only for those who may read contacts. */
+  listDeals(query?: DealListQuery): Promise<Page<Deal>>;
+  createDeal(input: NewDeal): Promise<Deal>;
+  updateDeal(id: string, changes: DealChanges): Promise<Deal>;
+  deleteDeal(id: string): Promise<void>;
+  /** Where the deals stand, stage by stage. */
+  getForecast(): Promise<Forecast>;
   getContact(id: string): Promise<Contact>;
   /** Adds a contact by hand. An email a contact already has is refused, naming the field. */
   createContact(input: NewContact): Promise<Contact>;

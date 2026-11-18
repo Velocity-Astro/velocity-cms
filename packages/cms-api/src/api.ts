@@ -1,4 +1,4 @@
-import type { Cms, ContactChanges, PipelineChanges, ContentTypeChanges, FieldArrangement, FieldChanges, FieldSection, FormChanges, NewContact, NewField, NewForm, Role } from '@velocity/cms-core';
+import type { Cms, ContactChanges, DealChanges, NewDeal, PipelineChanges, ContentTypeChanges, FieldArrangement, FieldChanges, FieldSection, FormChanges, NewContact, NewField, NewForm, Role } from '@velocity/cms-core';
 import { z } from 'zod';
 import type { ApiSession, Authenticator } from './authenticator.js';
 import { ApiError, errorResponse, isFault, json } from './http.js';
@@ -151,8 +151,34 @@ const contactChanges = z.strictObject({
   expectedRevision: z.number().int().positive(),
 });
 const pipelineChanges = z.strictObject({
-  stages: z.array(z.strictObject({ id: z.string().optional(), label: z.string().optional(), kind: z.enum(['open', 'won', 'lost']) })).max(50),
+  stages: z.array(z.strictObject({ id: z.string().optional(), label: z.string().optional(), kind: z.enum(['open', 'won', 'lost']), chance: z.number().optional() })).max(50),
+  currency: z.string().max(10).optional(),
+  assignTo: z.array(z.string()).max(100).optional(),
   expectedRevision: z.number().int().min(0),
+});
+const dealList = z.object({
+  contact: z.string().max(100).optional(),
+  stage: z.string().max(100).optional(),
+  /** A person's id, or `none` for the deals nobody looks after. */
+  owner: z.string().max(100).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+const newDeal = z.strictObject({
+  contactId: z.string(),
+  title: z.string(),
+  value: z.number(),
+  stage: z.string().optional(),
+  ownerId: z.string().optional(),
+  closeOn: z.string().optional(),
+});
+const dealChanges = z.strictObject({
+  title: z.string().optional(),
+  value: z.number().optional(),
+  stage: z.string().optional(),
+  ownerId: z.string().nullable().optional(),
+  closeOn: z.string().nullable().optional(),
+  expectedRevision: z.number().int().positive(),
 });
 const newNote = z.strictObject({ text: z.string() });
 const publishRequest = z.strictObject({ expectedRevision: z.number().int().positive() });
@@ -172,7 +198,7 @@ export class CmsApi {
   constructor(options: CmsApiOptions) {
     this.#options = options;
     this.#basePath = `/${(options.basePath ?? '/api/cms').split('/').filter(Boolean).join('/')}`;
-    const { schema, content, fields, media, previews, plugins, forms, submissions, contacts, pipeline } = options.cms;
+    const { schema, content, fields, media, previews, plugins, forms, submissions, contacts, pipeline, deals } = options.cms;
     const defaultLocale = options.defaultLocale ?? 'en';
 
     this.#router
@@ -332,6 +358,34 @@ export class CmsApi {
         const who = actor(call);
         const body = parse(pipelineChanges, await this.#body(call.request));
         return json(await pipeline.save(who, deep<PipelineChanges>(body)));
+      })
+      .add('GET', '/deals', async (call) => {
+        const query = parse(dealList, Object.fromEntries(call.url.searchParams));
+        return json(
+          await deals.find(actor(call), {
+            limit: query.limit,
+            offset: query.offset,
+            ...(query.contact !== undefined && { contactId: query.contact }),
+            ...(query.stage !== undefined && { stage: query.stage }),
+            ...(query.owner !== undefined && { ownerId: query.owner === 'none' ? null : query.owner }),
+          }),
+        );
+      })
+      .add('POST', '/deals', async (call) => {
+        const who = actor(call);
+        const body = parse(newDeal, await this.#body(call.request));
+        return json(await deals.create(who, deep<NewDeal>(body)), 201);
+      })
+      .add('GET', '/deals/forecast', async (call) => json(await deals.forecast(actor(call))))
+      .add('GET', '/deals/:id', async (call) => json(await deals.get(actor(call), param(call, 'id'))))
+      .add('PATCH', '/deals/:id', async (call) => {
+        const who = actor(call);
+        const body = parse(dealChanges, await this.#body(call.request));
+        return json(await deals.update(who, param(call, 'id'), deep<DealChanges>(body)));
+      })
+      .add('DELETE', '/deals/:id', async (call) => {
+        await deals.delete(actor(call), param(call, 'id'));
+        return json({});
       })
       // Who a contact can be given to: names and roles, never an email.
       .add('GET', '/team', async (call) => json({ items: await contacts.owners(actor(call)) }))

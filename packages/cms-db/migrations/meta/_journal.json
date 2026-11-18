@@ -71,6 +71,13 @@
       "when": 1795021154948,
       "tag": "0009_pipeline",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1795022516658,
+      "tag": "0010_deals",
+      "breakpoints": true
     }
   ]
 }

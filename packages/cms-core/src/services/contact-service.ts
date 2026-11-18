@@ -1,9 +1,10 @@
 import type { AccessControl, Actor } from '../access.js';
+import { isDay } from '../day.js';
 import { ConflictError, NotFoundError, ValidationError, type ValidationIssue } from '../errors.js';
 import type { EventBus } from '../events.js';
 import type { FieldType } from '../field-type.js';
 import type { Contact, ContactNote, FormDef, Page, Submission, SubmissionAnswer, TeamMember, TimelineItem } from '../model.js';
-import type { Clock, ContactQuery, ContactRepository, FormRepository, IdGenerator, SubmissionRepository, Team } from '../ports.js';
+import type { Clock, ContactQuery, ContactRepository, DealRepository, FormRepository, IdGenerator, SubmissionRepository, Team } from '../ports.js';
 import type { Registry } from '../registry.js';
 import type { PipelineService } from './pipeline-service.js';
 import { removeSubmissions } from './submission-service.js';
@@ -55,6 +56,7 @@ export class ContactService {
     private readonly ids: IdGenerator,
     private readonly pipeline: PipelineService,
     private readonly team?: Team,
+    private readonly deals?: DealRepository,
   ) {}
 
   /** Who a contact can be given to: everyone on the team who may read contacts, by name. */
@@ -185,8 +187,14 @@ export class ContactService {
       });
     }
     const notes = (await this.contacts.notes(id)).map((note) => ({ written: note.createdAt, text: note.text }));
+    const deals = [];
+    for (let offset = 0; this.deals; offset += BATCH) {
+      const { items } = await this.deals.find({ contactId: id, limit: BATCH, offset });
+      for (const deal of items) deals.push({ title: deal.title, value: deal.value, stage: deal.stage, ...(deal.closeOn !== undefined && { closeOn: deal.closeOn }), made: deal.createdAt });
+      if (items.length < BATCH) break;
+    }
     const { id: _id, revision: _revision, source: _source, ...person } = contact;
-    return `${JSON.stringify({ contact: person, submissions: sent, notes }, null, 2)}\n`;
+    return `${JSON.stringify({ contact: person, submissions: sent, notes, deals }, null, 2)}\n`;
   }
 
   /**
@@ -198,6 +206,7 @@ export class ContactService {
     this.access.require(actor, 'submission:manage');
     const contact = await this.load(id);
     const removed = await removeSubmissions(this.submissions, this.events, actor, { email: contact.email });
+    await this.deals?.removeOfContact(contact.id);
     await this.contacts.remove(contact.id);
     await this.events.emit('contact.deleted', { contact, actor });
     return removed;
@@ -210,6 +219,7 @@ export class ContactService {
   async forgotten(actor: Actor, email: string): Promise<void> {
     const contact = await this.contacts.getByEmail(email.trim().toLowerCase());
     if (!contact) return;
+    await this.deals?.removeOfContact(contact.id);
     await this.contacts.remove(contact.id);
     await this.events.emit('contact.deleted', { contact, actor });
   }
@@ -231,6 +241,7 @@ export class ContactService {
     const now = this.clock.now();
     let contact: Contact;
     if (!current) {
+      const ownerId = await this.nextOwner();
       contact = {
         id: this.ids.next(),
         email: submission.email,
@@ -238,6 +249,7 @@ export class ContactService {
         ...(phone !== undefined && { phone }),
         source: { formId: form.id, ...(submission.page !== undefined && { page: submission.page }) },
         stage: await this.firstStage(),
+        ...(ownerId !== undefined && { ownerId }),
         revision: 1,
         createdAt: now,
         updatedAt: now,
@@ -308,6 +320,25 @@ export class ContactService {
     return { ...(email !== undefined && { email }), ...(name !== undefined && name !== '' && { name }), ...(phone !== undefined && phone !== '' && { phone }) };
   }
 
+  /**
+   * Who a contact made by a form is given to: of the people the pipeline names, whoever looks
+   * after the fewest contacts, and the first named among equals. Someone who has left the team,
+   * or may no longer read contacts, is passed over.
+   */
+  private async nextOwner(): Promise<string | undefined> {
+    const named = (await this.pipeline.current()).assignTo ?? [];
+    if (named.length === 0) return undefined;
+    const members = (await this.team?.members()) ?? [];
+    let best: { id: string; load: number } | undefined;
+    for (const id of named) {
+      const member = members.find((candidate) => candidate.id === id);
+      if (!member || !this.access.can({ kind: 'user', id, role: member.role }, 'contact:read')) continue;
+      const load = (await this.contacts.find({ ownerId: id, limit: 1 })).total;
+      if (!best || load < best.load) best = { id, load };
+    }
+    return best?.id;
+  }
+
   /** Where a new contact starts. */
   private async firstStage(): Promise<string> {
     const [first] = (await this.pipeline.current()).stages;
@@ -343,13 +374,6 @@ export class ContactService {
     if (!contact) throw new NotFoundError('Contact', id);
     return contact;
   }
-}
-
-/** Whether the text is a real day written as `2026-03-14`, in this century or later. */
-function isDay(text: string): boolean {
-  if (!/^[2-9]\d{3}-\d{2}-\d{2}$/.test(text)) return false;
-  const date = new Date(`${text}T00:00:00.000Z`);
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === text;
 }
 
 const problems = (issues: ValidationIssue[]): ValidationError =>

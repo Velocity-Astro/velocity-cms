@@ -146,3 +146,29 @@ it('renames, adds and removes stages, with each problem on its row', async () =>
   await waitFor(() => expect(board.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)).toEqual(['New', 'Called back', 'Won', 'Lost', 'Viewing booked']));
   expect((await client.getPipeline()).revision).toBe(1);
 });
+
+it('sets each open stage\'s chance, the currency and who new contacts go to', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/contacts?view=board', signedIn());
+  await screen.findByRole('group', { name: 'Pipeline' });
+  await user.click(screen.getByRole('button', { name: 'Edit stages' }));
+  const dialog = within(await screen.findByRole('dialog', { name: 'Stages' }));
+  const chances = dialog.getAllByRole('textbox', { name: /^Chance/ }) as HTMLInputElement[];
+  // Only the three open stages have a chance to set.
+  expect(chances.map((chance) => chance.value)).toEqual(['10', '30', '60']);
+  await user.clear(chances[0] as HTMLElement);
+  await user.type(chances[0] as HTMLElement, '25');
+  const currency = dialog.getByRole('textbox', { name: /^Currency/ });
+  await user.clear(currency);
+  await user.type(currency, 'euros');
+  await user.click(dialog.getByRole('checkbox', { name: 'Dana' }));
+  await user.click(dialog.getByRole('button', { name: 'Save stages' }));
+  expect(await dialog.findByText('Give a currency by its three letters, such as USD.')).toBeTruthy();
+  await user.clear(currency);
+  await user.type(currency, 'eur');
+  await user.click(dialog.getByRole('button', { name: 'Save stages' }));
+  expect(await screen.findByText('Stages saved')).toBeTruthy();
+  const saved = await client.getPipeline();
+  expect(saved).toMatchObject({ currency: 'EUR', assignTo: ['u1'] });
+  expect(saved.stages[0]).toMatchObject({ id: 'new', chance: 25 });
+});

@@ -16,6 +16,10 @@ import {
   type NewForm,
   type Submission,
   type Contact,
+  type Deal,
+  type DealChanges,
+  type Forecast,
+  type NewDeal,
   type Pipeline,
   type PipelineChanges,
   type TeamMember,
@@ -42,7 +46,7 @@ import {
   InMemoryMediaStore,
   InMemorySchemaRepository,
 } from '@velocity/cms-core/in-memory';
-import type { AdminClient, ContactListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from '../client/admin-client.js';
+import type { AdminClient, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from '../client/admin-client.js';
 import { MemoryPeople } from './memory-people.js';
 import { AdminRequestError, type RequestErrorCode } from '../client/errors.js';
 
@@ -361,6 +365,26 @@ export class MemoryAdminClient implements AdminClient {
         ...(query.followUpBy !== undefined && { followUpBy: query.followUpBy }),
       }),
     );
+  }
+
+  listDeals(query: DealListQuery = {}): Promise<Page<Deal>> {
+    return this.#request((actor) => this.#cms.deals.find(actor, { ...query, limit: query.limit ?? 50, offset: query.offset ?? 0 }));
+  }
+
+  createDeal(input: NewDeal): Promise<Deal> {
+    return this.#request((actor) => this.#cms.deals.create(actor, input));
+  }
+
+  updateDeal(id: string, changes: DealChanges): Promise<Deal> {
+    return this.#request((actor) => this.#cms.deals.update(actor, id, changes));
+  }
+
+  deleteDeal(id: string): Promise<void> {
+    return this.#request((actor) => this.#cms.deals.delete(actor, id));
+  }
+
+  getForecast(): Promise<Forecast> {
+    return this.#request((actor) => this.#cms.deals.forecast(actor));
   }
 
   getPipeline(): Promise<Pipeline> {

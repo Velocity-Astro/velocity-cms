@@ -1,5 +1,5 @@
-import { readImage, type Contact, type ContactChanges, type Pipeline, type PipelineChanges, type TeamMember, type ContactNote, type NewContact, type TimelineItem, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PluginSettings, type PluginEditorInfo, type PluginRouteMethod, type EntryData, type FormChanges, type FormDef, type NewForm, type PreviewLink, type SiteImage, type Submission, type SubmissionStatus } from '@velocity/cms-core';
-import type { AdminClient, ContactListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from './admin-client.js';
+import { readImage, type Contact, type ContactChanges, type Deal, type DealChanges, type Forecast, type NewDeal, type Pipeline, type PipelineChanges, type TeamMember, type ContactNote, type NewContact, type TimelineItem, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PluginSettings, type PluginEditorInfo, type PluginRouteMethod, type EntryData, type FormChanges, type FormDef, type NewForm, type PreviewLink, type SiteImage, type Submission, type SubmissionStatus } from '@velocity/cms-core';
+import type { AdminClient, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from './admin-client.js';
 import { AdminRequestError, type RequestErrorCode, type RequestIssue } from './errors.js';
 
 /**
@@ -244,6 +244,32 @@ export class HttpAdminClient implements AdminClient {
     if (query.limit !== undefined) search.set('limit', String(query.limit));
     if (query.offset !== undefined) search.set('offset', String(query.offset));
     return this.#get(`/contacts?${search}`);
+  }
+
+  listDeals(query: DealListQuery = {}): Promise<Page<Deal>> {
+    const search = new URLSearchParams();
+    if (query.contactId !== undefined) search.set('contact', query.contactId);
+    if (query.stage !== undefined) search.set('stage', query.stage);
+    if (query.ownerId !== undefined) search.set('owner', query.ownerId ?? 'none');
+    if (query.limit !== undefined) search.set('limit', String(query.limit));
+    if (query.offset !== undefined) search.set('offset', String(query.offset));
+    return this.#get(`/deals?${search}`);
+  }
+
+  createDeal(input: NewDeal): Promise<Deal> {
+    return this.#send('POST', '/deals', input);
+  }
+
+  updateDeal(id: string, changes: DealChanges): Promise<Deal> {
+    return this.#send('PATCH', `/deals/${encodeURIComponent(id)}`, changes);
+  }
+
+  async deleteDeal(id: string): Promise<void> {
+    await this.#send('DELETE', `/deals/${encodeURIComponent(id)}`, {});
+  }
+
+  getForecast(): Promise<Forecast> {
+    return this.#get('/deals/forecast');
   }
 
   getPipeline(): Promise<Pipeline> {

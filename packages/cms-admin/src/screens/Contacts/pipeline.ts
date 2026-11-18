@@ -45,3 +45,16 @@ export function useOwnerName(team: readonly TeamMember[] | undefined): (ownerId:
     return team?.find((member) => member.id === ownerId)?.name ?? (team === undefined ? '' : messages.contacts.someoneWhoLeft);
   };
 }
+
+/** Says an amount of money in the pipeline's currency, in whole units, as the person's language writes it. */
+export function useMoney(currency: string | undefined): (value: number) => string {
+  const locale = useLocale();
+  return (value) => {
+    try {
+      return new Intl.NumberFormat(locale, { style: 'currency', currency: currency ?? 'USD', maximumFractionDigits: 0 }).format(value);
+    } catch {
+      // Three letters that are no currency Intl knows.
+      return `${new Intl.NumberFormat(locale).format(value)} ${currency ?? ''}`.trim();
+    }
+  };
+}
