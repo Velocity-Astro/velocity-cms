@@ -57,6 +57,14 @@ export default tseslint.config(
     'cms-ui is the design system: tokens, components and patterns. It must not know about content, the API or the server, so that plugins and other apps can use it as it is.',
   ),
   boundary(
+    ['packages/cms-plugins/src/**'],
+    [
+      '@velocity/cms-db', '@velocity/cms-db/*', '@velocity/cms-astro', '@velocity/cms-astro/*', '@velocity/cms-api', '@velocity/cms-api/*', '@velocity/cms-auth', '@velocity/cms-auth/*',
+      '@velocity/cms-ui', '@velocity/cms-ui/*', 'drizzle-orm', 'drizzle-orm/*', '@libsql/*', 'astro', 'astro/*', 'astro:*', 'react', 'react-dom', 'node:*',
+    ],
+    'cms-plugins holds the plugins that come with the CMS. Each is built on the plugin surface alone, as a third party would build one: definePlugin from cms-core, and in the editor only what its editor file is handed (types from cms-admin).',
+  ),
+  boundary(
     ['packages/cms-admin/src/**'],
     [
       '@velocity/cms-db', '@velocity/cms-db/*', '@velocity/cms-astro', '@velocity/cms-astro/*', '@velocity/cms-api', '@velocity/cms-api/*',

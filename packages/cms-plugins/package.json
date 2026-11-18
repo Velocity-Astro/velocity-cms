@@ -1,0 +1,24 @@
+{
+  "name": "@velocity/cms-plugins",
+  "version": "0.0.0",
+  "description": "The plugins that come with Velocity CMS. Every site lists them under Plugins, switched off until an owner activates one.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.test.*"
+  ],
+  "dependencies": {
+    "@velocity/cms-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@velocity/cms-admin": "workspace:*"
+  }
+}

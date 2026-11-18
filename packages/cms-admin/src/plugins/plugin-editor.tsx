@@ -6,6 +6,7 @@ import { useClient } from '../client/client-context.js';
 import { usePluginEditorList } from '../client/queries.js';
 import type { FieldControl, FieldControls } from '../fields/field-control.js';
 import { useFieldControls } from '../fields/field-control.js';
+import { paths } from '../app/paths.js';
 import { pluginUi, type PluginUi } from './plugin-ui.js';
 
 /** A plugin's way to its own addresses on the server, `/api/cms/plugins/<name>/…`, as the person signed in. */
@@ -56,6 +57,8 @@ export interface PluginEditorApi {
   /** The editor's design system, so a plugin's screens look and behave like the rest. */
   readonly ui: PluginUi;
   readonly client: PluginEditorClient;
+  /** Addresses in the editor, for a `ui.Link`. */
+  readonly links: { entry(typeKey: string, entryId: string): string };
   readonly register: {
     /** The control for a kind of field the plugin brought, under the name its field type gives as `editor`. */
     control(control: FieldControl): void;
@@ -152,6 +155,7 @@ export class PluginExtensions {
         put: (path, body) => client.callPlugin(name, 'PUT', path, { body }),
         delete: (path, body) => client.callPlugin(name, 'DELETE', path, { body }),
       },
+      links: { entry: (typeKey, entryId) => paths.entry(typeKey, entryId) },
       register: {
         // A control registered before, when the plugin was last active, is still there.
         control: (control) => void (controls.has(control.type) || controls.register(control)),

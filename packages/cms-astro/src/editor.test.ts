@@ -7,6 +7,7 @@ import { runCli } from './cli.js';
 import { connect, type Connection } from './connection.js';
 import { EditorHost, LogMailer } from './editor.js';
 import { editorOrigin, EditorNotSetUpError } from './site-editor.js';
+import { allPlugins, registerSitePlugins } from './site-plugins.js';
 
 const ORIGIN = 'https://site.test';
 const SECRET = 'a-test-secret-that-is-long-enough-0123456789';
@@ -49,6 +50,17 @@ beforeEach(async () => {
 afterEach(() => {
   connection.close();
   fs.rmSync(directory, { recursive: true });
+});
+
+describe('the plugins that come with the CMS', () => {
+  it('are on every site, switched off, after the site\'s own, which win a name', () => {
+    expect(allPlugins().map((plugin) => (plugin as { name: string }).name)).toEqual(['seo']);
+    const own = { name: 'seo', apiVersion: 1, label: { en: 'Our SEO' }, setup: () => undefined };
+    registerSitePlugins([{ name: 'publish-log' }, own]);
+    expect(allPlugins()).toEqual([{ name: 'publish-log' }, own]);
+    registerSitePlugins([]);
+    expect(allPlugins()[0]).toMatchObject({ name: 'seo', enabledByDefault: false });
+  });
 });
 
 describe('a plugin\'s editor file', () => {

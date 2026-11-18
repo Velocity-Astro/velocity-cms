@@ -25,7 +25,8 @@
     "@velocity/cms-api": "workspace:*",
     "@velocity/cms-auth": "workspace:*",
     "@velocity/cms-core": "workspace:*",
-    "@velocity/cms-db": "workspace:*"
+    "@velocity/cms-db": "workspace:*",
+    "@velocity/cms-plugins": "workspace:*"
   },
   "peerDependencies": {
     "astro": "^7.0.0"
