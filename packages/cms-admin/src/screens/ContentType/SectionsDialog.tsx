@@ -5,6 +5,7 @@ import { useSetSections } from '../../client/queries.js';
 import { localized } from '../../lib/content.js';
 import { typeKeyFrom } from '../../lib/keys.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
+import { useClosing } from '../../lib/use-closing.js';
 
 /** One section while it is being written: a new one has no key yet. */
 interface Draft {
@@ -26,6 +27,7 @@ function freeKey(name: string, taken: ReadonlySet<string>): string {
 
 /** The panel a type's sections are named, ordered, added and removed in. */
 export function SectionsDialog({ type, onClose }: { readonly type: ContentTypeDef; readonly onClose: () => void }) {
+  const { close, dialog } = useClosing(onClose);
   const messages = useMessages();
   const locale = useLocale();
   const language = locale.split('-')[0] ?? locale;
@@ -56,7 +58,7 @@ export function SectionsDialog({ type, onClose }: { readonly type: ContentTypeDe
       {
         onSuccess: () => {
           toast({ title: messages.builder.sectionsSaved, tone: 'success' });
-          onClose();
+          close();
         },
         onError: (error) => {
           setProblem(messageOf(error));
@@ -68,14 +70,13 @@ export function SectionsDialog({ type, onClose }: { readonly type: ContentTypeDe
 
   return (
     <Dialog
-      isOpen
+      {...dialog}
       placement="side"
-      onOpenChange={(isOpen) => !isOpen && onClose()}
       title={messages.builder.sectionsTitle}
       closeLabel={messages.app.dismiss}
       footer={
         <>
-          <Button variant="secondary" onPress={onClose}>
+          <Button variant="secondary" onPress={close}>
             {messages.editor.cancel}
           </Button>
           <Button isPending={save.isPending} onPress={send}>

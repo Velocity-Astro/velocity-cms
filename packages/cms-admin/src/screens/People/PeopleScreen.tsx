@@ -7,6 +7,7 @@ import type { Person } from '../../client/admin-client.js';
 import { AdminRequestError } from '../../client/errors.js';
 import { useChangePersonRole, useInvitePerson, usePeople, useRemovePerson, useSession } from '../../client/queries.js';
 import { useMessages } from '../../messages/messages-context.js';
+import { useClosing, useLast } from '../../lib/use-closing.js';
 
 const NO_PROBLEMS: Readonly<Record<string, string>> = {};
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -20,6 +21,7 @@ export function PeopleScreen() {
   const remove = useRemovePerson();
   const [isInviting, setInviting] = useState(false);
   const [leaving, setLeaving] = useState<Person | null>(null);
+  const asked = useLast(leaving);
 
   const roles = ROLES.map((role) => ({ id: role, label: messages.people.roles[role] }));
   const me = session.data?.id;
@@ -94,7 +96,7 @@ export function PeopleScreen() {
       <ConfirmDialog
         isOpen={leaving !== null}
         onOpenChange={(isOpen) => !isOpen && setLeaving(null)}
-        title={messages.people.removeTitle(leaving?.name ?? '')}
+        title={messages.people.removeTitle(asked?.name ?? '')}
         confirmLabel={messages.people.removeConfirm}
         cancelLabel={messages.editor.cancel}
         tone="danger"
@@ -116,6 +118,7 @@ export function PeopleScreen() {
 
 /** The window an owner fills in to let someone in. */
 function InviteDialog({ onClose }: { readonly onClose: () => void }) {
+  const { close, dialog } = useClosing(onClose);
   const messages = useMessages();
   const invite = useInvitePerson();
   const [name, setName] = useState('');
@@ -130,7 +133,7 @@ function InviteDialog({ onClose }: { readonly onClose: () => void }) {
       {
         onSuccess: (person) => {
           toast({ title: messages.people.invited(person.name), description: messages.people.invitedDescription(person.email), tone: 'success' });
-          onClose();
+          close();
         },
         onError: (error) => {
           const issues = error instanceof AdminRequestError ? error.issues : [];
@@ -143,13 +146,12 @@ function InviteDialog({ onClose }: { readonly onClose: () => void }) {
 
   return (
     <Dialog
-      isOpen
-      onOpenChange={(isOpen) => !isOpen && onClose()}
+      {...dialog}
       title={messages.people.inviteTitle}
       closeLabel={messages.app.dismiss}
       footer={
         <>
-          <Button variant="secondary" onPress={onClose}>
+          <Button variant="secondary" onPress={close}>
             {messages.editor.cancel}
           </Button>
           <Button isPending={invite.isPending} onPress={send}>

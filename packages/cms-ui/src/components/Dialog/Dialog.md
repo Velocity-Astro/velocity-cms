@@ -46,3 +46,9 @@ answered on purpose.
   <TextField label="Title" value={title} onChange={setTitle} />
 </Dialog>
 ```
+
+## Motion
+
+A dialog in the middle grows into place; a panel at the side slides in from the edge. Both leave
+the same way, faster. To see it leave, close it with `isOpen` and take it away in `onClosed`,
+which is called once it has gone. A dialog that is unmounted while open simply disappears.

@@ -2,13 +2,15 @@ import type { ContentTypeDef, FieldDef } from '@velocity/cms-core';
 import { Box, Button, ConfirmDialog, EmptyState, Heading, IconButton, Inline, Link, PageHeader, Stack, Table, Tag, Text, toast, type TableColumn, type TableRow } from '@velocity/cms-ui';
 import { ArrowDown, ArrowUp, LayoutList, ListPlus, ListTree, Pencil, Plus, Settings2, Shapes, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router';
+import { useParams, useSearchParams } from 'react-router';
+import { useGo } from '../../app/use-go.js';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { WITHIN, paths } from '../../app/paths.js';
 import { useArrangeFields, useContentTypes, useRemoveField, useRestoreField } from '../../client/queries.js';
 import { innerFields } from '../../fields/settings.js';
 import { NO_SECTION, moved, movedWithin, placesOf, type FieldPlace } from '../../lib/arrangement.js';
 import { localized } from '../../lib/content.js';
+import { useLast } from '../../lib/use-closing.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 import { FieldDialog } from './FieldDialog.js';
 import { SectionsDialog } from './SectionsDialog.js';
@@ -76,11 +78,12 @@ function TypeBuilder({ type, holders, fields }: TypeBuilderProps) {
   const [isAdding, setAdding] = useState(false);
   const [isChangingSettings, setChangingSettings] = useState(false);
   const [isChangingSections, setChangingSections] = useState(false);
-  const navigate = useNavigate();
+  const go = useGo();
   const within = holders.map((holder) => holder.id);
   const holder = holders.at(-1);
   const [editing, setEditing] = useState<FieldDef | null>(null);
   const [leaving, setLeaving] = useState<FieldDef | null>(null);
+  const asked = useLast(leaving);
 
   const name = localized(type.label, locale);
   // A group's fields are one list. Sections lay out only a type's own.
@@ -126,7 +129,7 @@ function TypeBuilder({ type, holders, fields }: TypeBuilderProps) {
         actions: (
           <Inline gap={1} justify="end">
             {innerFields(field) && (
-              <IconButton size="sm" label={messages.builder.fieldsInside(labelOf(field))} icon={ListTree} onPress={() => void navigate(paths.type(type.key, [...within, field.id]))} />
+              <IconButton size="sm" label={messages.builder.fieldsInside(labelOf(field))} icon={ListTree} onPress={() => go(paths.type(type.key, [...within, field.id]))} />
             )}
             <IconButton size="sm" label={messages.builder.moveUp(labelOf(field))} icon={ArrowUp} isDisabled={index === 0 || arrange.isPending} onPress={() => move(field, -1)} />
             <IconButton size="sm" label={messages.builder.moveDown(labelOf(field))} icon={ArrowDown} isDisabled={index === fields.length - 1 || arrange.isPending} onPress={() => move(field, 1)} />
@@ -248,7 +251,7 @@ function TypeBuilder({ type, holders, fields }: TypeBuilderProps) {
       <ConfirmDialog
         isOpen={leaving !== null}
         onOpenChange={(isOpen) => !isOpen && setLeaving(null)}
-        title={messages.builder.removeTitle(leaving ? labelOf(leaving) : '')}
+        title={messages.builder.removeTitle(asked ? labelOf(asked) : '')}
         confirmLabel={messages.builder.removeConfirm}
         cancelLabel={messages.editor.cancel}
         tone="danger"

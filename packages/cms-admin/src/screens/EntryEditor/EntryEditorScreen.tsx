@@ -1,7 +1,8 @@
 import { EmptyState, Link } from '@velocity/cms-ui';
 import { FileQuestion } from 'lucide-react';
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useParams } from 'react-router';
+import { useGo } from '../../app/use-go.js';
 import { NEW_ENTRY, paths } from '../../app/paths.js';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { AdminRequestError } from '../../client/errors.js';
@@ -14,7 +15,7 @@ import { EntryForm } from './EntryForm.js';
 export function EntryEditorScreen() {
   const messages = useMessages();
   const locale = useLocale();
-  const navigate = useNavigate();
+  const go = useGo();
   const { typeKey = '', entryId = NEW_ENTRY } = useParams();
   const isNew = entryId === NEW_ENTRY;
   const types = useContentTypes();
@@ -73,10 +74,10 @@ export function EntryEditorScreen() {
               // Always in the same order, whichever was saved last.
               .sort((a, b) => a.locale.localeCompare(b.locale))
       }
-      onSwitch={(id) => void navigate(paths.entry(type.key, id))}
+      onSwitch={(id) => go(paths.entry(type.key, id))}
       onCreated={(created) => {
         setCreatedId(created.id);
-        void navigate(paths.entry(type.key, created.id), { replace: true });
+        go(paths.entry(type.key, created.id), { replace: true, viewTransition: false });
       }}
     />
   );

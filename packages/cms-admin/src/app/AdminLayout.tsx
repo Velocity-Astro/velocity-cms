@@ -1,13 +1,15 @@
 import { AppShell, Button, Dialog, Form, Logo, Stack, Text, TextField, dismissToasts, toast, type AppShellNavItem } from '@velocity/cms-ui';
 import { House, KeyRound, LogOut, Shapes, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { Navigate, Outlet, useLocation, useNavigate } from 'react-router';
+import { Navigate, Outlet, useLocation } from 'react-router';
+import { useGo } from './use-go.js';
 import { useAddPasskey, useContentTypes, useSession, useSignOut } from '../client/queries.js';
 import { localized } from '../lib/content.js';
 import { typeIcon } from '../lib/type-icon.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
 import { paths } from './paths.js';
 import { ErrorState, LoadingState } from './RequestState.js';
+import { useClosing } from '../lib/use-closing.js';
 
 export interface AdminLayoutProps {
   /** The site's name, shown at the top of the sidebar. */
@@ -19,7 +21,7 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
   const messages = useMessages();
   const locale = useLocale();
   const location = useLocation();
-  const navigate = useNavigate();
+  const go = useGo();
   const session = useSession();
   const types = useContentTypes();
   const signOut = useSignOut();
@@ -97,7 +99,7 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
               onSuccess: () => {
                 // Messages about the last person's work are not for the next.
                 dismissToasts();
-                void navigate(paths.signIn);
+                go(paths.signIn);
                 toast({ title: messages.app.signedOut });
               },
               onError: (error) => {
@@ -117,6 +119,7 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
 
 /** Asks what to call a new passkey, then lets the browser make it. */
 function PasskeyDialog({ onClose }: { readonly onClose: () => void }) {
+  const { close, dialog } = useClosing(onClose);
   const messages = useMessages();
   const add = useAddPasskey();
   const [name, setName] = useState<string>(messages.app.passkeyDefaultName);
@@ -127,7 +130,7 @@ function PasskeyDialog({ onClose }: { readonly onClose: () => void }) {
     add.mutate(name.trim() === '' ? messages.app.passkeyDefaultName : name.trim(), {
       onSuccess: () => {
         toast({ title: messages.app.passkeyAdded, description: messages.app.passkeyAddedDescription, tone: 'success' });
-        onClose();
+        close();
       },
       // The browser's prompt was closed, or the device has no way to make one. The window stays
       // open so the person can try again.
@@ -137,13 +140,12 @@ function PasskeyDialog({ onClose }: { readonly onClose: () => void }) {
 
   return (
     <Dialog
-      isOpen
-      onOpenChange={(isOpen) => !isOpen && onClose()}
+      {...dialog}
       title={messages.app.passkeyTitle}
       closeLabel={messages.app.dismiss}
       footer={
         <>
-          <Button variant="secondary" onPress={onClose}>
+          <Button variant="secondary" onPress={close}>
             {messages.editor.cancel}
           </Button>
           <Button isPending={add.isPending} onPress={make}>

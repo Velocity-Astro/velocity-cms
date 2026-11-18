@@ -1,7 +1,7 @@
 import { Box, Button, EmptyState, Grid, Heading, Inline, PageHeader, Stack, Stat, Table, Tag, Text, type TableColumn, type TableRow } from '@velocity/cms-ui';
 import type { ContentTypeDef, Entry } from '@velocity/cms-core';
 import { Inbox, Plus, Shapes } from 'lucide-react';
-import { useNavigate } from 'react-router';
+import { useGo } from '../../app/use-go.js';
 import { paths } from '../../app/paths.js';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { useContentTypes, useEntriesOfTypes, useSession } from '../../client/queries.js';
@@ -29,7 +29,7 @@ export interface HomeScreenProps {
 export function HomeScreen({ siteName }: HomeScreenProps) {
   const messages = useMessages();
   const locale = useLocale();
-  const navigate = useNavigate();
+  const go = useGo();
   const session = useSession();
   const types = useContentTypes();
   const lists = useEntriesOfTypes((types.data ?? []).map((type) => ({ type: type.key, limit: PAGE })));
@@ -98,7 +98,7 @@ export function HomeScreen({ siteName }: HomeScreenProps) {
               <Heading level={2}>{messages.home.addTitle}</Heading>
               <Inline gap={2} wrap>
                 {types.data.map((type) => (
-                  <Button key={type.id} variant="secondary" icon={Plus} onPress={() => void navigate(paths.newEntry(type.key))}>
+                  <Button key={type.id} variant="secondary" icon={Plus} onPress={() => go(paths.newEntry(type.key))}>
                     {localized(type.label, locale)}
                   </Button>
                 ))}
@@ -113,7 +113,7 @@ export function HomeScreen({ siteName }: HomeScreenProps) {
                   label={messages.home.recentTitle}
                   columns={columns}
                   rows={rows}
-                  onRowAction={(id) => void navigate(paths.entry(typeOf.get(id) ?? '', id))}
+                  onRowAction={(id) => go(paths.entry(typeOf.get(id) ?? '', id))}
                 />
               )}
             </Stack>

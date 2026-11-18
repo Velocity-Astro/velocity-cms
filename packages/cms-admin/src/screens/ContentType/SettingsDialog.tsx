@@ -6,6 +6,7 @@ import { useFieldTypes, useUpdateContentType } from '../../client/queries.js';
 import { innerFields } from '../../fields/settings.js';
 import { localized } from '../../lib/content.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
+import { useClosing } from '../../lib/use-closing.js';
 
 const AUTOMATIC = '';
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -14,6 +15,7 @@ const wordOf = (path: readonly string[]) => path.join('/');
 
 /** The window a content type's name, address and place in lists are changed in. */
 export function SettingsDialog({ type, onClose }: { readonly type: ContentTypeDef; readonly onClose: () => void }) {
+  const { close, dialog } = useClosing(onClose);
   const messages = useMessages();
   const locale = useLocale();
   const update = useUpdateContentType();
@@ -60,7 +62,7 @@ export function SettingsDialog({ type, onClose }: { readonly type: ContentTypeDe
       {
         onSuccess: () => {
           toast({ title: messages.builder.settingsSaved, tone: 'success' });
-          onClose();
+          close();
         },
         onError: (error) => {
           const issues = error instanceof AdminRequestError ? error.issues : [];
@@ -74,14 +76,13 @@ export function SettingsDialog({ type, onClose }: { readonly type: ContentTypeDe
   const heading = messages.builder.settingsTitle(localized(type.label, locale));
   return (
     <Dialog
-      isOpen
+      {...dialog}
       placement="side"
-      onOpenChange={(isOpen) => !isOpen && onClose()}
       title={heading}
       closeLabel={messages.app.dismiss}
       footer={
         <>
-          <Button variant="secondary" onPress={onClose}>
+          <Button variant="secondary" onPress={close}>
             {messages.editor.cancel}
           </Button>
           <Button isPending={update.isPending} onPress={send}>

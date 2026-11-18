@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { Dialog as AriaDialog, Heading, Modal, ModalOverlay } from 'react-aria-components';
 import { IconButton } from '../IconButton/index.js';
 import {
@@ -17,6 +17,8 @@ export interface DialogProps extends DialogVariants {
   readonly isOpen: boolean;
   /** Called when the dialog asks to close: Escape, a press outside, or its close button. */
   readonly onOpenChange: (isOpen: boolean) => void;
+  /** Called once the dialog has closed and finished leaving the page. The moment to forget what it showed. */
+  readonly onClosed?: () => void;
   /** Names the dialog for everyone. */
   readonly title: string;
   readonly children: ReactNode;
@@ -32,6 +34,7 @@ export interface DialogProps extends DialogVariants {
 export function Dialog({
   isOpen,
   onOpenChange,
+  onClosed,
   title,
   children,
   footer,
@@ -40,8 +43,21 @@ export function Dialog({
   size,
   placement,
 }: DialogProps) {
+  // React Aria keeps the dialog on the page until it has finished leaving. When its element
+  // goes while the dialog is closed, it has left.
+  const latest = useRef({ isOpen, onClosed });
+  useEffect(() => {
+    latest.current = { isOpen, onClosed };
+  });
+  const left = useCallback(
+    () => () => {
+      if (!latest.current.isOpen) latest.current.onClosed?.();
+    },
+    [],
+  );
   return (
     <ModalOverlay
+      ref={left}
       className={dialogOverlayVariants({ placement })}
       isOpen={isOpen}
       onOpenChange={onOpenChange}

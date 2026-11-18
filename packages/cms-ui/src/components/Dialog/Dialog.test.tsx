@@ -1,5 +1,6 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { useState } from 'react';
 import { expect, it, vi } from 'vitest';
 import { expectAccessible } from '../../testing/accessible.js';
 import { Button } from '../Button/index.js';
@@ -38,6 +39,24 @@ it('moves focus inside and asks to close on Escape and on its close button', asy
   expect(onOpenChange).toHaveBeenLastCalledWith(false);
   await user.click(screen.getByRole('button', { name: 'Close' }));
   expect(onOpenChange).toHaveBeenCalledTimes(2);
+});
+
+it('says when it has closed and left the page', async () => {
+  const onClosed = vi.fn();
+  function Example() {
+    const [isOpen, setOpen] = useState(true);
+    return (
+      <Dialog isOpen={isOpen} onOpenChange={setOpen} onClosed={onClosed} title="Rename listing" closeLabel="Close">
+        Body
+      </Dialog>
+    );
+  }
+  const user = userEvent.setup();
+  render(<Example />);
+  expect(onClosed).not.toHaveBeenCalled();
+  await user.click(screen.getByRole('button', { name: 'Close' }));
+  await waitFor(() => expect(onClosed).toHaveBeenCalledTimes(1));
+  expect(screen.queryByRole('dialog')).toBeNull();
 });
 
 it('has no close button unless it is given a name', () => {

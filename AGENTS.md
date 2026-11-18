@@ -86,6 +86,7 @@ TypeScript (strict) · Zod 4 · web-standard `Request`/`Response` · Better Auth
 - **Class names live in `X.variants.ts`** (CVA), never in the component file. Classes that several parts share (a field's label, a floating panel) live in a file at the root of the layer, such as `components/field.ts`, and are checked the same way.
 - **Tokens only.** Every class must resolve against the theme in `styles.css`. No arbitrary values (`w-[13px]`), raw colours or raw sizes. A new value is a new token in `tokens.css`, for light and dark.
 - **Behaviour comes from React Aria Components.** Don't hand-write focus handling, keyboard handling or ARIA attributes. Style states with its data attributes (`data-hovered:`, `data-focus-visible:`, `data-disabled:`).
+- **Motion comes from the `motion-*` utilities** in `styles.css` (`motion-pop`, `motion-sheet`, `motion-float`, `motion-rise`, `motion-press`), which use the duration and easing tokens, so everything of one kind moves the same way and stops for people who ask for less motion. Don't write a one-off animation in a part.
 - **Icons are Lucide**, passed as a prop and hidden from screen readers. The words carry the meaning.
 - **No words of its own.** A part shows the text it is given; it has no built-in English.
 - **Registry in sync.** Add the part to `component-registry.json` (group, description, example, `uses`) and export it from the layer's `index.ts`. The story title is `Components/<group>/<Name>` or `Patterns/<group>/<Name>`.
@@ -99,7 +100,8 @@ ESLint fails when one of these is broken.
 - **Screens are built only from `@velocity/cms-ui`.** No `className`, no `style`, no HTML elements, no imports of React Aria or Tailwind. If a part is missing, add it to `cms-ui` first.
 - **No words in screens.** Every string a person reads lives in `src/messages/en.ts` and is read with `useMessages()`. A message with a value in it is a function.
 - **The server is reached only through `AdminClient`,** and screens call it only through the hooks in `client/queries.ts`, so each request has one cache key.
-- **Addresses come from `app/paths.ts`.** Don't write a path by hand in a screen.
+- **Addresses come from `app/paths.ts`.** Don't write a path by hand in a screen. Go to one with `useGo()` (`app/use-go.ts`), so every change of screen moves the same way.
+- **A dialog is seen leaving.** One made anew each time it opens closes with `useClosing(onClose)` (`lib/use-closing.ts`) and is taken away once it has gone, not unmounted while open.
 - **Every request has three states on screen:** loading, failed (with what went wrong and a way to try again) and done, which includes an empty state.
 - **No switch on field type here either.** A field is drawn by the control registered under its field type's `editor` name (`fields/controls.tsx`), and set up in the builder by the settings registered under its type (`fields/settings.tsx`). A new kind of field is a new control, registered; a field with no control is shown by name with a note, and its content is kept.
 - **A form holds what was typed; the server holds what is saved.** Send `expectedRevision` with every save, show a refusal's `issues` on the fields they name, and never drop what the person typed because a request failed.

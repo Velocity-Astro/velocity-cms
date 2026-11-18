@@ -1,5 +1,6 @@
 import { NavigationProvider, Toast } from '@velocity/cms-ui';
-import { Outlet, useNavigate } from 'react-router';
+import { Outlet } from 'react-router';
+import { useGo } from './use-go.js';
 import { useMessages } from '../messages/messages-context.js';
 
 /**
@@ -7,10 +8,10 @@ import { useMessages } from '../messages/messages-context.js';
  * change the screen without reloading the page, and holds the one place notifications appear.
  */
 export function NavigationBridge() {
-  const navigate = useNavigate();
+  const go = useGo();
   const messages = useMessages();
   return (
-    <NavigationProvider navigate={(href) => void navigate(href)}>
+    <NavigationProvider navigate={(href) => go(href)}>
       <Outlet />
       <Toast label={messages.app.notifications} closeLabel={messages.app.dismiss} />
     </NavigationProvider>

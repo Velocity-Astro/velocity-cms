@@ -225,7 +225,12 @@
   --motion-fast: 100ms;
   --motion-base: 150ms;
   --motion-slow: 250ms;
+  /* For something large crossing the page, such as a panel sliding in from the side. */
+  --motion-slower: 350ms;
   --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+  /* Arriving: quick at first, then settling. Leaving: gathering speed on the way out. */
+  --motion-ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-ease-exit: cubic-bezier(0.4, 0, 1, 1);
 
   /* Layering: the only stacking levels there are. */
   --layer-raised: 10;
@@ -242,5 +247,6 @@
     --motion-fast: 0ms;
     --motion-base: 0ms;
     --motion-slow: 0ms;
+    --motion-slower: 0ms;
   }
 }

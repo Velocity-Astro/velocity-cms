@@ -2,7 +2,7 @@ import { liveFields } from '@velocity/cms-core';
 import { Box, Button, Dialog, EmptyState, Form, PageHeader, Stack, Table, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity/cms-ui';
 import { Plus, Shapes } from 'lucide-react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useGo } from '../../app/use-go.js';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { paths } from '../../app/paths.js';
 import { AdminRequestError } from '../../client/errors.js';
@@ -10,6 +10,7 @@ import { useContentTypes, useCreateContentType } from '../../client/queries.js';
 import { localized } from '../../lib/content.js';
 import { typeKeyFrom } from '../../lib/keys.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
+import { useClosing } from '../../lib/use-closing.js';
 
 const NO_PROBLEMS: Readonly<Record<string, string>> = {};
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -18,7 +19,7 @@ const messageOf = (error: unknown) => (error instanceof Error ? error.message : 
 export function ContentTypesScreen() {
   const messages = useMessages();
   const locale = useLocale();
-  const navigate = useNavigate();
+  const go = useGo();
   const types = useContentTypes();
   const [isCreating, setCreating] = useState(false);
 
@@ -57,7 +58,7 @@ export function ContentTypesScreen() {
         {types.isSuccess && rows.length === 0 && (
           <EmptyState icon={Shapes} title={messages.builder.emptyTitle} description={messages.builder.emptyDescription} action={create} />
         )}
-        {types.isSuccess && rows.length > 0 && <Table label={messages.builder.title} columns={columns} rows={rows} onRowAction={(key) => void navigate(paths.type(key))} />}
+        {types.isSuccess && rows.length > 0 && <Table label={messages.builder.title} columns={columns} rows={rows} onRowAction={(key) => go(paths.type(key))} />}
       </Stack>
       {/* Made anew each time it opens, so it never shows what was typed last time. */}
       {isCreating && <NewTypeDialog onClose={() => setCreating(false)} />}
@@ -67,9 +68,10 @@ export function ContentTypesScreen() {
 
 /** The window a content type is started in: what it is called, its key and where its pages live. */
 function NewTypeDialog({ onClose }: { readonly onClose: () => void }) {
+  const { close, dialog } = useClosing(onClose);
   const messages = useMessages();
   const locale = useLocale();
-  const navigate = useNavigate();
+  const go = useGo();
   const create = useCreateContentType();
   const [name, setName] = useState('');
   // The key follows the name until someone writes a key of their own.
@@ -87,8 +89,8 @@ function NewTypeDialog({ onClose }: { readonly onClose: () => void }) {
       {
         onSuccess: (type) => {
           toast({ title: messages.builder.typeCreated(name.trim()), description: messages.builder.typeCreatedDescription, tone: 'success' });
-          onClose();
-          void navigate(paths.type(type.key));
+          close();
+          go(paths.type(type.key));
         },
         onError: (error) => {
           const issues = error instanceof AdminRequestError ? error.issues : [];
@@ -102,13 +104,12 @@ function NewTypeDialog({ onClose }: { readonly onClose: () => void }) {
 
   return (
     <Dialog
-      isOpen
-      onOpenChange={(isOpen) => !isOpen && onClose()}
+      {...dialog}
       title={messages.builder.newTypeTitle}
       closeLabel={messages.app.dismiss}
       footer={
         <>
-          <Button variant="secondary" onPress={onClose}>
+          <Button variant="secondary" onPress={close}>
             {messages.editor.cancel}
           </Button>
           <Button isPending={create.isPending} onPress={send}>

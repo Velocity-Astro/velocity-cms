@@ -7,7 +7,7 @@ export const fieldLabelClass = 'text-sm font-medium text-foreground';
 export const fieldHiddenLabelClass = 'sr-only';
 export const fieldRequiredMarkClass = 'text-destructive';
 export const fieldDescriptionClass = 'text-sm text-foreground-muted';
-export const fieldErrorClass = 'text-sm text-destructive';
+export const fieldErrorClass = 'motion-rise text-sm text-destructive';
 
 /** The box a person types or chooses in. */
 export const fieldBoxClass = [
@@ -24,7 +24,7 @@ export const fieldControlClass = `${fieldBoxClass} h-10`;
 
 /** A panel that floats over the page: a select's list, a menu. */
 export const floatingPanelClass =
-  'layer-overlay overflow-auto rounded-md border border-border bg-background-elevated p-1 shadow-lg outline-none';
+  'layer-overlay motion-float overflow-auto rounded-md border border-border bg-background-elevated p-1 shadow-lg outline-none';
 
 /** One choice inside a floating panel. */
 export const floatingItemClass = [
