@@ -310,6 +310,11 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       expect(await client.updateContact(li.id, { name: null, phone: '512 555 0199', expectedRevision: 1 })).toMatchObject({ phone: '512 555 0199', revision: 2 });
       await expect(client.updateContact(li.id, { name: 'Li', expectedRevision: 1 })).rejects.toMatchObject({ code: 'conflict' });
 
+      // A file's rows: a new person is added, a known one only gains what they lack, and a bad row is reported by its place.
+      const report = await client.importContacts([{ email: 'Omar@Example.com', name: 'Omar Haddad' }, { email: 'li@example.com', name: 'Li Wei', phone: '512 555 0100' }, { email: 'not an address' }]);
+      expect(report).toEqual({ added: 1, filled: 1, unchanged: 0, problems: [{ row: 2, message: expect.stringContaining('email') as string }] });
+      expect(await client.getContact(li.id)).toMatchObject({ name: 'Li Wei', phone: '512 555 0199', revision: 3 });
+
       const note = await client.addContactNote(ana.id, ' Called back. ');
       expect(note).toMatchObject({ text: 'Called back.', contactId: ana.id });
       const timeline = await client.contactTimeline(ana.id);
@@ -325,7 +330,7 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
 
       expect(await client.eraseContact(ana.id)).toBe(2);
       await expect(client.getContact(ana.id)).rejects.toMatchObject({ code: 'not_found' });
-      expect((await client.listContacts()).total).toBe(2);
+      expect((await client.listContacts()).total).toBe(3);
     });
 
     it('lists who can sign in, lets people in, changes what they may do and takes access away', async () => {

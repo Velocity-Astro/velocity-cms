@@ -1,4 +1,4 @@
-import type { CustomFields, CustomFieldsChanges, Contact, ContactChanges, Deal, DealChanges, DealSubject, Forecast, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginTask, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
+import type { ContactImportReport, ContactImportRow, CustomFields, CustomFieldsChanges, Contact, ContactChanges, Deal, DealChanges, DealSubject, Forecast, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginTask, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
@@ -252,6 +252,8 @@ export interface AdminClient {
   getContact(id: string): Promise<Contact>;
   /** Adds a contact by hand. An email a contact already has is refused, naming the field. */
   createContact(input: NewContact): Promise<Contact>;
+  /** Adds the contacts of a file, up to 200 rows at a time. Someone already here only gains what they lack. */
+  importContacts(rows: readonly ContactImportRow[]): Promise<ContactImportReport>;
   updateContact(id: string, changes: ContactChanges): Promise<Contact>;
   /** Deletes a contact for good, with their notes and everything they sent. Answers with how many submissions went. */
   eraseContact(id: string): Promise<number>;

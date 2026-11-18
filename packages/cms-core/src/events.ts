@@ -30,7 +30,8 @@ export interface CmsEvents {
   /** Submissions are gone for good: deleted, erased for a person, or past the time they are kept. */
   'submission.deleted': { formId: string; ids: readonly string[]; actor: Actor };
   /** A contact was made or changed. Nobody is acting when a submission made it. */
-  'contact.saved': { contact: Contact; actor?: Actor };
+  /** `imported` says the contact came in with many others from a file, so it is not news one at a time. */
+  'contact.saved': { contact: Contact; actor?: Actor; imported?: true };
   /** A contact is gone for good, with its notes. `contact` is what it was. */
   'contact.deleted': { contact: Contact; actor: Actor };
   /** A deal was made or changed, or is gone for good. */

@@ -5,6 +5,8 @@ import {
   createCms,
   type Actor,
   type Cms,
+  type ContactImportReport,
+  type ContactImportRow,
   type ContentTypeChanges,
   type ContentTypeDef,
   type FieldArrangement,
@@ -416,6 +418,10 @@ export class MemoryAdminClient implements AdminClient {
 
   createContact(input: NewContact): Promise<Contact> {
     return this.#request((actor) => this.#cms.contacts.create(actor, input));
+  }
+
+  importContacts(rows: readonly ContactImportRow[]): Promise<ContactImportReport> {
+    return this.#request((actor) => this.#cms.contacts.import(actor, rows));
   }
 
   updateContact(id: string, changes: ContactChanges): Promise<Contact> {

@@ -40,6 +40,29 @@ export interface ContactChanges {
   readonly expectedRevision: number;
 }
 
+/** One line of a file of contacts, as text: what a spreadsheet holds. */
+export interface ContactImportRow {
+  readonly email: string;
+  readonly name?: string;
+  readonly phone?: string;
+  /** The site's own fields for contacts, by field id, each as the text the file held. */
+  readonly data?: Readonly<Record<string, string>>;
+}
+
+/** What became of the rows of an import. */
+export interface ContactImportReport {
+  /** Contacts made. */
+  readonly added: number;
+  /** Contacts already there that gained something they lacked. */
+  readonly filled: number;
+  /** Contacts already there that the row had nothing new for. */
+  readonly unchanged: number;
+  /** Rows that were left out, by their place in what was sent (from 0), with why. Never what the row held. */
+  readonly problems: readonly { readonly row: number; readonly message: string }[];
+}
+
+/** The most rows one import may hold. A longer file is sent in parts. */
+export const MAX_IMPORT_ROWS = 200;
 export const MAX_CONTACT_NAME_LENGTH = 200;
 export const MAX_NOTE_LENGTH = 5000;
 const BATCH = 200;
@@ -107,6 +130,59 @@ export class ContactService {
     const saved = await this.contacts.save(contact, null);
     await this.events.emit('contact.saved', { contact: saved, actor });
     return saved;
+  }
+
+  /**
+   * Adds the contacts of a file, a part at a time. A row whose email no contact has becomes one,
+   * in the pipeline's first stage. A row for someone already here only fills what they lack: a
+   * name, a phone number, a custom field left empty. Nothing the team typed is overwritten. A
+   * row that cannot be taken is left out and reported by its place; the rest go in.
+   */
+  async import(actor: Actor, rows: readonly ContactImportRow[]): Promise<ContactImportReport> {
+    this.access.require(actor, 'contact:manage');
+    if (rows.length > MAX_IMPORT_ROWS) {
+      throw new ValidationError(`An import takes ${MAX_IMPORT_ROWS} rows at a time. There are ${rows.length} here: send them in parts.`, [{ path: ['rows'], message: 'Too many rows' }]);
+    }
+    const custom = liveFields((await this.custom?.current())?.contact ?? []);
+    const stage = await this.firstStage();
+    const report = { added: 0, filled: 0, unchanged: 0, problems: [] as { row: number; message: string }[] };
+    for (const [row, input] of rows.entries()) {
+      try {
+        const details = this.checked({ email: input.email, name: input.name, phone: input.phone });
+        if (details.email === undefined) throw problems([{ path: ['email'], message: 'This is needed.' }]);
+        const current = await this.contacts.getByEmail(details.email);
+        // A file holds text: each value is read as a visitor's answer would be, by its kind of field.
+        const given: Record<string, unknown> = {};
+        for (const field of custom) {
+          if (current?.data?.[field.id] !== undefined) continue;
+          const type = this.fields.get(field.type);
+          const value = type.fromSubmitted(input.data?.[field.id], type.options.parse(field.options));
+          if (value !== undefined) given[field.id] = value;
+        }
+        const data = Object.keys(given).length > 0 ? await this.custom?.values('contact', given, current?.data) : undefined;
+        const now = this.clock.now();
+        if (!current) {
+          const contact: Contact = { id: this.ids.next(), ...details, email: details.email, stage, ...(data !== undefined && { data }), revision: 1, createdAt: now, updatedAt: now };
+          await this.events.emit('contact.saved', { contact: await this.contacts.save(contact, null), actor, imported: true });
+          report.added += 1;
+          continue;
+        }
+        const gains = { ...(current.name === undefined && details.name !== undefined && { name: details.name }), ...(current.phone === undefined && details.phone !== undefined && { phone: details.phone }), ...(data !== undefined && { data }) };
+        if (Object.keys(gains).length === 0) {
+          report.unchanged += 1;
+          continue;
+        }
+        const saved = await this.contacts.save({ ...current, ...gains, revision: current.revision + 1, updatedAt: now }, current.revision);
+        await this.events.emit('contact.saved', { contact: saved, actor, imported: true });
+        report.filled += 1;
+      } catch (error) {
+        if (!(error instanceof ValidationError)) throw error;
+        // Which column and what is wrong with it, never what it held.
+        const first = error.issues[0];
+        report.problems.push({ row, message: first && first.path.length > 0 && first.path[0] !== 'data' ? `${String(first.path[0])}: ${first.message}` : error.message });
+      }
+    }
+    return report;
   }
 
   async update(actor: Actor, id: string, changes: ContactChanges): Promise<Contact> {

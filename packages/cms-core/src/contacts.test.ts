@@ -534,6 +534,43 @@ describe('custom fields', () => {
     expect((await cms.forms.update(editor, join.id, { fills: {}, expectedRevision: 2 })).fills).toBeUndefined();
   });
 
+  it('come in with a file of contacts as text, each read by its kind of field', async () => {
+    const fields = await cms.customFields.save(editor, { contact: [membership, { key: 'visits', type: 'number', label: { en: 'Visits' } }], expectedRevision: 0 });
+    const plan = idOf(fields.contact, 'membership');
+    const visits = idOf(fields.contact, 'visits');
+    const tom = await cms.contacts.create(editor, { email: 'tom@example.com', name: 'Tom', data: { [plan]: 'yearly' } });
+    const heard: (true | undefined)[] = [];
+    cms.events.on('contact.saved', ({ imported }) => void heard.push(imported));
+
+    const report = await cms.contacts.import(editor, [
+      { email: ' Ana@Example.com ', name: 'Ana Ruiz', phone: '512 555 0100', data: { [plan]: 'monthly', [visits]: '12' } },
+      // Someone already here only gains what they lack: the plan and the name stay as the team set them.
+      { email: 'tom@example.com', name: 'Thomas', phone: '512 555 0101', data: { [plan]: 'monthly', [visits]: '3' } },
+      { email: 'tom@example.com', name: 'Thomas' },
+      { email: 'not an address', name: 'Nobody' },
+      { email: '' },
+      { email: 'li@example.com', data: { [plan]: 'weekly' } },
+    ]);
+    expect(report).toEqual({
+      added: 1,
+      filled: 1,
+      unchanged: 1,
+      problems: [
+        { row: 3, message: 'email: Enter an email address, such as ana@example.com.' },
+        { row: 4, message: 'email: This is needed.' },
+        { row: 5, message: expect.stringContaining('"membership"') as string },
+      ],
+    });
+    const ana = (await cms.contacts.find(editor, { search: 'ana@example.com' })).items[0];
+    expect(ana).toMatchObject({ email: 'ana@example.com', name: 'Ana Ruiz', phone: '512 555 0100', stage: 'new', data: { [plan]: 'monthly', [visits]: 12 } });
+    expect(ana?.source).toBeUndefined();
+    expect(await cms.contacts.get(editor, tom.id)).toMatchObject({ name: 'Tom', phone: '512 555 0101', data: { [plan]: 'yearly', [visits]: 3 }, revision: 2 });
+    expect(heard).toEqual([true, true]);
+
+    await expect(cms.contacts.import(editor, Array.from({ length: 201 }, (_, index) => ({ email: `p${index}@example.com` })))).rejects.toThrow(/200 rows at a time/);
+    await expect(cms.contacts.import(author, [])).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
   it('are filled in on a deal, and go into the file of the deal\'s contact by key', async () => {
     const fields = await cms.customFields.save(editor, { deal: [seats], expectedRevision: 0 });
     const tom = await cms.contacts.create(editor, { email: 'tom@example.com' });

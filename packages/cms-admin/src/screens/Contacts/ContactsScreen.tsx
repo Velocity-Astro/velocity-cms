@@ -1,6 +1,6 @@
 import type { Contact } from '@velocity/cms-core';
 import { Box, Button, Dialog, EmptyState, Form, Inline, PageHeader, SearchField, Segmented, Select, Stack, Table, Tag, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity/cms-ui';
-import { Contact as ContactIcon, ListFilter, ListPlus, Plus, SearchX, Settings2 } from 'lucide-react';
+import { Contact as ContactIcon, FileUp, ListFilter, ListPlus, Plus, SearchX, Settings2 } from 'lucide-react';
 import { useDeferredValue, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
@@ -13,6 +13,7 @@ import { relativeTime } from '../../lib/relative-time.js';
 import { useClosing } from '../../lib/use-closing.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 import { useSourceOf } from './contact-source.js';
+import { ImportDialog } from './ImportDialog.js';
 import { PipelineBoard } from './PipelineBoard.js';
 import { STAGE_TONE, useFollowUp, useOwnerName, useStageName } from './pipeline.js';
 import { StagesDialog } from './StagesDialog.js';
@@ -57,6 +58,7 @@ function ContactList() {
   const [isCreating, setCreating] = useState(false);
   const [isEditingStages, setEditingStages] = useState(false);
   const [isEditingFields, setEditingFields] = useState(false);
+  const [isImporting, setImporting] = useState(false);
   const stages = pipeline.data?.stages ?? [];
   const isNarrowed = stage !== ALL || owner !== ALL;
 
@@ -127,6 +129,9 @@ function ContactList() {
               <Button variant="secondary" icon={ListPlus} onPress={() => setEditingFields(true)}>
                 {messages.customFields.button}
               </Button>
+              <Button variant="secondary" icon={FileUp} onPress={() => setImporting(true)}>
+                {messages.contactImport.button}
+              </Button>
               {create}
             </Inline>
           }
@@ -181,6 +186,7 @@ function ContactList() {
         {contacts.isSuccess && rows.length > 0 && <Table label={messages.contacts.title} columns={columns} rows={rows} onRowAction={(id) => go(paths.contact(id))} />}
         </>}
       </Stack>
+      {isImporting && <ImportDialog onClose={() => setImporting(false)} />}
       {isEditingFields && <CustomFieldsDialog of="contact" onClose={() => setEditingFields(false)} />}
       {isEditingStages && pipeline.data && <StagesDialog pipeline={pipeline.data} team={team.data ?? []} onClose={() => setEditingStages(false)} />}
       {/* Made anew each time it opens, so it never shows what was typed last time. */}
