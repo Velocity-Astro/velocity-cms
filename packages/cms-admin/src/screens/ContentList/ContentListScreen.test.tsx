@@ -21,10 +21,10 @@ it('lists a type\'s entries, newest first, with a title, a state and when each w
   const table = await screen.findByRole('grid', { name: 'Listings' });
   const rows = within(table).getAllByRole('row').slice(1).map((row) => Array.from(row.children, (cell) => cell.textContent));
   expect(rows).toEqual([
-    ['6214 Lakeshore Drive/listings/6214-lakeshore-drive', 'Published', '2 hours ago'],
-    ['18 Alder Court/listings/18-alder-court', 'Draft', 'yesterday'],
-    ['907 Mesa Verde Lane/listings/907-mesa-verde-lane', 'Unpublished changes', '3 days ago'],
-    ['Untitled/listings/e4', 'Draft', '8 days ago'],
+    ['6214 Lakeshore Drive/listings/6214-lakeshore-drive/', 'Published', '2 hours ago'],
+    ['18 Alder Court/listings/18-alder-court/', 'Draft', 'yesterday'],
+    ['907 Mesa Verde Lane/listings/907-mesa-verde-lane/', 'Unpublished changes', '3 days ago'],
+    ['Untitled/listings/e4/', 'Draft', '8 days ago'],
   ]);
   expect(screen.getByText('4 entries')).toBeTruthy();
 });
@@ -65,7 +65,7 @@ it('shows an entry in two languages as one row that names both', async () => {
   const rows = within(table).getAllByRole('row').slice(1);
   expect(rows).toHaveLength(4);
   // The row shows the version in the editor's language, whichever came first.
-  expect(rows[0]?.children[0]?.textContent).toBe('6214 Lakeshore Drive/listings/6214-lakeshore-drive');
+  expect(rows[0]?.children[0]?.textContent).toBe('6214 Lakeshore Drive/listings/6214-lakeshore-drive/');
   expect(rows.map((row) => row.children[2]?.textContent)).toEqual(['ENES', 'EN', 'EN', 'EN']);
   expect(screen.getByText('4 entries')).toBeTruthy();
 });
@@ -78,10 +78,10 @@ it('narrows the list by state and by what is typed, and says when nothing matche
   expect(within(table).getAllByRole('rowheader')).toHaveLength(4);
 
   await user.click(screen.getByRole('radio', { name: 'Drafts' }));
-  expect(titles()).toEqual(['18 Alder Court/listings/18-alder-court', 'Untitled/listings/e4']);
+  expect(titles()).toEqual(['18 Alder Court/listings/18-alder-court/', 'Untitled/listings/e4/']);
 
   await user.type(screen.getByRole('searchbox', { name: 'Search listings' }), 'alder');
-  expect(titles()).toEqual(['18 Alder Court/listings/18-alder-court']);
+  expect(titles()).toEqual(['18 Alder Court/listings/18-alder-court/']);
 
   await user.type(screen.getByRole('searchbox', { name: 'Search listings' }), 'zzz');
   expect(await screen.findByRole('heading', { name: 'Nothing matches' })).toBeTruthy();

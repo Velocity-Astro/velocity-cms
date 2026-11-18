@@ -4,9 +4,10 @@ import { Box, Button, Card, ConfirmDialog, Form, SaveBar, Segmented, Split, Stac
 import { useState } from 'react';
 import { paths } from '../../app/paths.js';
 import { AdminRequestError } from '../../client/errors.js';
-import { useCreateEntry, usePublishEntry, useUnpublishEntry, useUpdateEntry } from '../../client/queries.js';
+import { useCreateEntry, usePreviewEntry, usePublishEntry, useUnpublishEntry, useUpdateEntry } from '../../client/queries.js';
 import { FieldGrid } from '../../fields/index.js';
 import { entryState, entryTitle, languageName, localized, sameData, withValue, type EntryState } from '../../lib/content.js';
+import { openPreviewTab } from '../../lib/preview-tab.js';
 import { relativeTime } from '../../lib/relative-time.js';
 import { slugify } from '../../lib/slug.js';
 import { useLeaveGuard } from '../../lib/use-leave-guard.js';
@@ -17,7 +18,7 @@ const STATE_TONE = { draft: 'neutral', scheduled: 'info', published: 'success', 
   string
 >;
 
-type Action = 'save' | 'publish' | 'unpublish';
+type Action = 'save' | 'publish' | 'unpublish' | 'preview';
 
 const NO_PROBLEMS: ReadonlyMap<string, string> = new Map();
 
@@ -46,6 +47,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
   const update = useUpdateEntry();
   const publish = usePublishEntry();
   const unpublish = useUnpublishEntry();
+  const previewLink = usePreviewEntry();
 
   const [data, setData] = useState<EntryData>(entry?.data ?? {});
   // The slug as typed. Until someone types one, a new entry's slug follows its title.
@@ -120,6 +122,33 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
     setRunning(null);
   }
 
+  /** Saves what was typed, then shows the page as it would be in a new tab. */
+  async function preview() {
+    if (!isSlug(slug)) {
+      setSlugProblem(slug === '' ? messages.editor.slugMissing : messages.editor.slugInvalid);
+      return;
+    }
+    // Opened now, while the browser still counts this as the person's own click.
+    const tab = openPreviewTab();
+    setRunning('preview');
+    setProblems(NO_PROBLEMS);
+    try {
+      const current = await saved();
+      setData(current.data);
+      setTypedSlug(null);
+      try {
+        tab.show((await previewLink.mutateAsync(current.id)).path);
+      } catch (error) {
+        tab.close();
+        report(messages.editor.notPreviewed, error);
+      }
+    } catch (error) {
+      tab.close();
+      report(messages.editor.notSaved, error);
+    }
+    setRunning(null);
+  }
+
   async function takeOffSite(id: string) {
     setRunning('unpublish');
     try {
@@ -133,6 +162,11 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
   }
 
   const isBusy = running !== null;
+  // The slug is part of the page's address only when the type's pattern says so. Otherwise it
+  // is a name other entries link by.
+  const slugPattern = type.urlPattern?.includes('[slug]') ? type.urlPattern : undefined;
+  // A type whose entries only show on other pages has nothing of its own to preview.
+  const hasPage = type.urlPattern !== undefined || Object.keys(type.localizedUrlPatterns ?? {}).length > 0;
 
   const changeField = (field: FieldDef, value: unknown) => {
     setData((current) => withValue(current, field.id, value));
@@ -197,6 +231,11 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
                 {messages.editor.unpublish}
               </Button>
             )}
+            {hasPage && (
+              <Button variant="ghost" isDisabled={isBusy} isPending={running === 'preview'} onPress={() => void preview()}>
+                {messages.editor.preview}
+              </Button>
+            )}
             <Button variant="secondary" isDisabled={isBusy || !hasChanges} isPending={running === 'save'} onPress={() => void run('save')}>
               {messages.editor.saveDraft}
             </Button>
@@ -212,7 +251,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
             asideLabel={messages.editor.aside}
             aside={
               <>
-                <Card title={type.urlPattern !== undefined ? messages.editor.addressSection : messages.editor.identifierSection}>
+                <Card title={slugPattern !== undefined ? messages.editor.addressSection : messages.editor.identifierSection}>
                   <TextField
                     label={messages.editor.slug}
                     value={slug}
@@ -222,8 +261,8 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
                     }}
                     isRequired
                     description={
-                      type.urlPattern !== undefined
-                        ? messages.editor.slugDescription(type.urlPattern.replace('[slug]', slug === '' ? '…' : slug))
+                      slugPattern !== undefined
+                        ? messages.editor.slugDescription(slugPattern.replace('[slug]', slug === '' ? '…' : slug))
                         : messages.editor.slugAsIdentifier
                     }
                     {...(slugProblem !== null && { errorMessage: slugProblem })}

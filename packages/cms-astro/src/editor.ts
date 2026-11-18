@@ -1,9 +1,12 @@
 import { CmsApi } from '@velocity/cms-api';
 import { CmsAuth, type Mailer, type SignInMail } from '@velocity/cms-auth';
-import type { ContentTypeDef, Entry, ImageLibrary } from '@velocity/cms-core';
+import { pageAddress, type ContentTypeDef, type Entry, type ImageLibrary } from '@velocity/cms-core';
 import { AdminFiles, builtEditorDirectory } from './admin-files.js';
 import type { Connection } from './connection.js';
 import { invalidateLiveContent } from './live-loader.js';
+
+/** The language of the pages at a type's `urlPattern`, as the API and the previews take it. */
+const DEFAULT_LOCALE = 'en';
 
 export interface EditorHostOptions {
   readonly connection: Connection;
@@ -119,13 +122,12 @@ export class EditorHost {
 
 /**
  * Where an entry's own page is, from its type's address pattern: the address visitors find it
- * at now and, if that changed or it was taken down, the one they found it at before. Pages in
- * other languages with translated addresses are not known here yet; they are fresh at once all
- * the same, and searched after the next deploy.
+ * at now and, if that changed or it was taken down, the one they found it at before. A page in
+ * a language the type gives no pattern for is not known here; it is fresh at once all the same,
+ * and searched after the next deploy.
  */
 function addressesOf(type: ContentTypeDef | null, versions: readonly Entry[]): string[] {
-  if (!type?.urlPattern) return [];
-  const pattern = type.urlPattern;
-  const at = (slug: string) => `${pattern.replace('[slug]', slug).replace(/\/+$/, '')}/`;
-  return [...new Set(versions.flatMap((entry) => (entry.published ? [at(entry.published.slug)] : [])))];
+  if (!type) return [];
+  const at = (entry: Entry) => (entry.published ? pageAddress(type, { locale: entry.locale, ...entry.published }, DEFAULT_LOCALE) : null);
+  return [...new Set(versions.flatMap((entry) => at(entry) ?? []))];
 }

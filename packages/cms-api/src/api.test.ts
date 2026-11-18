@@ -44,6 +44,7 @@ beforeEach(async () => {
     types: new InMemorySchemaRepository(),
     clock: new FakeClock(),
     ids: new SequentialIds(),
+    previews: { secret: 'p'.repeat(32) },
     media: { storage: { files: new InMemoryMediaRepository(), store: new InMemoryMediaStore() }, maxBytes: 2000 },
   });
   cms.media.include(new InMemoryImageLibrary([{ name: 'porch', url: '/_astro/porch.jpg' }]));
@@ -51,6 +52,7 @@ beforeEach(async () => {
     key: 'listings',
     kind: 'collection',
     label: { en: 'Listings' },
+    urlPattern: '/listings/[slug]',
     fields: [
       { key: 'title', type: 'text', label: { en: 'Title' }, required: true },
       { key: 'price', type: 'number', label: { en: 'Price' } },
@@ -70,7 +72,7 @@ describe('who is asking', () => {
 
   it('refuses everything else until someone signs in', async () => {
     authenticator.session = null;
-    for (const [method, path] of [['GET', '/content-types'], ['GET', '/field-types'], ['GET', '/entries?type=listings'], ['GET', '/entries/x'], ['POST', '/entries'], ['PATCH', '/entries/x'], ['POST', '/entries/x/publish'], ['POST', '/entries/x/unpublish']] as const) {
+    for (const [method, path] of [['GET', '/content-types'], ['GET', '/field-types'], ['GET', '/entries?type=listings'], ['GET', '/entries/x'], ['POST', '/entries'], ['PATCH', '/entries/x'], ['POST', '/entries/x/publish'], ['POST', '/entries/x/unpublish'], ['POST', '/entries/x/preview']] as const) {
       const { status, body } = await call(method, path, method === 'GET' ? undefined : {});
       expect([method, path, status, body.error?.code]).toEqual([method, path, 401, 'unauthenticated']);
     }
@@ -138,6 +140,15 @@ describe('writing', () => {
     const unpublished = await call('POST', `/entries/${draft.id}/unpublish`);
     expect(unpublished.body).toMatchObject({ status: 'draft' });
     expect(unpublished.body).not.toHaveProperty('published');
+  });
+
+  it('gives a link to a draft\'s page, which an author may ask for too', async () => {
+    authenticator.session = as('author');
+    const draft = await create({ [fieldId('title')]: 'Lake house' });
+    const link = await call('POST', `/entries/${draft.id}/preview`, {});
+    expect(link.status).toBe(200);
+    expect(link.body['path']).toMatch(/^\/listings\/lake-house\/\?preview=\d+\.[0-9a-f]{64}$/);
+    expect((await call('POST', '/entries/missing/preview', {})).status).toBe(404);
   });
 
   it('reports each field that stops a publish, by key', async () => {

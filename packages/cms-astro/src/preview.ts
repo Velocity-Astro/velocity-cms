@@ -1,10 +1,10 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { MiddlewareHandler } from 'astro';
-import { PreviewLinks } from '@velocity/cms-core';
+import { PREVIEW_PARAMETER, PreviewLinks } from '@velocity/cms-core';
 import { siteSecret } from './secret.js';
 import { refreshUploadedImages } from './site-media.js';
 
-const PARAMETER = 'preview';
+const PARAMETER = PREVIEW_PARAMETER;
 const previewing = new AsyncLocalStorage<boolean>();
 
 /** True while the page being rendered is a preview: the loaders then read the versions being worked on. */

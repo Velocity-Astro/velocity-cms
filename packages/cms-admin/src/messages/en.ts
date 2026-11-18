@@ -114,6 +114,8 @@ export const en = {
     publish: 'Publish',
     publishChanges: 'Publish changes',
     unpublish: 'Unpublish',
+    preview: 'Preview',
+    notPreviewed: 'No preview',
     notSavedYet: 'Not saved yet',
     unsavedChanges: 'Unsaved changes',
     saved: (when: string) => `Saved ${when}`,

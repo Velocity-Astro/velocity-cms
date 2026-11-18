@@ -8,6 +8,7 @@ import {
   type Entry,
   type NewUpload,
   type Page,
+  type PreviewLink,
   type SiteImage,
 } from '@velocity/cms-core';
 import {
@@ -43,6 +44,9 @@ const KNOWN_CODES: ReadonlySet<string> = new Set<RequestErrorCode>(['validation_
  * the development preview, so a screen that works here meets the same validation, the same
  * conflicts and the same publishing rules as on a site.
  */
+/** Signs this stand-in's preview links. Nothing real is behind them. */
+const PREVIEW_SECRET = 'memory-admin-client-preview-secret';
+
 export class MemoryAdminClient implements AdminClient {
   /** Every address a sign-in link was asked for, in order. */
   readonly linkRequests: string[] = [];
@@ -63,7 +67,7 @@ export class MemoryAdminClient implements AdminClient {
     const types = new InMemorySchemaRepository();
     const entries = new InMemoryEntryRepository();
     const storage = { files: new InMemoryMediaRepository(), store: new InMemoryMediaStore() };
-    this.#cms = createCms({ types, entries, ...(options.uploads !== false && { media: { storage } }) });
+    this.#cms = createCms({ types, entries, previews: { secret: PREVIEW_SECRET }, ...(options.uploads !== false && { media: { storage } }) });
     this.#cms.media.include(new InMemoryImageLibrary(options.images));
     this.#ready = (async () => {
       for (const type of options.contentTypes ?? []) await types.save(type);
@@ -152,6 +156,10 @@ export class MemoryAdminClient implements AdminClient {
 
   unpublishEntry(id: string): Promise<Entry> {
     return this.#request((actor) => this.#cms.content.unpublish(actor, id));
+  }
+
+  previewEntry(id: string): Promise<PreviewLink> {
+    return this.#request((actor) => this.#cms.previews.link(actor, id));
   }
 
   /** Runs one signed-in request against the CMS, and reports a refusal the way a server would. */

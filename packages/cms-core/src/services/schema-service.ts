@@ -19,6 +19,8 @@ export interface NewContentType {
   readonly kind: ContentTypeKind;
   readonly label: LocalizedText;
   readonly urlPattern?: string;
+  /** Where entries live in the other languages, by locale: `{ es: '/es/propiedades/[slug]' }`. */
+  readonly localizedUrlPatterns?: Readonly<Record<string, string>>;
   readonly fields?: readonly NewField[];
   /** The field entries are called by in lists, by key: `name`, or `address.street` inside a group. */
   readonly titleField?: string;
@@ -144,7 +146,7 @@ export class SchemaService {
 
   /** A type with a description applied to it: its fields, what entries are called by, and its layout. */
   private described(type: ContentTypeDef, input: NewContentType): ContentTypeDef {
-    const { titlePath: _title, list: _list, sections: _sections, urlPattern: _url, ...rest } = type;
+    const { titlePath: _title, list: _list, sections: _sections, urlPattern: _url, localizedUrlPatterns: _urls, ...rest } = type;
     const fields = defineFields(input.fields ?? [], type.fields, this.context);
     const live = liveFields(fields);
     const sections: FieldSection[] = (input.sections ?? []).map((section) => ({
@@ -157,6 +159,7 @@ export class SchemaService {
       ...rest,
       label: input.label,
       ...(input.urlPattern !== undefined && { urlPattern: input.urlPattern }),
+      ...(input.localizedUrlPatterns !== undefined && { localizedUrlPatterns: input.localizedUrlPatterns }),
       fields,
       ...(input.titleField !== undefined && { titlePath: this.pathOf(live, input.titleField, 'the title field') }),
       ...((input.listImage !== undefined || (input.listFields?.length ?? 0) > 0) && {

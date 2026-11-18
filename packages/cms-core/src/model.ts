@@ -51,6 +51,11 @@ export interface ContentTypeDef {
   readonly label: LocalizedText;
   /** Where entries of this type live on the site, e.g. `/listings/[slug]`. */
   readonly urlPattern?: string;
+  /**
+   * The same for the other languages, by locale: `{ es: '/es/propiedades/[slug]' }`. A language
+   * left out has no page of its own that the CMS knows of.
+   */
+  readonly localizedUrlPatterns?: Readonly<Record<string, string>>;
   readonly fields: readonly FieldDef[];
   /**
    * The field an entry is called by in lists, as field ids from the top down: one id, or a

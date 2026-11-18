@@ -76,7 +76,9 @@ export type {
   SearchResults,
   StoredFile,
 } from './ports.js';
-export { PreviewLinks } from './preview.js';
+export { PREVIEW_PARAMETER, PreviewLinks } from './preview.js';
+export { pageAddress, urlPatternFor, type AddressedVersion } from './page-address.js';
+export { PreviewService, type PreviewLink, type PreviewServiceOptions } from './services/preview-service.js';
 export { Registry, UnknownTypeError } from './registry.js';
 export { MAX_SLUG_LENGTH, isSlug } from './slug.js';
 export { MARK_CLOSE, MARK_OPEN, escapeHtml, markedExcerpt, searchWords } from './search-text.js';

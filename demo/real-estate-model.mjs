@@ -32,6 +32,8 @@ const order = number('order', 'Order', { required: true, help: 'Lower numbers co
 
 const listings = {
   key: 'listings',
+  urlPattern: '/listings/[path]',
+  localizedUrlPatterns: { es: '/es/propiedades/[path]' },
   kind: 'collection',
   label: { en: 'Listings', es: 'Propiedades' },
   titleField: 'address.street',
@@ -115,6 +117,8 @@ const listings = {
 
 const agents = {
   key: 'agents',
+  urlPattern: '/agents/[slug]',
+  localizedUrlPatterns: { es: '/es/agentes/[slug]' },
   kind: 'collection',
   label: { en: 'Agents', es: 'Agentes' },
   titleField: 'name',
@@ -146,6 +150,8 @@ const agents = {
 
 const neighborhoods = {
   key: 'neighborhoods',
+  urlPattern: '/neighborhoods/[path]',
+  localizedUrlPatterns: { es: '/es/vecindarios/[path]' },
   kind: 'collection',
   label: { en: 'Neighborhoods', es: 'Barrios' },
   titleField: 'name',

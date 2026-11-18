@@ -1,4 +1,5 @@
 import {
+  pageAddress,
   hasUnpublishedChanges,
   liveFields,
   type ContentTypeDef,
@@ -103,4 +104,13 @@ export function groupTranslations(entries: readonly Entry[], locale: string): En
     if (!primary) throw new Error('A group of translations has no entries.');
     return { primary, versions: [primary, ...versions.filter((entry) => entry !== primary)] };
   });
+}
+
+/**
+ * Where an entry's own page is on the site, or `null` when it has none yet. The pattern for the
+ * entry's language is used when the type has one, and the type's main pattern otherwise.
+ */
+export function entryAddress(type: ContentTypeDef, entry: Pick<Entry, 'locale' | 'slug' | 'data'>): string | null {
+  const urlPattern = type.localizedUrlPatterns?.[entry.locale] ?? type.urlPattern;
+  return urlPattern === undefined ? null : pageAddress({ urlPattern, fields: type.fields }, entry, entry.locale);
 }
