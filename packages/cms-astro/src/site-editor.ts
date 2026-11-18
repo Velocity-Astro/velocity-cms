@@ -1,5 +1,5 @@
-import { AuthSetupError, type Mailer } from '@velocity/cms-auth';
-import type { ImageLibrary } from '@velocity/cms-core';
+import { AuthSetupError, type Mailer } from '@velocity-astro/cms-auth';
+import type { ImageLibrary } from '@velocity-astro/cms-core';
 import { sharedConnection } from './connection.js';
 import { EditorHost, LogMailer } from './editor.js';
 import { mailerFromEnv } from './resend-mailer.js';

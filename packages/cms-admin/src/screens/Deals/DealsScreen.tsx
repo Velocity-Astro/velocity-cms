@@ -1,5 +1,5 @@
-import type { Deal, Pipeline } from '@velocity/cms-core';
-import { Board, Box, Button, EmptyState, Grid, Link, PageHeader, Stack, Stat, toast, type BoardColumn } from '@velocity/cms-ui';
+import type { Deal, Pipeline } from '@velocity-astro/cms-core';
+import { Board, Box, Button, EmptyState, Grid, Link, PageHeader, Stack, Stat, toast, type BoardColumn } from '@velocity-astro/cms-ui';
 import { HandCoins, ListPlus } from 'lucide-react';
 import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';

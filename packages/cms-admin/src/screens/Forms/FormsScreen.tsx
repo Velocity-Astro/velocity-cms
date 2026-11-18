@@ -1,5 +1,5 @@
-import { liveFields, type FormDef } from '@velocity/cms-core';
-import { Box, Button, ConfirmDialog, Dialog, EmptyState, Form, Heading, Inline, PageHeader, Stack, Table, Tag, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity/cms-ui';
+import { liveFields, type FormDef } from '@velocity-astro/cms-core';
+import { Box, Button, ConfirmDialog, Dialog, EmptyState, Form, Heading, Inline, PageHeader, Stack, Table, Tag, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
 import { Inbox, Plus, UserX } from 'lucide-react';
 import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';

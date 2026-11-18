@@ -1,5 +1,5 @@
-import type { PluginInfo, PluginTask } from '@velocity/cms-core';
-import { Button, Dialog, EmptyState, Stack, Table, Tag, Text, toast, type TableColumn, type TableRow } from '@velocity/cms-ui';
+import type { PluginInfo, PluginTask } from '@velocity-astro/cms-core';
+import { Button, Dialog, EmptyState, Stack, Table, Tag, Text, toast, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
 import { History, RotateCw } from 'lucide-react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { usePluginTasks, useRetryPluginTask } from '../../client/queries.js';

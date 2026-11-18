@@ -1,5 +1,5 @@
-import { liveFields, type FormDef } from '@velocity/cms-core';
-import { Tag } from '@velocity/cms-ui';
+import { liveFields, type FormDef } from '@velocity-astro/cms-core';
+import { Tag } from '@velocity-astro/cms-ui';
 import { useUpdateForm } from '../../client/queries.js';
 import { FieldSetEditor } from '../../fields/FieldSetEditor.js';
 import type { FieldSet } from '../../fields/field-set.js';

@@ -1,5 +1,5 @@
-import type { ContentTypeDef, FieldDef } from '@velocity/cms-core';
-import { Box, Button, ConfirmDialog, EmptyState, Heading, IconButton, Inline, Link, PageHeader, Stack, Table, Tag, Text, toast, type TableColumn, type TableRow } from '@velocity/cms-ui';
+import type { ContentTypeDef, FieldDef } from '@velocity-astro/cms-core';
+import { Box, Button, ConfirmDialog, EmptyState, Heading, IconButton, Inline, Link, PageHeader, Stack, Table, Tag, Text, toast, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
 import { Archive, ArrowDown, ArrowUp, LayoutList, ListPlus, ListTree, Pencil, Plus, Settings2, Shapes, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useParams, useSearchParams } from 'react-router';

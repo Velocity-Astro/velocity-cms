@@ -1,4 +1,4 @@
-import { AuthShell, Button, Form, Inline, Logo, Stack, Text, TextField, toast } from '@velocity/cms-ui';
+import { AuthShell, Button, Form, Inline, Logo, Stack, Text, TextField, toast } from '@velocity-astro/cms-ui';
 import { KeyRound } from 'lucide-react';
 import { useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router';

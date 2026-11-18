@@ -9,7 +9,7 @@ import {
   type SearchIndex,
   type SearchQuery,
   type SearchResults,
-} from '@velocity/cms-core';
+} from '@velocity-astro/cms-core';
 import type { Db } from './database.js';
 
 /**

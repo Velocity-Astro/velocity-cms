@@ -1,4 +1,4 @@
-import type { ImageLibrary, SiteImage } from '@velocity/cms-core';
+import type { ImageLibrary, SiteImage } from '@velocity-astro/cms-core';
 
 /** An image file as the site's bundler describes it. */
 export interface ImageFile {

@@ -1,4 +1,4 @@
-import { liveFields, type ContentTypeDef, type FieldArrangement, type FieldDef } from '@velocity/cms-core';
+import { liveFields, type ContentTypeDef, type FieldArrangement, type FieldDef } from '@velocity-astro/cms-core';
 
 /** The key of the place for fields that no section shows. */
 export const NO_SECTION = '';

@@ -1,5 +1,5 @@
 import { and, asc, count, desc, eq, isNull, lte, ne, or, sql, type SQL, type SQLWrapper } from 'drizzle-orm';
-import { ConflictError, type Contact, type ContactNote, type ContactQuery, type ContactRepository, type Page } from '@velocity/cms-core';
+import { ConflictError, type Contact, type ContactNote, type ContactQuery, type ContactRepository, type Page } from '@velocity-astro/cms-core';
 import type { Db } from './database.js';
 import { contactNotes, contacts } from './tables.js';
 

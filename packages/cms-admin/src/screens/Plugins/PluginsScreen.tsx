@@ -1,5 +1,5 @@
-import type { PluginInfo } from '@velocity/cms-core';
-import { Box, Button, Card, EmptyState, Grid, PageHeader, Stack, Switch, Tag, Text, toast } from '@velocity/cms-ui';
+import type { PluginInfo } from '@velocity-astro/cms-core';
+import { Box, Button, Card, EmptyState, Grid, PageHeader, Stack, Switch, Tag, Text, toast } from '@velocity-astro/cms-ui';
 import { ArrowRight, History, Puzzle, Settings2 } from 'lucide-react';
 import { useState } from 'react';
 import { paths } from '../../app/paths.js';

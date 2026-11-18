@@ -1,4 +1,4 @@
-import type { InvitationMail, Mailer, SignInMail } from '@velocity/cms-auth';
+import type { InvitationMail, Mailer, SignInMail } from '@velocity-astro/cms-auth';
 import type { NoticeMailer, SubmissionNotice } from './form-post.js';
 
 /** The words of the emails. Give your own to send them in another language. */

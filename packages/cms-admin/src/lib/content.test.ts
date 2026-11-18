@@ -1,4 +1,4 @@
-import type { ContentTypeDef, Entry } from '@velocity/cms-core';
+import type { ContentTypeDef, Entry } from '@velocity-astro/cms-core';
 import { expect, it } from 'vitest';
 import { entryState, entryTitle, groupTranslations, languageName, localized, sameData, withValue } from './content.js';
 

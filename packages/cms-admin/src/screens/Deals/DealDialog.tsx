@@ -1,5 +1,5 @@
-import type { Deal, DealSubject, Pipeline, TeamMember } from '@velocity/cms-core';
-import { Button, DateField, Dialog, Form, Grid, NumberField, Select, TextField, toast } from '@velocity/cms-ui';
+import type { Deal, DealSubject, Pipeline, TeamMember } from '@velocity-astro/cms-core';
+import { Button, DateField, Dialog, Form, Grid, NumberField, Select, TextField, toast } from '@velocity-astro/cms-ui';
 import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { AdminRequestError } from '../../client/errors.js';

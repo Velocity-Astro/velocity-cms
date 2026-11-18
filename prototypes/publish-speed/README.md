@@ -61,6 +61,6 @@ Where a 500-entry build spends its time, from one build log:
 
 ## Found along the way
 
-- **Astro bundles any package that has `astro` as a peer dependency**, and the loader's SQLite driver is a native module that can't be bundled. The build failed with `Cannot find module '@libsql/linux-x64-gnu'` until `@velocity/cms-astro` was marked external, both in its `package.json` (`"astro": { "external": true }`) and in each of Astro's build environments, including `prerender`. The integration in `packages/cms-astro/src/integration.ts` now does this.
+- **Astro bundles any package that has `astro` as a peer dependency**, and the loader's SQLite driver is a native module that can't be bundled. The build failed with `Cannot find module '@libsql/linux-x64-gnu'` until `@velocity-astro/cms-astro` was marked external, both in its `package.json` (`"astro": { "external": true }`) and in each of Astro's build environments, including `prerender`. The integration in `packages/cms-astro/src/integration.ts` now does this.
 - **Nested field ids.** `SchemaService` assigns ids to a type's top-level fields, but the fields inside a group are passed in with ids already set. The service should assign those too.
 - **Not tested yet:** hosts without a disk (Vercel, Netlify, Cloudflare) reading a hosted libSQL database during a build, and builds on a small machine.

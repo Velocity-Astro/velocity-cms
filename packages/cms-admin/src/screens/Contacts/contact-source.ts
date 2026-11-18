@@ -1,4 +1,4 @@
-import type { Contact, FormDef } from '@velocity/cms-core';
+import type { Contact, FormDef } from '@velocity-astro/cms-core';
 import { localized } from '../../lib/content.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 

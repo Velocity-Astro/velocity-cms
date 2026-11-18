@@ -1,5 +1,5 @@
-import type { ContentTypeDef, FieldSection } from '@velocity/cms-core';
-import { Button, Checkbox, Dialog, Form, Repeater, Stack, Text, TextField, toast } from '@velocity/cms-ui';
+import type { ContentTypeDef, FieldSection } from '@velocity-astro/cms-core';
+import { Button, Checkbox, Dialog, Form, Repeater, Stack, Text, TextField, toast } from '@velocity-astro/cms-ui';
 import { useState } from 'react';
 import { useSetSections } from '../../client/queries.js';
 import { localized } from '../../lib/content.js';

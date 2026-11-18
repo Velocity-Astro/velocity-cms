@@ -1,7 +1,7 @@
 import { act, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { dismissToasts } from '@velocity/cms-ui';
-import type { ContentTypeDef, Entry } from '@velocity/cms-core';
+import { dismissToasts } from '@velocity-astro/cms-ui';
+import type { ContentTypeDef, Entry } from '@velocity-astro/cms-core';
 import { afterEach, expect, it } from 'vitest';
 import { renderApp } from '../testing/render-app.js';
 import { sampleForms, sampleUser } from '../testing/sample-content.js';

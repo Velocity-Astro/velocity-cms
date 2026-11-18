@@ -1,4 +1,4 @@
-import { defineBlock, type Actor, type BlockDef, type ContentTypeDef } from '@velocity/cms-core';
+import { defineBlock, type Actor, type BlockDef, type ContentTypeDef } from '@velocity-astro/cms-core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { connect, type Connection } from './connection.js';
 import { entryPageAt, publishedAddresses } from './entry-page.js';

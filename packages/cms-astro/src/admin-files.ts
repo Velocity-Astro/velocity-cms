@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { appDirectory } from '@velocity/cms-admin/app-directory';
+import { appDirectory } from '@velocity-astro/cms-admin/app-directory';
 
 /** What the editor needs to know about the site, written into its page. */
 export interface EditorPageConfig {
@@ -42,7 +42,7 @@ const PAGE_HEADERS = {
   'referrer-policy': 'same-origin',
 };
 
-/** Where `@velocity/cms-admin` keeps the editor it built. */
+/** Where `@velocity-astro/cms-admin` keeps the editor it built. */
 export const builtEditorDirectory = (): string => appDirectory;
 
 /**
@@ -58,7 +58,7 @@ export class AdminFiles {
   constructor(directory: string, config: EditorPageConfig) {
     const index = path.join(directory, 'index.html');
     if (!fs.existsSync(index)) {
-      throw new Error(`The editor has not been built: ${index} is missing. Run \`pnpm --filter @velocity/cms-admin build:app\`.`);
+      throw new Error(`The editor has not been built: ${index} is missing. Run \`pnpm --filter @velocity-astro/cms-admin build:app\`.`);
     }
     for (const name of fs.readdirSync(directory, { recursive: true }).map(String)) {
       const file = path.join(directory, name);

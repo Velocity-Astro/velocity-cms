@@ -1,4 +1,4 @@
-import type { Actor, Role } from '@velocity/cms-core';
+import type { Actor, Role } from '@velocity-astro/cms-core';
 
 /** Someone who can sign in to the editor. */
 export interface Person {

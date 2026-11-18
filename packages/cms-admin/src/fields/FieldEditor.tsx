@@ -1,5 +1,5 @@
-import type { FieldDef } from '@velocity/cms-core';
-import { Fieldset } from '@velocity/cms-ui';
+import type { FieldDef } from '@velocity-astro/cms-core';
+import { Fieldset } from '@velocity-astro/cms-ui';
 import { useFieldTypes } from '../client/queries.js';
 import { localized } from '../lib/content.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';

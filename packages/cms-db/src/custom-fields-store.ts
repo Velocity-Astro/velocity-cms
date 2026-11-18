@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { ConflictError, type CustomFields, type CustomFieldsStore } from '@velocity/cms-core';
+import { ConflictError, type CustomFields, type CustomFieldsStore } from '@velocity-astro/cms-core';
 import type { Db } from './database.js';
 import { siteSettings } from './tables.js';
 

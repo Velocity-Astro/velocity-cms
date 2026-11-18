@@ -32,10 +32,10 @@ importers:
       '@astrojs/node':
         specifier: 11.1.9
         version: 11.1.9(astro@7.4.5(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
-      '@velocity/cms-astro':
+      '@velocity-astro/cms-astro':
         specifier: workspace:*
         version: link:../../packages/cms-astro
-      '@velocity/cms-core':
+      '@velocity-astro/cms-core':
         specifier: workspace:*
         version: link:../../packages/cms-core
       astro:
@@ -47,10 +47,10 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.108.0
         version: 5.108.0(@types/react@19.3.0)(react@19.3.1)
-      '@velocity/cms-core':
+      '@velocity-astro/cms-core':
         specifier: workspace:*
         version: link:../cms-core
-      '@velocity/cms-ui':
+      '@velocity-astro/cms-ui':
         specifier: workspace:*
         version: link:../cms-ui
       lucide-react:
@@ -75,10 +75,10 @@ importers:
       '@types/react-dom':
         specifier: ^19.2.0
         version: 19.3.0(@types/react@19.3.0)
-      '@velocity/cms-api':
+      '@velocity-astro/cms-api':
         specifier: workspace:*
         version: link:../cms-api
-      '@velocity/cms-auth':
+      '@velocity-astro/cms-auth':
         specifier: workspace:*
         version: link:../cms-auth
       '@vitejs/plugin-react':
@@ -102,7 +102,7 @@ importers:
 
   packages/cms-api:
     dependencies:
-      '@velocity/cms-core':
+      '@velocity-astro/cms-core':
         specifier: workspace:*
         version: link:../cms-core
     devDependencies:
@@ -112,22 +112,22 @@ importers:
 
   packages/cms-astro:
     dependencies:
-      '@velocity/cms-admin':
+      '@velocity-astro/cms-admin':
         specifier: workspace:*
         version: link:../cms-admin
-      '@velocity/cms-api':
+      '@velocity-astro/cms-api':
         specifier: workspace:*
         version: link:../cms-api
-      '@velocity/cms-auth':
+      '@velocity-astro/cms-auth':
         specifier: workspace:*
         version: link:../cms-auth
-      '@velocity/cms-core':
+      '@velocity-astro/cms-core':
         specifier: workspace:*
         version: link:../cms-core
-      '@velocity/cms-db':
+      '@velocity-astro/cms-db':
         specifier: workspace:*
         version: link:../cms-db
-      '@velocity/cms-plugins':
+      '@velocity-astro/cms-plugins':
         specifier: workspace:*
         version: link:../cms-plugins
     devDependencies:
@@ -140,13 +140,13 @@ importers:
       '@better-auth/passkey':
         specifier: 1.7.25
         version: 1.7.25(@better-auth/core@1.7.25(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)(better-call@1.4.5(zod@4.6.7))(jose@6.2.17)(kysely@0.29.9)(nanostores@1.5.5))(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)(better-auth@1.7.25(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(@libsql/client@0.18.0)(kysely@0.29.9))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.1.0(@types/node@22.20.5)(jsdom@31.0.1(@noble/hashes@2.4.0))(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))))(better-call@1.4.5(zod@4.6.7))(nanostores@1.5.5)
-      '@velocity/cms-api':
+      '@velocity-astro/cms-api':
         specifier: workspace:*
         version: link:../cms-api
-      '@velocity/cms-core':
+      '@velocity-astro/cms-core':
         specifier: workspace:*
         version: link:../cms-core
-      '@velocity/cms-db':
+      '@velocity-astro/cms-db':
         specifier: workspace:*
         version: link:../cms-db
       better-auth:
@@ -174,7 +174,7 @@ importers:
       '@libsql/client':
         specifier: ^0.18.0
         version: 0.18.0
-      '@velocity/cms-core':
+      '@velocity-astro/cms-core':
         specifier: workspace:*
         version: link:../cms-core
       drizzle-orm:
@@ -190,11 +190,11 @@ importers:
 
   packages/cms-plugins:
     dependencies:
-      '@velocity/cms-core':
+      '@velocity-astro/cms-core':
         specifier: workspace:*
         version: link:../cms-core
     devDependencies:
-      '@velocity/cms-admin':
+      '@velocity-astro/cms-admin':
         specifier: workspace:*
         version: link:../cms-admin
 
@@ -282,6 +282,8 @@ importers:
       vite:
         specifier: ^8.0.0
         version: 8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
+
+  packages/velocity-cms: {}
 
 packages:
 

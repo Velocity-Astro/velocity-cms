@@ -1,4 +1,4 @@
-import { HOME_SLUG, isSlug, isSlugPath, type Cms, type ContentTypeDef, type PageHead, type PageInfo } from '@velocity/cms-core';
+import { HOME_SLUG, isSlug, isSlugPath, type Cms, type ContentTypeDef, type PageHead, type PageInfo } from '@velocity-astro/cms-core';
 import { sharedConnection, SITE } from './connection.js';
 import { isPreview, withPreviewDraft } from './preview.js';
 

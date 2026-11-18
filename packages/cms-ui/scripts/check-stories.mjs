@@ -2,7 +2,7 @@
  * Opens every story of the built Storybook in a real browser, in light and in dark, and fails on
  * any WCAG 2.1 A or AA violation, including colour contrast, which needs the real styles.
  *
- *   pnpm --filter @velocity/cms-ui check:stories     (builds Storybook first)
+ *   pnpm --filter @velocity-astro/cms-ui check:stories     (builds Storybook first)
  */
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';

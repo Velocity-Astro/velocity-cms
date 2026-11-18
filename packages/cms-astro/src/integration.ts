@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import type { AstroIntegration } from 'astro';
 import { loadCmsEnv } from './init.js';
 
-const PACKAGE = '@velocity/cms-astro';
+const PACKAGE = '@velocity-astro/cms-astro';
 const OPTIONS = 'virtual:velocity-cms/options';
 const MAILER = 'virtual:velocity-cms/mailer';
 const PLUGINS = 'virtual:velocity-cms/plugins';
@@ -30,7 +30,7 @@ export interface VelocityCmsOptions {
   readonly images?: string;
   /**
    * The site's plugins, each a package name or a file from the project's root whose default
-   * export is a `definePlugin(...)`: `['@velocity/cms-plugin-seo', './src/cms/ratings.ts']`.
+   * export is a `definePlugin(...)`: `['@velocity-astro/cms-plugin-seo', './src/cms/ratings.ts']`.
    * A plugin that cannot start is switched off and listed, with the reason, under Plugins in the editor.
    */
   readonly plugins?: readonly string[];

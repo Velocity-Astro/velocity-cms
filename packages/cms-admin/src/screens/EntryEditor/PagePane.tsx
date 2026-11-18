@@ -1,5 +1,5 @@
-import type { Entry, EntryData } from '@velocity/cms-core';
-import { PagePreview, Segmented } from '@velocity/cms-ui';
+import type { Entry, EntryData } from '@velocity-astro/cms-core';
+import { PagePreview, Segmented } from '@velocity-astro/cms-ui';
 import { useState } from 'react';
 import { usePagePreview } from '../../client/queries.js';
 import { usePageFocus } from '../../fields/index.js';

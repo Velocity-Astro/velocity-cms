@@ -1,4 +1,4 @@
-import { NotFoundError, ValidationError, liveFields, type Cms, type DealSubject, type FormDef, type LocalizedText, type Submission } from '@velocity/cms-core';
+import { NotFoundError, ValidationError, liveFields, type Cms, type DealSubject, type FormDef, type LocalizedText, type Submission } from '@velocity-astro/cms-core';
 
 /** The names a form's page sends beside its own fields. A field's key never starts with `_`. */
 export const FORM_TRAP_FIELD = '_hp';

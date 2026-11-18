@@ -1,5 +1,5 @@
-import type { SiteImage } from '@velocity/cms-core';
-import { Box, Button, ConfirmDialog, Dialog, EmptyState, FileButton, Inline, MediaGrid, PageHeader, SearchField, Stack, Text, Thumbnail, toast } from '@velocity/cms-ui';
+import type { SiteImage } from '@velocity-astro/cms-core';
+import { Box, Button, ConfirmDialog, Dialog, EmptyState, FileButton, Inline, MediaGrid, PageHeader, SearchField, Stack, Text, Thumbnail, toast } from '@velocity-astro/cms-ui';
 import { Images, Trash2, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';

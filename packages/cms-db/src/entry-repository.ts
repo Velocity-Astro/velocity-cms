@@ -7,7 +7,7 @@ import {
   type Page,
   type Revision,
   type SaveOptions,
-} from '@velocity/cms-core';
+} from '@velocity-astro/cms-core';
 import type { Db } from './database.js';
 import { entries, revisions } from './tables.js';
 

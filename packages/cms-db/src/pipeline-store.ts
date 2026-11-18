@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { ConflictError, type Pipeline, type PipelineStage, type PipelineStore } from '@velocity/cms-core';
+import { ConflictError, type Pipeline, type PipelineStage, type PipelineStore } from '@velocity-astro/cms-core';
 import type { Db } from './database.js';
 import { siteSettings } from './tables.js';
 

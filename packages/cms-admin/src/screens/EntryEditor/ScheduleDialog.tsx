@@ -1,5 +1,5 @@
-import type { Entry } from '@velocity/cms-core';
-import { Button, DateField, Dialog, Inline, Select, Stack, Text, toast } from '@velocity/cms-ui';
+import type { Entry } from '@velocity-astro/cms-core';
+import { Button, DateField, Dialog, Inline, Select, Stack, Text, toast } from '@velocity-astro/cms-ui';
 import { useState } from 'react';
 import { AdminRequestError } from '../../client/errors.js';
 import { useScheduleEntry, useUnscheduleEntry } from '../../client/queries.js';

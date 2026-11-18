@@ -1,6 +1,6 @@
-import type { ContentTypeDef, Entry, Revision } from '@velocity/cms-core';
-import { liveFields } from '@velocity/cms-core';
-import { Button, Dialog, Inline, Stack, Tag, Text, toast } from '@velocity/cms-ui';
+import type { ContentTypeDef, Entry, Revision } from '@velocity-astro/cms-core';
+import { liveFields } from '@velocity-astro/cms-core';
+import { Button, Dialog, Inline, Stack, Tag, Text, toast } from '@velocity-astro/cms-ui';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { useEntryHistory, useRevertEntry, useTeam } from '../../client/queries.js';
 import { localized } from '../../lib/content.js';

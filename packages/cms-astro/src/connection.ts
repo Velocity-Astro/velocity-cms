@@ -1,9 +1,9 @@
 import { lookup } from 'node:dns/promises';
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
-import { createCms, type Actor, type Cms, type NameLookup, type SearchIndex } from '@velocity/cms-core';
-import { AuthTeam } from '@velocity/cms-auth/team';
-import { openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqliteDealRepository, SqlitePipelineStore, SqliteCustomFieldsStore, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Db } from '@velocity/cms-db';
+import { createCms, type Actor, type Cms, type NameLookup, type SearchIndex } from '@velocity-astro/cms-core';
+import { AuthTeam } from '@velocity-astro/cms-auth/team';
+import { openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqliteDealRepository, SqlitePipelineStore, SqliteCustomFieldsStore, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Db } from '@velocity-astro/cms-db';
 import { mediaStoreFromEnv } from './media-store.js';
 import { siteSecret } from './secret.js';
 import { allPlugins } from './site-plugins.js';

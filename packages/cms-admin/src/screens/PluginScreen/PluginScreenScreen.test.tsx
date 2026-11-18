@@ -1,4 +1,4 @@
-import { definePlugin } from '@velocity/cms-core';
+import { definePlugin } from '@velocity-astro/cms-core';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it } from 'vitest';

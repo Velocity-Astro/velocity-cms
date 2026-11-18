@@ -1,9 +1,22 @@
 {
-  "name": "@velocity/cms-auth",
-  "version": "0.0.0",
+  "name": "@velocity-astro/cms-auth",
+  "version": "0.1.0-beta.1",
   "description": "Sign-in for Velocity CMS: email links and passkeys, kept in the CMS's own database. No passwords and no outside account.",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Velocity-Astro/velocity-cms.git",
+    "directory": "packages/cms-auth"
+  },
+  "homepage": "https://docs.deployvelocity.com/cms/",
+  "bugs": "https://github.com/Velocity-Astro/velocity-cms/issues",
+  "engines": {
+    "node": ">=22.23.4"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "sideEffects": false,
   "exports": {
     ".": {
@@ -25,9 +38,9 @@
   ],
   "dependencies": {
     "@better-auth/passkey": "1.7.25",
-    "@velocity/cms-api": "workspace:*",
-    "@velocity/cms-core": "workspace:*",
-    "@velocity/cms-db": "workspace:*",
+    "@velocity-astro/cms-api": "workspace:*",
+    "@velocity-astro/cms-core": "workspace:*",
+    "@velocity-astro/cms-db": "workspace:*",
     "better-auth": "1.7.25",
     "drizzle-orm": "^0.45.4"
   },

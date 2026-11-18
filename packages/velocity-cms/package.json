@@ -1,0 +1,27 @@
+{
+  "name": "velocity-cms",
+  "version": "0.1.0-beta.1",
+  "description": "The command that adds Velocity CMS to an Astro site: npx velocity-cms init",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Velocity-Astro/velocity-cms.git",
+    "directory": "packages/velocity-cms"
+  },
+  "homepage": "https://docs.deployvelocity.com/cms/",
+  "bugs": "https://github.com/Velocity-Astro/velocity-cms/issues",
+  "engines": {
+    "node": ">=22.23.4"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "velocity-cms": "./bin/velocity-cms.mjs"
+  },
+  "files": [
+    "bin",
+    "!bin/**/*.test.*"
+  ]
+}

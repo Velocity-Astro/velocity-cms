@@ -1,5 +1,5 @@
-import { liveFields, type FormDef } from '@velocity/cms-core';
-import { Button, Dialog, Form, NumberField, Select, Switch, Text, TextArea, TextField, toast } from '@velocity/cms-ui';
+import { liveFields, type FormDef } from '@velocity-astro/cms-core';
+import { Button, Dialog, Form, NumberField, Select, Switch, Text, TextArea, TextField, toast } from '@velocity-astro/cms-ui';
 import { useState } from 'react';
 import { AdminRequestError } from '../../client/errors.js';
 import { useCustomFields, useUpdateForm } from '../../client/queries.js';

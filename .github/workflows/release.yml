@@ -1,0 +1,83 @@
+name: Release
+
+# Publishes every package to npm at the version in its package.json. Run by hand, from main.
+#
+#   1. node scripts/version.mjs 0.1.0-beta.2, add to CHANGELOG.md, merge to main.
+#   2. Run this workflow. It starts as a rehearsal: nothing is published unless "publish" is ticked.
+#
+# A version that is already on npm is skipped, so a run that stopped halfway can be run again.
+# Needs the NPM_TOKEN secret: a granular token that may publish to the @velocity-astro scope and
+# the velocity-cms package.
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish for real. Left off, it only rehearses.
+        type: boolean
+        default: false
+      tag:
+        description: The npm tag people install by. "beta" while versions are 0.x betas.
+        type: string
+        default: beta
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Only from main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Releases are made from main. This run is on $GITHUB_REF_NAME."
+          exit 1
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+
+      - name: Check every package has the same version, and the changelog names it
+        run: |
+          versions=$(for file in packages/*/package.json; do node -p "const p = require('./$file'); p.private ? '' : p.version"; done | sort -u | sed '/^$/d')
+          if [ "$(echo "$versions" | wc -l)" != 1 ]; then
+            echo "::error::The packages do not share one version: $(echo $versions). Run node scripts/version.mjs <version>."
+            exit 1
+          fi
+          if ! grep -q "^## $versions\$" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no section for $versions."
+            exit 1
+          fi
+          echo "VERSION=$versions" >> "$GITHUB_ENV"
+
+      - run: pnpm validate
+      - run: pnpm --filter velocity-cms-starter check
+
+      - name: Rehearse
+        if: ${{ !inputs.publish }}
+        run: pnpm -r publish --dry-run --no-git-checks --tag "$TAG"
+        env:
+          TAG: ${{ inputs.tag }}
+
+      - name: Publish
+        if: ${{ inputs.publish }}
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "::error::The NPM_TOKEN secret is not set."
+            exit 1
+          fi
+          pnpm -r publish --no-git-checks --tag "$TAG"
+          echo "Published $VERSION to npm under the \"$TAG\" tag." >> "$GITHUB_STEP_SUMMARY"
+        env:
+          TAG: ${{ inputs.tag }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

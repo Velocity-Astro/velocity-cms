@@ -1,5 +1,5 @@
-import type { PublicForm } from '@velocity/cms-core';
-import { isLiveType } from '@velocity/cms-core';
+import type { PublicForm } from '@velocity-astro/cms-core';
+import { isLiveType } from '@velocity-astro/cms-core';
 import { sharedConnection, SITE } from './connection.js';
 import { FORM_ABOUT_FIELD, FORM_LOCALE_FIELD, FORM_PAGE_FIELD, FORM_TOKEN_FIELD, FORM_TRAP_FIELD, FormPosts, aboutMark, formToken, type NoticeMailer } from './form-post.js';
 import { pageAt, type DrawnPage } from './page-head.js';

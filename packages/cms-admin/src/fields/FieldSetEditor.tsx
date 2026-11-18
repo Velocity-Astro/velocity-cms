@@ -1,5 +1,5 @@
-import type { FieldDef } from '@velocity/cms-core';
-import { Button, ConfirmDialog, EmptyState, IconButton, Inline, Stack, Table, Tag, Text, toast, type TableColumn, type TableRow } from '@velocity/cms-ui';
+import type { FieldDef } from '@velocity-astro/cms-core';
+import { Button, ConfirmDialog, EmptyState, IconButton, Inline, Stack, Table, Tag, Text, toast, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
 import { ArrowDown, ArrowUp, ListPlus, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { localized } from '../lib/content.js';

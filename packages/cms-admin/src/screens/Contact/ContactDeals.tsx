@@ -1,5 +1,5 @@
-import type { Contact, Deal } from '@velocity/cms-core';
-import { Button, Card, Inline, Stack, Table, Tag, Text, type TableColumn, type TableRow } from '@velocity/cms-ui';
+import type { Contact, Deal } from '@velocity-astro/cms-core';
+import { Button, Card, Inline, Stack, Table, Tag, Text, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';

@@ -1,4 +1,4 @@
-import { NotFoundError, createCms, definePlugin, type Actor, type Cms, type ContentTypeDef, type FieldDef, type Entry } from '@velocity/cms-core';
+import { NotFoundError, createCms, definePlugin, type Actor, type Cms, type ContentTypeDef, type FieldDef, type Entry } from '@velocity-astro/cms-core';
 import {
   FakeClock,
   InMemoryEntryRepository,
@@ -8,7 +8,7 @@ import {
   InMemorySchemaRepository,
   SequentialIds,
   tinyPng,
-} from '@velocity/cms-core/in-memory';
+} from '@velocity-astro/cms-core/in-memory';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { CmsApi } from './api.js';
 import type { People, Person } from './people.js';

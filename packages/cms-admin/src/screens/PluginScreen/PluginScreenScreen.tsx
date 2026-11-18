@@ -1,4 +1,4 @@
-import { Box, EmptyState, PageHeader, Stack } from '@velocity/cms-ui';
+import { Box, EmptyState, PageHeader, Stack } from '@velocity-astro/cms-ui';
 import { FileQuestion } from 'lucide-react';
 import { useParams } from 'react-router';
 import { useMessages } from '../../messages/messages-context.js';

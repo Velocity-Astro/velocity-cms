@@ -25,53 +25,53 @@ export default tseslint.config(
   },
   boundary(
     ['packages/cms-core/src/**'],
-    ['@velocity/*', 'drizzle-orm', 'drizzle-orm/*', '@libsql/*', 'astro', 'astro/*', 'astro:*', 'react', 'node:*'],
+    ['@velocity-astro/*', 'drizzle-orm', 'drizzle-orm/*', '@libsql/*', 'astro', 'astro/*', 'astro:*', 'react', 'node:*'],
     'cms-core holds the content model and its rules. It must not know about a database, Astro, HTTP or Node. Define an interface in ports.ts and implement it in an adapter package.',
   ),
   boundary(
     ['packages/cms-db/src/**'],
-    ['@velocity/cms-astro', '@velocity/cms-astro/*', 'astro', 'astro/*', 'astro:*', 'react'],
+    ['@velocity-astro/cms-astro', '@velocity-astro/cms-astro/*', 'astro', 'astro/*', 'astro:*', 'react'],
     'cms-db implements the storage interfaces from cms-core and nothing else.',
   ),
   boundary(
     ['packages/cms-api/src/**'],
     [
-      '@velocity/cms-db', '@velocity/cms-db/*', '@velocity/cms-astro', '@velocity/cms-astro/*', '@velocity/cms-admin', '@velocity/cms-ui',
+      '@velocity-astro/cms-db', '@velocity-astro/cms-db/*', '@velocity-astro/cms-astro', '@velocity-astro/cms-astro/*', '@velocity-astro/cms-admin', '@velocity-astro/cms-ui',
       'drizzle-orm', 'drizzle-orm/*', '@libsql/*', 'astro', 'astro/*', 'astro:*', 'react', 'node:*',
     ],
     'cms-api turns HTTP into calls on the services in cms-core, using only web-standard Request and Response. It must not know which database, framework or runtime it is mounted in.',
   ),
   boundary(
     ['packages/cms-auth/src/**'],
-    ['@velocity/cms-astro', '@velocity/cms-astro/*', '@velocity/cms-admin', '@velocity/cms-ui', 'astro', 'astro/*', 'astro:*', 'react', 'node:*'],
+    ['@velocity-astro/cms-astro', '@velocity-astro/cms-astro/*', '@velocity-astro/cms-admin', '@velocity-astro/cms-ui', 'astro', 'astro/*', 'astro:*', 'react', 'node:*'],
     'cms-auth is sign-in and nothing else. It must not know which framework or runtime it is mounted in, or anything about the editor.',
   ),
   boundary(
     ['packages/cms-auth/src/client.ts'],
-    ['@velocity/*', 'better-auth', 'better-auth/*', '@better-auth/*', 'drizzle-orm', 'drizzle-orm/*', 'node:*'],
+    ['@velocity-astro/*', 'better-auth', 'better-auth/*', '@better-auth/*', 'drizzle-orm', 'drizzle-orm/*', 'node:*'],
     'client.ts runs in the browser. It must import nothing, so the editor never ships server code.',
   ),
   boundary(
     ['packages/cms-ui/src/**'],
-    ['@velocity/*', 'drizzle-orm', 'drizzle-orm/*', '@libsql/*', 'astro', 'astro/*', 'astro:*', 'node:*', 'zod'],
+    ['@velocity-astro/*', 'drizzle-orm', 'drizzle-orm/*', '@libsql/*', 'astro', 'astro/*', 'astro:*', 'node:*', 'zod'],
     'cms-ui is the design system: tokens, components and patterns. It must not know about content, the API or the server, so that plugins and other apps can use it as it is.',
   ),
   boundary(
     ['packages/cms-plugins/src/**'],
     [
-      '@velocity/cms-db', '@velocity/cms-db/*', '@velocity/cms-astro', '@velocity/cms-astro/*', '@velocity/cms-api', '@velocity/cms-api/*', '@velocity/cms-auth', '@velocity/cms-auth/*',
-      '@velocity/cms-ui', '@velocity/cms-ui/*', 'drizzle-orm', 'drizzle-orm/*', '@libsql/*', 'astro', 'astro/*', 'astro:*', 'react', 'react-dom', 'node:*',
+      '@velocity-astro/cms-db', '@velocity-astro/cms-db/*', '@velocity-astro/cms-astro', '@velocity-astro/cms-astro/*', '@velocity-astro/cms-api', '@velocity-astro/cms-api/*', '@velocity-astro/cms-auth', '@velocity-astro/cms-auth/*',
+      '@velocity-astro/cms-ui', '@velocity-astro/cms-ui/*', 'drizzle-orm', 'drizzle-orm/*', '@libsql/*', 'astro', 'astro/*', 'astro:*', 'react', 'react-dom', 'node:*',
     ],
     'cms-plugins holds the plugins that come with the CMS. Each is built on the plugin surface alone, as a third party would build one: definePlugin from cms-core, and in the editor only what its editor file is handed (types from cms-admin).',
   ),
   boundary(
     ['packages/cms-admin/src/**'],
     [
-      '@velocity/cms-db', '@velocity/cms-db/*', '@velocity/cms-astro', '@velocity/cms-astro/*', '@velocity/cms-api', '@velocity/cms-api/*',
+      '@velocity-astro/cms-db', '@velocity-astro/cms-db/*', '@velocity-astro/cms-astro', '@velocity-astro/cms-astro/*', '@velocity-astro/cms-api', '@velocity-astro/cms-api/*',
       'drizzle-orm', 'drizzle-orm/*', '@libsql/*', 'astro', 'astro/*', 'astro:*', 'node:*',
       'react-aria-components', 'react-aria', 'react-aria/*', 'class-variance-authority', 'tailwindcss', 'tailwindcss/*',
     ],
-    'cms-admin holds the screens. It reaches the server only through AdminClient, and builds its screens only from @velocity/cms-ui. If a part is missing, add it to cms-ui first.',
+    'cms-admin holds the screens. It reaches the server only through AdminClient, and builds its screens only from @velocity-astro/cms-ui. If a part is missing, add it to cms-ui first.',
   ),
   {
     // Screens have no styling, no HTML and no words of their own.
@@ -106,7 +106,7 @@ export default tseslint.config(
     rules: { 'no-restricted-imports': 'off' },
   },
   {
-    files: ['prototypes/**/*.mjs', 'packages/*/scripts/**/*.mjs', 'packages/*/bin/**/*.mjs', 'packages/cms-admin/app-directory.mjs', 'examples/**/*.mjs', '*.config.js'],
+    files: ['prototypes/**/*.mjs', 'scripts/**/*.mjs', 'packages/*/scripts/**/*.mjs', 'packages/*/bin/**/*.mjs', 'packages/cms-admin/app-directory.mjs', 'examples/**/*.mjs', '*.config.js'],
     languageOptions: { globals: { document: 'readonly', globalThis: 'readonly', console: 'readonly', process: 'readonly', performance: 'readonly', fetch: 'readonly', setTimeout: 'readonly', URL: 'readonly', URLSearchParams: 'readonly', Buffer: 'readonly' } },
   },
 );

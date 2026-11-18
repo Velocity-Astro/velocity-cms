@@ -33,7 +33,7 @@ import {
   TextField,
   Tooltip,
   toast,
-} from '@velocity/cms-ui';
+} from '@velocity-astro/cms-ui';
 
 /**
  * The parts of the design system a plugin is handed, named one by one. Each is a promise to

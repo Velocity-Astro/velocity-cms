@@ -1,5 +1,5 @@
-import type { Contact } from '@velocity/cms-core';
-import { Box, Button, Dialog, EmptyState, Form, Inline, PageHeader, SearchField, Segmented, Select, Stack, Table, Tag, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity/cms-ui';
+import type { Contact } from '@velocity-astro/cms-core';
+import { Box, Button, Dialog, EmptyState, Form, Inline, PageHeader, SearchField, Segmented, Select, Stack, Table, Tag, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
 import { Contact as ContactIcon, FileUp, ListFilter, ListPlus, Plus, SearchX, Settings2 } from 'lucide-react';
 import { useDeferredValue, useState } from 'react';
 import { useSearchParams } from 'react-router';

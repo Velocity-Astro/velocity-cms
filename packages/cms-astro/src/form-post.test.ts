@@ -1,5 +1,5 @@
-import { createCms, type Actor, type Cms } from '@velocity/cms-core';
-import { FakeClock, InMemoryEntryRepository, InMemorySchemaRepository, SequentialIds } from '@velocity/cms-core/testing';
+import { createCms, type Actor, type Cms } from '@velocity-astro/cms-core';
+import { FakeClock, InMemoryEntryRepository, InMemorySchemaRepository, SequentialIds } from '@velocity-astro/cms-core/testing';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { FORM_ABOUT_FIELD, FORM_LOCALE_FIELD, FORM_PAGE_FIELD, FORM_TOKEN_FIELD, FORM_TRAP_FIELD, FormPosts, MAX_FORM_POST_BYTES, MemoryRateLimiter, aboutMark, type FormPostsOptions, type SubmissionNotice } from './form-post.js';
 import { ResendMailer } from './resend-mailer.js';

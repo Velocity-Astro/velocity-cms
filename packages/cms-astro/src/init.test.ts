@@ -35,7 +35,7 @@ describe('setting a site up', () => {
     expect(readEnvFile(read('.env'))).toEqual({ VELOCITY_CMS_SECRET: 's'.repeat(43), VELOCITY_CMS_ORIGIN: 'http://localhost:4321' });
     expect(env['VELOCITY_CMS_SECRET']).toBe('s'.repeat(43));
     expect(read('.gitignore').split('\n')).toEqual(expect.arrayContaining(['.env', '/cms/']));
-    expect(read('astro.config.mjs')).toContain("import node from '@astrojs/node';\nimport velocityCms from '@velocity/cms-astro';");
+    expect(read('astro.config.mjs')).toContain("import node from '@astrojs/node';\nimport velocityCms from '@velocity-astro/cms-astro';");
     expect(read('astro.config.mjs')).toContain('integrations: [velocityCms()],');
     expect(printed.join('\n')).not.toMatch(/no adapter|no `site`/);
   });
@@ -81,7 +81,7 @@ describe('setting a site up', () => {
   it('sets a list written over several lines in as its neighbours are', () => {
     const next = withIntegration("import a from 'a';\nexport default {\n  integrations: [\n    a(),\n    b(),\n  ],\n};\n");
     expect(next).toContain('  integrations: [\n    velocityCms(),\n    a(),\n    b(),\n  ],');
-    expect(withIntegration('export default { integrations: [a()] };')).toBe("import velocityCms from '@velocity/cms-astro';\n\nexport default { integrations: [velocityCms(), a()] };");
+    expect(withIntegration('export default { integrations: [a()] };')).toBe("import velocityCms from '@velocity-astro/cms-astro';\n\nexport default { integrations: [velocityCms(), a()] };");
     expect(withIntegration('export default { integrations: [a()], other: { integrations: [] } };')).toBeNull();
   });
 });

@@ -1,5 +1,5 @@
-import { liveFields, type Contact, type TimelineItem } from '@velocity/cms-core';
-import { Box, Button, Card, ConfirmDialog, Dialog, EmptyState, Form, Inline, Link, PageHeader, Split, Stack, Tag, Text, TextArea, TextField, toast } from '@velocity/cms-ui';
+import { liveFields, type Contact, type TimelineItem } from '@velocity-astro/cms-core';
+import { Box, Button, Card, ConfirmDialog, Dialog, EmptyState, Form, Inline, Link, PageHeader, Split, Stack, Tag, Text, TextArea, TextField, toast } from '@velocity-astro/cms-ui';
 import { Contact as ContactIcon, Download, Pencil, UserX } from 'lucide-react';
 import { useState } from 'react';
 import { useParams } from 'react-router';

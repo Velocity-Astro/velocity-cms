@@ -1,5 +1,5 @@
-import type { FormDef, Submission, SubmissionStatus } from '@velocity/cms-core';
-import { Button, ConfirmDialog, Dialog, EmptyState, Inline, Segmented, Stack, Table, Text, toast, type TableColumn, type TableRow } from '@velocity/cms-ui';
+import type { FormDef, Submission, SubmissionStatus } from '@velocity-astro/cms-core';
+import { Button, ConfirmDialog, Dialog, EmptyState, Inline, Segmented, Stack, Table, Text, toast, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
 import { Download, Inbox } from 'lucide-react';
 import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';

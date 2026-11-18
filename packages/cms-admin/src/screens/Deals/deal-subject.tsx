@@ -1,5 +1,5 @@
-import { isLiveType, type ContentTypeDef, type DealSubject } from '@velocity/cms-core';
-import { Grid, Select } from '@velocity/cms-ui';
+import { isLiveType, type ContentTypeDef, type DealSubject } from '@velocity-astro/cms-core';
+import { Grid, Select } from '@velocity-astro/cms-ui';
 import { useState } from 'react';
 import { useContentTypes, useEntriesOfTypes } from '../../client/queries.js';
 import { entryTitle, groupTranslations, localized } from '../../lib/content.js';

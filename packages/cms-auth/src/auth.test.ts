@@ -1,7 +1,7 @@
-import { CmsApi } from '@velocity/cms-api';
-import { createCms, type Actor } from '@velocity/cms-core';
-import { InMemoryEntryRepository, InMemorySchemaRepository } from '@velocity/cms-core/in-memory';
-import { authSession, authUser, authVerification, openDatabase, type Database } from '@velocity/cms-db';
+import { CmsApi } from '@velocity-astro/cms-api';
+import { createCms, type Actor } from '@velocity-astro/cms-core';
+import { InMemoryEntryRepository, InMemorySchemaRepository } from '@velocity-astro/cms-core/in-memory';
+import { authSession, authUser, authVerification, openDatabase, type Database } from '@velocity-astro/cms-db';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthSetupError, CmsAuth } from './auth.js';
 import { MemoryMailer } from './mailer.js';

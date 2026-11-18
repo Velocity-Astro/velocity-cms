@@ -1,4 +1,4 @@
-import { NotFoundError, type SiteImage } from '@velocity/cms-core';
+import { NotFoundError, type SiteImage } from '@velocity-astro/cms-core';
 import { sharedConnection, SITE } from './connection.js';
 
 /**

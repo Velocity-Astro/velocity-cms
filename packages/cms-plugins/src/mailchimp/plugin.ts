@@ -1,4 +1,4 @@
-import { definePlugin, liveFields, type FormDef, type Submission } from '@velocity/cms-core';
+import { definePlugin, liveFields, type FormDef, type Submission } from '@velocity-astro/cms-core';
 
 /** How long Mailchimp has to answer before a try counts as failed. */
 const ANSWER_WITHIN_MS = 8000;

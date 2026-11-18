@@ -1,5 +1,5 @@
-import type { FieldDef } from '@velocity/cms-core';
-import { Button, Checkbox, Dialog, Form, Select, Text, TextField, toast } from '@velocity/cms-ui';
+import type { FieldDef } from '@velocity-astro/cms-core';
+import { Button, Checkbox, Dialog, Form, Select, Text, TextField, toast } from '@velocity-astro/cms-ui';
 import { useState } from 'react';
 import { AdminRequestError } from '../client/errors.js';
 import { useFieldTypes } from '../client/queries.js';

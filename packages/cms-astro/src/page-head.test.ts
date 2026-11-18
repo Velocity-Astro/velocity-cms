@@ -1,4 +1,4 @@
-import { definePlugin, type Actor, type ContentTypeDef } from '@velocity/cms-core';
+import { definePlugin, type Actor, type ContentTypeDef } from '@velocity-astro/cms-core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { connect, type Connection } from './connection.js';
 import { pageAt } from './page-head.js';

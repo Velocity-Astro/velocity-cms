@@ -1,6 +1,6 @@
-import type { ContentTypeDef, Entry, EntryData, FieldDef } from '@velocity/cms-core';
-import { HOME_SLUG, SLUG_PATH, isSlug, isSlugPath, liveFields, takesSlugPath } from '@velocity/cms-core';
-import { Box, Button, Card, ConfirmDialog, Form, IconButton, Menu, SaveBar, Segmented, Split, Stack, Tag, Text, TextField, Workbench, toast } from '@velocity/cms-ui';
+import type { ContentTypeDef, Entry, EntryData, FieldDef } from '@velocity-astro/cms-core';
+import { HOME_SLUG, SLUG_PATH, isSlug, isSlugPath, liveFields, takesSlugPath } from '@velocity-astro/cms-core';
+import { Box, Button, Card, ConfirmDialog, Form, IconButton, Menu, SaveBar, Segmented, Split, Stack, Tag, Text, TextField, Workbench, toast } from '@velocity-astro/cms-ui';
 import { CalendarClock, Copy, Ellipsis, EyeOff, History, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { paths } from '../../app/paths.js';

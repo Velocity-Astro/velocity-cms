@@ -42,13 +42,13 @@ if (!original.astroConfig.includes(INTEGRATIONS)) throw new Error('The integrati
 function useCmsLoader() {
   fs.writeFileSync(
     astroConfig,
-    `import velocityCms from '@velocity/cms-astro';\n${original.astroConfig.replace(INTEGRATIONS, `${INTEGRATIONS}\n    velocityCms(),`)}`,
+    `import velocityCms from '@velocity-astro/cms-astro';\n${original.astroConfig.replace(INTEGRATIONS, `${INTEGRATIONS}\n    velocityCms(),`)}`,
   );
   fs.writeFileSync(
     collections,
     original.collections
       .replace(FILE_LOADER, CMS_LOADER)
-      .replace("import { file } from 'astro/loaders';", "import { file } from 'astro/loaders';\nimport { cmsLoader } from '@velocity/cms-astro';"),
+      .replace("import { file } from 'astro/loaders';", "import { file } from 'astro/loaders';\nimport { cmsLoader } from '@velocity-astro/cms-astro';"),
   );
 }
 
@@ -81,7 +81,7 @@ function build(labelText, { cold }) {
 
 const rows = [];
 try {
-  execFileSync('pnpm', ['add', '-D', `@velocity/cms-astro@link:${loaderPackage}`], { cwd: project, stdio: 'ignore' });
+  execFileSync('pnpm', ['add', '-D', `@velocity-astro/cms-astro@link:${loaderPackage}`], { cwd: project, stdio: 'ignore' });
 
   // 1. The template as it ships.
   rows.push(build(`JSON file, ${records.length} entries, cold`, { cold: true }));

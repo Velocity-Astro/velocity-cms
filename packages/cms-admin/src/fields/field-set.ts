@@ -1,4 +1,4 @@
-import type { FieldDef, NewField } from '@velocity/cms-core';
+import type { FieldDef, NewField } from '@velocity-astro/cms-core';
 import type { ReactNode } from 'react';
 
 /** A field as a change sends it: with its id, so it keeps what was filled in under it. */

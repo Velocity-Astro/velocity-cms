@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { siteFormPosts, type SiteEditorSettings } from '@velocity/cms-astro';
+import { siteFormPosts, type SiteEditorSettings } from '@velocity-astro/cms-astro';
 import images from 'virtual:velocity-cms/images';
 import mailer from 'virtual:velocity-cms/mailer';
 import options from 'virtual:velocity-cms/options';

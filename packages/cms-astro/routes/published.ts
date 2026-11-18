@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { hasSiteSecret, indexPages, indexSite, invalidateLiveContent } from '@velocity/cms-astro';
+import { hasSiteSecret, indexPages, indexSite, invalidateLiveContent } from '@velocity-astro/cms-astro';
 import { ownOrigin } from './editor.ts';
 import { addresses, clientDir } from './pages.ts';
 

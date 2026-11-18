@@ -1,5 +1,5 @@
-import { Box, Button, EmptyState, Grid, Heading, Inline, PageHeader, Stack, Stat, Table, Tag, Text, type TableColumn, type TableRow } from '@velocity/cms-ui';
-import type { ContentTypeDef, Entry } from '@velocity/cms-core';
+import { Box, Button, EmptyState, Grid, Heading, Inline, PageHeader, Stack, Stat, Table, Tag, Text, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
+import type { ContentTypeDef, Entry } from '@velocity-astro/cms-core';
 import { Inbox, Plus, Shapes } from 'lucide-react';
 import { useGo } from '../../app/use-go.js';
 import { paths } from '../../app/paths.js';

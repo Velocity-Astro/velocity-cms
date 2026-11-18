@@ -1,4 +1,4 @@
-import type { PluginDefinition } from '@velocity/cms-core';
+import type { PluginDefinition } from '@velocity-astro/cms-core';
 import { hubspot } from './hubspot/plugin.js';
 import { mailchimp, mailchimpHost } from './mailchimp/plugin.js';
 import { seo } from './seo/plugin.js';

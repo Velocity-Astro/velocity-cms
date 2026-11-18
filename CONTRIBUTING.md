@@ -25,8 +25,8 @@ pnpm validate   # lint, build, test: what CI runs
 | One test file | `pnpm exec vitest run packages/cms-core/src/cms.test.ts` |
 | Lint, including package boundaries and the design system's rules | `pnpm lint` |
 | The starter site, from an empty database | `pnpm --filter velocity-cms-starter check` |
-| The design system's showcase | `pnpm --filter @velocity/cms-ui storybook` |
-| The editor against an in-memory server | `pnpm --filter @velocity/cms-admin dev` |
+| The design system's showcase | `pnpm --filter @velocity-astro/cms-ui storybook` |
+| The editor against an in-memory server | `pnpm --filter @velocity-astro/cms-admin dev` |
 
 ## The rules of the code
 

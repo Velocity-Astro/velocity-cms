@@ -1,5 +1,5 @@
-import { liveFields, type ContentTypeKind } from '@velocity/cms-core';
-import { Box, Button, Dialog, EmptyState, Form, Heading, PageHeader, Segmented, Stack, Table, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity/cms-ui';
+import { liveFields, type ContentTypeKind } from '@velocity-astro/cms-core';
+import { Box, Button, Dialog, EmptyState, Form, Heading, PageHeader, Segmented, Stack, Table, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
 import { Plus, Shapes } from 'lucide-react';
 import { useState } from 'react';
 import { useGo } from '../../app/use-go.js';
