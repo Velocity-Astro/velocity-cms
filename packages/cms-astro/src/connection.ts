@@ -1,4 +1,6 @@
 import { lookup } from 'node:dns/promises';
+import { mkdirSync } from 'node:fs';
+import path from 'node:path';
 import { createCms, type Actor, type Cms, type NameLookup, type SearchIndex } from '@velocity/cms-core';
 import { AuthTeam } from '@velocity/cms-auth/team';
 import { openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqliteDealRepository, SqlitePipelineStore, SqliteCustomFieldsStore, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Db } from '@velocity/cms-db';
@@ -36,6 +38,9 @@ const lookUp: NameLookup = async (host) => (await lookup(host, { all: true })).m
 export async function connect(options: ConnectionOptions): Promise<Connection> {
   const authToken = options.authToken ?? (process.env.VELOCITY_CMS_DATABASE_TOKEN || undefined);
   const url = resolveUrl(options);
+  // A database that is a file is made on first use, and so is the folder it sits in.
+  const file = /^file:(?!:memory:)([^?]+)/.exec(url)?.[1];
+  if (file !== undefined) mkdirSync(path.dirname(path.resolve(file.replace(/^\/\/(?=\/)/, ''))), { recursive: true });
   const database = await openDatabase({ url, ...(authToken !== undefined && { authToken }) });
   const store = mediaStoreFromEnv(url);
   const secret = siteSecret();

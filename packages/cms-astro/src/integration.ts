@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { AstroIntegration } from 'astro';
+import { loadCmsEnv } from './init.js';
 
 const PACKAGE = '@velocity/cms-astro';
 const OPTIONS = 'virtual:velocity-cms/options';
@@ -65,7 +66,8 @@ export interface VelocityCmsOptions {
  * neither takes no uploads, and image fields choose from the `images` folder alone.
  *
  * The editor needs `VELOCITY_CMS_SECRET` and the site's address (`site` in the Astro config).
- * The first owner is made with `npx velocity-cms owner <email> <name>`.
+ * `npx velocity-cms init <email> <name>` sets both up in a new site and makes the first owner;
+ * `npx velocity-cms owner <email> <name>` makes the first owner alone.
  *
  * It also keeps this package out of the site's bundle. The package opens a SQLite database
  * through a native module, which a bundler cannot carry. The routes above are the exception:
@@ -78,8 +80,10 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
   return {
     name: PACKAGE,
     hooks: {
-      'astro:config:setup': ({ config, updateConfig, addMiddleware, injectRoute }) => {
+      'astro:config:setup': ({ config, command, updateConfig, addMiddleware, injectRoute }) => {
         root = fileURLToPath(config.root);
+        // The secret a person put in .env must reach the server that runs here, not only the site's code.
+        loadCmsEnv(root, command === 'dev' ? 'development' : 'production');
         addMiddleware({ entrypoint: `${PACKAGE}/middleware`, order: 'pre' });
         // Entries set to go out at a time are looked for as pages are asked for.
         addMiddleware({ entrypoint: route('due.ts'), order: 'pre' });
