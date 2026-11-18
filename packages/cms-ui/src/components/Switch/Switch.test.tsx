@@ -9,6 +9,11 @@ it('is a switch named by its label', () => {
   expect((screen.getByRole('switch', { name: 'Show on homepage' }) as HTMLInputElement).checked).toBe(false);
 });
 
+it('keeps its name when the label is hidden from sight', () => {
+  render(<Switch label="SEO is active" isLabelHidden />);
+  expect(screen.getByRole('switch', { name: 'SEO is active' })).toBeTruthy();
+});
+
 it('turns on with a press or Space, and reports the new state', async () => {
   const onChange = vi.fn();
   const user = userEvent.setup();

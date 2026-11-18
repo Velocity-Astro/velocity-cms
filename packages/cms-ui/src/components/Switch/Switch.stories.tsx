@@ -14,3 +14,4 @@ export const Off: Story = {};
 export const On: Story = { args: { defaultSelected: true } };
 export const Disabled: Story = { args: { isDisabled: true } };
 export const DisabledOn: Story = { args: { isDisabled: true, defaultSelected: true } };
+export const LabelHidden: Story = { args: { label: 'SEO is active', isLabelHidden: true, defaultSelected: true } };

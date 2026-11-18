@@ -15,6 +15,17 @@ it('is a region named by its title, which is a level 2 heading', () => {
   expect(card.getByText('6214 Lakeshore Drive')).toBeTruthy();
 });
 
+it('shows what stands beside the title and what can be done with the card', () => {
+  render(
+    <Card title="SEO" description="Titles for search engines." actions={<span>Active</span>} footer={<button type="button">Settings</button>}>
+      <p>Version 1.1.0</p>
+    </Card>,
+  );
+  const card = within(screen.getByRole('region', { name: 'SEO' }));
+  expect(card.getByText('Active')).toBeTruthy();
+  expect(card.getByRole('button', { name: 'Settings' })).toBeTruthy();
+});
+
 it('shows only what it holds when it has no title', () => {
   render(
     <Card>

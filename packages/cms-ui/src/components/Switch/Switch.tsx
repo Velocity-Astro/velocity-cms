@@ -1,9 +1,11 @@
 import { Switch as AriaSwitch } from 'react-aria-components';
-import { switchClass, switchThumbClass, switchTrackClass } from './Switch.variants.js';
+import { switchClass, switchHiddenLabelClass, switchThumbClass, switchTrackClass } from './Switch.variants.js';
 
 export interface SwitchProps {
-  /** Always shown. Names the setting, not the state: "Show on homepage". */
+  /** Names the setting, not the state: "Show on homepage". */
   readonly label: string;
+  /** Hides the label from sight, where what is beside the switch already says what it turns on. It still names the switch. */
+  readonly isLabelHidden?: boolean;
   readonly isSelected?: boolean;
   readonly defaultSelected?: boolean;
   readonly onChange?: (isSelected: boolean) => void;
@@ -12,7 +14,7 @@ export interface SwitchProps {
 }
 
 /** A setting that is on or off, and takes effect at once. */
-export function Switch({ label, isSelected, defaultSelected, onChange, isDisabled = false, name }: SwitchProps) {
+export function Switch({ label, isLabelHidden = false, isSelected, defaultSelected, onChange, isDisabled = false, name }: SwitchProps) {
   return (
     <AriaSwitch
       className={switchClass}
@@ -25,7 +27,7 @@ export function Switch({ label, isSelected, defaultSelected, onChange, isDisable
       <span className={switchTrackClass}>
         <span className={switchThumbClass} />
       </span>
-      {label}
+      {isLabelHidden ? <span className={switchHiddenLabelClass}>{label}</span> : label}
     </AriaSwitch>
   );
 }

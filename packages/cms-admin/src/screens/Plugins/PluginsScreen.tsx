@@ -1,5 +1,5 @@
 import type { PluginInfo } from '@velocity/cms-core';
-import { Box, Button, EmptyState, Inline, PageHeader, Stack, Switch, Table, Tag, Text, toast, type TableColumn, type TableRow } from '@velocity/cms-ui';
+import { Box, Button, Card, EmptyState, Grid, PageHeader, Stack, Switch, Tag, Text, toast } from '@velocity/cms-ui';
 import { ArrowRight, History, Puzzle, Settings2 } from 'lucide-react';
 import { useState } from 'react';
 import { paths } from '../../app/paths.js';
@@ -45,20 +45,13 @@ export function PluginsScreen() {
     );
   };
 
-  const columns: TableColumn[] = [
-    { id: 'name', label: messages.plugins.columnName },
-    { id: 'state', label: messages.plugins.columnState },
-    { id: 'may', label: messages.plugins.columnMay },
-    { id: 'actions', label: messages.plugins.columnActions, align: 'end' },
-  ];
   /** What went wrong, most pressing first: why it is off, else the last time it failed while running. */
   const trouble = (plugin: PluginInfo) =>
     plugin.problem ?? (plugin.lastFault ? messages.plugins.failedAt(plugin.faults, plugin.lastFault.where, relativeTime(plugin.lastFault.at, locale), plugin.lastFault.message) : null);
-  const rows: TableRow[] = (plugins.data ?? []).map((plugin) => {
-    const description = plugin.description ? localized(plugin.description, locale) : null;
+  const cards = (plugins.data ?? []).map((plugin) => {
     const problem = trouble(plugin);
     const name = localized(plugin.label, locale);
-    // What activating it brings, in words: what it added to this editor, then what it does on the server.
+    // What activating it brings that a person will see, in words. What it listens for is left out: it says nothing of where to look.
     const screens = extensions.screens.filter((screen) => screen.plugin === plugin.name);
     const adds = [
       ...screens.map((screen) => messages.plugins.addsScreen(screen.label)),
@@ -67,77 +60,71 @@ export function PluginsScreen() {
       ...(plugin.adds.checks > 0 ? [messages.plugins.addsChecks(plugin.adds.checks)] : []),
       ...(plugin.adds.pageHead ? [messages.plugins.addsPageHead] : []),
       ...(plugin.adds.tasks.length > 0 ? [messages.plugins.addsTasks] : []),
-      ...(plugin.adds.events.length > 0 ? [messages.plugins.addsEvents(plugin.adds.events.map((event) => messages.plugins.events[event] ?? event))] : []),
     ];
     const editorProblem = extensions.problems.get(plugin.name);
-    return {
-      id: plugin.name,
-      cells: {
-        name: (
-          <Stack gap={0}>
-            <Inline gap={2}>
-              <Text weight="semibold">{localized(plugin.label, locale)}</Text>
-              {plugin.version !== undefined && (
-                <Text size="sm" tone="muted">
-                  {messages.plugins.version(plugin.version)}
-                </Text>
-              )}
-            </Inline>
-            <Text size="sm" tone="muted">
-              {description ?? plugin.name}
-            </Text>
-            {plugin.status === 'on' && <Text size="sm">{adds.length > 0 ? messages.plugins.adds(adds) : messages.plugins.addsNothing}</Text>}
-          </Stack>
-        ),
-        state: (
-          <Stack gap={1}>
-            <Inline gap={2}>
-              <Tag tone={TONES[plugin.status]}>{messages.plugins.states[plugin.status]}</Tag>
-              {plugin.status === 'on' && plugin.faults > 0 && <Tag tone="warning">{messages.plugins.hasFailed}</Tag>}
-            </Inline>
-            {problem !== null && <Text size="sm">{problem}</Text>}
-            {editorProblem !== undefined && <Text size="sm">{messages.plugins.editorFailed(editorProblem)}</Text>}
-          </Stack>
-        ),
-        may: (
-          <Text size="sm" tone="muted">
-            {plugin.permissions.length === 0 ? messages.plugins.mayNothing : plugin.permissions.map((permission) => messages.plugins.permissions[permission]).join(', ')}
-          </Text>
-        ),
-        actions: (
-          <Inline gap={3} justify="end">
-            {screens.map((screen) => (
-              <Button key={screen.id} variant="ghost" size="sm" icon={ArrowRight} onPress={() => go(paths.pluginScreen(screen.plugin, screen.id))}>
-                {messages.plugins.open(screen.label)}
-              </Button>
-            ))}
-            {plugin.adds.tasks.length > 0 && (
-              <Button variant="ghost" size="sm" icon={History} onPress={() => setWatching(plugin)}>
-                {messages.plugins.activityOf(name)}
-              </Button>
-            )}
-            {plugin.hasSettings && (
-              <Button variant="secondary" size="sm" icon={Settings2} onPress={() => setSettingUp(plugin)}>
-                {messages.plugins.settingsOf(name)}
-              </Button>
-            )}
+    const may = plugin.permissions.length === 0 ? [messages.plugins.mayNothing] : plugin.permissions.map((permission) => messages.plugins.permissions[permission]);
+    const isOn = plugin.status === 'on';
+    const hasFooter = screens.length > 0 || plugin.adds.tasks.length > 0 || plugin.hasSettings;
+    return (
+      <Card
+        key={plugin.name}
+        title={name}
+        description={plugin.description ? localized(plugin.description, locale) : plugin.name}
+        actions={
+          <>
+            {isOn && plugin.faults > 0 && <Tag tone="warning">{messages.plugins.hasFailed}</Tag>}
+            <Tag tone={TONES[plugin.status]}>{messages.plugins.states[plugin.status]}</Tag>
             {SWITCHABLE.has(plugin.status) && (
-              <Switch label={messages.plugins.active(name)} isSelected={plugin.status === 'on'} isDisabled={setEnabled.isPending} onChange={(isSelected) => flip(plugin, isSelected)} />
+              <Switch label={messages.plugins.active(name)} isLabelHidden isSelected={isOn} isDisabled={setEnabled.isPending} onChange={(isSelected) => flip(plugin, isSelected)} />
             )}
-          </Inline>
-        ),
-      },
-    };
+          </>
+        }
+        {...(hasFooter && {
+          footer: (
+            <>
+              {plugin.hasSettings && (
+                <Button variant="secondary" size="sm" icon={Settings2} onPress={() => setSettingUp(plugin)}>
+                  {messages.plugins.settings}
+                </Button>
+              )}
+              {plugin.adds.tasks.length > 0 && (
+                <Button variant="ghost" size="sm" icon={History} onPress={() => setWatching(plugin)}>
+                  {messages.plugins.activity}
+                </Button>
+              )}
+              {screens.map((screen) => (
+                <Button key={screen.id} variant="ghost" size="sm" icon={ArrowRight} onPress={() => go(paths.pluginScreen(screen.plugin, screen.id))}>
+                  {messages.plugins.open(screen.label)}
+                </Button>
+              ))}
+            </>
+          ),
+        })}
+      >
+        <Stack gap={2}>
+          {problem !== null && <Text size="sm">{problem}</Text>}
+          {editorProblem !== undefined && <Text size="sm">{messages.plugins.editorFailed(editorProblem)}</Text>}
+          {isOn && adds.length > 0 && <Text size="sm">{messages.plugins.adds(adds)}</Text>}
+          <Text size="sm" tone="muted">
+            {[...(plugin.version !== undefined ? [messages.plugins.version(plugin.version)] : []), messages.plugins.may(may)].join(' · ')}
+          </Text>
+        </Stack>
+      </Card>
+    );
   });
 
   return (
     <Box paddingX={12} paddingY={10}>
       <Stack gap={6}>
         <PageHeader title={messages.plugins.title} description={messages.plugins.description} />
-        {plugins.isPending && <LoadingState shape="table" />}
+        {plugins.isPending && <LoadingState shape="summary" />}
         {plugins.isError && <ErrorState error={plugins.error} onRetry={() => void plugins.refetch()} />}
-        {plugins.isSuccess && rows.length === 0 && <EmptyState icon={Puzzle} title={messages.plugins.emptyTitle} description={messages.plugins.emptyDescription} />}
-        {plugins.isSuccess && rows.length > 0 && <Table label={messages.plugins.title} columns={columns} rows={rows} />}
+        {plugins.isSuccess && cards.length === 0 && <EmptyState icon={Puzzle} title={messages.plugins.emptyTitle} description={messages.plugins.emptyDescription} />}
+        {plugins.isSuccess && cards.length > 0 && (
+          <Grid columns={2} gap={4}>
+            {cards}
+          </Grid>
+        )}
       </Stack>
       {/* Made anew each time it opens, so it never shows another plugin's settings. */}
       {settingUp && <PluginSettingsDialog key={settingUp.name} plugin={settingUp} onClose={() => setSettingUp(null)} />}
