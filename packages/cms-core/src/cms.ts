@@ -2,6 +2,7 @@ import { AccessControl } from './access.js';
 import { EventBus } from './events.js';
 import type { FieldType } from './field-type.js';
 import { createFieldRegistry } from './fields/index.js';
+import { PluginHost } from './plugin.js';
 import type { Clock, EntryRepository, IdGenerator, SchemaRepository } from './ports.js';
 import type { Registry } from './registry.js';
 import { ContentService } from './services/content-service.js';
@@ -20,6 +21,8 @@ export interface CmsOptions {
   readonly previews?: PreviewServiceOptions;
   readonly clock?: Clock;
   readonly ids?: IdGenerator;
+  /** Told of every plugin failure, for the server's log. */
+  readonly onPluginFault?: (plugin: string, error: unknown) => void;
 }
 
 /** The CMS, wired together. Everything outside the core reaches it through this object. */
@@ -31,6 +34,8 @@ export interface Cms {
   readonly fields: Registry<FieldType>;
   readonly events: EventBus;
   readonly access: AccessControl;
+  /** The site's plugins. A host calls `plugins.load` once, before it serves anything. */
+  readonly plugins: PluginHost;
 }
 
 const systemClock: Clock = { now: () => new Date().toISOString() };
@@ -50,5 +55,6 @@ export function createCms(options: CmsOptions): Cms {
   const content = new ContentService(options.entries, schema, fields, access, events, clock, ids);
   const media = new MediaService(access, events, clock, options.media);
   const previews = new PreviewService(content, schema, clock, options.previews);
-  return { schema, content, media, previews, fields, events, access };
+  const plugins = new PluginHost({ fields, events, schema, content, access, clock, ...(options.onPluginFault && { onFault: options.onPluginFault }) });
+  return { schema, content, media, previews, fields, events, access, plugins };
 }

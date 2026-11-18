@@ -1,4 +1,4 @@
-import { readImage, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PreviewLink, type SiteImage } from '@velocity/cms-core';
+import { readImage, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PreviewLink, type SiteImage } from '@velocity/cms-core';
 import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, SessionUser } from './admin-client.js';
 import { AdminRequestError, type RequestErrorCode, type RequestIssue } from './errors.js';
 
@@ -182,6 +182,10 @@ export class HttpAdminClient implements AdminClient {
 
   addPasskey(name: string): Promise<void> {
     return this.#auth.registerPasskey(name);
+  }
+
+  async listPlugins(): Promise<readonly PluginInfo[]> {
+    return (await this.#get<{ items: PluginInfo[] }>('/plugins')).items;
   }
 
   listPasskeys(): Promise<readonly Passkey[]> {

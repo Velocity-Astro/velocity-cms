@@ -100,7 +100,7 @@ export class CmsApi {
   constructor(options: CmsApiOptions) {
     this.#options = options;
     this.#basePath = `/${(options.basePath ?? '/api/cms').split('/').filter(Boolean).join('/')}`;
-    const { schema, content, fields, media, previews } = options.cms;
+    const { schema, content, fields, media, previews, plugins } = options.cms;
     const defaultLocale = options.defaultLocale ?? 'en';
 
     this.#router
@@ -119,6 +119,7 @@ export class CmsApi {
         const body = parse(typeChanges, await this.#body(call.request));
         return json(await schema.update(who, param(call, 'id'), given<ContentTypeChanges>(body)));
       })
+      .add('GET', '/plugins', async (call) => json({ items: plugins.list(actor(call)) }))
       .add('GET', '/content-types/archived', async (call) => json({ items: await schema.listArchived(actor(call)) }))
       .add('DELETE', '/content-types/:id', async (call) => json(await schema.archive(actor(call), param(call, 'id'))))
       .add('POST', '/content-types/:id/restore', async (call) => json(await schema.restore(actor(call), param(call, 'id'))))

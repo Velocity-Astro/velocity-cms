@@ -16,6 +16,7 @@ const keys = {
   images: ['images'] as const,
   people: ['people'] as const,
   passkeys: ['passkeys'] as const,
+  plugins: ['plugins'] as const,
   /** Every list of entries starts with this, so one call marks them all out of date. */
   entryLists: ['entries'] as const,
   entries: (query: EntryListQuery) => ['entries', query] as const,
@@ -283,6 +284,11 @@ export function useChangePersonRole() {
 export function useRemovePerson() {
   const client = useClient();
   return useMutation({ mutationFn: (id: string) => client.removePerson(id), onSuccess: usePeopleChanged() });
+}
+
+export function usePlugins() {
+  const client = useClient();
+  return useQuery({ queryKey: keys.plugins, queryFn: () => client.listPlugins() });
 }
 
 /** The signed-in person's own passkeys. Asked for only while their window is open. */

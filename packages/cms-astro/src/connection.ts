@@ -2,6 +2,7 @@ import { createCms, type Actor, type Cms, type SearchIndex } from '@velocity/cms
 import { openDatabase, SqliteEntryRepository, SqliteMediaRepository, SqliteSchemaRepository, SqliteSearchIndex, type Db } from '@velocity/cms-db';
 import { mediaStoreFromEnv } from './media-store.js';
 import { siteSecret } from './secret.js';
+import { sitePlugins } from './site-plugins.js';
 
 export interface ConnectionOptions {
   /**
@@ -39,6 +40,7 @@ export async function connect(options: ConnectionOptions): Promise<Connection> {
     // A secret too short to sign with is the editor's to report, not a reason to read no content.
     ...(secret !== undefined && secret.length >= 32 && { previews: { secret } }),
     ...(store && { media: { storage: { files: new SqliteMediaRepository(database.db), store } } }),
+    onPluginFault: (plugin, error) => console.error(`[velocity-cms] The plugin "${plugin}" failed.`, error),
   });
   return { cms, search: new SqliteSearchIndex(database.db), db: database.db, close: () => database.close() };
 }
@@ -50,7 +52,12 @@ export function sharedConnection(options: ConnectionOptions): Promise<Connection
   const url = resolveUrl(options);
   let connection = shared.get(url);
   if (!connection) {
-    connection = connect(options);
+    // The site's plugins start with its one connection, so a field type they add is known
+    // before the first page or the editor reads content.
+    connection = connect(options).then(async (opened) => {
+      await opened.cms.plugins.load(sitePlugins());
+      return opened;
+    });
     shared.set(url, connection);
     // A failed connection must not be remembered, or every later request would fail too.
     connection.catch(() => shared.delete(url));

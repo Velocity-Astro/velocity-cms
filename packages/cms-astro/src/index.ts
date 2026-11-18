@@ -3,6 +3,9 @@ export { AdminFiles, type EditorPageConfig } from './admin-files.js';
 export { EditorHost, LogMailer, type EditorHostOptions } from './editor.js';
 export { default, type VelocityCmsOptions } from './integration.js';
 export { ResendMailer, englishMailWords, mailerFromEnv, type MailWords, type ResendMailerOptions } from './resend-mailer.js';
+// What a site's own plugin file needs, so it imports from the one package the site installed.
+export { definePlugin, type PluginContext, type PluginDefinition } from '@velocity/cms-core';
+export { registerSitePlugins } from './site-plugins.js';
 export { EditorNotSetUpError, editorOrigin, siteEditorHost, withEditor, type SiteEditorSettings } from './site-editor.js';
 export {
   cmsLiveLoader,

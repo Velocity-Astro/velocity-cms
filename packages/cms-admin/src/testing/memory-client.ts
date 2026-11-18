@@ -13,6 +13,7 @@ import {
   type Entry,
   type NewUpload,
   type Page,
+  type PluginInfo,
   type PreviewLink,
   type Role,
   type SiteImage,
@@ -39,6 +40,8 @@ export interface MemoryAdminClientOptions {
   readonly images?: readonly SiteImage[];
   /** Whether the site takes uploads. Defaults to `true`. */
   readonly uploads?: boolean;
+  /** The site's plugins, started before the first request. */
+  readonly plugins?: readonly unknown[];
   /** Everyone who can sign in. Defaults to the person signed in at the start. */
   readonly people?: readonly Person[];
   /** The language new entries are written in. Defaults to `en`. */
@@ -89,11 +92,13 @@ export class MemoryAdminClient implements AdminClient {
     const types = new InMemorySchemaRepository();
     const entries = new InMemoryEntryRepository();
     const storage = { files: new InMemoryMediaRepository(), store: new InMemoryMediaStore() };
-    this.#cms = createCms({ types, entries, previews: { secret: PREVIEW_SECRET }, ...(options.uploads !== false && { media: { storage } }) });
-    this.#cms.media.include(new InMemoryImageLibrary(options.images));
+    const cms = createCms({ types, entries, previews: { secret: PREVIEW_SECRET }, ...(options.uploads !== false && { media: { storage } }) });
+    this.#cms = cms;
+    cms.media.include(new InMemoryImageLibrary(options.images));
     this.#ready = (async () => {
       for (const type of options.contentTypes ?? []) await types.save(type);
       for (const entry of options.entries ?? []) await entries.save(entry, { expectedRevision: null, actorId: 'seed' });
+      await cms.plugins.load(options.plugins ?? []);
     })();
   }
 
@@ -261,6 +266,10 @@ export class MemoryAdminClient implements AdminClient {
 
   addPasskey(name: string): Promise<void> {
     return this.#request(async () => void this.#passkeys.push({ id: `passkey-${++this.#passkeysMade}`, name, createdAt: new Date().toISOString() }));
+  }
+
+  listPlugins(): Promise<readonly PluginInfo[]> {
+    return this.#request(async (actor) => this.#cms.plugins.list(actor));
   }
 
   listPasskeys(): Promise<readonly Passkey[]> {

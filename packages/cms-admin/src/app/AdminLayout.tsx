@@ -1,5 +1,5 @@
 import { AppShell, Logo, dismissToasts, toast, type AppShellNavItem } from '@velocity/cms-ui';
-import { House, KeyRound, LogOut, Shapes, Users, Images } from 'lucide-react';
+import { House, Images, KeyRound, LogOut, Puzzle, Shapes, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router';
 import { useGo } from './use-go.js';
@@ -69,7 +69,7 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
             label: messages.app.siteGroup,
             items: [
               { id: 'media', label: messages.app.media, href: paths.media, icon: Images, isCurrent: location.pathname === paths.media },
-              // Only owners manage people and content types, so only they are shown the way there.
+              // Only owners manage people, plugins and content types, so only they are shown the way there.
               ...(session.data.role === 'owner'
                 ? [
                     {
@@ -79,6 +79,7 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
                       icon: Shapes,
                       isCurrent: location.pathname === paths.types || location.pathname.startsWith(`${paths.types}/`),
                     },
+                    { id: 'plugins', label: messages.app.plugins, href: paths.plugins, icon: Puzzle, isCurrent: location.pathname === paths.plugins },
                     { id: 'people', label: messages.app.people, href: paths.people, icon: Users, isCurrent: location.pathname === paths.people },
                   ]
                 : []),

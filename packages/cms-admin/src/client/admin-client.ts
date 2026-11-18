@@ -1,4 +1,4 @@
-import type { ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, LocalizedText, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
+import type { PluginInfo, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, LocalizedText, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
@@ -167,6 +167,8 @@ export interface AdminClient {
   removePerson(id: string): Promise<void>;
   /** Asks the browser to make a passkey for the signed-in person, called `name` in their list. */
   addPasskey(name: string): Promise<void>;
+  /** The plugins the site named in its config, running or not, by name. Owners only. */
+  listPlugins(): Promise<readonly PluginInfo[]>;
   /** The signed-in person's own passkeys, oldest first. */
   listPasskeys(): Promise<readonly Passkey[]>;
   /** Removes one of the signed-in person's own passkeys. That device then signs in with a link. */
