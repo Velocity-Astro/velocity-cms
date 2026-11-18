@@ -1,4 +1,5 @@
 import type { InvitationMail, Mailer, SignInMail } from '@velocity/cms-auth';
+import type { NoticeMailer, SubmissionNotice } from './form-post.js';
 
 /** The words of the emails. Give your own to send them in another language. */
 export interface MailWords {
@@ -11,6 +12,11 @@ export interface MailWords {
   readonly invitationGreeting: (name: string) => string;
   readonly invitationBody: (siteName: string, email: string) => string;
   readonly invitationButton: string;
+  /** The notice that a form was filled in. Left out, these are in English. */
+  readonly noticeSubject?: (formName: string, siteName: string) => string;
+  readonly noticeIntro?: (formName: string, siteName: string) => string;
+  readonly noticeSentFrom?: string;
+  readonly noticeReply?: string;
 }
 
 export const englishMailWords: MailWords = {
@@ -24,6 +30,10 @@ export const englishMailWords: MailWords = {
   invitationBody: (siteName, email) =>
     `You have been invited to edit ${siteName}. Open the editor and enter ${email}: a sign-in link will be emailed to you. There is no password to set.`,
   invitationButton: 'Open the editor',
+  noticeSubject: (formName, siteName) => `New message: ${formName} on ${siteName}`,
+  noticeIntro: (formName, siteName) => `Someone filled in "${formName}" on ${siteName}.`,
+  noticeSentFrom: 'Sent from',
+  noticeReply: 'Reply to this email to answer them. The message is also kept in the CMS.',
 };
 
 export interface ResendMailerOptions {
@@ -58,7 +68,7 @@ function layout(greeting: string, body: string, button: string, url: string, not
  * Sends the CMS's emails through Resend, over plain HTTP: no SDK, so it runs wherever the site
  * does. A site that uses another provider writes its own `Mailer` the same way.
  */
-export class ResendMailer implements Mailer {
+export class ResendMailer implements Mailer, NoticeMailer {
   readonly #options: ResendMailerOptions;
   readonly #words: MailWords;
 
@@ -85,12 +95,33 @@ export class ResendMailer implements Mailer {
     );
   }
 
-  async #send(to: string, subject: string, body: { html: string; text: string }): Promise<void> {
+  sendSubmissionNotice(mail: SubmissionNotice): Promise<void> {
+    const words = { ...englishMailWords, ...this.#words };
+    const intro = words.noticeIntro?.(mail.formName, mail.siteName) ?? '';
+    const from = mail.page === undefined ? undefined : `${words.noticeSentFrom ?? ''} ${mail.page}`;
+    const note = mail.replyTo === undefined ? undefined : words.noticeReply;
+    const line = (style: string, text: string) => `<p style="margin:0 0 ${style}">${escaped(text).replace(/\n/g, '<br>')}</p>`;
+    // Everything a visitor wrote is escaped, and shown as text: a notice never carries their markup or links.
+    const html = [
+      '<div style="max-width:480px;margin:0 auto;padding:32px 16px">',
+      line('24px;font:16px/1.5 system-ui,sans-serif;color:#1a1a1a', intro),
+      ...mail.answers.flatMap((answer) => [
+        line('2px;font:600 13px/1.5 system-ui,sans-serif;color:#666', answer.label),
+        line('16px;font:16px/1.5 system-ui,sans-serif;color:#1a1a1a', answer.value),
+      ]),
+      ...[from, note].flatMap((text) => (text === undefined ? [] : [line('8px;font:13px/1.5 system-ui,sans-serif;color:#666;word-break:break-all', text)])),
+      '</div>',
+    ].join('');
+    const text = [intro, ...mail.answers.map((answer) => `${answer.label}:\n${answer.value}`), ...(from === undefined ? [] : [from]), ...(note === undefined ? [] : [note])].join('\n\n');
+    return this.#send(mail.to, words.noticeSubject?.(mail.formName, mail.siteName) ?? mail.formName, { html, text }, mail.replyTo);
+  }
+
+  async #send(to: string, subject: string, body: { html: string; text: string }, replyTo?: string): Promise<void> {
     const send = this.#options.fetch ?? ((input, init) => globalThis.fetch(input, init));
     const response = await send('https://api.resend.com/emails', {
       method: 'POST',
       headers: { authorization: `Bearer ${this.#options.apiKey}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ from: this.#options.from, to: [to], subject, ...body }),
+      body: JSON.stringify({ from: this.#options.from, to: [to], subject, ...body, ...(replyTo !== undefined && { reply_to: replyTo }) }),
     });
     if (!response.ok) {
       // The provider's own words go to the server's log through whoever catches this. The address
@@ -105,7 +136,7 @@ export class ResendMailer implements Mailer {
  * The mailer a site gets from its settings alone: Resend when `VELOCITY_CMS_RESEND_API_KEY` and
  * `VELOCITY_CMS_EMAIL_FROM` are both set, otherwise none.
  */
-export function mailerFromEnv(env: Readonly<Record<string, string | undefined>> = process.env): Mailer | undefined {
+export function mailerFromEnv(env: Readonly<Record<string, string | undefined>> = process.env): ResendMailer | undefined {
   const apiKey = env['VELOCITY_CMS_RESEND_API_KEY'];
   const from = env['VELOCITY_CMS_EMAIL_FROM'];
   return apiKey && from ? new ResendMailer({ apiKey, from }) : undefined;

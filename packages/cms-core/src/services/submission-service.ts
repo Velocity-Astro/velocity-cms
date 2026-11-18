@@ -2,7 +2,7 @@ import type { AccessControl, Actor } from '../access.js';
 import { NotFoundError, ValidationError, type ValidationIssue } from '../errors.js';
 import type { EventBus } from '../events.js';
 import type { FieldType } from '../field-type.js';
-import { liveFields, type Page, type Submission, type SubmissionStatus } from '../model.js';
+import { liveFields, type FormDef, type Page, type Submission, type SubmissionStatus } from '../model.js';
 import type { Clock, FormRepository, IdGenerator, SubmissionQuery, SubmissionRepository } from '../ports.js';
 import type { Registry } from '../registry.js';
 import { buildFieldsSchema } from '../schema-builder.js';
@@ -42,6 +42,14 @@ export class SubmissionService {
    * names the fields by key so the page can show each problem where it is.
    */
   async submit(formKey: string, sent: Readonly<Record<string, unknown>>, source: SubmissionSource = {}): Promise<Submission> {
+    return (await this.receive(formKey, sent, source)).submission;
+  }
+
+  /**
+   * `submit`, answering with the form as well, for the server's own address that takes posts: it
+   * needs the form's people to tell them. The form is never for the visitor.
+   */
+  async receive(formKey: string, sent: Readonly<Record<string, unknown>>, source: SubmissionSource = {}): Promise<{ readonly submission: Submission; readonly form: FormDef }> {
     const form = await this.forms.getByKey(formKey);
     // A closed form answers as one that is not there: it says nothing of what the site holds.
     if (!form || !form.open) throw new NotFoundError('Form', formKey);
@@ -85,7 +93,7 @@ export class SubmissionService {
     };
     const stored = await this.submissions.add(submission);
     await this.events.emit('submission.received', { submission: stored, form });
-    return stored;
+    return { submission: stored, form };
   }
 
   async find(actor: Actor, query: SubmissionQuery = {}): Promise<Page<Submission>> {
