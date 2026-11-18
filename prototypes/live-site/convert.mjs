@@ -165,5 +165,39 @@ export function convert(project) {
     must(text, '"key": "X-Frame-Options",\n          "value": "DENY"', '"key": "X-Frame-Options",\n          "value": "SAMEORIGIN"'),
   );
 
+  // 12. The header's links and the footer's "Company" column are a menu people edit in the CMS.
+  //     A language with no menu yet keeps the template's own links, and so does a site whose
+  //     menu cannot be read. A link to the page a mega menu opens for keeps that menu.
+  edit('src/components/site/SiteHeader.astro', (source) => {
+    let next = must(source, "import Header from '@/components/layout/Header.astro';", "import { menuLinks } from '@velocity/cms-astro';\nimport Header from '@/components/layout/Header.astro';");
+    next = must(next, 'const ordered = [\n', 'const own = [\n');
+    return must(
+      next,
+      '].sort((a, b) => a.order - b.order);\n',
+      `].sort((a, b) => a.order - b.order);
+const samePage = (a: string, b: string) => a.replace(/\\/$/, '') === b.replace(/\\/$/, '');
+const edited = await menuLinks(Astro, { type: 'navigation', field: 'header' });
+const ordered =
+  edited.length === 0
+    ? own
+    : edited.map((link, order) => {
+        const id = (['buy', 'management'] as const).find((menu) => samePage(menus[menu].href, link.href));
+        return id
+          ? { kind: 'menu' as const, id, label: link.label, order }
+          : { kind: 'link' as const, label: link.label, href: link.href, active: !link.external && isActive(link.href), order };
+      });
+`,
+    );
+  });
+  edit('src/components/site/SiteFooter.astro', (source) => {
+    let next = must(source, "import Footer from '@/components/layout/Footer.astro';", "import { menuLinks } from '@velocity/cms-astro';\nimport Footer from '@/components/layout/Footer.astro';");
+    next = must(next, 'const linkGroups = [\n', "const company = await menuLinks(Astro, { type: 'navigation', field: 'footer' });\nconst linkGroups = [\n");
+    return must(
+      next,
+      "    title: t('footer.company'),\n    links: [\n",
+      "    title: t('footer.company'),\n    links: company.length > 0 ? company.map(({ label, href }) => ({ label, href })) : [\n",
+    );
+  });
+
   return changes;
 }

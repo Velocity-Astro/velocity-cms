@@ -156,6 +156,7 @@ export const fieldSettings: FieldSettingsRegistry = new Registry<FieldSettings>(
     Component: ReferenceSettings,
     problem: (options, messages) => (typeof options['to'] === 'string' && options['to'] !== '' ? undefined : messages.builder.referenceNeeded),
   })
+  .register({ type: 'link', initial: {}, canBeListed: true })
   .register({
     type: 'group',
     initial: { fields: [] },

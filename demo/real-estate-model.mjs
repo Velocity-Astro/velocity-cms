@@ -291,10 +291,48 @@ const pages = {
   sections: [section('sections', 'Sections', ['body']), { ...section('page', 'About this page', ['title', 'description']), aside: true }],
 };
 
-export const realEstateModel = [listings, agents, neighborhoods, reviews, pages];
+/** One link of a menu: what it says, and the page or address it goes to. */
+const menuLink = group('item', 'Link', [text('label', 'Label', { required: true }), field('link')('link', 'Goes to', { required: true })]);
+
+const navigation = {
+  key: 'navigation',
+  kind: 'single',
+  label: { en: 'Navigation', es: 'Navegación' },
+  fields: [
+    list('header', 'Header links', menuLink, {
+      help: 'The links across the top of every page, in order. A link to Homes for sale or to Property management keeps its menu. With no links here, the template\'s own are shown.',
+    }),
+    list('footer', 'Footer links', menuLink, { help: 'The links under "Company" at the foot of every page. With no links here, the template\'s own are shown.' }),
+  ],
+};
+
+export const realEstateModel = [listings, agents, neighborhoods, reviews, pages, navigation];
 
 /** The types whose content comes from the template's own JSON files. Pages start from `samplePages`. */
 export const importedTypes = ['listings', 'agents', 'neighborhoods', 'reviews'];
+
+/**
+ * The menus to start from, in the first language: the template's own links, so the site looks the
+ * same until someone edits them. `page` is the slug of a page made in the editor; the link is
+ * stored as that entry, so it follows the page if its address changes.
+ */
+export const sampleMenus = {
+  header: [
+    { label: 'Buy', href: '/homes-for-sale/' },
+    { label: 'Rent', href: '/rentals/' },
+    { label: 'Sell', href: '/sell/' },
+    { label: 'Property management', href: '/property-management/' },
+    { label: 'Agents', href: '/agents/' },
+    { label: 'About', href: '/about/' },
+  ],
+  footer: [
+    { label: 'About', href: '/about/' },
+    { label: 'Agents', href: '/agents/' },
+    { label: 'Why list with us', page: 'why-list-with-us' },
+    { label: 'Blog', href: '/blog/' },
+    { label: 'Contact', href: '/contact/' },
+  ],
+};
 
 /** A page to start from, so the editor has one to open: written the way the site would be handed it, by key. */
 export const samplePages = [
