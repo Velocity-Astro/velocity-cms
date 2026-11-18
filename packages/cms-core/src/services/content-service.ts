@@ -75,8 +75,12 @@ export class ContentService {
   /** Creates a draft. Required fields may still be empty: they are checked on publish. */
   async create(actor: Actor, input: CreateEntryInput): Promise<Entry> {
     this.access.require(actor, 'entry:write');
-    const type = await this.schema.get(input.typeId);
+    const type = await this.schema.getLive(input.typeId);
     requireSlug(input.slug);
+    // A single is one page, such as the home page: one entry in each language, and no more.
+    if (type.kind === 'single' && (await this.entries.find({ typeId: type.id, locale: input.locale, limit: 1 })).total > 0) {
+      throw new ConflictError(`"${type.key}" is a single page and already has its entry in this language. Open that entry to change it.`);
+    }
     const now = this.clock.now();
     const id = this.ids.next();
     const entry: Entry = {
@@ -99,7 +103,7 @@ export class ContentService {
     const current = await this.load(id);
     this.requireRevision(current, input.expectedRevision);
     if (input.slug !== undefined) requireSlug(input.slug);
-    const type = await this.schema.get(current.typeId);
+    const type = await this.schema.getLive(current.typeId);
 
     // Only the working version changes, so it may be unfinished even when the entry is published.
     const data =
@@ -125,7 +129,7 @@ export class ContentService {
     this.access.require(actor, 'entry:publish');
     const current = await this.load(id);
     if (expectedRevision !== undefined) this.requireRevision(current, expectedRevision);
-    const type = await this.schema.get(current.typeId);
+    const type = await this.schema.getLive(current.typeId);
     validateData(type.fields, current.data, this.context('publish'));
 
     const now = this.clock.now();

@@ -113,6 +113,18 @@ export class MemoryAdminClient implements AdminClient {
     return this.#request(() => this.#cms.schema.list());
   }
 
+  listArchivedContentTypes(): Promise<readonly ContentTypeDef[]> {
+    return this.#request((actor) => this.#cms.schema.listArchived(actor));
+  }
+
+  archiveContentType(id: string): Promise<ContentTypeDef> {
+    return this.#request((actor) => this.#cms.schema.archive(actor, id));
+  }
+
+  restoreContentType(id: string): Promise<ContentTypeDef> {
+    return this.#request((actor) => this.#cms.schema.restore(actor, id));
+  }
+
   createContentType(type: NewType): Promise<ContentTypeDef> {
     return this.#request((actor) => this.#cms.schema.create(actor, type));
   }

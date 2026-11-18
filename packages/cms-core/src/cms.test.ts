@@ -98,6 +98,31 @@ describe('SchemaService', () => {
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
+  it('archives a content type without losing anything, and restores it', async () => {
+    const draft = await cms.content.create(editor, { typeId: listings.id, locale: 'en', slug: 'farmhouse', data: {} });
+    const told: string[] = [];
+    cms.events.on('type.archived', ({ type }) => void told.push(`archived ${type.key}`));
+    cms.events.on('type.restored', ({ type }) => void told.push(`restored ${type.key}`));
+    await expect(cms.schema.archive(editor, listings.id)).rejects.toBeInstanceOf(ForbiddenError);
+
+    expect((await cms.schema.archive(owner, listings.id)).deletedAt).toBeTypeOf('string');
+    expect(await cms.schema.list()).toEqual([]);
+    expect((await cms.schema.listArchived(owner)).map((type) => type.key)).toEqual(['listings']);
+    // Nothing about it changes while it is archived: not its fields, not its entries, not its key.
+    await expect(cms.schema.addField(owner, listings.id, { key: 'beds', type: 'number', label: { en: 'Beds' } })).rejects.toBeInstanceOf(ConflictError);
+    await expect(cms.content.update(editor, draft.id, { slug: 'farm', expectedRevision: 1 })).rejects.toBeInstanceOf(ConflictError);
+    await expect(cms.content.create(editor, { typeId: listings.id, locale: 'en', slug: 'another', data: {} })).rejects.toBeInstanceOf(ConflictError);
+    await expect(cms.schema.create(owner, { key: 'listings', kind: 'collection', label: { en: 'Listings' } })).rejects.toThrow(/archived/);
+    // A template that describes it again on the next deploy does not bring it back.
+    expect((await cms.schema.define(owner, { key: 'listings', kind: 'collection', label: { en: 'Homes' } })).deletedAt).toBeTypeOf('string');
+
+    const restored = await cms.schema.restore(owner, listings.id);
+    expect(restored).not.toHaveProperty('deletedAt');
+    expect(restored.fields.map((field) => field.key)).toEqual(listings.fields.map((field) => field.key));
+    expect((await cms.content.get(editor, draft.id)).slug).toBe('farmhouse');
+    expect(told).toEqual(['archived listings', 'restored listings']);
+  });
+
   it('reports a missing content type', async () => {
     await expect(cms.schema.get('nope')).rejects.toBeInstanceOf(NotFoundError);
     await expect(cms.schema.getByKey('nope')).rejects.toBeInstanceOf(NotFoundError);
@@ -119,6 +144,14 @@ describe('ContentService', () => {
       data: { [id(listings, 'headline')]: 'Work in progress' },
     });
     expect(draft).toMatchObject({ status: 'draft', revision: 1, translationGroup: draft.id });
+  });
+
+  it('gives a single page one entry in each language, and no more', async () => {
+    const about = await cms.schema.create(owner, { key: 'about', kind: 'single', label: { en: 'About' }, urlPattern: '/about' });
+    const create = (locale: string, slug: string) => cms.content.create(editor, { typeId: about.id, locale, slug, data: {} });
+    await create('en', 'about');
+    await expect(create('en', 'about-again')).rejects.toMatchObject({ code: 'conflict' });
+    await expect(create('es', 'about')).resolves.toMatchObject({ locale: 'es' });
   });
 
   it('refuses a slug that could not be part of an address', async () => {

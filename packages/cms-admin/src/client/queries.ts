@@ -11,6 +11,7 @@ import { useClient } from './client-context.js';
 const keys = {
   session: ['session'] as const,
   contentTypes: ['content-types'] as const,
+  archivedContentTypes: ['archived-content-types'] as const,
   fieldTypes: ['field-types'] as const,
   images: ['images'] as const,
   people: ['people'] as const,
@@ -62,6 +63,32 @@ function useTypeChanged() {
 export function useCreateContentType() {
   const client = useClient();
   return useMutation({ mutationFn: (type: NewType) => client.createContentType(type), onSuccess: useTypeChanged() });
+}
+
+/** The archived content types. Asked for only where they are shown. */
+export function useArchivedContentTypes() {
+  const client = useClient();
+  return useQuery({ queryKey: keys.archivedContentTypes, queryFn: () => client.listArchivedContentTypes() });
+}
+
+/** What archiving and restoring do afterwards: the type moves between the two lists, and its entries with it. */
+function useTypeMoved() {
+  const cache = useQueryClient();
+  return () => {
+    void cache.invalidateQueries({ queryKey: keys.contentTypes });
+    void cache.invalidateQueries({ queryKey: keys.archivedContentTypes });
+    void cache.invalidateQueries({ queryKey: keys.entryLists });
+  };
+}
+
+export function useArchiveContentType() {
+  const client = useClient();
+  return useMutation({ mutationFn: (id: string) => client.archiveContentType(id), onSuccess: useTypeMoved() });
+}
+
+export function useRestoreContentType() {
+  const client = useClient();
+  return useMutation({ mutationFn: (id: string) => client.restoreContentType(id), onSuccess: useTypeMoved() });
 }
 
 export function useUpdateContentType() {

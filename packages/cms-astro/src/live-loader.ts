@@ -1,5 +1,5 @@
 import type { LiveLoader } from 'astro/loaders';
-import type { ContentTypeDef, Entry } from '@velocity/cms-core';
+import { isLiveType, type ContentTypeDef, type Entry } from '@velocity/cms-core';
 import { sharedConnection, SITE, type ConnectionOptions } from './connection.js';
 import { isPreview } from './preview.js';
 
@@ -75,6 +75,8 @@ export function cmsLiveLoader(
       try {
         const { cms } = await sharedConnection(options);
         const type = await cms.schema.getByKey(options.type);
+        // An archived type has no pages: its entries are kept, and shown to nobody.
+        if (!isLiveType(type)) return { entries: [], cacheHint: { tags: [tag] } };
         const entries = [];
         for (let offset = 0; ; offset += PAGE_SIZE) {
           const page = await cms.content.find(SITE, {
@@ -97,6 +99,7 @@ export function cmsLiveLoader(
       try {
         const { cms } = await sharedConnection(options);
         const type = await cms.schema.getByKey(options.type);
+        if (!isLiveType(type)) return undefined;
         const separator = filter.id.indexOf('/');
         const locale = filter.id.slice(0, separator);
         const slug = filter.id.slice(separator + 1);

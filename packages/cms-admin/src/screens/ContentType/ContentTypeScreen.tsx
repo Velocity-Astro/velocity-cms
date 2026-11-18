@@ -1,12 +1,12 @@
 import type { ContentTypeDef, FieldDef } from '@velocity/cms-core';
 import { Box, Button, ConfirmDialog, EmptyState, Heading, IconButton, Inline, Link, PageHeader, Stack, Table, Tag, Text, toast, type TableColumn, type TableRow } from '@velocity/cms-ui';
-import { ArrowDown, ArrowUp, LayoutList, ListPlus, ListTree, Pencil, Plus, Settings2, Shapes, Trash2 } from 'lucide-react';
+import { Archive, ArrowDown, ArrowUp, LayoutList, ListPlus, ListTree, Pencil, Plus, Settings2, Shapes, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 import { useGo } from '../../app/use-go.js';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { WITHIN, paths } from '../../app/paths.js';
-import { useArrangeFields, useContentTypes, useRemoveField, useRestoreField } from '../../client/queries.js';
+import { useArchiveContentType, useArrangeFields, useContentTypes, useRemoveField, useRestoreField } from '../../client/queries.js';
 import { innerFields } from '../../fields/settings.js';
 import { NO_SECTION, moved, movedWithin, placesOf, type FieldPlace } from '../../lib/arrangement.js';
 import { localized } from '../../lib/content.js';
@@ -78,6 +78,8 @@ function TypeBuilder({ type, holders, fields }: TypeBuilderProps) {
   const [isAdding, setAdding] = useState(false);
   const [isChangingSettings, setChangingSettings] = useState(false);
   const [isChangingSections, setChangingSections] = useState(false);
+  const archive = useArchiveContentType();
+  const [isArchiving, setArchiving] = useState(false);
   const go = useGo();
   const within = holders.map((holder) => holder.id);
   const holder = holders.at(-1);
@@ -161,6 +163,9 @@ function TypeBuilder({ type, holders, fields }: TypeBuilderProps) {
               description={[messages.builder.keyIs(type.key), type.urlPattern ?? messages.builder.noAddress].join(' · ')}
               actions={
                 <Inline gap={2}>
+                  <Button variant="ghost" icon={Archive} onPress={() => setArchiving(true)}>
+                    {messages.builder.archive}
+                  </Button>
                   <Button variant="secondary" icon={Settings2} onPress={() => setChangingSettings(true)}>
                     {messages.builder.settings}
                   </Button>
@@ -269,6 +274,29 @@ function TypeBuilder({ type, holders, fields }: TypeBuilderProps) {
         }}
       >
         {messages.builder.removeDescription}
+      </ConfirmDialog>
+      <ConfirmDialog
+        isOpen={isArchiving}
+        onOpenChange={setArchiving}
+        title={messages.builder.archiveTitle(name)}
+        confirmLabel={messages.builder.archiveConfirm}
+        cancelLabel={messages.editor.cancel}
+        tone="danger"
+        isPending={archive.isPending}
+        onConfirm={() =>
+          archive.mutate(type.id, {
+            onSuccess: () => {
+              toast({ title: messages.builder.archived(name), description: messages.builder.archivedDescription, tone: 'success' });
+              go(paths.types);
+            },
+            onError: (error) => {
+              toast({ title: messages.builder.notArchived, description: messageOf(error), tone: 'danger' });
+              setArchiving(false);
+            },
+          })
+        }
+      >
+        {messages.builder.archiveDescription}
       </ConfirmDialog>
     </Box>
   );

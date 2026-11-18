@@ -4,6 +4,7 @@ import { ConflictError, NotFoundError, ValidationError } from '../errors.js';
 import type { EventBus } from '../events.js';
 import type { FieldType } from '../field-type.js';
 import {
+  isLiveType,
   liveFields,
   type ContentTypeDef,
   type ContentTypeKind,
@@ -110,8 +111,44 @@ export class SchemaService {
     return type;
   }
 
-  list(): Promise<ContentTypeDef[]> {
-    return this.types.list();
+  /** A content type that is in use. An archived one is refused: it must be restored before anything about it changes. */
+  async getLive(id: string): Promise<ContentTypeDef> {
+    const type = await this.get(id);
+    if (!isLiveType(type)) throw new ConflictError(`The content type "${type.key}" was archived. Restore it before changing it or its entries.`);
+    return type;
+  }
+
+  /** The content types in use. Archived ones are left out: see `listArchived`. */
+  async list(): Promise<ContentTypeDef[]> {
+    return (await this.types.list()).filter(isLiveType);
+  }
+
+  async listArchived(actor: Actor): Promise<ContentTypeDef[]> {
+    this.access.require(actor, 'schema:write');
+    return (await this.types.list()).filter((type) => !isLiveType(type));
+  }
+
+  /**
+   * Takes a content type out of use: out of the editor, and its pages off the site. Nothing is
+   * deleted. Its fields and entries stay as they were and its key stays taken, so `restore`
+   * brings it all back.
+   */
+  async archive(actor: Actor, typeId: string): Promise<ContentTypeDef> {
+    this.access.require(actor, 'schema:write');
+    const type = await this.get(typeId);
+    if (!isLiveType(type)) return type;
+    const archived = await this.save(actor, { ...type, deletedAt: this.clock.now() });
+    await this.events.emit('type.archived', { type: archived, actor });
+    return archived;
+  }
+
+  async restore(actor: Actor, typeId: string): Promise<ContentTypeDef> {
+    this.access.require(actor, 'schema:write');
+    const { deletedAt, ...type } = await this.get(typeId);
+    if (deletedAt === undefined) return type;
+    const restored = await this.save(actor, type);
+    await this.events.emit('type.restored', { type: restored, actor });
+    return restored;
   }
 
   async create(actor: Actor, input: NewContentType): Promise<ContentTypeDef> {
@@ -119,8 +156,13 @@ export class SchemaService {
     requireKey(input.key, 'content type');
     requireLabel(input.label, 'content type');
     if (input.urlPattern !== undefined) requirePattern(input.urlPattern);
-    if (await this.types.getByKey(input.key)) {
-      throw new ConflictError(`There is already a content type with the key "${input.key}". Choose another key.`);
+    const taken = await this.types.getByKey(input.key);
+    if (taken) {
+      throw new ConflictError(
+        isLiveType(taken)
+          ? `There is already a content type with the key "${input.key}". Choose another key.`
+          : `An archived content type has the key "${input.key}". Restore it, or choose another key.`,
+      );
     }
     return this.save(actor, this.described({ id: this.ids.next(), key: input.key, kind: input.kind, label: input.label, fields: [] }, input));
   }
@@ -144,7 +186,7 @@ export class SchemaService {
   /** Changes what a content type is called, where its entries live and what lists show of them. Fields are changed one at a time. */
   async update(actor: Actor, typeId: string, change: ContentTypeChanges): Promise<ContentTypeDef> {
     this.access.require(actor, 'schema:write');
-    const { urlPattern, titlePath, list, ...type } = await this.get(typeId);
+    const { urlPattern, titlePath, list, ...type } = await this.getLive(typeId);
     if (change.label !== undefined) requireLabel(change.label, 'content type');
     if (typeof change.urlPattern === 'string') requirePattern(change.urlPattern);
     for (const path of [change.titlePath, change.list?.imagePath, ...(change.list?.fieldPaths ?? [])]) {
@@ -168,7 +210,7 @@ export class SchemaService {
    */
   async addField(actor: Actor, typeId: string, input: NewField, place: FieldPlace = {}): Promise<ContentTypeDef> {
     this.access.require(actor, 'schema:write');
-    const type = await this.get(typeId);
+    const type = await this.getLive(typeId);
     const { section, within = [] } = place;
     const fields = this.held(type.fields, within);
     this.requireFreeKey(fields, input.key);
@@ -201,7 +243,7 @@ export class SchemaService {
    */
   async changeField(actor: Actor, typeId: string, fieldId: string, change: FieldChanges, within: readonly string[] = []): Promise<ContentTypeDef> {
     this.access.require(actor, 'schema:write');
-    const type = await this.get(typeId);
+    const type = await this.getLive(typeId);
     const fields = this.held(type.fields, within);
     const field = requireField(fields, fieldId);
     if (field.deletedAt !== undefined) throw new ConflictError(`The field "${field.key}" was removed. Restore it before changing it.`);
@@ -228,7 +270,7 @@ export class SchemaService {
    */
   async arrangeFields(actor: Actor, typeId: string, arrangement: FieldArrangement): Promise<ContentTypeDef> {
     this.access.require(actor, 'schema:write');
-    const type = await this.get(typeId);
+    const type = await this.getLive(typeId);
     const within = arrangement.within ?? [];
     const fields = this.held(type.fields, within);
     const live = new Map(liveFields(fields).map((field) => [field.id, field]));
@@ -255,7 +297,7 @@ export class SchemaService {
    */
   async setSections(actor: Actor, typeId: string, sections: readonly FieldSection[]): Promise<ContentTypeDef> {
     this.access.require(actor, 'schema:write');
-    const { sections: _before, ...type } = await this.get(typeId);
+    const { sections: _before, ...type } = await this.getLive(typeId);
     const keys = new Set<string>();
     for (const section of sections) {
       requireKey(section.key, 'section');
@@ -274,7 +316,7 @@ export class SchemaService {
   /** Hides a field from the editor and the site. Its data is kept, so `restoreField` undoes it. */
   async removeField(actor: Actor, typeId: string, fieldId: string, within: readonly string[] = []): Promise<ContentTypeDef> {
     this.access.require(actor, 'schema:write');
-    const type = await this.get(typeId);
+    const type = await this.getLive(typeId);
     const fields = this.held(type.fields, within);
     const field = requireField(fields, fieldId);
     if (field.deletedAt !== undefined) return type;
@@ -284,7 +326,7 @@ export class SchemaService {
 
   async restoreField(actor: Actor, typeId: string, fieldId: string, within: readonly string[] = []): Promise<ContentTypeDef> {
     this.access.require(actor, 'schema:write');
-    const type = await this.get(typeId);
+    const type = await this.getLive(typeId);
     const fields = this.held(type.fields, within);
     const { deletedAt, ...field } = requireField(fields, fieldId);
     if (deletedAt === undefined) return type;

@@ -16,7 +16,7 @@ import {
 } from '@velocity/cms-ui';
 import { FileQuestion, Inbox, Plus, SearchX } from 'lucide-react';
 import { useState } from 'react';
-import { useParams } from 'react-router';
+import { Navigate, useParams } from 'react-router';
 import { useGo } from '../../app/use-go.js';
 import { paths } from '../../app/paths.js';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
@@ -77,6 +77,13 @@ export function ContentListScreen() {
   // An entry in two languages is one row, not two that look the same.
   const groups = groupTranslations(entries.data?.items ?? [], locale);
   const manyLanguages = groups.some((group) => group.versions.length > 1) || new Set(groups.map((group) => group.primary.locale)).size > 1;
+  // A single page has no list: its address here leads straight to its entry, or to starting it.
+  if (type.kind === 'single') {
+    if (entries.isPending) return <LoadingState />;
+    if (entries.isError) return <ErrorState error={entries.error} onRetry={() => void entries.refetch()} />;
+    const entry = groups[0]?.primary;
+    return <Navigate to={entry ? paths.entry(type.key, entry.id) : paths.newEntry(type.key)} replace />;
+  }
   const words = query.trim().toLowerCase();
   const shown = groups.filter(({ primary, versions }) => {
     if (!SHOWN[filter](entryState(primary))) return false;

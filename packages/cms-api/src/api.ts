@@ -119,6 +119,9 @@ export class CmsApi {
         const body = parse(typeChanges, await this.#body(call.request));
         return json(await schema.update(who, param(call, 'id'), given<ContentTypeChanges>(body)));
       })
+      .add('GET', '/content-types/archived', async (call) => json({ items: await schema.listArchived(actor(call)) }))
+      .add('DELETE', '/content-types/:id', async (call) => json(await schema.archive(actor(call), param(call, 'id'))))
+      .add('POST', '/content-types/:id/restore', async (call) => json(await schema.restore(actor(call), param(call, 'id'))))
       .add('POST', '/content-types/:id/fields', async (call) => {
         const who = actor(call);
         const { section, ...field } = parse(newField, await this.#body(call.request));

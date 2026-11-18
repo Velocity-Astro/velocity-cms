@@ -1,4 +1,5 @@
 import type { Loader } from 'astro/loaders';
+import { isLiveType } from '@velocity/cms-core';
 import { connect, SITE, type ConnectionOptions } from './connection.js';
 
 export interface CmsLoaderOptions extends ConnectionOptions {
@@ -32,7 +33,8 @@ export function cmsLoader(options: CmsLoaderOptions): Loader {
 
         const seen = new Set<string>();
         let changed = 0;
-        for (let offset = 0; ; offset += PAGE_SIZE) {
+        // An archived type has no pages: nothing of it is read, so what the store held is taken out below.
+        for (let offset = 0; isLiveType(type); offset += PAGE_SIZE) {
           const page = await cms.content.find(SITE, {
             typeId: type.id,
             status: 'published',

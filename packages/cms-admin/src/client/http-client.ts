@@ -62,6 +62,18 @@ export class HttpAdminClient implements AdminClient {
     return (await this.#get<{ items: ContentTypeDef[] }>('/content-types')).items;
   }
 
+  async listArchivedContentTypes(): Promise<readonly ContentTypeDef[]> {
+    return (await this.#get<{ items: ContentTypeDef[] }>('/content-types/archived')).items;
+  }
+
+  archiveContentType(id: string): Promise<ContentTypeDef> {
+    return this.#send('DELETE', `/content-types/${encodeURIComponent(id)}`, {});
+  }
+
+  restoreContentType(id: string): Promise<ContentTypeDef> {
+    return this.#send('POST', `/content-types/${encodeURIComponent(id)}/restore`, {});
+  }
+
   createContentType(type: NewType): Promise<ContentTypeDef> {
     return this.#send('POST', '/content-types', type);
   }
