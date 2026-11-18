@@ -2,21 +2,21 @@
 /** The closing band: one line, and one or two buttons over a photo. */
 import CtaBand from '@/components/estate/CtaBand.astro';
 import EstateButton from '@/components/estate/EstateButton.astro';
-import { safeLink } from '@/cms/blocks';
+import { linkTo } from '@velocity/cms-astro';
 
 interface Props {
   title?: string;
   lead?: string;
   photo?: string;
   buttonLabel?: string;
-  buttonLink?: string;
+  buttonTo?: unknown;
   secondLabel?: string;
-  secondLink?: string;
+  secondTo?: unknown;
 }
 
-const { title = '', lead, photo, buttonLabel, buttonLink, secondLabel, secondLink } = Astro.props;
-const first = safeLink(buttonLink);
-const second = safeLink(secondLink);
+const { title = '', lead, photo, buttonLabel, buttonTo, secondLabel, secondTo } = Astro.props;
+const first = (await linkTo(Astro, buttonTo))?.href;
+const second = (await linkTo(Astro, secondTo))?.href;
 ---
 
 <CtaBand title={title} lead={lead} {...(photo && { photo })}>

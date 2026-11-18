@@ -233,13 +233,19 @@ const ordered: ({ kind: 'menu'; id: string; label: string; order: number } | { k
   // 13. Home and About are pages built in the editor when the CMS has them published, and the
   //     template's own views until then, so a site is never without either.
   add('src/components/cms/HomeSchema.astro', 'builder/HomeSchema.astro');
-  const builtFirst = (view, inside = '') => (source) => {
+  const builtFirst = (view, inside, after, locale) => (source) => {
     let next = must(source, `import ${view} from '@/views/${view}.astro';`, `import { entryPage } from '@velocity/cms-astro';\nimport BuilderPage from '@/components/cms/BuilderPage.astro';${inside && "\nimport HomeSchema from '@/components/cms/HomeSchema.astro';"}\nimport ${view} from '@/views/${view}.astro';`);
-    next = must(next, "import { defaultLocale } from '@/i18n';\n", "import { defaultLocale } from '@/i18n';\n\nconst built = await entryPage(Astro, { types: ['pages'] });\n");
-    return must(next, `<${view} locale={defaultLocale} />`, `{built ? <BuilderPage page={built.entry.data}>${inside}</BuilderPage> : <${view} locale={defaultLocale} />}`);
+    next = must(next, after, `${after}\nconst built = await entryPage(Astro, { types: ['pages'] });\n`);
+    return must(next, `<${view} locale={${locale}} />`, `{built ? <BuilderPage page={built.entry.data}>${inside}</BuilderPage> : <${view} locale={${locale}} />}`);
   };
-  edit('src/pages/index.astro', builtFirst('HomeView', '<HomeSchema />'));
-  edit('src/pages/about.astro', builtFirst('AboutView'));
+  const first = ["import { defaultLocale } from '@/i18n';\n", 'defaultLocale'];
+  // The other languages' pages, which step 2 moved: each is built once it has a page of its own
+  // in that language, and until then keeps the template's view in that language.
+  const others = ['const { locale } = Astro.props as { locale: Locale };\n', 'locale'];
+  edit('src/pages/index.astro', builtFirst('HomeView', '<HomeSchema />', ...first));
+  edit('src/pages/about.astro', builtFirst('AboutView', '', ...first));
+  edit('src/live-pages/lang/index.astro', builtFirst('HomeView', '<HomeSchema />', ...others));
+  edit('src/live-pages/lang/about.astro', builtFirst('AboutView', '', ...others));
 
   return changes;
 }

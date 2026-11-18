@@ -1,11 +1,8 @@
-import { pageAddress, type Cms, type ContentTypeDef, type Entry } from '@velocity/cms-core';
-import { sharedConnection, SITE } from './connection.js';
+import type { Cms } from '@velocity/cms-core';
+import { sharedConnection } from './connection.js';
+import { DEFAULT_LOCALE, entriesOf, linkResolver } from './link.js';
 import type { DrawnPage } from './page-head.js';
 import { isPreview, withPreviewDraft } from './preview.js';
-
-/** The language of the pages at a type's `urlPattern`. */
-const DEFAULT_LOCALE = 'en';
-const PAGE_SIZE = 500;
 
 /** One link of a menu, ready to be written into a page. */
 export interface MenuLink {
@@ -47,17 +44,6 @@ export interface MenuOptions {
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 
-/** Every entry of a type, read once for a menu however many of its links point there. */
-async function entriesOf(cms: Cms, type: ContentTypeDef): Promise<Entry[]> {
-  const entries: Entry[] = [];
-  for (let offset = 0; ; offset += PAGE_SIZE) {
-    const page = await cms.content.find(SITE, { typeId: type.id, limit: PAGE_SIZE, offset });
-    entries.push(...page.items);
-    if (offset + page.items.length >= page.total || page.items.length === 0) break;
-  }
-  return entries;
-}
-
 /** `menuLinks` for a CMS already at hand. `preview` reads the versions being worked on. */
 export async function menuLinksFrom(cms: Cms, locale: string, options: MenuOptions, preview = false): Promise<MenuLink[]> {
   const types = await cms.schema.list();
@@ -70,26 +56,15 @@ export async function menuLinksFrom(cms: Cms, locale: string, options: MenuOptio
   const items = cms.content.toPublic(holder, withPreviewDraft(menu), preview ? 'working' : 'published').data[options.field];
   if (!Array.isArray(items)) return [];
 
-  const read = new Map<string, Promise<Entry[]>>();
+  const resolve = linkResolver(cms, locale, preview);
   /** One item as a link, or nothing when it has no label or leads nowhere a visitor can go. */
   const linkOf = async (item: unknown): Promise<MenuLink | undefined> => {
     if (!isRecord(item)) return undefined;
     const label = item[options.labelKey ?? 'label'];
     const link = item[options.linkKey ?? 'link'];
     if (typeof label !== 'string' || label.trim() === '' || !isRecord(link)) return undefined;
-    if (link['kind'] === 'address' && typeof link['href'] === 'string') {
-      return { label, href: link['href'], external: /^[a-z][a-z0-9+.-]*:/i.test(link['href']) };
-    }
-    // A link to an entry goes to wherever that entry's page is now, in this language if it has
-    // one. An entry that is gone, or not published, has no page: the link is left out.
-    const type = types.find((candidate) => candidate.key === link['type']);
-    if (link['kind'] !== 'entry' || !type) return undefined;
-    if (!read.has(type.id)) read.set(type.id, entriesOf(cms, type));
-    const versions = ((await read.get(type.id)) ?? []).filter((entry) => entry.translationGroup === link['entry']);
-    const target = versions.find((entry) => entry.locale === locale) ?? versions.find((entry) => entry.locale === DEFAULT_LOCALE);
-    const shown = target && (preview ? { slug: target.slug, data: target.data } : target.published);
-    const href = target && shown ? pageAddress(type, { locale: target.locale, slug: shown.slug, data: shown.data }, DEFAULT_LOCALE) : null;
-    return href === null ? undefined : { label, href, external: false };
+    const target = await resolve(link);
+    return target && { label, ...target };
   };
   const linksOf = async (list: unknown): Promise<MenuLink[]> => {
     const found: MenuLink[] = [];

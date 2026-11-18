@@ -4,7 +4,7 @@ import MediaSlot from '@/components/patterns/MediaSlot.astro';
 import Icon from '@/components/ui/primitives/Icon/Icon.astro';
 import Band from '@/components/estate/Band.astro';
 import EstateButton from '@/components/estate/EstateButton.astro';
-import { safeLink } from '@/cms/blocks';
+import { linkTo } from '@velocity/cms-astro';
 import { getLocale, useTranslations } from '@/i18n';
 
 interface Props {
@@ -19,15 +19,15 @@ interface Props {
   figureUnit?: string;
   points?: string[];
   buttonLabel?: string;
-  buttonLink?: string;
+  buttonTo?: unknown;
   secondLabel?: string;
-  secondLink?: string;
+  secondTo?: unknown;
 }
 
-const { eyebrow, title, lead, photo, photoAlt = '', secondPhoto, figureLabel, figure, figureUnit, points = [], buttonLabel, buttonLink, secondLabel, secondLink } = Astro.props;
+const { eyebrow, title, lead, photo, photoAlt = '', secondPhoto, figureLabel, figure, figureUnit, points = [], buttonLabel, buttonTo, secondLabel, secondTo } = Astro.props;
 const t = useTranslations(getLocale(Astro));
-const first = safeLink(buttonLink);
-const second = safeLink(secondLink);
+const first = (await linkTo(Astro, buttonTo))?.href;
+const second = (await linkTo(Astro, secondTo))?.href;
 const pmPoints = points;
 ---
 

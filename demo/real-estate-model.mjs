@@ -217,7 +217,7 @@ const ICONS = {
 };
 const button = (prefix, label) => [
   text(`${prefix}Label`, `${label} words`),
-  text(`${prefix}Link`, `${label} link`, { help: 'A page of this site, such as /contact/, or a full address starting with https://.' }),
+  field('link')(`${prefix}To`, `${label} goes to`, { help: 'A page of this site, chosen by name, or an address typed by hand.' }),
 ];
 
 const pageBlocks = [
@@ -469,14 +469,14 @@ export const samplePages = [
     body: [
       { block: 'home-hero', data: { eyebrow: 'Real estate and property management', title: 'Find a place you’ll love', titleAccent: 'coming home to.', lead: 'Buy, sell or rent with a local team that knows every neighborhood, and that manages homes for owners who’d rather not take the 2 a.m. calls.', photo: 'room-living-modern', photoAlt: 'A bright, open-plan living room with modern furniture', points: ['Licensed brokerage', 'Local and independent', 'Full-service management'], listing: 'lakeshore-farmhouse' } },
       { block: 'services', data: { eyebrow: 'What we do', title: 'One team for every stage of owning a home', lead: 'Whatever brings you here, one local team handles it from the first call to the keys.', items: [
-        { title: 'Buy a home', text: 'Tour on your schedule and get an agent who negotiates like it’s their own money.', icon: 'home', photo: 'home-farmhouse', linkLabel: 'Start your search', linkLink: '/homes-for-sale/' },
-        { title: 'Sell your home', text: 'Pricing backed by local sales, professional photos and a launch plan built to sell.', icon: 'signpost', photo: 'home-brick', linkLabel: 'Get a valuation', linkLink: '/sell/' },
-        { title: 'Find a rental', text: 'Browse homes and apartments, apply online and move in without the runaround.', icon: 'key', photo: 'room-living-city', linkLabel: 'Browse rentals', linkLink: '/rentals/' },
-        { title: 'Property management', text: 'Leasing, rent, maintenance and reporting for single-family and small multifamily owners.', icon: 'building-2', photo: 'room-kitchen-white', linkLabel: 'For owners', linkLink: '/property-management/' },
+        { title: 'Buy a home', text: 'Tour on your schedule and get an agent who negotiates like it’s their own money.', icon: 'home', photo: 'home-farmhouse', linkLabel: 'Start your search', linkTo: { kind: 'address', href: '/homes-for-sale/' } },
+        { title: 'Sell your home', text: 'Pricing backed by local sales, professional photos and a launch plan built to sell.', icon: 'signpost', photo: 'home-brick', linkLabel: 'Get a valuation', linkTo: { kind: 'address', href: '/sell/' } },
+        { title: 'Find a rental', text: 'Browse homes and apartments, apply online and move in without the runaround.', icon: 'key', photo: 'room-living-city', linkLabel: 'Browse rentals', linkTo: { kind: 'address', href: '/rentals/' } },
+        { title: 'Property management', text: 'Leasing, rent, maintenance and reporting for single-family and small multifamily owners.', icon: 'building-2', photo: 'room-kitchen-white', linkLabel: 'For owners', linkTo: { kind: 'address', href: '/property-management/' } },
       ] } },
       { block: 'listing-spotlight', data: { eyebrow: 'Featured listing', listing: 'lakeshore-farmhouse', buttonLabel: 'View the home', tourLabel: 'Schedule a tour' } },
       { block: 'listings', data: { eyebrow: 'Featured properties', title: 'Homes on the market now', show: 'both', count: '6' } },
-      { block: 'photo-points', data: { eyebrow: 'Property management', title: 'Your rental, handled.', lead: 'We market your home, screen every applicant, collect rent and coordinate repairs with vetted local vendors. You get a clear monthly statement and a team that answers.', photo: 'room-kitchen-wood', photoAlt: 'A modern kitchen with wood cabinets and an island', secondPhoto: 'outdoor-pergola', figure: '7%', figureLabel: 'Full management from', figureUnit: 'of monthly rent', points: ['Tenant screening and leasing', 'Online rent collection', '24/7 maintenance line', 'Monthly owner statements', 'Vetted local vendors', 'Renewals and move-outs'], buttonLabel: 'Get a free rental analysis', buttonLink: '/property-management/#analysis', secondLabel: 'See plans and pricing', secondLink: '/property-management/#plans' } },
+      { block: 'photo-points', data: { eyebrow: 'Property management', title: 'Your rental, handled.', lead: 'We market your home, screen every applicant, collect rent and coordinate repairs with vetted local vendors. You get a clear monthly statement and a team that answers.', photo: 'room-kitchen-wood', photoAlt: 'A modern kitchen with wood cabinets and an island', secondPhoto: 'outdoor-pergola', figure: '7%', figureLabel: 'Full management from', figureUnit: 'of monthly rent', points: ['Tenant screening and leasing', 'Online rent collection', '24/7 maintenance line', 'Monthly owner statements', 'Vetted local vendors', 'Renewals and move-outs'], buttonLabel: 'Get a free rental analysis', buttonTo: { kind: 'address', href: '/property-management/#analysis' }, secondLabel: 'See plans and pricing', secondTo: { kind: 'address', href: '/property-management/#plans' } } },
       { block: 'neighborhoods', data: { eyebrow: 'Neighborhood guides', title: 'Explore where you could live', linkLabel: 'All neighborhoods' } },
       { block: 'steps', data: { eyebrow: 'How it works', title: 'From first call to keys in hand', photo: 'outdoor-rooftop', items: [
         { title: 'A free consultation', text: 'Tell us what you need. We’ll walk you through the market, timing and budget, with no obligation.' },
@@ -487,7 +487,7 @@ export const samplePages = [
       { block: 'reviews', data: { eyebrow: 'Reviews', title: 'What our clients say', layout: 'spotlight' } },
       { block: 'valuation', data: { eyebrow: 'Thinking of selling?', title: 'Find out what your home is worth', lead: 'A free, no-obligation valuation prepared by a local agent who knows your street, not an algorithm.', buttonLabel: 'Get my valuation', photo: 'room-living-fireplace', photoAlt: 'A sunlit living room with a fireplace and a dining area', results: 'show' } },
       { block: 'journal', data: { eyebrow: 'Guides', title: 'Advice for buyers, sellers and owners', linkLabel: 'All guides' } },
-      { block: 'call-to-action', data: { title: 'Ready to make a move?', lead: 'Talk to a local agent today. No pressure, just straight answers.', photo: 'home-modern', buttonLabel: 'Schedule a tour', buttonLink: '/schedule-a-tour/', secondLabel: 'Contact us', secondLink: '/contact/' } },
+      { block: 'call-to-action', data: { title: 'Ready to make a move?', lead: 'Talk to a local agent today. No pressure, just straight answers.', photo: 'home-modern', buttonLabel: 'Schedule a tour', buttonTo: { kind: 'address', href: '/schedule-a-tour/' }, secondLabel: 'Contact us', secondTo: { kind: 'address', href: '/contact/' } } },
     ],
   },
   {
@@ -506,7 +506,7 @@ export const samplePages = [
       ] } },
       { block: 'team', data: { eyebrow: 'The team', title: 'The people you’ll work with', linkLabel: 'Meet everyone' } },
       { block: 'reviews', data: { eyebrow: 'Reviews', title: 'Our agents, in their clients’ words', layout: 'people' } },
-      { block: 'call-to-action', data: { title: 'Let’s talk', lead: 'Whatever you’re planning, we’re happy to help you think it through.', buttonLabel: 'Contact us', buttonLink: '/contact/', secondLabel: 'Browse homes', secondLink: '/homes-for-sale/' } },
+      { block: 'call-to-action', data: { title: 'Let’s talk', lead: 'Whatever you’re planning, we’re happy to help you think it through.', buttonLabel: 'Contact us', buttonTo: { kind: 'address', href: '/contact/' }, secondLabel: 'Browse homes', secondTo: { kind: 'address', href: '/homes-for-sale/' } } },
     ],
   },
   {
@@ -523,13 +523,64 @@ export const samplePages = [
         { icon: 'message-circle', title: 'An answer the same day', text: 'Your agent picks up, and tells you what every showing said.' },
         { icon: 'shield-check', title: 'No surprises at closing', text: 'You see your net proceeds before you list, and again with every offer.' },
       ] } },
-      { block: 'feature-split', data: { eyebrow: 'Before you list', title: 'We get the house ready with you', body: ['Most homes sell faster after a week of small work: paint, light, and a clear room or two. We walk the house with you, say what is worth doing, and bring the people who do it.', 'Then we photograph it in the right light, and it goes live on a Thursday, when buyers plan their weekend.'], photo: 'room-kitchen-white', photoAlt: 'A bright kitchen with white cabinets', photoSide: 'right', buttonLabel: 'Ask for a walk-through', buttonLink: '/contact/' } },
+      { block: 'feature-split', data: { eyebrow: 'Before you list', title: 'We get the house ready with you', body: ['Most homes sell faster after a week of small work: paint, light, and a clear room or two. We walk the house with you, say what is worth doing, and bring the people who do it.', 'Then we photograph it in the right light, and it goes live on a Thursday, when buyers plan their weekend.'], photo: 'room-kitchen-white', photoAlt: 'A bright kitchen with white cabinets', photoSide: 'right', buttonLabel: 'Ask for a walk-through', buttonTo: { kind: 'address', href: '/contact/' } } },
       { block: 'questions', data: { title: 'What sellers ask first', items: [
         { question: 'What does it cost to list?', answer: 'Our fee is a share of the sale price, agreed before you sign and paid at closing. There is nothing to pay up front.' },
         { question: 'How long is the agreement?', answer: 'Ninety days. If we have not done what the plan says, you can end it sooner.' },
         { question: 'Do I have to leave for showings?', answer: 'It helps. Buyers stay longer and say more when the owner is out, and we give you a day\'s notice.' },
       ] } },
-      { block: 'call-to-action', data: { title: 'Find out what your home could sell for', lead: 'A free, written estimate from an agent who knows your street.', photo: 'home-modern', buttonLabel: 'Talk to an agent', buttonLink: '/contact/', secondLabel: 'See recent sales', secondLink: '/homes-for-sale/' } },
+      { block: 'call-to-action', data: { title: 'Find out what your home could sell for', lead: 'A free, written estimate from an agent who knows your street.', photo: 'home-modern', buttonLabel: 'Talk to an agent', buttonTo: { kind: 'address', href: '/contact/' }, secondLabel: 'See recent sales', secondTo: { kind: 'address', href: '/homes-for-sale/' } } },
+    ],
+  },
+  // The same two pages in Spanish, from the template's own Spanish copy. `translates` names the
+  // English page each belongs with when its slug differs.
+  {
+    locale: 'es',
+    slug: 'index',
+    title: 'Casas en venta, alquileres y administración de propiedades',
+    description: 'Compre, venda o alquile con una inmobiliaria local independiente, y deje que administremos su propiedad. Busque casas, explore barrios y agende una visita.',
+    body: [
+      { block: 'home-hero', data: { eyebrow: 'Inmobiliaria y administración de propiedades', title: 'Encuentre un lugar al que', titleAccent: 'le encante volver.', lead: 'Compre, venda o alquile con un equipo local que conoce cada barrio, y que administra casas para los propietarios que prefieren no atender llamadas a las 2 de la madrugada.', photo: 'room-living-modern', photoAlt: 'Una sala luminosa y abierta con muebles modernos', points: ['Inmobiliaria con licencia', 'Local e independiente', 'Administración integral'], listing: 'lakeshore-farmhouse' } },
+      { block: 'services', data: { eyebrow: 'Lo que hacemos', title: 'Un solo equipo para cada etapa', lead: 'Venga por lo que venga, un mismo equipo local se encarga de todo, de la primera llamada a las llaves.', items: [
+        { title: 'Comprar una casa', text: 'Visite casas a su ritmo, con un agente que negocia como si fuera su propio dinero.', icon: 'home', photo: 'home-farmhouse', linkLabel: 'Empezar a buscar', linkTo: { kind: 'address', href: '/es/casas-en-venta/' } },
+        { title: 'Vender su casa', text: 'Un precio basado en ventas locales, fotos profesionales y un plan de lanzamiento pensado para vender.', icon: 'signpost', photo: 'home-brick', linkLabel: 'Pedir valoración', linkTo: { kind: 'address', href: '/es/vender/' } },
+        { title: 'Encontrar un alquiler', text: 'Vea casas y apartamentos, presente la solicitud en línea y múdese sin complicaciones.', icon: 'key', photo: 'room-living-city', linkLabel: 'Ver alquileres', linkTo: { kind: 'address', href: '/es/alquileres/' } },
+        { title: 'Administración', text: 'Arrendamiento, cobro, mantenimiento e informes para propietarios de casas y pequeños edificios.', icon: 'building-2', photo: 'room-kitchen-white', linkLabel: 'Para propietarios', linkTo: { kind: 'address', href: '/es/administracion-de-propiedades/' } },
+      ] } },
+      { block: 'listing-spotlight', data: { eyebrow: 'Propiedad destacada', listing: 'lakeshore-farmhouse', buttonLabel: 'Ver la casa', tourLabel: 'Agendar una visita' } },
+      { block: 'listings', data: { eyebrow: 'Propiedades destacadas', title: 'Casas en el mercado ahora', show: 'both', count: '6' } },
+      { block: 'photo-points', data: { eyebrow: 'Administración de propiedades', title: 'Su alquiler, resuelto.', lead: 'Promocionamos su casa, evaluamos a cada solicitante, cobramos el alquiler y coordinamos reparaciones con proveedores locales de confianza. Usted recibe un estado mensual claro y un equipo que contesta.', photo: 'room-kitchen-wood', photoAlt: 'Una cocina moderna con armarios de madera y una isla', secondPhoto: 'outdoor-pergola', figure: '7%', figureLabel: 'Administración integral desde', figureUnit: 'de la renta mensual', points: ['Evaluación y arrendamiento', 'Cobro del alquiler en línea', 'Mantenimiento 24/7', 'Estados mensuales', 'Proveedores de confianza', 'Renovaciones y mudanzas'], buttonLabel: 'Pedir un análisis de alquiler', buttonTo: { kind: 'address', href: '/es/administracion-de-propiedades/#analysis' }, secondLabel: 'Ver planes y precios', secondTo: { kind: 'address', href: '/es/administracion-de-propiedades/#plans' } } },
+      { block: 'neighborhoods', data: { eyebrow: 'Guías de barrios', title: 'Descubra dónde podría vivir', linkLabel: 'Todos los barrios' } },
+      { block: 'steps', data: { eyebrow: 'Cómo funciona', title: 'De la llamada a las llaves', photo: 'outdoor-rooftop', items: [
+        { title: 'Una consulta gratuita', text: 'Cuéntenos qué necesita. Le explicaremos el mercado, los plazos y el presupuesto, sin compromiso.' },
+        { title: 'Un plan a su medida', text: 'Una estrategia clara para comprar, vender o alquilar, con todos los costos desde el principio.' },
+        { title: 'Nosotros hacemos el trabajo', text: 'Visitas, promoción, negociación, inspecciones y papeleo, a cargo de su agente.' },
+        { title: 'Las llaves en la mano', text: 'Cierre con tranquilidad. Si es propietario, puede pasar la casa directamente a nuestro equipo de administración.' },
+      ] } },
+      { block: 'reviews', data: { eyebrow: 'Reseñas', title: 'Lo que dicen nuestros clientes', layout: 'spotlight' } },
+      { block: 'valuation', data: { eyebrow: '¿Piensa vender?', title: 'Descubra cuánto vale su casa', lead: 'Una valoración gratuita y sin compromiso, preparada por un agente local que conoce su calle, no por un algoritmo.', buttonLabel: 'Quiero mi valoración', photo: 'room-living-fireplace', photoAlt: 'Una sala soleada con chimenea y comedor', results: 'show' } },
+      { block: 'journal', data: { eyebrow: 'Guías', title: 'Consejos para comprar, vender y alquilar', linkLabel: 'Todas las guías' } },
+      { block: 'call-to-action', data: { title: '¿Listo para dar el paso?', lead: 'Hable hoy con un agente local. Sin presiones, solo respuestas claras.', photo: 'home-modern', buttonLabel: 'Agendar una visita', buttonTo: { kind: 'address', href: '/es/agendar-visita/' }, secondLabel: 'Contáctenos', secondTo: { kind: 'address', href: '/es/contacto/' } } },
+    ],
+  },
+  {
+    locale: 'es',
+    slug: 'nosotros',
+    translates: 'about',
+    title: 'Quiénes somos',
+    description: 'Una inmobiliaria local independiente que contesta su propio teléfono. Nuestra historia, en qué creemos y quiénes somos.',
+    body: [
+      { block: 'page-hero', data: { eyebrow: 'Quiénes somos', title: 'Una inmobiliaria local que contesta su propio teléfono.', lead: 'Compramos, vendemos, alquilamos y administramos casas en los barrios donde vivimos, con un equipo pequeño que conoce a sus clientes por su nombre.', size: 'lg', background: 'glow', photo: 'room-lounge', photoAlt: 'Una sala moderna con ventanales de piso a techo' } },
+      { block: 'text', data: { title: 'Por qué empezamos', layout: 'beside', body: ['[Su historia. Este es un texto de ejemplo.] Oakhaven nació de una idea sencilla: el sector inmobiliario es personal, y quienes le ayudan deberían conocer su calle, sus escuelas y su nombre.', 'Seguimos siendo pequeños a propósito. Cada cliente trabaja con un agente concreto, cada propietario con un administrador concreto, y cada llamada la contesta una persona.', 'Hoy ayudamos a comprar, vender y alquilar, y cuidamos casas en alquiler para propietarios de toda la ciudad.'] } },
+      { block: 'feature-grid', data: { eyebrow: 'En qué creemos', title: 'Cómo trabajamos', columns: '4', tone: 'secondary', items: [
+        { icon: 'handshake', title: 'Respuestas claras', text: 'Le diremos cuánto vale una casa, aunque no sea lo que esperaba.' },
+        { icon: 'map', title: 'De verdad locales', text: 'Trabajamos donde vivimos, así que sabemos qué calles se inundan y dónde hay buen café.' },
+        { icon: 'message-circle', title: 'Contestamos', text: 'Responde una persona real, y devolvemos las llamadas el mismo día.' },
+        { icon: 'shield-check', title: 'Justos con todos', text: 'La vivienda justa no es un trámite: es cómo evaluamos, mostramos y vendemos.' },
+      ] } },
+      { block: 'team', data: { eyebrow: 'El equipo', title: 'Las personas con las que trabajará', linkLabel: 'Conocer a todos' } },
+      { block: 'reviews', data: { eyebrow: 'Reseñas', title: 'Nuestros agentes, en palabras de sus clientes', layout: 'people' } },
+      { block: 'call-to-action', data: { title: 'Hablemos', lead: 'Sea lo que sea que esté planeando, con gusto le ayudamos a pensarlo.', buttonLabel: 'Contáctenos', buttonTo: { kind: 'address', href: '/es/contacto/' }, secondLabel: 'Ver casas', secondTo: { kind: 'address', href: '/es/casas-en-venta/' } } },
     ],
   },
 ];

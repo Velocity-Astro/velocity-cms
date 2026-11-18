@@ -3,7 +3,8 @@
 import Band from '@/components/estate/Band.astro';
 import EstateButton from '@/components/estate/EstateButton.astro';
 import MediaSlot from '@/components/patterns/MediaSlot.astro';
-import { safeLink, type RichText } from '@/cms/blocks';
+import { linkTo } from '@velocity/cms-astro';
+import type { RichText } from '@/cms/blocks';
 
 interface Props {
   eyebrow?: string;
@@ -14,11 +15,11 @@ interface Props {
   photoSide?: 'left' | 'right';
   tone?: 'default' | 'secondary';
   buttonLabel?: string;
-  buttonLink?: string;
+  buttonTo?: unknown;
 }
 
-const { eyebrow, title, body, photo, photoAlt = '', photoSide = 'right', tone = 'default', buttonLabel, buttonLink } = Astro.props;
-const href = safeLink(buttonLink);
+const { eyebrow, title, body, photo, photoAlt = '', photoSide = 'right', tone = 'default', buttonLabel, buttonTo } = Astro.props;
+const href = (await linkTo(Astro, buttonTo))?.href;
 ---
 
 <Band tone={tone} width="wide">

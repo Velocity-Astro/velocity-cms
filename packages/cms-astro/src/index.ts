@@ -20,6 +20,7 @@ export {
 export { isEditorPreview, isPreview } from './preview.js';
 export { pageHead, type DrawnPage } from './page-head.js';
 export { entryPage, entryPageAddresses, type EntryPage, type EntryPageOptions } from './entry-page.js';
+export { linkTo, type LinkTarget } from './link.js';
 export { menuLinks, type MenuColumn, type MenuLink, type MenuOptions } from './menu.js';
 export type { PageHead } from '@velocity/cms-core';
 export { cmsLoader, type CmsLoaderOptions } from './loader.js';
