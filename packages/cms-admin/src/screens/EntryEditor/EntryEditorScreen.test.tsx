@@ -7,7 +7,7 @@ import { createFieldControlRegistry, createFieldControls } from '../../fields/in
 import { tinyPng } from '@velocity/cms-core/in-memory';
 import { MemoryAdminClient } from '../../testing/memory-client.js';
 import { renderApp } from '../../testing/render-app.js';
-import { sampleContentTypes, sampleEntries, sampleUser } from '../../testing/sample-content.js';
+import { sampleContentTypes, sampleEntries, samplePagesType, sampleUser } from '../../testing/sample-content.js';
 
 const signedIn = () => ({ user: sampleUser, contentTypes: sampleContentTypes, entries: sampleEntries() });
 const saveBar = () => within(screen.getByRole('region', { name: 'Save and publish' }));
@@ -119,6 +119,24 @@ it('creates an entry whose slug follows its title, and carries on editing it', a
 
   await user.click(within(screen.getByRole('region', { name: 'Save and publish' })).getByRole('link', { name: 'Agents' }));
   expect(await screen.findByRole('rowheader', { name: /^María Ortiz Vega/ })).toBeTruthy();
+});
+
+it('takes an address of several parts where the type allows pages under pages', async () => {
+  const user = userEvent.setup();
+  const deepPages = { ...samplePagesType, urlPattern: '/[...slug]' };
+  const { client } = renderApp('/content/pages/new', { user: sampleUser, contentTypes: [deepPages], entries: [] });
+  await user.type(await field('Title'), 'Roofing');
+  await user.clear(await field('Slug'));
+  await user.type(await field('Slug'), 'services//roofing');
+  await user.click(screen.getByRole('button', { name: 'Save draft' }));
+  expect(await screen.findByText(/with a slash between the parts of a longer address/)).toBeTruthy();
+  expect((await client.listEntries({ type: 'pages' })).total).toBe(0);
+
+  await user.clear(await field('Slug'));
+  await user.type(await field('Slug'), 'services/roofing');
+  expect(screen.getByText(/The page's address on the site: \/services\/roofing\./)).toBeTruthy();
+  await user.click(screen.getByRole('button', { name: 'Save draft' }));
+  await waitFor(async () => expect((await client.listEntries({ type: 'pages' })).items[0]?.slug).toBe('services/roofing'));
 });
 
 it('asks for a usable slug before sending anything', async () => {

@@ -7,7 +7,7 @@ import type { ContentTypeDef, Entry, EntryData, EntryVersion, Page, PublicEntry,
 import type { Clock, EntryQuery, EntryRepository, IdGenerator } from '../ports.js';
 import type { Registry } from '../registry.js';
 import { toPublicData, validateData } from '../schema-builder.js';
-import { isSlug } from '../slug.js';
+import { isSlug, isSlugPath, takesSlugPath } from '../slug.js';
 import type { SchemaService } from './schema-service.js';
 
 export interface CreateEntryInput {
@@ -78,7 +78,7 @@ export class ContentService {
   async create(actor: Actor, input: CreateEntryInput): Promise<Entry> {
     this.access.require(actor, 'entry:write');
     const type = await this.schema.getLive(input.typeId);
-    requireSlug(input.slug);
+    requireSlug(input.slug, type);
     // A single is one page, such as the home page: one entry in each language, and no more.
     if (type.kind === 'single' && (await this.entries.find({ typeId: type.id, locale: input.locale, limit: 1 })).total > 0) {
       throw new ConflictError(`"${type.key}" is a single page and already has its entry in this language. Open that entry to change it.`);
@@ -104,8 +104,8 @@ export class ContentService {
     this.access.require(actor, 'entry:write');
     const current = await this.load(id);
     this.requireRevision(current, input.expectedRevision);
-    if (input.slug !== undefined) requireSlug(input.slug);
     const type = await this.schema.getLive(current.typeId);
+    if (input.slug !== undefined) requireSlug(input.slug, type);
 
     // Only the working version changes, so it may be unfinished even when the entry is published.
     const data =
@@ -211,12 +211,16 @@ export class ContentService {
 /** The path a problem with the slug is reported at. No field can have this key: keys are words. */
 export const SLUG_PATH = '$slug';
 
-function requireSlug(slug: string): void {
-  if (isSlug(slug)) return;
+function requireSlug(slug: string, type: ContentTypeDef): void {
+  // Only a type whose address pattern says [...slug] has pages under other pages.
+  const deep = takesSlugPath(type);
+  if (deep ? isSlugPath(slug) : isSlug(slug)) return;
   const message =
     slug === ''
       ? 'Give this entry a slug. It is the last part of its address.'
-      : `"${slug}" cannot be a slug. Use lowercase letters, numbers and hyphens, such as lake-house.`;
+      : deep
+        ? `"${slug}" cannot be a slug. Use lowercase letters, numbers and hyphens, with a slash between the parts of a longer address, such as services/roofing.`
+        : `"${slug}" cannot be a slug. Use lowercase letters, numbers and hyphens, such as lake-house.`;
   throw new ValidationError(message, [{ path: [SLUG_PATH], message }]);
 }
 

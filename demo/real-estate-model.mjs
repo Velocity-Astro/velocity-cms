@@ -278,8 +278,9 @@ const pageBlocks = [
 
 const pages = {
   key: 'pages',
-  urlPattern: '/[slug]',
-  localizedUrlPatterns: { es: '/es/[slug]' },
+  // A page may sit under another: its slug can be services/roofing.
+  urlPattern: '/[...slug]',
+  localizedUrlPatterns: { es: '/es/[...slug]' },
   kind: 'collection',
   label: { en: 'Pages', es: 'Páginas' },
   titleField: 'title',

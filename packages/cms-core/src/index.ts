@@ -112,7 +112,7 @@ export {
   type PluginInfo,
   type PluginStatus,
 } from './plugin.js';
-export { MAX_SLUG_LENGTH, isSlug } from './slug.js';
+export { MAX_SLUG_LENGTH, MAX_SLUG_PARTS, SLUG_PATH_NAME, isSlug, isSlugPath, takesSlugPath } from './slug.js';
 export { MARK_CLOSE, MARK_OPEN, escapeHtml, markedExcerpt, searchWords } from './search-text.js';
 export { buildFieldsSchema, toPublicData, validateData } from './schema-builder.js';
 export {
