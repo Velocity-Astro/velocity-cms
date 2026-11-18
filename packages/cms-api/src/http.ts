@@ -44,6 +44,8 @@ const STATUS: Readonly<Record<string, { status: number; code: ApiErrorCode }>> =
   conflict: { status: 409, code: 'conflict' },
   not_found: { status: 404, code: 'not_found' },
   forbidden: { status: 403, code: 'forbidden' },
+  // A plugin broke while answering. The message is the host's, and says nothing of the inside.
+  plugin_failed: { status: 502, code: 'internal' },
 };
 
 // Nothing the API says may be kept by a cache: it includes drafts, and it differs per person.

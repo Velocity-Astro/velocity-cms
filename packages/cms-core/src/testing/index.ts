@@ -2,6 +2,7 @@ export {
   entryRepositoryContract,
   mediaRepositoryContract,
   mediaStoreContract,
+  pluginStoreContract,
   schemaRepositoryContract,
   searchIndexContract,
 } from './contracts.js';
@@ -11,6 +12,7 @@ export {
   InMemoryImageLibrary,
   InMemoryMediaRepository,
   InMemoryMediaStore,
+  InMemoryPluginStore,
   InMemorySchemaRepository,
   InMemorySearchIndex,
   SequentialIds,

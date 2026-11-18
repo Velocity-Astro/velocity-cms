@@ -169,6 +169,33 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       ]);
     });
 
+    it('switches a plugin off and on, and saves its settings by field id', async () => {
+      const site = await make({
+        contentTypes: [],
+        entries: [],
+        plugins: [
+          definePlugin({
+            name: 'seo',
+            apiVersion: 1,
+            label: { en: 'SEO' },
+            enabledByDefault: false,
+            settings: [{ key: 'titleSuffix', type: 'text', label: { en: 'Title ending' }, required: true }],
+            setup: () => undefined,
+          }),
+        ],
+      });
+      expect((await site.listPlugins())[0]).toMatchObject({ name: 'seo', status: 'off', hasSettings: true });
+      expect(await site.setPluginEnabled('seo', true)).toMatchObject({ status: 'on' });
+      expect((await site.listPlugins())[0]?.status).toBe('on');
+
+      const { fields, values } = await site.getPluginSettings('seo');
+      expect([fields.map((field) => field.key), values]).toEqual([['titleSuffix'], {}]);
+      const suffix = fields[0]?.id ?? '';
+      await expect(site.savePluginSettings('seo', {})).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['titleSuffix'], message: 'Fill this in.' }] });
+      expect((await site.savePluginSettings('seo', { [suffix]: ' | Lakeshore' })).values).toEqual({ [suffix]: ' | Lakeshore' });
+      expect((await site.getPluginSettings('seo')).values).toEqual({ [suffix]: ' | Lakeshore' });
+    });
+
     it('keeps the person\'s own passkeys by name, and removes the one asked for', async () => {
       expect(await client.listPasskeys()).toEqual([]);
       await client.addPasskey('Work laptop');

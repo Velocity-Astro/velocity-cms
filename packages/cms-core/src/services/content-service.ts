@@ -1,3 +1,4 @@
+import { PublishChecks } from '../checks.js';
 import type { AccessControl, Actor } from '../access.js';
 import { ConflictError, NotFoundError, ValidationError } from '../errors.js';
 import type { EventBus } from '../events.js';
@@ -38,6 +39,7 @@ export class ContentService {
     private readonly events: EventBus,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
+    private readonly checks: PublishChecks = new PublishChecks(),
   ) {}
 
   async get(actor: Actor, id: string): Promise<Entry> {
@@ -131,6 +133,10 @@ export class ContentService {
     if (expectedRevision !== undefined) this.requireRevision(current, expectedRevision);
     const type = await this.schema.getLive(current.typeId);
     validateData(type.fields, current.data, this.context('publish'));
+    // Then what the site's plugins ask of an entry before it goes out.
+    const issues = await this.checks.run({ entry: this.toPublic(type, current, 'working'), type, actor });
+    const [first] = issues;
+    if (first) throw new ValidationError(first.message, issues);
 
     const now = this.clock.now();
     const revision = current.revision + 1;

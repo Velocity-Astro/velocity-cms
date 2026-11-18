@@ -1,4 +1,4 @@
-import { readImage, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PreviewLink, type SiteImage } from '@velocity/cms-core';
+import { readImage, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PluginSettings, type EntryData, type PreviewLink, type SiteImage } from '@velocity/cms-core';
 import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, SessionUser } from './admin-client.js';
 import { AdminRequestError, type RequestErrorCode, type RequestIssue } from './errors.js';
 
@@ -186,6 +186,18 @@ export class HttpAdminClient implements AdminClient {
 
   async listPlugins(): Promise<readonly PluginInfo[]> {
     return (await this.#get<{ items: PluginInfo[] }>('/plugins')).items;
+  }
+
+  setPluginEnabled(name: string, enabled: boolean): Promise<PluginInfo> {
+    return this.#send('PATCH', `/plugins/${encodeURIComponent(name)}`, { enabled });
+  }
+
+  getPluginSettings(name: string): Promise<PluginSettings> {
+    return this.#get(`/plugin-settings/${encodeURIComponent(name)}`);
+  }
+
+  savePluginSettings(name: string, values: EntryData): Promise<PluginSettings> {
+    return this.#send('PUT', `/plugin-settings/${encodeURIComponent(name)}`, { values });
   }
 
   listPasskeys(): Promise<readonly Passkey[]> {

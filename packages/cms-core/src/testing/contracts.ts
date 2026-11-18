@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ConflictError } from '../errors.js';
 import type { ContentTypeDef, Entry, MediaFile } from '../model.js';
-import type { EntryRepository, MediaRepository, MediaStore, SchemaRepository, SearchDocument, SearchIndex } from '../ports.js';
+import type { EntryRepository, MediaRepository, MediaStore, PluginStore, SchemaRepository, SearchDocument, SearchIndex } from '../ports.js';
 
 /**
  * The contract tests for storage adapters.
@@ -407,6 +407,48 @@ export function mediaStoreContract(name: string, create: () => Promise<MediaStor
       await store.remove('kitchen.jpg');
       await store.remove('kitchen.jpg');
       expect(await store.get('kitchen.jpg')).toBeNull();
+    });
+  });
+}
+
+export function pluginStoreContract(name: string, create: () => Promise<PluginStore>): void {
+  describe(`${name}: PluginStore contract`, () => {
+    let store: PluginStore;
+    beforeEach(async () => {
+      store = await create();
+    });
+
+    it('gives back a value exactly as it was set, and undefined for a key nothing is under', async () => {
+      await store.set('seo', 'settings', { titleSuffix: ' | Lakeshore', nested: [1, 'two', { three: true }] });
+      expect(await store.get('seo', 'settings')).toEqual({ titleSuffix: ' | Lakeshore', nested: [1, 'two', { three: true }] });
+      expect(await store.get('seo', 'missing')).toBeUndefined();
+    });
+
+    it('keeps false, zero, null and an empty text as values, apart from nothing', async () => {
+      for (const value of [false, 0, null, '']) {
+        await store.set('seo', 'value', value);
+        expect(await store.get('seo', 'value')).toBe(value);
+      }
+    });
+
+    it('replaces a value set again', async () => {
+      await store.set('seo', 'enabled', true);
+      await store.set('seo', 'enabled', false);
+      expect(await store.get('seo', 'enabled')).toBe(false);
+    });
+
+    it('keeps each plugin\'s values apart', async () => {
+      await store.set('seo', 'count', 1);
+      await store.set('forms', 'count', 2);
+      expect(await store.get('seo', 'count')).toBe(1);
+      expect(await store.get('forms', 'count')).toBe(2);
+    });
+
+    it('removes a value, and ignores a key nothing is under', async () => {
+      await store.set('seo', 'count', 1);
+      await store.remove('seo', 'count');
+      await store.remove('seo', 'count');
+      expect(await store.get('seo', 'count')).toBeUndefined();
     });
   });
 }

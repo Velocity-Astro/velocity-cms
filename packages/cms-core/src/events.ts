@@ -13,6 +13,8 @@ export interface CmsEvents {
   'entry.unpublished': { entry: Entry; before: Entry; actor: Actor };
   'media.uploaded': { file: MediaFile; actor: Actor };
   'media.removed': { file: MediaFile; actor: Actor };
+  /** A plugin was switched on or off, or its settings were saved. */
+  'plugin.changed': { plugin: string; actor: Actor };
 }
 
 type Listener<T> = (payload: T) => void | Promise<void>;

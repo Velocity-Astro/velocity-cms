@@ -1,24 +1,48 @@
 import type { PluginInfo } from '@velocity/cms-core';
-import { Box, EmptyState, Inline, PageHeader, Stack, Table, Tag, Text, type TableColumn, type TableRow } from '@velocity/cms-ui';
-import { Puzzle } from 'lucide-react';
+import { Box, Button, EmptyState, Inline, PageHeader, Stack, Switch, Table, Tag, Text, toast, type TableColumn, type TableRow } from '@velocity/cms-ui';
+import { Puzzle, Settings2 } from 'lucide-react';
+import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
-import { usePlugins } from '../../client/queries.js';
+import { usePlugins, useSetPluginEnabled } from '../../client/queries.js';
 import { localized } from '../../lib/content.js';
 import { relativeTime } from '../../lib/relative-time.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
+import { PluginSettingsDialog } from './PluginSettingsDialog.js';
 
-const TONES = { on: 'success', failed: 'danger', unsupported: 'warning', invalid: 'danger' } as const;
+const TONES = { on: 'success', off: 'neutral', failed: 'danger', unsupported: 'warning', invalid: 'danger' } as const;
+/** The states an owner can change with the switch. The others are a developer's to fix. */
+const SWITCHABLE: ReadonlySet<string> = new Set(['on', 'off', 'failed']);
+const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
-/** The plugins the site's config names: which are running, which were left out, and why. */
+/** Every plugin this site can use: which are active, a switch for each, their settings, and why one could not start. */
 export function PluginsScreen() {
   const messages = useMessages();
   const locale = useLocale();
   const plugins = usePlugins();
+  const setEnabled = useSetPluginEnabled();
+  const [settingUp, setSettingUp] = useState<PluginInfo | null>(null);
+
+  const flip = (plugin: PluginInfo, enabled: boolean) => {
+    const name = localized(plugin.label, locale);
+    setEnabled.mutate(
+      { name: plugin.name, enabled },
+      {
+        onSuccess: (now) => {
+          if (!enabled) return toast({ title: messages.plugins.deactivated(name), description: messages.plugins.deactivatedDescription });
+          // Asked to start and could not: the reason is the plugin's own, shown in its row too.
+          if (now.status !== 'on') return toast({ title: messages.plugins.notActivated(name), ...(now.problem !== undefined && { description: now.problem }), tone: 'danger' });
+          toast({ title: messages.plugins.activated(name), description: messages.plugins.activatedDescription, tone: 'success' });
+        },
+        onError: (error) => toast({ title: messages.plugins.notSwitched, description: messageOf(error), tone: 'danger' }),
+      },
+    );
+  };
 
   const columns: TableColumn[] = [
     { id: 'name', label: messages.plugins.columnName },
     { id: 'state', label: messages.plugins.columnState },
     { id: 'may', label: messages.plugins.columnMay },
+    { id: 'actions', label: messages.plugins.columnActions, align: 'end' },
   ];
   /** What went wrong, most pressing first: why it is off, else the last time it failed while running. */
   const trouble = (plugin: PluginInfo) =>
@@ -26,6 +50,7 @@ export function PluginsScreen() {
   const rows: TableRow[] = (plugins.data ?? []).map((plugin) => {
     const description = plugin.description ? localized(plugin.description, locale) : null;
     const problem = trouble(plugin);
+    const name = localized(plugin.label, locale);
     return {
       id: plugin.name,
       cells: {
@@ -58,6 +83,18 @@ export function PluginsScreen() {
             {plugin.permissions.length === 0 ? messages.plugins.mayNothing : plugin.permissions.map((permission) => messages.plugins.permissions[permission]).join(', ')}
           </Text>
         ),
+        actions: (
+          <Inline gap={3} justify="end">
+            {plugin.hasSettings && (
+              <Button variant="secondary" size="sm" icon={Settings2} onPress={() => setSettingUp(plugin)}>
+                {messages.plugins.settingsOf(name)}
+              </Button>
+            )}
+            {SWITCHABLE.has(plugin.status) && (
+              <Switch label={messages.plugins.active(name)} isSelected={plugin.status === 'on'} isDisabled={setEnabled.isPending} onChange={(isSelected) => flip(plugin, isSelected)} />
+            )}
+          </Inline>
+        ),
       },
     };
   });
@@ -71,6 +108,8 @@ export function PluginsScreen() {
         {plugins.isSuccess && rows.length === 0 && <EmptyState icon={Puzzle} title={messages.plugins.emptyTitle} description={messages.plugins.emptyDescription} />}
         {plugins.isSuccess && rows.length > 0 && <Table label={messages.plugins.title} columns={columns} rows={rows} />}
       </Stack>
+      {/* Made anew each time it opens, so it never shows another plugin's settings. */}
+      {settingUp && <PluginSettingsDialog key={settingUp.name} plugin={settingUp} onClose={() => setSettingUp(null)} />}
     </Box>
   );
 }
