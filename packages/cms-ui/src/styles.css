@@ -97,6 +97,7 @@
   --radius-md: var(--theme-radius-md);
   --radius-lg: var(--theme-radius-lg);
   --radius-xl: var(--theme-radius-xl);
+  --radius-2xl: var(--theme-radius-2xl);
   --radius-full: var(--theme-radius-full);
 
   --shadow-sm: var(--theme-shadow-sm);

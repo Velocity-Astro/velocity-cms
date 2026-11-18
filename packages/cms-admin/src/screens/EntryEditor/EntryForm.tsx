@@ -202,7 +202,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
           </>
         }
       />
-      <Box paddingX={12} paddingY={8} surface="subtle" grow>
+      <Box paddingX={12} paddingY={8} grow>
         <Form label={messages.editor.form} gap={5} onSubmit={() => void run('save')}>
           <Split
             asideLabel={messages.editor.aside}
