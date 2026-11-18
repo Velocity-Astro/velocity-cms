@@ -12,7 +12,13 @@ const menu = () =>
     contentTypes: [...sampleContentTypes, samplePagesType, sampleNavigationType],
     entries: [samplePage(), sampleNavigation()],
   });
-const rows = async () => within(await screen.findByRole('group', { name: 'Header links' }));
+const closed = async () => within(await screen.findByRole('group', { name: 'Header links' }));
+/** The list with each link's row opened, as a person would to edit them. */
+const rows = async () => {
+  const list = await closed();
+  for (const name of ['Why list with us', 'Instagram']) await userEvent.click(await list.findByRole('button', { name }));
+  return list;
+};
 const stored = async (client: MemoryAdminClient) => (await client.getEntry('n1')).data['f-header'] as Record<string, unknown>[];
 const save = async (user: ReturnType<typeof userEvent.setup>) => {
   await user.click(screen.getByRole('button', { name: 'Save draft' }));
@@ -71,4 +77,41 @@ it('says what is wrong with an address the site will not link to', async () => {
   await user.type(address, 'javascript:alert(1)');
   await user.click(screen.getByRole('button', { name: 'Save draft' }));
   expect(await list.findByText(/Give a path on this site/)).toBeTruthy();
+});
+
+it('shows each link as a row called by its label, closed until it is opened', async () => {
+  const user = userEvent.setup();
+  menu();
+  const list = await closed();
+  expect(await list.findByRole('button', { name: 'Why list with us' })).toBeTruthy();
+  expect(list.queryByRole('textbox', { name: 'Label' })).toBeNull();
+  await user.click(list.getByRole('button', { name: 'Instagram' }));
+  expect(list.getByRole<HTMLInputElement>('textbox', { name: 'Label' }).value).toBe('Instagram');
+});
+
+it('opens a new row to fill in, and says on a closed row that something in it needs fixing', async () => {
+  const user = userEvent.setup();
+  menu();
+  const list = await closed();
+  await user.click(await list.findByRole('button', { name: 'Add' }));
+  const label = list.getByRole('textbox', { name: 'Label' });
+  await user.type(label, 'Contact');
+  expect(list.getByRole('button', { name: 'Contact' })).toBeTruthy();
+  await pick(user, list.getByRole('button', { name: /Goes to/ }), 'Another address');
+  await user.type(list.getByRole('textbox', { name: 'Address' }), 'javascript:alert(1)');
+  await user.click(list.getByRole('button', { name: 'Contact' }));
+  await user.click(screen.getByRole('button', { name: 'Save draft' }));
+  expect(await list.findByText('1 thing to fix in here.')).toBeTruthy();
+});
+
+it('takes a row out, and makes a copy of one', async () => {
+  const user = userEvent.setup();
+  const { client } = menu();
+  const list = await closed();
+  await user.click(await list.findByRole('button', { name: 'More for Header links 1' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Remove' }));
+  await user.click(list.getByRole('button', { name: 'More for Header links 1' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Duplicate' }));
+  await save(user);
+  expect((await stored(client)).map((item) => item['f-link-label'])).toEqual(['Instagram', 'Instagram']);
 });
