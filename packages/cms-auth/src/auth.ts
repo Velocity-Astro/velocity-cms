@@ -73,6 +73,7 @@ export class CmsAuth implements Authenticator {
   readonly #options: CmsAuthOptions;
   readonly #access: AccessControl;
   readonly #adminPath: string;
+  readonly #origin: string;
   readonly #lifetime: number;
   readonly #auth;
   /** Links being made for `createSignInLink`, by email: they are handed back instead of emailed. */
@@ -92,6 +93,7 @@ export class CmsAuth implements Authenticator {
     this.#options = options;
     this.#access = options.access ?? new AccessControl();
     this.#adminPath = options.adminPath ?? '/admin';
+    this.#origin = origin.origin;
     this.#lifetime = options.linkLifetimeMinutes ?? 10;
 
     this.#auth = betterAuth({
@@ -140,10 +142,50 @@ export class CmsAuth implements Authenticator {
       .sort((a, b) => a.name.localeCompare(b.name) || a.email.localeCompare(b.email));
   }
 
-  /** Lets someone in. They sign in with a link sent to this address; nothing is emailed yet. */
+  /**
+   * Lets someone in and tells them so by email. The email carries no link that signs them in:
+   * it points at the editor, where they ask for one, so an invitation read by someone else, or
+   * weeks later, opens nothing. If it cannot be sent, nobody is added and the owner is told.
+   */
   async invite(actor: Actor, invitation: Invitation): Promise<AuthUser> {
     this.#access.require(actor, 'user:manage');
-    return this.#create(invitation);
+    const user = await this.#create(invitation);
+    try {
+      await this.#options.mailer.sendInvitation({ email: user.email, name: user.name, url: `${this.#origin}${this.#adminPath}`, siteName: this.#options.siteName });
+    } catch (error) {
+      await this.#options.db.delete(authUser).where(eq(authUser.id, user.id));
+      console.error('[velocity-cms] An invitation could not be sent.', error);
+      throw new ConflictError(`The invitation to ${user.email} could not be sent, so nobody was added. Check the site's email settings and try again.`);
+    }
+    return user;
+  }
+
+  /**
+   * Changes what someone may do. It takes effect on their next request. A site always keeps an
+   * owner, so the last one cannot be made anything less.
+   */
+  async changeRole(actor: Actor, userId: string, role: Role): Promise<AuthUser> {
+    this.#access.require(actor, 'user:manage');
+    if (!isRole(role)) throw new ValidationError(`Choose a role: ${ROLES.join(', ')}.`, [{ path: ['role'], message: `Choose a role: ${ROLES.join(', ')}.` }]);
+    const user = await this.#get(userId);
+    if (user.role === 'owner' && role !== 'owner') await this.#requireAnotherOwner(userId, 'Make someone else an owner first.');
+    await this.#options.db.update(authUser).set({ role }).where(eq(authUser.id, userId));
+    return { ...user, role };
+  }
+
+  /**
+   * Takes away someone's access: the person, their passkeys and every session of theirs, at
+   * once. What they wrote stays. Nobody removes themselves, and the last owner stays.
+   */
+  async remove(actor: Actor, userId: string): Promise<void> {
+    this.#access.require(actor, 'user:manage');
+    const user = await this.#get(userId);
+    if (actor.kind === 'user' && actor.id === userId) {
+      throw new ConflictError('You cannot remove yourself. Ask another owner to do it.');
+    }
+    if (user.role === 'owner') await this.#requireAnotherOwner(userId, 'Make someone else an owner first.');
+    // Sessions, passkeys and accounts go with the person: their rows are tied to this one.
+    await this.#options.db.delete(authUser).where(eq(authUser.id, userId));
   }
 
   /**
@@ -193,6 +235,20 @@ export class CmsAuth implements Authenticator {
     const id = globalThis.crypto.randomUUID();
     await this.#options.db.insert(authUser).values({ id, email: address, name: name.trim(), emailVerified: true, role });
     return { id, email: address, name: name.trim(), role };
+  }
+
+  async #get(userId: string): Promise<AuthUser> {
+    const [user] = await this.#options.db.select().from(authUser).where(eq(authUser.id, userId)).limit(1);
+    if (!user) throw new NotFoundError('Person', userId);
+    return { id: user.id, email: user.email, name: user.name, role: isRole(user.role) ? user.role : 'author' };
+  }
+
+  /** Refuses a change that would leave the site with no owner, who alone can let people in. */
+  async #requireAnotherOwner(userId: string, whatToDo: string): Promise<void> {
+    const owners = await this.#options.db.select({ id: authUser.id }).from(authUser).where(eq(authUser.role, 'owner'));
+    if (!owners.some((owner) => owner.id !== userId)) {
+      throw new ConflictError(`This is the site's only owner, and a site needs one. ${whatToDo}`);
+    }
   }
 
   async #find(address: string) {

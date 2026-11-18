@@ -35,6 +35,10 @@ jobs:
       R2_BUCKET: ${{ secrets.R2_BUCKET }}
       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      # Sends invitations and sign-in links by email through Resend. Optional; without both,
+      # the site prints them to its log and the "Demo sign-in link" workflow is the way in.
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      CMS_EMAIL_FROM: ${{ secrets.CMS_EMAIL_FROM }}
     steps:
       - name: Check that every secret is there
         run: |
@@ -153,6 +157,18 @@ jobs:
                 | curl -fsS -o /dev/null -X POST -H "$auth" -H 'Content-Type: application/json' -d @- \
                   "$api/v10/projects/$project/env?slug=$team&upsert=true"
             done
+          fi
+          if [ -n "$RESEND_API_KEY" ] && [ -n "$CMS_EMAIL_FROM" ]; then
+            export VELOCITY_CMS_RESEND_API_KEY="$RESEND_API_KEY"
+            export VELOCITY_CMS_EMAIL_FROM="$CMS_EMAIL_FROM"
+            for name in VELOCITY_CMS_RESEND_API_KEY VELOCITY_CMS_EMAIL_FROM; do
+              jq -n --arg key "$name" --arg value "${!name}" '{key: $key, value: $value, type: "encrypted", target: ["production"]}' \
+                | curl -fsS -o /dev/null -X POST -H "$auth" -H 'Content-Type: application/json' -d @- \
+                  "$api/v10/projects/$project/env?slug=$team&upsert=true"
+            done
+            echo "EMAIL: on (Resend)"
+          else
+            echo "EMAIL: off (links are printed to the site's log)"
           fi
           # The project's own address, which sign-in links and passkeys are made for.
           site="${{ vars.CMS_DEMO_URL }}"

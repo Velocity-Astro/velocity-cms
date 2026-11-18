@@ -1,4 +1,4 @@
-import type { Actor } from '@velocity/cms-core';
+import type { Actor, Role } from '@velocity/cms-core';
 
 /** The person a request comes from, as the editor shows them. */
 export interface ApiUser {
@@ -11,6 +11,11 @@ export interface ApiSession {
   readonly user: ApiUser;
   /** Who the CMS treats the request as coming from. Its role decides what the request may do. */
   readonly actor: Actor;
+}
+
+/** The signed-in person as `GET /session` gives them: with their role, so the editor shows what they may use. */
+export interface SessionPerson extends ApiUser {
+  readonly role: Role;
 }
 
 /**

@@ -1,5 +1,5 @@
 import { CmsApi } from '@velocity/cms-api';
-import { CmsAuth, type Mailer, type SignInMail } from '@velocity/cms-auth';
+import { CmsAuth, type InvitationMail, type Mailer, type SignInMail } from '@velocity/cms-auth';
 import { pageAddress, type ContentTypeDef, type Entry, type ImageLibrary } from '@velocity/cms-core';
 import { AdminFiles, builtEditorDirectory } from './admin-files.js';
 import type { Connection } from './connection.js';
@@ -38,6 +38,10 @@ export class LogMailer implements Mailer {
   async sendSignInLink(mail: SignInMail): Promise<void> {
     this.log(`[velocity-cms] Sign-in link for ${mail.email} (works once, for ${mail.expiresInMinutes} minutes): ${mail.url}`);
   }
+
+  async sendInvitation(mail: InvitationMail): Promise<void> {
+    this.log(`[velocity-cms] ${mail.name} (${mail.email}) was invited. No email was sent: tell them to sign in at ${mail.url}`);
+  }
 }
 
 /**
@@ -74,6 +78,7 @@ export class EditorHost {
     this.#api = new CmsApi({
       cms,
       authenticator: this.auth,
+      people: this.auth,
       basePath: apiPath,
       ...(options.onFault && { onFault: options.onFault }),
     });

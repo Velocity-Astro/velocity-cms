@@ -1,7 +1,7 @@
 import type { ContentTypeDef, Entry, SiteImage } from '@velocity/cms-core';
 import { tinyJpeg, tinyPng } from '@velocity/cms-core/in-memory';
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { AdminClient } from '../client/admin-client.js';
+import type { AdminClient, Person } from '../client/admin-client.js';
 import { sampleContentTypes, sampleEntries } from './sample-content.js';
 
 export interface AdminClientSeed {
@@ -10,6 +10,8 @@ export interface AdminClientSeed {
   readonly images?: readonly SiteImage[];
   /** Whether the site takes uploads. Defaults to `true`. */
   readonly uploads?: boolean;
+  /** Everyone who can sign in. Defaults to the person the client is signed in as. */
+  readonly people?: readonly Person[];
 }
 
 /**
@@ -121,6 +123,27 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       const draft = await client.unpublishEntry('e2');
       expect(draft.status).toBe('draft');
       expect(draft).not.toHaveProperty('published');
+    });
+
+    it('lists who can sign in, lets people in, changes what they may do and takes access away', async () => {
+      expect(await client.listPeople()).toEqual([{ id: 'u1', email: 'dana@example.com', name: 'Dana', role: 'owner' }]);
+      const ben = await client.invitePerson({ email: ' Ben@Example.com ', name: 'Ben', role: 'author' });
+      expect(ben).toMatchObject({ email: 'ben@example.com', name: 'Ben', role: 'author' });
+      expect(await client.changePersonRole(ben.id, 'editor')).toMatchObject({ id: ben.id, role: 'editor' });
+      expect((await client.listPeople()).map((person) => person.name)).toEqual(['Ben', 'Dana']);
+      await client.removePerson(ben.id);
+      expect(await client.listPeople()).toHaveLength(1);
+    });
+
+    it('refuses what would lock the site or cannot work, in words for the person', async () => {
+      await expect(client.invitePerson({ email: 'nope', name: '', role: 'editor' })).rejects.toMatchObject({
+        code: 'validation_failed',
+        issues: [{ path: ['email'] }, { path: ['name'] }],
+      });
+      await expect(client.invitePerson({ email: 'dana@example.com', name: 'Dana again', role: 'editor' })).rejects.toMatchObject({ code: 'conflict' });
+      await expect(client.changePersonRole('u1', 'editor')).rejects.toMatchObject({ code: 'conflict', message: expect.stringContaining('only owner') });
+      await expect(client.removePerson('u1')).rejects.toMatchObject({ code: 'conflict', message: expect.stringContaining('yourself') });
+      await expect(client.removePerson('nobody')).rejects.toMatchObject({ code: 'not_found' });
     });
 
     it('gives a link to a draft\'s page, and says why when its type has none', async () => {

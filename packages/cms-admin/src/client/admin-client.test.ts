@@ -8,7 +8,7 @@ import { HttpAdminClient } from './http-client.js';
 adminClientContract('MemoryAdminClient', async (seed) => new MemoryAdminClient({ ...seed, user: sampleUser }));
 adminClientContract('HttpAdminClient with CmsApi', async (seed) => (await createHttpServer(seed, sampleUser)).client);
 
-const auth = { requestSignInLink: async () => undefined, signInWithPasskey: async () => sampleUser, signOut: async () => undefined };
+const auth = { requestSignInLink: async () => undefined, signInWithPasskey: async () => sampleUser, signOut: async () => undefined, registerPasskey: async () => undefined };
 
 it('says who is signed in, and that nobody is once the session ends', async () => {
   const { client, authenticator } = await createHttpServer({ contentTypes: sampleContentTypes, entries: [] }, sampleUser);
@@ -32,10 +32,19 @@ it('explains a server that cannot be reached, or that answers with something els
   await expect(broken.listContentTypes()).rejects.toMatchObject({ code: 'unknown', message: 'The server answered with an error (502). Try again in a moment.' });
 });
 
-it('hands signing in and out to the auth client it was given', async () => {
+it('hands signing in and out, and passkeys, to the auth client it was given', async () => {
   const asked: string[] = [];
-  const client = new HttpAdminClient({ auth: { ...auth, requestSignInLink: async (email) => void asked.push(email) }, baseUrl: '/cms/api/' });
+  const named: string[] = [];
+  const session = async () => new Response(JSON.stringify({ user: sampleUser }), { headers: { 'content-type': 'application/json' } });
+  const client = new HttpAdminClient({
+    auth: { ...auth, requestSignInLink: async (email) => void asked.push(email), registerPasskey: async (name) => void named.push(name) },
+    baseUrl: '/cms/api/',
+    fetch: session,
+  });
   await client.requestSignInLink('dana@example.com');
   expect(asked).toEqual(['dana@example.com']);
+  // Sign-in says a session started; who it is for, with their role, comes from the API.
   expect(await client.signInWithPasskey()).toEqual(sampleUser);
+  await client.addPasskey('Laptop');
+  expect(named).toEqual(['Laptop']);
 });

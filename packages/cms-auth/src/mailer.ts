@@ -11,12 +11,23 @@ export interface SignInMail {
   readonly siteName: string;
 }
 
+/** Word to someone that they were let in. It carries no secret: they ask for a link themselves. */
+export interface InvitationMail {
+  readonly email: string;
+  readonly name: string;
+  /** The editor's address, where they ask for their first sign-in link. */
+  readonly url: string;
+  readonly siteName: string;
+}
+
 /**
- * Delivers sign-in links. A site supplies one for its email provider. It is only ever called
- * for someone who has an account, so it never needs to check.
+ * Delivers sign-in links and invitations. A site supplies one for its email provider. It is only
+ * ever called for someone who has an account, so it never needs to check. A mail that cannot be
+ * sent is thrown, so the person waiting for it is told.
  */
 export interface Mailer {
   sendSignInLink(mail: SignInMail): Promise<void>;
+  sendInvitation(mail: InvitationMail): Promise<void>;
 }
 
 /**
@@ -25,8 +36,13 @@ export interface Mailer {
  */
 export class MemoryMailer implements Mailer {
   readonly sent: SignInMail[] = [];
+  readonly invitations: InvitationMail[] = [];
 
   async sendSignInLink(mail: SignInMail): Promise<void> {
     this.sent.push(mail);
+  }
+
+  async sendInvitation(mail: InvitationMail): Promise<void> {
+    this.invitations.push(mail);
   }
 }

@@ -1,12 +1,19 @@
-import { readImage, type ContentTypeDef, type Entry, type NewUpload, type Page, type PreviewLink, type SiteImage } from '@velocity/cms-core';
-import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, SessionUser } from './admin-client.js';
+import { readImage, type Role, type ContentTypeDef, type Entry, type NewUpload, type Page, type PreviewLink, type SiteImage } from '@velocity/cms-core';
+import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, Person, SessionUser } from './admin-client.js';
 import { AdminRequestError, type RequestErrorCode, type RequestIssue } from './errors.js';
 
 /**
  * Signing in and out. This is `cms-auth`'s side of the server, which has its own addresses and,
  * for passkeys, its own conversation with the browser, so the client is handed it ready-made.
  */
-export type AuthClient = Pick<AdminClient, 'requestSignInLink' | 'signInWithPasskey' | 'signOut'>;
+export interface AuthClient {
+  requestSignInLink(email: string): Promise<void>;
+  /** Resolves once the browser holds a session. Who it is for is then asked of the API. */
+  signInWithPasskey(): Promise<unknown>;
+  signOut(): Promise<void>;
+  /** Makes a passkey for the signed-in person. */
+  registerPasskey(name: string): Promise<void>;
+}
 
 export interface HttpAdminClientOptions {
   readonly auth: AuthClient;
@@ -39,8 +46,12 @@ export class HttpAdminClient implements AdminClient {
     return this.#auth.requestSignInLink(email);
   }
 
-  signInWithPasskey(): Promise<SessionUser> {
-    return this.#auth.signInWithPasskey();
+  async signInWithPasskey(): Promise<SessionUser> {
+    await this.#auth.signInWithPasskey();
+    // Sign-in knows who the person is; the API also knows what they may do.
+    const user = await this.getSession();
+    if (!user) throw new Error('The passkey was accepted, but no session was started. Try again.');
+    return user;
   }
 
   signOut(): Promise<void> {
@@ -99,6 +110,26 @@ export class HttpAdminClient implements AdminClient {
 
   previewEntry(id: string): Promise<PreviewLink> {
     return this.#send('POST', `/entries/${encodeURIComponent(id)}/preview`, {});
+  }
+
+  async listPeople(): Promise<readonly Person[]> {
+    return (await this.#get<{ items: Person[] }>('/people')).items;
+  }
+
+  invitePerson(person: NewPerson): Promise<Person> {
+    return this.#send('POST', '/people', person);
+  }
+
+  changePersonRole(id: string, role: Role): Promise<Person> {
+    return this.#send('PATCH', `/people/${encodeURIComponent(id)}`, { role });
+  }
+
+  async removePerson(id: string): Promise<void> {
+    await this.#send('DELETE', `/people/${encodeURIComponent(id)}`, {});
+  }
+
+  addPasskey(name: string): Promise<void> {
+    return this.#auth.registerPasskey(name);
   }
 
   #get<T>(path: string): Promise<T> {

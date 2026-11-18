@@ -1,4 +1,4 @@
-import { createCms, type Actor, type Cms, type ContentTypeDef, type Entry } from '@velocity/cms-core';
+import { NotFoundError, createCms, type Actor, type Cms, type ContentTypeDef, type Entry } from '@velocity/cms-core';
 import {
   FakeClock,
   InMemoryEntryRepository,
@@ -11,6 +11,7 @@ import {
 } from '@velocity/cms-core/in-memory';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { CmsApi } from './api.js';
+import type { People, Person } from './people.js';
 import { FixedAuthenticator } from './testing/index.js';
 
 const SITE = 'https://site.test';
@@ -65,7 +66,7 @@ beforeEach(async () => {
 
 describe('who is asking', () => {
   it('says who is signed in, and null when nobody is', async () => {
-    expect((await call('GET', '/session')).body).toEqual({ user: dana });
+    expect((await call('GET', '/session')).body).toEqual({ user: { ...dana, role: 'editor' } });
     authenticator.session = null;
     expect(await call('GET', '/session')).toEqual({ status: 200, body: { user: null } });
   });
@@ -295,5 +296,62 @@ describe('images', () => {
   it('still takes only JSON everywhere else', async () => {
     const response = await send('POST', '/entries', 'x', { 'content-type': 'image/png' });
     expect(response.status).toBe(415);
+  });
+});
+
+describe('people', () => {
+  /** Stands in for sign-in: it keeps a list, and lets only owners touch it. */
+  const peopleOf = (list: Person[]): People => {
+    const check = (who: Actor) => cms.access.require(who, 'user:manage');
+    return {
+      listUsers: async (who) => (check(who), [...list]),
+      invite: async (who, person) => {
+        check(who);
+        const added = { id: `p${list.length + 1}`, ...person };
+        list.push(added);
+        return added;
+      },
+      changeRole: async (who, id, role) => {
+        check(who);
+        const index = list.findIndex((person) => person.id === id);
+        const person = list[index];
+        if (!person) throw new NotFoundError('Person', id);
+        return (list[index] = { ...person, role });
+      },
+      remove: async (who, id) => {
+        check(who);
+        list.splice(list.findIndex((person) => person.id === id), 1);
+      },
+    };
+  };
+
+  beforeEach(() => {
+    api = new CmsApi({ cms, authenticator, people: peopleOf([{ id: 'p1', email: 'dana@example.com', name: 'Dana', role: 'owner' }]) });
+    authenticator.session = as('owner');
+  });
+
+  it('lists, invites, changes a role and removes, each through the people service', async () => {
+    const invited = await call('POST', '/people', { email: 'ben@example.com', name: 'Ben', role: 'author' });
+    expect([invited.status, invited.body]).toEqual([201, { id: 'p2', email: 'ben@example.com', name: 'Ben', role: 'author' }]);
+    expect((await call('PATCH', '/people/p2', { role: 'editor' })).body).toMatchObject({ id: 'p2', role: 'editor' });
+    expect(((await call('GET', '/people')).body['items'] as Person[]).map((person) => person.role)).toEqual(['owner', 'editor']);
+    expect((await call('DELETE', '/people/p2', {})).status).toBe(200);
+    expect((await call('GET', '/people')).body['items']).toHaveLength(1);
+    expect((await call('PATCH', '/people/nobody', { role: 'editor' })).status).toBe(404);
+  });
+
+  it('refuses anyone the people service refuses, and a request of the wrong shape', async () => {
+    authenticator.session = as('editor');
+    expect((await call('GET', '/people')).status).toBe(403);
+    expect((await call('POST', '/people', { email: 'x@example.com', name: 'X', role: 'owner' })).status).toBe(403);
+    authenticator.session = as('owner');
+    expect((await call('POST', '/people', { email: 'x@example.com', name: 'X', role: 'owner', isAdmin: true })).status).toBe(400);
+    authenticator.session = null;
+    expect((await call('GET', '/people')).status).toBe(401);
+  });
+
+  it('has nothing under /people on a site that brings no people service', async () => {
+    api = new CmsApi({ cms, authenticator });
+    expect((await call('GET', '/people')).status).toBe(404);
   });
 });
