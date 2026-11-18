@@ -2,6 +2,13 @@
 
 Every package is released together under one version. While versions are `0.x`, a release may change the plugin API or the way a site describes its content. Each such change is listed here under "Changed", with how to move.
 
+## 0.1.0-beta.2
+
+No change to the CMS itself.
+
+- **Releases** reach npm from GitHub with no stored key: each package trusts the release workflow, and a release is public only once an owner approves it on npmjs.com.
+- The README says the packages are on npm.
+
 ## 0.1.0-beta.1
 
 The first public beta.

@@ -6,13 +6,15 @@ name: Release
 #   2. Run this workflow. It starts as a rehearsal: nothing is published unless "publish" is ticked.
 #
 # A version that is already on npm is skipped, so a run that stopped halfway can be run again.
-# Needs the NPM_TOKEN secret: a granular token that may publish to the @velocity-astro scope and
-# the velocity-cms package.
+#
+# Nothing here holds a key to npm. Each package names this workflow as its trusted publisher on
+# npmjs.com (Settings, Trusted Publisher), allowed to stage only: npm keeps what a run sends
+# under Staged Packages until an owner approves it there, and only then is it public.
 on:
   workflow_dispatch:
     inputs:
       publish:
-        description: Publish for real. Left off, it only rehearses.
+        description: Send it to npm for real. Left off, it only rehearses.
         type: boolean
         default: false
       tag:
@@ -26,10 +28,12 @@ concurrency:
 
 permissions:
   contents: read
+  # How npm knows a run is this workflow: a short-lived proof from GitHub, in place of a token.
+  id-token: write
 
 jobs:
   release:
-    name: Publish to npm
+    name: Stage on npm
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -63,21 +67,19 @@ jobs:
       - run: pnpm validate
       - run: pnpm --filter velocity-cms-starter check
 
+      # Staging needs npm 11.15 or newer, which is newer than the one Node comes with.
+      - run: npm install --global npm@^11.15.0
+
       - name: Rehearse
         if: ${{ !inputs.publish }}
-        run: pnpm -r publish --dry-run --no-git-checks --tag "$TAG"
+        run: node scripts/publish.mjs --tag "$TAG" --dry-run
         env:
           TAG: ${{ inputs.tag }}
 
-      - name: Publish
+      - name: Stage on npm
         if: ${{ inputs.publish }}
         run: |
-          if [ -z "$NODE_AUTH_TOKEN" ]; then
-            echo "::error::The NPM_TOKEN secret is not set."
-            exit 1
-          fi
-          pnpm -r publish --no-git-checks --tag "$TAG"
-          echo "Published $VERSION to npm under the \"$TAG\" tag." >> "$GITHUB_STEP_SUMMARY"
+          node scripts/publish.mjs --tag "$TAG"
+          echo "Staged $VERSION on npm under the \"$TAG\" tag. It is public once an owner approves it on npmjs.com, under Staged Packages." >> "$GITHUB_STEP_SUMMARY"
         env:
           TAG: ${{ inputs.tag }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
