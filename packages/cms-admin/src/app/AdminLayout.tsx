@@ -1,5 +1,5 @@
 import { AppShell, Button, Dialog, Form, Logo, Stack, Text, TextField, dismissToasts, toast, type AppShellNavItem } from '@velocity/cms-ui';
-import { House, KeyRound, LogOut, Users } from 'lucide-react';
+import { House, KeyRound, LogOut, Shapes, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router';
 import { useAddPasskey, useContentTypes, useSession, useSignOut } from '../client/queries.js';
@@ -62,13 +62,22 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
         nav={[
           { id: 'top', items: [{ id: 'home', label: messages.app.home, href: paths.home, icon: House, isCurrent: location.pathname === paths.home }] },
           { id: 'content', label: messages.app.contentGroup, items: nav },
-          // Only owners manage people, so only they are shown the way there.
+          // Only owners manage people and content types, so only they are shown the way there.
           ...(session.data.role === 'owner'
             ? [
                 {
                   id: 'site',
                   label: messages.app.siteGroup,
-                  items: [{ id: 'people', label: messages.app.people, href: paths.people, icon: Users, isCurrent: location.pathname === paths.people }],
+                  items: [
+                    {
+                      id: 'types',
+                      label: messages.app.types,
+                      href: paths.types,
+                      icon: Shapes,
+                      isCurrent: location.pathname === paths.types || location.pathname.startsWith(`${paths.types}/`),
+                    },
+                    { id: 'people', label: messages.app.people, href: paths.people, icon: Users, isCurrent: location.pathname === paths.people },
+                  ],
                 },
               ]
             : []),

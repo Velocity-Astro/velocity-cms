@@ -1,4 +1,4 @@
-import { NotFoundError, createCms, type Actor, type Cms, type ContentTypeDef, type Entry } from '@velocity/cms-core';
+import { NotFoundError, createCms, type Actor, type Cms, type ContentTypeDef, type FieldDef, type Entry } from '@velocity/cms-core';
 import {
   FakeClock,
   InMemoryEntryRepository,
@@ -212,6 +212,56 @@ describe('requests from other sites', () => {
   it('accepts an origin the site has said it trusts', async () => {
     api = new CmsApi({ cms, authenticator, trustedOrigins: ['https://editor.test'] });
     expect((await call('POST', '/entries', body, { origin: 'https://editor.test' })).status).toBe(201);
+  });
+});
+
+describe('building content types', () => {
+  beforeEach(() => void (authenticator.session = as('owner')));
+
+  it('starts a type, changes it, and adds, changes, orders, removes and restores its fields', async () => {
+    const created = await call('POST', '/content-types', { key: 'news', kind: 'collection', label: { en: 'News' }, urlPattern: '/news/[slug]' });
+    expect(created.status).toBe(201);
+    const id = created.body['id'] as string;
+    expect((await call('PATCH', `/content-types/${id}`, { label: { en: 'Stories' }, urlPattern: null })).body).toEqual({ id, key: 'news', kind: 'collection', label: { en: 'Stories' }, fields: [] });
+
+    const withTitle = await call('POST', `/content-types/${id}/fields`, { key: 'title', type: 'text', label: { en: 'Title' }, required: true });
+    expect(withTitle.status).toBe(201);
+    const withBody = await call('POST', `/content-types/${id}/fields`, { key: 'body', type: 'richtext', label: { en: 'Body' } });
+    const [title, body] = (withBody.body['fields'] as FieldDef[]).map((field) => field.id) as [string, string];
+
+    const changed = await call('PATCH', `/content-types/${id}/fields/${title}`, { key: 'headline', options: { maxLength: 90 } });
+    expect((changed.body['fields'] as FieldDef[])[0]).toMatchObject({ id: title, key: 'headline', required: true, options: { maxLength: 90 } });
+    const ordered = await call('PUT', `/content-types/${id}/fields`, { order: [body, title] });
+    expect((ordered.body['fields'] as FieldDef[]).map((field) => field.key)).toEqual(['body', 'headline']);
+
+    const removed = await call('DELETE', `/content-types/${id}/fields/${body}`, {});
+    expect((removed.body['fields'] as FieldDef[])[0]?.deletedAt).toBeTypeOf('string');
+    const restored = await call('POST', `/content-types/${id}/fields/${body}/restore`, {});
+    expect((restored.body['fields'] as FieldDef[])[0]).not.toHaveProperty('deletedAt');
+  });
+
+  it('keeps the services\' refusals: only owners, known field types, free keys', async () => {
+    const taken = await call('POST', '/content-types', { key: 'listings', kind: 'collection', label: { en: 'Again' } });
+    expect([taken.status, taken.body.error?.code]).toEqual([409, 'conflict']);
+    const unknown = await call('POST', `/content-types/${listings.id}/fields`, { key: 'mood', type: 'emoji', label: { en: 'Mood' } });
+    expect(unknown.status).toBeGreaterThanOrEqual(400);
+    expect(unknown.body.error?.message).toContain('emoji');
+    const shape = await call('POST', '/content-types', { key: 'news', kind: 'folder', label: { en: 'News' } });
+    expect([shape.status, shape.body.error?.code]).toEqual([400, 'bad_request']);
+
+    authenticator.session = as('editor');
+    for (const [method, path, body] of [
+      ['POST', '/content-types', { key: 'news', kind: 'collection', label: { en: 'News' } }],
+      ['PATCH', `/content-types/${listings.id}`, { label: { en: 'Homes' } }],
+      ['POST', `/content-types/${listings.id}/fields`, { key: 'beds', type: 'number', label: { en: 'Beds' } }],
+      ['PUT', `/content-types/${listings.id}/fields`, { order: [] }],
+      ['PATCH', `/content-types/${listings.id}/fields/${fieldId('title')}`, { required: false }],
+      ['DELETE', `/content-types/${listings.id}/fields/${fieldId('title')}`, {}],
+      ['POST', `/content-types/${listings.id}/fields/${fieldId('title')}/restore`, {}],
+    ] as const) {
+      const refused = await call(method, path, body);
+      expect([method, path, refused.status, refused.body.error?.code]).toEqual([method, path, 403, 'forbidden']);
+    }
   });
 });
 

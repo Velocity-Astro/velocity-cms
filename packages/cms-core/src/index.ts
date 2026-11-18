@@ -96,5 +96,5 @@ export {
   type MediaStorage,
   type NewUpload,
 } from './services/media-service.js';
-export { SchemaService, type NewContentType, type NewSection } from './services/schema-service.js';
+export { SchemaService, type ContentTypeChanges, type FieldArrangement, type FieldChanges, type NewContentType, type NewSection } from './services/schema-service.js';
 export type { NewField } from './define-fields.js';

@@ -4,7 +4,10 @@ import {
   createCms,
   type Actor,
   type Cms,
+  type ContentTypeChanges,
   type ContentTypeDef,
+  type FieldArrangement,
+  type FieldChanges,
   type Entry,
   type NewUpload,
   type Page,
@@ -19,7 +22,7 @@ import {
   InMemoryMediaStore,
   InMemorySchemaRepository,
 } from '@velocity/cms-core/in-memory';
-import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, Person, SessionUser } from '../client/admin-client.js';
+import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Person, SessionUser } from '../client/admin-client.js';
 import { MemoryPeople } from './memory-people.js';
 import { AdminRequestError, type RequestErrorCode } from '../client/errors.js';
 
@@ -107,6 +110,34 @@ export class MemoryAdminClient implements AdminClient {
 
   listContentTypes(): Promise<readonly ContentTypeDef[]> {
     return this.#request(() => this.#cms.schema.list());
+  }
+
+  createContentType(type: NewType): Promise<ContentTypeDef> {
+    return this.#request((actor) => this.#cms.schema.create(actor, type));
+  }
+
+  updateContentType(id: string, changes: ContentTypeChanges): Promise<ContentTypeDef> {
+    return this.#request((actor) => this.#cms.schema.update(actor, id, changes));
+  }
+
+  addField(typeId: string, { section, ...field }: NewTypeField): Promise<ContentTypeDef> {
+    return this.#request((actor) => this.#cms.schema.addField(actor, typeId, field, section));
+  }
+
+  changeField(typeId: string, fieldId: string, changes: FieldChanges): Promise<ContentTypeDef> {
+    return this.#request((actor) => this.#cms.schema.changeField(actor, typeId, fieldId, changes));
+  }
+
+  removeField(typeId: string, fieldId: string): Promise<ContentTypeDef> {
+    return this.#request((actor) => this.#cms.schema.removeField(actor, typeId, fieldId));
+  }
+
+  restoreField(typeId: string, fieldId: string): Promise<ContentTypeDef> {
+    return this.#request((actor) => this.#cms.schema.restoreField(actor, typeId, fieldId));
+  }
+
+  arrangeFields(typeId: string, arrangement: FieldArrangement): Promise<ContentTypeDef> {
+    return this.#request((actor) => this.#cms.schema.arrangeFields(actor, typeId, arrangement));
   }
 
   listFieldTypes(): Promise<readonly FieldTypeInfo[]> {

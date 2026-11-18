@@ -6,6 +6,8 @@ export const paths = {
   home: '/',
   signIn: '/sign-in',
   people: '/people',
+  types: '/types',
+  type: (typeKey: string) => `/types/${encodeURIComponent(typeKey)}`,
   contentList: (typeKey: string) => `/content/${encodeURIComponent(typeKey)}`,
   entry: (typeKey: string, entryId: string) => `/content/${encodeURIComponent(typeKey)}/${encodeURIComponent(entryId)}`,
   newEntry: (typeKey: string) => `/content/${encodeURIComponent(typeKey)}/${NEW_ENTRY}`,

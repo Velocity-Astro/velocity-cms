@@ -32,6 +32,33 @@ export interface NewContentType {
   readonly sections?: readonly NewSection[];
 }
 
+/** What can be changed about a content type itself. Its key stays: code and addresses use it. */
+export interface ContentTypeChanges {
+  readonly label?: LocalizedText;
+  /** Where entries live on the site. `null` says the type has no page of its own. */
+  readonly urlPattern?: string | null;
+}
+
+/** What can be changed about a field. Its id and its type stay, and so its content does. */
+export interface FieldChanges {
+  readonly key?: string;
+  readonly label?: LocalizedText;
+  /** `null` takes the help away. */
+  readonly help?: LocalizedText | null;
+  readonly required?: boolean;
+  readonly translated?: boolean;
+  /** Settings for the field's type, all of them: what is left out goes back to its default. */
+  readonly options?: Readonly<Record<string, unknown>>;
+}
+
+/** Where every live field of a type is shown, by field id. */
+export interface FieldArrangement {
+  /** Every live field, in order. */
+  readonly order: readonly string[];
+  /** Which fields each section shows, by the section's key. A section left out keeps none. */
+  readonly sections?: Readonly<Record<string, readonly string[]>>;
+}
+
 export interface NewSection {
   readonly key: string;
   readonly label: LocalizedText;
@@ -75,6 +102,11 @@ export class SchemaService {
   async create(actor: Actor, input: NewContentType): Promise<ContentTypeDef> {
     this.access.require(actor, 'schema:write');
     requireKey(input.key, 'content type');
+    requireLabel(input.label, 'content type');
+    if (input.urlPattern !== undefined) requirePattern(input.urlPattern);
+    if (await this.types.getByKey(input.key)) {
+      throw new ConflictError(`There is already a content type with the key "${input.key}". Choose another key.`);
+    }
     return this.save(actor, this.described({ id: this.ids.next(), key: input.key, kind: input.kind, label: input.label, fields: [] }, input));
   }
 
@@ -94,31 +126,108 @@ export class SchemaService {
     return this.save(actor, this.described(existing, input));
   }
 
-  async addField(actor: Actor, typeId: string, input: NewField): Promise<ContentTypeDef> {
+  /** Changes what a content type is called or where its entries live. Fields are changed one at a time. */
+  async update(actor: Actor, typeId: string, change: ContentTypeChanges): Promise<ContentTypeDef> {
+    this.access.require(actor, 'schema:write');
+    const { urlPattern, ...type } = await this.get(typeId);
+    if (change.label !== undefined) requireLabel(change.label, 'content type');
+    const address = change.urlPattern === undefined ? urlPattern : change.urlPattern;
+    if (typeof change.urlPattern === 'string') requirePattern(change.urlPattern);
+    return this.save(actor, {
+      ...type,
+      ...(change.label !== undefined && { label: change.label }),
+      ...(typeof address === 'string' && { urlPattern: address }),
+    });
+  }
+
+  /** Adds a field. With `section`, the field is shown at the end of that section. */
+  async addField(actor: Actor, typeId: string, input: NewField, section?: string): Promise<ContentTypeDef> {
     this.access.require(actor, 'schema:write');
     const type = await this.get(typeId);
     this.requireFreeKey(type.fields, input.key);
-    return this.save(actor, { ...type, fields: [...type.fields, defineField(input, undefined, this.context)] });
+    requireLabel(input.label, 'field');
+    const field = defineField(input, undefined, this.context);
+    if (section !== undefined && !type.sections?.some((candidate) => candidate.key === section)) {
+      throw new ValidationError(`This content type has no section "${section}". Choose one of its sections, or none.`, [
+        { path: ['section'], message: `Unknown section "${section}"` },
+      ]);
+    }
+    return this.save(actor, {
+      ...type,
+      fields: [...type.fields, field],
+      ...(type.sections && {
+        sections: type.sections.map((candidate) => (candidate.key === section ? { ...candidate, fieldIds: [...candidate.fieldIds, field.id] } : candidate)),
+      }),
+    });
   }
 
   /** Changes a field's key or label. Its id, and so its data, stay as they are. */
-  async renameField(
-    actor: Actor,
-    typeId: string,
-    fieldId: string,
-    change: { key?: string; label?: LocalizedText },
-  ): Promise<ContentTypeDef> {
+  renameField(actor: Actor, typeId: string, fieldId: string, change: { key?: string; label?: LocalizedText }): Promise<ContentTypeDef> {
+    return this.changeField(actor, typeId, fieldId, change);
+  }
+
+  /**
+   * Changes a field: its key, what it is called, whether it must be filled in, and its type's
+   * settings. Its id and its type stay, so the content saved under it is still there. Content is
+   * not checked against new settings here: a value they no longer accept is reported the next
+   * time its entry is saved.
+   */
+  async changeField(actor: Actor, typeId: string, fieldId: string, change: FieldChanges): Promise<ContentTypeDef> {
     this.access.require(actor, 'schema:write');
     const type = await this.get(typeId);
     const field = this.requireField(type, fieldId);
-    if (change.key !== undefined && change.key !== field.key) {
-      requireKey(change.key, 'field');
-      this.requireFreeKey(type.fields, change.key);
+    if (field.deletedAt !== undefined) throw new ConflictError(`The field "${field.key}" was removed. Restore it before changing it.`);
+    if (change.key !== undefined && change.key !== field.key) this.requireFreeKey(type.fields, change.key);
+    if (change.label !== undefined) requireLabel(change.label, 'field');
+    const { help, ...kept } = field;
+    const described: NewField = {
+      key: change.key ?? field.key,
+      type: field.type,
+      label: change.label ?? field.label,
+      translated: change.translated ?? field.translated,
+      required: change.required ?? field.required,
+      options: change.options ?? field.options,
+      ...(change.help === undefined ? help !== undefined && { help } : change.help !== null && { help: change.help }),
+    };
+    return this.replaceField(actor, type, { ...kept, ...defineField(described, field, this.context) });
+  }
+
+  /**
+   * Puts a type's fields in order, and says which section shows which. Every live field must be
+   * named once in the order; removed fields keep their place after them.
+   */
+  async arrangeFields(actor: Actor, typeId: string, arrangement: FieldArrangement): Promise<ContentTypeDef> {
+    this.access.require(actor, 'schema:write');
+    const type = await this.get(typeId);
+    const live = new Map(liveFields(type.fields).map((field) => [field.id, field]));
+    const order = [...new Set(arrangement.order)];
+    if (order.length !== arrangement.order.length || order.length !== live.size || order.some((id) => !live.has(id))) {
+      throw new ValidationError('The order must name every field of this content type once. Load the content type again and retry.', [
+        { path: ['order'], message: 'Not every field, or a field twice' },
+      ]);
     }
-    return this.replaceField(actor, type, {
-      ...field,
-      ...(change.key !== undefined && { key: change.key }),
-      ...(change.label !== undefined && { label: change.label }),
+    const placed = new Set<string>();
+    const sections = type.sections?.map((section) => {
+      const fieldIds = arrangement.sections?.[section.key] ?? [];
+      for (const id of fieldIds) {
+        if (!live.has(id) || placed.has(id)) {
+          throw new ValidationError(`Section "${section.key}" names a field that is not there, or that another section already shows.`, [
+            { path: ['sections', section.key], message: `Unknown or repeated field "${id}"` },
+          ]);
+        }
+        placed.add(id);
+      }
+      return { ...section, fieldIds };
+    });
+    const unknown = Object.keys(arrangement.sections ?? {}).find((key) => !type.sections?.some((section) => section.key === key));
+    if (unknown !== undefined) {
+      throw new ValidationError(`This content type has no section "${unknown}".`, [{ path: ['sections', unknown], message: 'Unknown section' }]);
+    }
+    const removed = type.fields.filter((field) => field.deletedAt !== undefined);
+    return this.save(actor, {
+      ...type,
+      fields: [...order.map((id) => live.get(id) as FieldDef), ...removed],
+      ...(sections && { sections }),
     });
   }
 
@@ -215,5 +324,21 @@ export class SchemaService {
     if (liveFields(fields).some((field) => field.key === key)) {
       throw new ConflictError(`This content type already has a field with the key "${key}".`);
     }
+  }
+}
+
+/** Refuses a thing nobody could tell apart in the editor: one with no name in any language. */
+function requireLabel(label: LocalizedText, what: string): void {
+  if (!Object.values(label).some((text) => typeof text === 'string' && text.trim() !== '')) {
+    throw new ValidationError(`Give the ${what} a name.`, [{ path: ['label'], message: 'A name is needed' }]);
+  }
+}
+
+/** Refuses an address pattern that could not be a page of the site. */
+function requirePattern(pattern: string): void {
+  if (!/^\/[^\s?#]*$/.test(pattern) || pattern.startsWith('//')) {
+    throw new ValidationError(`"${pattern}" can't be used as an address. Start with "/" and name the entry with [slug], such as /news/[slug].`, [
+      { path: ['urlPattern'], message: 'Not an address on this site' },
+    ]);
   }
 }

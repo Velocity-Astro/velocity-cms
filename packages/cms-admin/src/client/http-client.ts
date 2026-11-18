@@ -1,5 +1,5 @@
-import { readImage, type Role, type ContentTypeDef, type Entry, type NewUpload, type Page, type PreviewLink, type SiteImage } from '@velocity/cms-core';
-import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, Person, SessionUser } from './admin-client.js';
+import { readImage, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type Entry, type NewUpload, type Page, type PreviewLink, type SiteImage } from '@velocity/cms-core';
+import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Person, SessionUser } from './admin-client.js';
 import { AdminRequestError, type RequestErrorCode, type RequestIssue } from './errors.js';
 
 /**
@@ -60,6 +60,34 @@ export class HttpAdminClient implements AdminClient {
 
   async listContentTypes(): Promise<readonly ContentTypeDef[]> {
     return (await this.#get<{ items: ContentTypeDef[] }>('/content-types')).items;
+  }
+
+  createContentType(type: NewType): Promise<ContentTypeDef> {
+    return this.#send('POST', '/content-types', type);
+  }
+
+  updateContentType(id: string, changes: ContentTypeChanges): Promise<ContentTypeDef> {
+    return this.#send('PATCH', `/content-types/${encodeURIComponent(id)}`, changes);
+  }
+
+  addField(typeId: string, field: NewTypeField): Promise<ContentTypeDef> {
+    return this.#send('POST', `/content-types/${encodeURIComponent(typeId)}/fields`, field);
+  }
+
+  changeField(typeId: string, fieldId: string, changes: FieldChanges): Promise<ContentTypeDef> {
+    return this.#send('PATCH', `/content-types/${encodeURIComponent(typeId)}/fields/${encodeURIComponent(fieldId)}`, changes);
+  }
+
+  removeField(typeId: string, fieldId: string): Promise<ContentTypeDef> {
+    return this.#send('DELETE', `/content-types/${encodeURIComponent(typeId)}/fields/${encodeURIComponent(fieldId)}`, {});
+  }
+
+  restoreField(typeId: string, fieldId: string): Promise<ContentTypeDef> {
+    return this.#send('POST', `/content-types/${encodeURIComponent(typeId)}/fields/${encodeURIComponent(fieldId)}/restore`, {});
+  }
+
+  arrangeFields(typeId: string, arrangement: FieldArrangement): Promise<ContentTypeDef> {
+    return this.#send('PUT', `/content-types/${encodeURIComponent(typeId)}/fields`, arrangement);
   }
 
   async listFieldTypes(): Promise<readonly FieldTypeInfo[]> {
