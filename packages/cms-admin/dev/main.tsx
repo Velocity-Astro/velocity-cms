@@ -11,8 +11,8 @@ import '@velocity/cms-ui/styles.css';
 import { definePlugin } from '@velocity/cms-core';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-// The demo site's own plugin file, so the preview shows what a real site would.
-import publishLogEditor from '../../../prototypes/live-site/files/publish-log-editor.js';
+// A plugin's editor file as a site would ship one, so the preview shows what a real site would.
+import publishLogEditor from './publish-log-editor.js';
 // Read from its source, so the preview needs no build of it.
 import { seo } from '../../cms-plugins/src/index.js';
 import { AdminApp, type PluginEditorModule } from '../src/index.js';
