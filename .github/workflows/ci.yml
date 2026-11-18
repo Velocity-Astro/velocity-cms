@@ -26,6 +26,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm validate
+      # The starter, from an empty database: seeded, built, started and asked for every page.
+      - run: pnpm --filter velocity-cms-starter check
 
   stories:
     name: Design system stories (accessibility)

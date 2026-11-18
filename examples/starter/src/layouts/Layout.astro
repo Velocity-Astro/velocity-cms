@@ -1,0 +1,44 @@
+---
+/** The frame around every page: the head, the menu people edit in the CMS, and the footer. */
+import { menuLinks, pageHead } from '@velocity/cms-astro';
+import '../styles/site.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const SITE = 'Starter';
+// Plugins such as SEO may change what a page says about itself. Without one, this is what was given.
+const head = await pageHead(Astro, { title: Astro.props.title ?? SITE, description: Astro.props.description ?? '' });
+// With no menu in the CMS yet, the site shows these.
+const edited = await menuLinks(Astro, { type: 'navigation', field: 'header' });
+const links = edited.length > 0 ? edited : [{ label: 'Home', href: '/', external: false }, { label: 'Blog', href: '/blog/', external: false }];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{head.title === SITE ? SITE : `${head.title} · ${SITE}`}</title>
+    {head.description && <meta name="description" content={head.description} />}
+    {head.noindex && <meta name="robots" content="noindex" />}
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap row">
+        <a class="name" href="/">{SITE}</a>
+        <nav aria-label="Main">
+          {links.map((link) => <a href={link.href} rel={link.external ? 'noopener' : undefined}>{link.label}</a>)}
+        </nav>
+      </div>
+    </header>
+    <main data-pagefind-body>
+      <slot />
+    </main>
+    <footer class="foot">
+      <div class="wrap">Built with Velocity CMS. <a href="/admin">Edit this site</a></div>
+    </footer>
+  </body>
+</html>

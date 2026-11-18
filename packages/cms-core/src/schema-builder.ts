@@ -129,3 +129,40 @@ function nestedBlocks(field: FieldDef | undefined): readonly BlockDef[] | undefi
   const candidate = (field?.options as { blocks?: unknown } | undefined)?.blocks;
   return Array.isArray(candidate) ? (candidate as BlockDef[]) : undefined;
 }
+
+/**
+ * Field values written by key, as a person writes sample content in code, turned into what an
+ * entry stores: keyed by field id, down through groups, lists and the sections of a page. A
+ * section names its block by key and is given an id by `newId` unless it has one. A key no field
+ * has is refused, so a misspelt one is not silently dropped.
+ */
+export function toStoredData(fields: readonly FieldDef[], values: Readonly<Record<string, unknown>>, newId: () => string): EntryData {
+  const live = liveFields(fields);
+  const unknown = Object.keys(values).filter((key) => !live.some((field) => field.key === key));
+  if (unknown.length > 0) {
+    throw new ValidationError(`There is no field "${unknown[0] ?? ''}" here. The fields are: ${live.map((field) => field.key).join(', ')}.`, unknown.map((key) => ({ path: [key], message: 'No such field.' })));
+  }
+  const isValues = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
+  const convert = (type: string, options: Readonly<Record<string, unknown>>, value: unknown): unknown => {
+    if (type === 'group' && isValues(value)) return toStoredData((options['fields'] as FieldDef[] | undefined) ?? [], value, newId);
+    if (type === 'list' && Array.isArray(value)) {
+      const of = options['of'] as { type: string; options?: Record<string, unknown> } | undefined;
+      return of ? value.map((item) => convert(of.type, of.options ?? {}, item)) : value;
+    }
+    if (type === 'blocks' && Array.isArray(value)) {
+      const blocks = (options['blocks'] as BlockDef[] | undefined) ?? [];
+      return value.filter(isValues).map((section) => {
+        const block = blocks.find((candidate) => candidate.key === section['block']);
+        if (!block) throw new ValidationError(`There is no block "${String(section['block'])}". The blocks are: ${blocks.map((candidate) => candidate.key).join(', ')}.`, [{ path: ['block'], message: 'No such block.' }]);
+        return { id: typeof section['id'] === 'string' ? section['id'] : newId(), block: block.id, data: toStoredData(block.fields, isValues(section['data']) ? section['data'] : {}, newId) };
+      });
+    }
+    return value;
+  };
+  const stored: Record<string, unknown> = {};
+  for (const field of live) {
+    const value = values[field.key];
+    if (value !== undefined && value !== null) stored[field.id] = convert(field.type, field.options, value);
+  }
+  return stored;
+}

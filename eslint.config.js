@@ -13,7 +13,7 @@ const boundary = (files, patterns, message) => ({
 });
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/node_modules/**', 'prototypes/**/work/**', 'prototypes/auth/schema.ts', '**/storybook-static/**', '**/app-dist/**'] },
+  { ignores: ['**/dist/**', '**/node_modules/**', 'prototypes/**/work/**', 'prototypes/auth/schema.ts', '**/storybook-static/**', '**/app-dist/**', 'examples/**/.astro/**'] },
   js.configs.recommended,
   ...tseslint.configs.strict,
   {
@@ -106,7 +106,7 @@ export default tseslint.config(
     rules: { 'no-restricted-imports': 'off' },
   },
   {
-    files: ['prototypes/**/*.mjs', 'packages/*/scripts/**/*.mjs', 'packages/*/bin/**/*.mjs', 'packages/cms-admin/app-directory.mjs', 'demo/**/*.mjs', '*.config.js'],
-    languageOptions: { globals: { document: 'readonly', globalThis: 'readonly', console: 'readonly', process: 'readonly', performance: 'readonly', fetch: 'readonly', setTimeout: 'readonly', URL: 'readonly', Buffer: 'readonly' } },
+    files: ['prototypes/**/*.mjs', 'packages/*/scripts/**/*.mjs', 'packages/*/bin/**/*.mjs', 'packages/cms-admin/app-directory.mjs', 'demo/**/*.mjs', 'examples/**/*.mjs', '*.config.js'],
+    languageOptions: { globals: { document: 'readonly', globalThis: 'readonly', console: 'readonly', process: 'readonly', performance: 'readonly', fetch: 'readonly', setTimeout: 'readonly', URL: 'readonly', URLSearchParams: 'readonly', Buffer: 'readonly' } },
   },
 );

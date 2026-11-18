@@ -1,0 +1,20 @@
+{
+  "name": "velocity-cms-starter",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "A small site on Velocity CMS: pages built from sections, a blog, a contact form and menus, all edited at /admin.",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "start": "node --env-file-if-exists=.env ./dist/server/entry.mjs",
+    "seed": "node --env-file-if-exists=.env cms/seed.mjs",
+    "check": "node cms/check.mjs"
+  },
+  "dependencies": {
+    "@astrojs/node": "11.1.9",
+    "@velocity/cms-astro": "workspace:*",
+    "@velocity/cms-core": "workspace:*",
+    "astro": "7.4.5"
+  }
+}

@@ -1,0 +1,22 @@
+---
+interface Props {
+  title?: string;
+  items?: { title?: string; text?: string }[];
+}
+
+const { title, items = [] } = Astro.props;
+---
+
+<section class="band tinted">
+  <div class="wrap">
+    {title && <h2>{title}</h2>}
+    <ul class="grid">
+      {items.map((item) => (
+        <li>
+          <h3>{item.title}</h3>
+          {item.text && <p>{item.text}</p>}
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>

@@ -1,0 +1,17 @@
+---
+import type { RichText } from '../blocks';
+
+interface Props {
+  title?: string;
+  body?: RichText;
+}
+
+const { title, body } = Astro.props;
+---
+
+<section class="band">
+  <div class="wrap narrow">
+    {title && <h2>{title}</h2>}
+    <div class="prose" set:html={body?.html ?? ''} />
+  </div>
+</section>
