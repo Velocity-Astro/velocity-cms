@@ -113,6 +113,7 @@ const newForm = z.strictObject({
   notify: z.array(z.string()).optional(),
   contact: formContact.optional(),
   retentionDays: z.number().optional(),
+  startsDeal: z.boolean().optional(),
   open: z.boolean().optional(),
 });
 const formChanges = z.strictObject({
@@ -124,6 +125,7 @@ const formChanges = z.strictObject({
   notify: z.array(z.string()).optional(),
   contact: formContact.optional(),
   retentionDays: z.number().nullable().optional(),
+  startsDeal: z.boolean().optional(),
   open: z.boolean().optional(),
   expectedRevision: z.number().int().positive(),
 });

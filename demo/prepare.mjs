@@ -81,11 +81,12 @@ try {
       console.log(`Imported ${records.length} ${name}.`);
     }
   }
-  // A site that has never had a form gets the sample ones. One that was moved to the trash stays there.
-  if ((await connection.cms.forms.list(OWNER)).length === 0 && (await connection.cms.forms.listTrashed(OWNER)).length === 0) {
-    for (const form of sampleForms) await connection.cms.forms.create(OWNER, form);
-    console.log(`Added ${sampleForms.length} sample form${sampleForms.length === 1 ? '' : 's'}: ${sampleForms.map((form) => form.key).join(', ')}.`);
-  }
+  // Each sample form is added once, by its key, so a deploy brings a new one to a site that has
+  // the others. One that was moved to the trash stays there.
+  const haveForms = [...(await connection.cms.forms.list(OWNER)), ...(await connection.cms.forms.listTrashed(OWNER))];
+  const newForms = sampleForms.filter((form) => !haveForms.some((known) => known.key === form.key));
+  for (const form of newForms) await connection.cms.forms.create(OWNER, form);
+  if (newForms.length > 0) console.log(`Added ${newForms.length} sample form${newForms.length === 1 ? '' : 's'}: ${newForms.map((form) => form.key).join(', ')}.`);
   // Everyone who wrote in before the site kept contacts becomes one. It makes nobody twice.
   const caughtUp = await connection.cms.contacts.catchUp(OWNER);
   if (caughtUp > 0) console.log(`Made ${caughtUp} contact${caughtUp === 1 ? '' : 's'} from what was sent before.`);

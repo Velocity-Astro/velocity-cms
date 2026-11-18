@@ -109,7 +109,7 @@ export function createCms(options: CmsOptions): Cms {
   const customFields = new CustomFieldsService(options.customFields ?? new InMemoryCustomFieldsStore(), fields, access, events, clock, ids);
   const contacts = new ContactService(contactStore, submissionStore, formStore, fields, access, events, clock, ids, pipeline, options.team, dealStore, customFields);
   const deals = new DealService(dealStore, contactStore, contacts, pipeline, access, events, clock, ids, customFields, { types: options.types, entries: options.entries });
-  const submissions = new SubmissionService(submissionStore, formStore, fields, access, events, clock, ids, contacts);
+  const submissions = new SubmissionService(submissionStore, formStore, fields, access, events, clock, ids, contacts, deals);
   const previews = new PreviewService(content, schema, clock, options.previews);
   const sealWith = options.secret ?? options.previews?.secret;
   const plugins = new PluginHost({ fields, events, checks, pages, store: options.pluginStore ?? new InMemoryPluginStore(), ids, schema, content, access, clock, ...(sealWith !== undefined && { secret: sealWith }), ...(options.onPluginFault && { onFault: options.onPluginFault }) });

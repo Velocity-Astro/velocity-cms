@@ -124,6 +124,9 @@ export const formSubmissions = sqliteTable(
     email: text('email'),
     locale: text('locale'),
     page: text('page'),
+    /** The entry whose own page it was sent from: its content type and its translation group. */
+    aboutType: text('about_type'),
+    aboutEntry: text('about_entry'),
     createdAt: text('created_at').notNull(),
     handledAt: text('handled_at'),
     handledBy: text('handled_by'),

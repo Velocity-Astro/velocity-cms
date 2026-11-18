@@ -141,10 +141,11 @@ it('saves the settings: who is emailed, whether it is open and how long answers 
   await user.type(notify, 'office@example.com{Enter}Ben@Example.com');
   await user.click(dialog.getByRole('switch', { name: 'Taking submissions' }));
   await user.type(dialog.getByRole('textbox', { name: /Days to keep submissions/ }), '90');
+  await user.click(dialog.getByRole('switch', { name: 'Start a deal about the page it was sent from' }));
   await user.click(dialog.getByRole('button', { name: 'Save settings' }));
   expect(await screen.findByText('Settings saved')).toBeTruthy();
   const [contact] = await client.listForms();
-  expect(contact).toMatchObject({ notify: ['office@example.com', 'ben@example.com'], open: false, retentionDays: 90, contact: { name: expect.any(String) as string, email: expect.any(String) as string } });
+  expect(contact).toMatchObject({ notify: ['office@example.com', 'ben@example.com'], open: false, retentionDays: 90, startsDeal: true, contact: { name: expect.any(String) as string, email: expect.any(String) as string } });
   expect(await screen.findByText('Key: contact · Closed')).toBeTruthy();
 });
 

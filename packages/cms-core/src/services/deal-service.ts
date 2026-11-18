@@ -2,7 +2,7 @@ import type { AccessControl, Actor } from '../access.js';
 import { isDay } from '../day.js';
 import { ConflictError, NotFoundError, ValidationError, type ValidationIssue } from '../errors.js';
 import type { EventBus } from '../events.js';
-import { isLiveType, type Deal, type DealSubject, type Forecast, type Page, type PipelineStage } from '../model.js';
+import { isLiveType, type Contact, type Deal, type DealSubject, type Forecast, type FormDef, type Page, type PipelineStage, type Submission } from '../model.js';
 import type { Clock, ContactRepository, DealQuery, DealRepository, EntryRepository, IdGenerator, SchemaRepository } from '../ports.js';
 import type { ContactService } from './contact-service.js';
 import type { CustomFieldsService } from './custom-fields-service.js';
@@ -105,6 +105,48 @@ export class DealService {
     };
     const saved = await this.deals.save(deal, null);
     await this.events.emit('deal.saved', { deal: saved, actor });
+    return saved;
+  }
+
+  /**
+   * Starts a deal for a submission sent from an entry's own page, when its form asks for that and
+   * deals can be about that kind of content. Nobody is signed in: what allows it is the form's own
+   * setting. The deal is called by the entry's name, is worth nothing until someone says, and
+   * goes to whoever looks after the contact. A contact who already has an open deal about the
+   * same entry gets no second one.
+   */
+  async started(form: FormDef, submission: Submission, contact: Contact): Promise<Deal | null> {
+    if (form.startsDeal !== true || submission.about === undefined || submission.status === 'spam') return null;
+    const type = await this.subjects?.types.get(submission.about.typeId);
+    if (!type || !isLiveType(type) || type.forDeals !== true) return null;
+    const found = await this.subjects?.entries.find({ typeId: type.id, translationGroup: submission.about.entry, limit: 1 });
+    const entry = found?.items[0];
+    if (!entry) return null;
+    const about: DealSubject = { typeId: type.id, entry: submission.about.entry };
+    const stages = (await this.pipeline.current()).stages;
+    const first = stages[0];
+    if (!first) return null;
+    const open = new Set(stages.filter((stage) => stage.kind === 'open').map((stage) => stage.id));
+    const theirs = await this.deals.find({ contactId: contact.id, about, limit: 200 });
+    if (theirs.items.some((deal) => open.has(deal.stage))) return null;
+    let named: unknown = entry.data;
+    for (const id of type.titlePath ?? []) named = named !== null && typeof named === 'object' ? (named as Readonly<Record<string, unknown>>)[id] : undefined;
+    const title = (typeof named === 'string' && named.trim() !== '' ? named.trim() : entry.slug).slice(0, MAX_DEAL_TITLE_LENGTH);
+    const now = this.clock.now();
+    const deal: Deal = {
+      id: this.ids.next(),
+      contactId: contact.id,
+      title,
+      about,
+      value: 0,
+      stage: first.id,
+      ...(contact.ownerId !== undefined && { ownerId: contact.ownerId }),
+      revision: 1,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const saved = await this.deals.save(deal, null);
+    await this.events.emit('deal.saved', { deal: saved });
     return saved;
   }
 

@@ -593,6 +593,8 @@ export const en = {
     successHelp: 'What a visitor reads after sending. Left empty, the site\'s own words are used.',
     submitLabel: 'Button label',
     submitLabelHelp: 'Left empty, the site\'s own word is used.',
+    startsDeal: 'Start a deal about the page it was sent from',
+    startsDealHelp: 'When this form is sent from the page of something deals can be about, such as a listing, the sender gets a deal about it. Turn that on for a kind of content in its settings.',
     retention: 'Days to keep submissions',
     retentionHelp: 'Older ones are deleted. Leave empty to keep them until someone deletes them.',
     save: 'Save settings',

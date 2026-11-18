@@ -273,6 +273,11 @@ export interface FormDef {
   readonly contact?: FormContactFields;
   /** How many days a submission is kept. Left out, until someone deletes it. */
   readonly retentionDays?: number;
+  /**
+   * True when a submission sent from an entry's own page starts a deal about that entry, for a
+   * kind of content deals can be about: an enquiry on a listing's page becomes a deal about the listing.
+   */
+  readonly startsDeal?: true;
   /** False for a form that takes no submissions for now. */
   readonly open: boolean;
   /** Starts at 1 and goes up by one on every save. */
@@ -326,6 +331,8 @@ export interface Submission {
   readonly locale?: string;
   /** The path of the page it was sent from, e.g. `/contact/`. */
   readonly page?: string;
+  /** The entry whose own page it was sent from, as the server found it from the page's address. */
+  readonly about?: DealSubject;
   readonly createdAt: Timestamp;
   readonly handledAt?: Timestamp;
   /** The id of whoever marked it handled. */

@@ -1,10 +1,11 @@
-import { NotFoundError, ValidationError, liveFields, type Cms, type FormDef, type LocalizedText, type Submission } from '@velocity/cms-core';
+import { NotFoundError, ValidationError, liveFields, type Cms, type DealSubject, type FormDef, type LocalizedText, type Submission } from '@velocity/cms-core';
 
 /** The names a form's page sends beside its own fields. A field's key never starts with `_`. */
 export const FORM_TRAP_FIELD = '_hp';
 export const FORM_TOKEN_FIELD = '_t';
 export const FORM_PAGE_FIELD = '_page';
 export const FORM_LOCALE_FIELD = '_locale';
+export const FORM_ABOUT_FIELD = '_about';
 
 /** The largest post a form may send: plenty for words, far too little to fill a disk. */
 export const MAX_FORM_POST_BYTES = 64 * 1024;
@@ -100,6 +101,12 @@ export interface FormPostsOptions {
   /** Who delivers notices. Without one nobody is emailed; submissions are kept all the same. */
   readonly mailer?: NoticeMailer | undefined;
   readonly limiter?: RateLimiter;
+  /**
+   * The entry whose own page is at a path of the site, if any, so that what is sent from a
+   * listing's page is known to be about that listing. Asked only when the form's page did not
+   * say, with a signed mark, which entry it is about.
+   */
+  readonly entryAt?: (path: string) => Promise<DealSubject | undefined>;
   readonly words?: FormPostWords;
   readonly now?: () => number;
   /** Told what went wrong when a notice could not be sent. Never given what a visitor wrote. */
@@ -163,8 +170,11 @@ export class FormPosts {
     const locale = typeof sent[FORM_LOCALE_FIELD] === 'string' ? sent[FORM_LOCALE_FIELD] : undefined;
     const suspected = (typeof sent[FORM_TRAP_FIELD] === 'string' && sent[FORM_TRAP_FIELD] !== '') || !(await this.#drawnForAPerson(formKey, sent[FORM_TOKEN_FIELD]));
 
+    // A page that cannot be looked up costs the submission nothing but its subject.
+    const about = (await this.#marked(formKey, sent[FORM_ABOUT_FIELD])) ?? (page === undefined ? undefined : await this.#options.entryAt?.(page).catch(() => undefined));
+
     try {
-      const { submission, form } = await this.#options.cms.submissions.receive(formKey, sent, { suspected, ...(page !== undefined && { page }), ...(locale !== undefined && { locale }) });
+      const { submission, form } = await this.#options.cms.submissions.receive(formKey, sent, { suspected, ...(page !== undefined && { page }), ...(locale !== undefined && { locale }), ...(about !== undefined && { about }) });
       // Whoever the form names is told. A notice that cannot be sent never loses the submission.
       if (submission.status === 'new') await this.#notify(form, submission, origin);
     } catch (error) {
@@ -227,7 +237,16 @@ export class FormPosts {
 
   async #sign(formKey: string, drawn: string): Promise<string | undefined> {
     const { secret } = this.#options;
-    return secret === undefined ? undefined : sign(secret, formKey, drawn);
+    return secret === undefined ? undefined : sign(secret, `form:${formKey}:${drawn}`);
+  }
+
+  /** The entry a form's page said it is about, when the mark is one this site signed for this form. */
+  async #marked(formKey: string, mark: unknown): Promise<DealSubject | undefined> {
+    const { secret } = this.#options;
+    if (secret === undefined || typeof mark !== 'string' || mark.length > 400) return undefined;
+    const [typeId = '', entry = '', signature = ''] = mark.split('.');
+    if (!ID.test(typeId) || !ID.test(entry) || !/^[0-9a-f]{64}$/.test(signature)) return undefined;
+    return sameText(await sign(secret, aboutText(formKey, typeId, entry)), signature) ? { typeId, entry } : undefined;
   }
 
   /** A plain page for a visitor whose browser runs no scripts. Every word in it is the site's own, escaped. */
@@ -245,14 +264,28 @@ export class FormPosts {
   }
 }
 
-async function sign(secret: string, formKey: string, drawn: string): Promise<string> {
+async function sign(secret: string, text: string): Promise<string> {
   const key = await globalThis.crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  return hex(await globalThis.crypto.subtle.sign('HMAC', key, encoder.encode(`form:${formKey}:${drawn}`)));
+  return hex(await globalThis.crypto.subtle.sign('HMAC', key, encoder.encode(text)));
+}
+
+/** What an id may be made of, so a mark splits into its parts one way only. */
+const ID = /^[A-Za-z0-9_-]{1,100}$/;
+const aboutText = (formKey: string, typeId: string, entry: string) => `about:${formKey}:${typeId}:${entry}`;
+
+/**
+ * The mark a form's page sends along to say which entry it is about, signed with the site's
+ * secret so that only the site's own pages can say it. `undefined` without a secret, or for ids
+ * a mark cannot carry.
+ */
+export async function aboutMark(secret: string | undefined, formKey: string, about: DealSubject): Promise<string | undefined> {
+  if (secret === undefined || !ID.test(about.typeId) || !ID.test(about.entry)) return undefined;
+  return `${about.typeId}.${about.entry}.${await sign(secret, aboutText(formKey, about.typeId, about.entry))}`;
 }
 
 /** The mark for a form drawn at `drawn`, signed with the site's secret. `undefined` without a secret. */
 export async function formToken(secret: string | undefined, formKey: string, drawn: number = Date.now()): Promise<string | undefined> {
-  return secret === undefined ? undefined : `${drawn}.${await sign(secret, formKey, String(drawn))}`;
+  return secret === undefined ? undefined : `${drawn}.${await sign(secret, `form:${formKey}:${drawn}`)}`;
 }
 
 /** Compares two texts of the same length without stopping at the first difference. */

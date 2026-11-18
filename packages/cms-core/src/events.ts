@@ -34,7 +34,7 @@ export interface CmsEvents {
   /** A contact is gone for good, with its notes. `contact` is what it was. */
   'contact.deleted': { contact: Contact; actor: Actor };
   /** A deal was made or changed, or is gone for good. */
-  'deal.saved': { deal: Deal; actor: Actor };
+  'deal.saved': { deal: Deal; actor?: Actor };
   'deal.deleted': { deal: Deal; actor: Actor };
   /** The stages contacts move through were changed. */
   'pipeline.saved': { pipeline: Pipeline; actor: Actor };

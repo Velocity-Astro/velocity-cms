@@ -247,5 +247,16 @@ const ordered: ({ kind: 'menu'; id: string; label: string; order: number } | { k
   edit('src/live-pages/lang/index.astro', builtFirst('HomeView', '<HomeSchema />', ...others));
   edit('src/live-pages/lang/about.astro', builtFirst('AboutView', '', ...others));
 
+  // 14. "Ask about this home" is a form of the CMS when the site has one called `ask`, and it
+  //     says which listing it is on, so the question is kept as being about that listing and
+  //     starts a deal about it. Without that form the template's own stays.
+  add('src/components/cms/CmsForm.astro', 'builder/CmsForm.astro');
+  edit('src/views/ListingView.astro', (view) => {
+    let next = must(view, "import InquiryForm from '@/components/estate/InquiryForm.astro';", "import { siteForm } from '@velocity/cms-astro';\nimport CmsForm from '@/components/cms/CmsForm.astro';\nimport InquiryForm from '@/components/estate/InquiryForm.astro';");
+    next = must(next, "const rent = listing.offer === 'rent';\n", "const rent = listing.offer === 'rent';\nconst askForm = await siteForm(Astro, 'ask', { about: { type: 'listings', slug: listing.slug, locale } });\n");
+    const own = `<InquiryForm agent={listing.agent} listing={listing.slug} topic={rent ? 'renting' : 'buying'} message={t('listing.askMessage', { address: street })} id="ask-form" />`;
+    return must(next, own, `{askForm ? <CmsForm form={askForm} size="md" hints={{ message: t('listing.askMessage', { address: street }) }} /> : ${own}}`);
+  });
+
   return changes;
 }

@@ -5,17 +5,20 @@ import { formSubmissions } from './tables.js';
 
 type Row = typeof formSubmissions.$inferSelect;
 
-const toSubmission = ({ email, locale, page, handledAt, handledBy, ...row }: Row): Submission => ({
+const toSubmission = ({ email, locale, page, aboutType, aboutEntry, handledAt, handledBy, ...row }: Row): Submission => ({
   ...row,
   ...(email !== null && { email }),
   ...(locale !== null && { locale }),
   ...(page !== null && { page }),
+  ...(aboutType !== null && aboutEntry !== null && { about: { typeId: aboutType, entry: aboutEntry } }),
   ...(handledAt !== null && { handledAt }),
   ...(handledBy !== null && { handledBy }),
 });
 
-const toRow = (submission: Submission): Row => ({
+const toRow = ({ about, ...submission }: Submission): Row => ({
   ...submission,
+  aboutType: about?.typeId ?? null,
+  aboutEntry: about?.entry ?? null,
   email: submission.email ?? null,
   locale: submission.locale ?? null,
   page: submission.page ?? null,
