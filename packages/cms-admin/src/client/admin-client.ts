@@ -199,6 +199,8 @@ export interface AdminClient {
   /** Takes the entry off the site. Its content is kept as a draft. */
   unpublishEntry(id: string): Promise<Entry>;
   /** Moves an entry to the trash: off the site and out of the lists, with nothing lost. */
+  /** A copy of an entry as a new draft of its own, under the entry's slug with `-copy` after it. */
+  duplicateEntry(id: string): Promise<Entry>;
   trashEntry(id: string): Promise<Entry>;
   /** Brings an entry back from the trash, as a draft. */
   restoreEntry(id: string): Promise<Entry>;

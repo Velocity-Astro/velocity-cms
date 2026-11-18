@@ -287,6 +287,10 @@ export class MemoryAdminClient implements AdminClient {
     return this.#request((actor) => this.#cms.content.unpublish(actor, id));
   }
 
+  duplicateEntry(id: string): Promise<Entry> {
+    return this.#request((actor) => this.#cms.content.duplicate(actor, id));
+  }
+
   trashEntry(id: string): Promise<Entry> {
     return this.#request((actor) => this.#cms.content.trash(actor, id));
   }

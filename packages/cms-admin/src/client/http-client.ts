@@ -160,6 +160,10 @@ export class HttpAdminClient implements AdminClient {
     return this.#send('POST', `/entries/${encodeURIComponent(id)}/unpublish`, {});
   }
 
+  duplicateEntry(id: string): Promise<Entry> {
+    return this.#send('POST', `/entries/${encodeURIComponent(id)}/duplicate`, {});
+  }
+
   trashEntry(id: string): Promise<Entry> {
     return this.#send('DELETE', `/entries/${encodeURIComponent(id)}`, {});
   }

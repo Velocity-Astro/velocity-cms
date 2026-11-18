@@ -209,6 +209,19 @@ it('moves an entry to the trash only after asking, says what that means, and goe
   expect((await client.listTrash()).items.map((entry) => entry.id)).toEqual(['e1']);
 });
 
+it('duplicates an entry and opens the copy, a draft with what was saved', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/content/listings/e1', signedIn());
+  await more(user, 'Duplicate');
+  expect(await screen.findByText('6214 Lakeshore Drive duplicated')).toBeTruthy();
+  await waitFor(() => expect(saveBar().getByText('Draft')).toBeTruthy());
+  const original = await client.getEntry('e1');
+  const copies = (await client.listEntries({ type: 'listings' })).items.filter((entry) => entry.slug === `${original.slug}-copy`);
+  expect(copies).toHaveLength(1);
+  expect(copies[0]).toMatchObject({ status: 'draft', data: original.data });
+  expect(original.status).toBe('published');
+});
+
 it('says an entry is in the trash instead of opening it, with the way there', async () => {
   const user = userEvent.setup();
   const { client } = renderApp('/', signedIn());

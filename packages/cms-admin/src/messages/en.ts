@@ -206,6 +206,10 @@ export const en = {
     trashDescription: 'It leaves the lists and can be restored from the trash whenever you need it. Changes you have not saved are not kept.',
     trashDescriptionPublished:
       'Visitors will no longer find it, and links to it will stop working. It can be restored from the trash as a draft. Changes you have not saved are not kept.',
+    duplicate: 'Duplicate',
+    duplicated: (name: string) => `${name} duplicated`,
+    duplicatedDescription: 'This is the copy, as a draft. It holds what was last saved.',
+    notDuplicated: 'Not duplicated',
     trashed: (name: string) => `${name} moved to the trash`,
     trashedDescription: 'Restore it from Trash, under Site, whenever you need it.',
     notTrashed: 'Not moved to the trash',

@@ -8,7 +8,7 @@ import type { ContentTypeDef, Entry, EntryData, EntryVersion, Page, PublicEntry,
 import type { Clock, EntryQuery, EntryRepository, IdGenerator } from '../ports.js';
 import type { Registry } from '../registry.js';
 import { toPublicData, validateData } from '../schema-builder.js';
-import { isSlug, isSlugPath, takesSlugPath } from '../slug.js';
+import { MAX_SLUG_LENGTH, isSlug, isSlugPath, takesSlugPath } from '../slug.js';
 import type { SchemaService } from './schema-service.js';
 
 export interface CreateEntryInput {
@@ -26,6 +26,9 @@ export interface UpdateEntryInput {
   /** The revision the editor loaded. The update is refused if someone saved in between. */
   readonly expectedRevision: number;
 }
+
+/** How many copies of one entry may sit side by side under its slug. */
+const MAX_COPIES = 50;
 
 /**
  * Owns entries. Every write takes the same four steps, in the same order: check permission,
@@ -99,6 +102,33 @@ export class ContentService {
       updatedAt: now,
     };
     return this.save(actor, entry, null);
+  }
+
+  /**
+   * Makes a copy of an entry to start a new one from: a draft of the same type and language with
+   * what the original holds now, under the original's slug with `-copy` after it (then
+   * `-copy-2`, and so on). The copy is a page of its own, not a translation of the original, and
+   * nothing of it is published.
+   */
+  async duplicate(actor: Actor, id: string): Promise<Entry> {
+    this.access.require(actor, 'entry:write');
+    const original = await this.loadLive(id);
+    const type = await this.schema.getLive(original.typeId);
+    if (type.kind === 'single') throw new ConflictError(`"${type.key}" is a single page, so it cannot be duplicated: it has one entry in each language.`);
+    let slug = '';
+    for (let count = 1; count <= MAX_COPIES; count += 1) {
+      const ending = count === 1 ? '-copy' : `-copy-${count}`;
+      // A long slug gives up its end, so the copy's still fits.
+      const candidate = `${original.slug.slice(0, MAX_SLUG_LENGTH - ending.length).replace(/[-/]+$/, '')}${ending}`;
+      if ((await this.entries.find({ typeId: type.id, locale: original.locale, slug: candidate, limit: 1 })).total === 0) {
+        slug = candidate;
+        break;
+      }
+    }
+    if (slug === '') throw new ConflictError(`"${original.slug}" already has ${MAX_COPIES} copies. Rename or remove some of them first.`);
+    const now = this.clock.now();
+    const copyId = this.ids.next();
+    return this.save(actor, { id: copyId, typeId: type.id, locale: original.locale, translationGroup: copyId, slug, status: 'draft', data: original.data, revision: 1, createdAt: now, updatedAt: now }, null);
   }
 
   async update(actor: Actor, id: string, input: UpdateEntryInput): Promise<Entry> {

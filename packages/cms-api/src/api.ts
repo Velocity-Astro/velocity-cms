@@ -338,6 +338,7 @@ export class CmsApi {
       .add('POST', '/entries/:id/preview', async (call) => json(await previews.link(actor(call), param(call, 'id'))))
       .add('POST', '/entries/:id/unpublish', async (call) => json(await content.unpublish(actor(call), param(call, 'id'))))
       .add('DELETE', '/entries/:id', async (call) => json(await content.trash(actor(call), param(call, 'id'))))
+      .add('POST', '/entries/:id/duplicate', async (call) => json(await content.duplicate(actor(call), param(call, 'id')), 201))
       .add('POST', '/entries/:id/restore', async (call) => json(await content.restore(actor(call), param(call, 'id'))))
       .add('GET', '/trash', async (call) => {
         const query = parse(trashList, Object.fromEntries(call.url.searchParams));

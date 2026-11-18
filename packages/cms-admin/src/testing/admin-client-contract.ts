@@ -142,6 +142,16 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       expect(draft).not.toHaveProperty('published');
     });
 
+    it('duplicates an entry as a draft of its own, each copy under a free slug', async () => {
+      const original = await client.getEntry('e2');
+      const copy = await client.duplicateEntry('e2');
+      expect(copy).toMatchObject({ typeId: original.typeId, locale: original.locale, slug: `${original.slug}-copy`, status: 'draft', data: original.data, revision: 1 });
+      expect(copy.id).not.toBe('e2');
+      expect(copy.translationGroup).toBe(copy.id);
+      expect((await client.duplicateEntry('e2')).slug).toBe(`${original.slug}-copy-2`);
+      await expect(client.duplicateEntry('nothing')).rejects.toMatchObject({ code: 'not_found' });
+    });
+
     it('moves an entry to the trash, brings it back as a draft, and deletes one for good', async () => {
       await client.publishEntry('e2', 1);
       const before = (await client.listEntries({ type: 'listings' })).total;
