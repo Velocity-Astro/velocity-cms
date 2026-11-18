@@ -27,6 +27,7 @@ export * from './Tag/index.js';
 export * from './Text/index.js';
 export * from './TextArea/index.js';
 export * from './TextField/index.js';
+export * from './Thumbnail/index.js';
 export * from './Toast/index.js';
 export * from './Tooltip/index.js';
 export type { Space } from './scales.js';

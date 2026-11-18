@@ -34,6 +34,7 @@ export {
   type EntryVersion,
   type FieldDef,
   type FieldSection,
+  type ListSummary,
   type LocalizedText,
   type Page,
   type PublicEntry,

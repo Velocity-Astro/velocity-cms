@@ -1,7 +1,7 @@
 import { cva } from 'class-variance-authority';
 
 /** The page is one quiet surface: the sidebar is part of it, and the screen sits on it in a panel. */
-export const appShellClass = 'flex h-dvh bg-background-secondary text-foreground';
+export const appShellClass = 'flex h-dvh overflow-hidden bg-background-secondary text-foreground';
 
 export const appShellSkipClass = [
   'sr-only layer-toast rounded-md bg-primary px-4 py-2 text-base font-medium text-primary-foreground',
@@ -43,7 +43,12 @@ export const appShellAccountAvatarClass =
 export const appShellAccountTextClass = 'flex min-w-0 flex-1 flex-col';
 export const appShellAccountNameClass = 'truncate text-sm font-semibold text-foreground';
 export const appShellAccountDetailClass = 'truncate text-xs text-foreground-muted';
-export const appShellMainClass = 'my-2 mr-2 min-w-0 flex-1 overflow-auto rounded-2xl border border-border bg-background shadow-sm outline-none';
+/**
+ * `relative`, so that anything placed out of the flow inside the panel (a label only screen readers
+ * get) scrolls with it. Without it such an element is placed against the page and makes the page
+ * itself scroll far past the frame.
+ */
+export const appShellMainClass = 'relative my-2 mr-2 min-w-0 flex-1 overflow-auto rounded-2xl border border-border bg-background shadow-sm outline-none';
 
 /** The id of the main area, which the skip link jumps to. */
 export const appShellMainId = 'main';

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useContentTypes, useEntries, useImages } from '../client/queries.js';
 import { entryTitle, groupTranslations, localized, sameData, withValue } from '../lib/content.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
-import { createFieldControlRegistry, type FieldControlProps, type FieldControls } from './field-control.js';
+import { createFieldControlRegistry, type FieldControlProps, type FieldControls, type FieldSummaryProps } from './field-control.js';
 import { FieldEditor } from './FieldEditor.js';
 import { FieldGrid } from './FieldGrid.js';
 
@@ -81,22 +81,34 @@ function SwitchControl({ label, value, onChange }: FieldControlProps) {
   return <Switch label={label} isSelected={value === true} onChange={onChange} />;
 }
 
+/** A figure as the reader's language writes it: 1,185,000. */
+function NumberSummary({ value }: FieldSummaryProps) {
+  const locale = useLocale();
+  return <Text size="sm">{typeof value === 'number' ? new Intl.NumberFormat(locale).format(value) : String(value)}</Text>;
+}
+
+/** What each choice of a select field is called, when the field says. The stored value otherwise. */
+function choiceName(field: FieldDef, choice: string, locale: string): string {
+  const labels = (field.options['labels'] ?? {}) as Readonly<Record<string, Readonly<Record<string, string>> | undefined>>;
+  const name = labels[choice];
+  return name ? localized(name, locale) : choice;
+}
+
+function SelectSummary({ field, value }: FieldSummaryProps) {
+  const locale = useLocale();
+  return <Text size="sm">{choiceName(field, String(value), locale)}</Text>;
+}
+
 function SelectControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {
   const messages = useMessages();
   const locale = useLocale();
   const choices = Array.isArray(field.options['choices']) ? field.options['choices'].filter((choice) => typeof choice === 'string') : [];
-  // What each choice is called, when the field says. The stored value is shown otherwise.
-  const labels = (field.options['labels'] ?? {}) as Readonly<Record<string, Readonly<Record<string, string>> | undefined>>;
-  const named = (choice: string) => {
-    const name = labels[choice];
-    return name ? localized(name, locale) : choice;
-  };
   return (
     <Select
       label={label}
       isLabelHidden={isLabelHidden}
       {...(help !== undefined && { description: help })}
-      options={choices.map((choice) => ({ id: choice, label: named(choice) }))}
+      options={choices.map((choice) => ({ id: choice, label: choiceName(field, choice, locale) }))}
       placeholder={messages.editor.choose}
       onChange={onChange}
       isRequired={field.required}
@@ -278,10 +290,10 @@ export function createFieldControls(): FieldControls {
   return createFieldControlRegistry()
     .register({ type: 'text-input', Component: TextControl })
     .register({ type: 'url-input', Component: UrlControl })
-    .register({ type: 'number-input', Component: NumberControl, width: 'compact' })
+    .register({ type: 'number-input', Component: NumberControl, width: 'compact', Summary: NumberSummary, summaryAlign: 'end' })
     .register({ type: 'date-picker', Component: DateControl, width: 'compact' })
     .register({ type: 'switch', Component: SwitchControl })
-    .register({ type: 'select', Component: SelectControl, width: 'compact' })
+    .register({ type: 'select', Component: SelectControl, width: 'compact', Summary: SelectSummary })
     .register({ type: 'reference', Component: ReferenceControl, width: 'compact' })
     .register({ type: 'image', Component: ImageControl })
     .register({ type: 'group', Component: GroupControl })

@@ -28,6 +28,12 @@ export interface FieldControlProps {
  * `cms-core`), and the control with that name is drawn for it, so nothing in the editor asks
  * which type a field is. A plugin's field type brings its own control the same way.
  */
+/** What a field's summary is given: the field and one stored value of it. */
+export interface FieldSummaryProps {
+  readonly field: FieldDef;
+  readonly value: unknown;
+}
+
 export interface FieldControl {
   /** The editor name a field type asks for: `text-input`. */
   readonly type: string;
@@ -37,6 +43,13 @@ export interface FieldControl {
    * by side in a form; everything else takes a row of its own. Defaults to `full`.
    */
   readonly width?: 'full' | 'compact';
+  /**
+   * How a value reads in a list of entries, where there is no room for the control. Without
+   * one, text and numbers are shown as they are stored and anything else is left out.
+   */
+  readonly Summary?: ComponentType<FieldSummaryProps>;
+  /** `end` when summaries are figures, so a column of them lines up. */
+  readonly summaryAlign?: 'start' | 'end';
 }
 
 export type FieldControls = Registry<FieldControl>;

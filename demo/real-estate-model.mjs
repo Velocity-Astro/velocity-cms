@@ -33,10 +33,12 @@ const listings = {
   kind: 'collection',
   label: { en: 'Listings', es: 'Propiedades' },
   titleField: 'address.street',
+  listImage: 'photos',
+  listFields: ['price', 'status'],
   fields: [
     text('headline', 'Headline', { required: true, help: 'One line under the address, such as "Restored 1928 farmhouse on a corner lot".' }),
     choice('offer', 'Offer', { sale: 'For sale', rent: 'For rent' }, { required: true }),
-    choice('status', 'Status', { active: 'Active', 'coming-soon': 'Coming soon', pending: 'Pending', sold: 'Sold', leased: 'Leased' }, { required: true }),
+    choice('status', 'Sale status', { active: 'Active', 'coming-soon': 'Coming soon', pending: 'Pending', sold: 'Sold', leased: 'Leased' }, { required: true }),
     choice('type', 'Property type', { house: 'House', townhome: 'Townhome', condo: 'Condo', multifamily: 'Multifamily' }, { required: true }),
     date('listedAt', 'Listed on', { required: true }),
     text('mlsId', 'MLS number'),
@@ -114,6 +116,8 @@ const agents = {
   kind: 'collection',
   label: { en: 'Agents', es: 'Agentes' },
   titleField: 'name',
+  listImage: 'photo',
+  listFields: ['role'],
   fields: [
     text('name', 'Name', { required: true }),
     text('role', 'Role', { required: true }),
@@ -143,6 +147,8 @@ const neighborhoods = {
   kind: 'collection',
   label: { en: 'Neighborhoods', es: 'Barrios' },
   titleField: 'name',
+  listImage: 'photo',
+  listFields: ['city'],
   fields: [
     text('name', 'Name', { required: true }),
     text('city', 'City', { required: true }),
@@ -170,6 +176,7 @@ const reviews = {
   kind: 'collection',
   label: { en: 'Reviews', es: 'Opiniones' },
   titleField: 'author',
+  listImage: 'photo',
   fields: [
     long('quote', 'Quote', { required: true }),
     text('author', 'Author', { required: true, help: 'First name and initial is enough.' }),

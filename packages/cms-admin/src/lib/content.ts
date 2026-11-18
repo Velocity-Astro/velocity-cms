@@ -4,6 +4,7 @@ import {
   type ContentTypeDef,
   type Entry,
   type EntryData,
+  type FieldDef,
   type LocalizedText,
 } from '@velocity/cms-core';
 
@@ -30,6 +31,30 @@ export function entryTitle(type: ContentTypeDef, data: EntryData): string | null
   let value: unknown = data;
   for (const id of path) value = typeof value === 'object' && value !== null ? (value as Record<string, unknown>)[id] : undefined;
   return typeof value === 'string' && value.trim() !== '' ? value : null;
+}
+
+/** A field of a type and its value in an entry, found by a path of field ids from the top down. */
+export function fieldAt(type: ContentTypeDef, data: EntryData, path: readonly string[]): { readonly field: FieldDef; readonly value: unknown } | null {
+  let fields: readonly FieldDef[] = type.fields;
+  let value: unknown = data;
+  let found: FieldDef | undefined;
+  for (const id of path) {
+    found = fields.find((candidate) => candidate.id === id && candidate.deletedAt === undefined);
+    if (!found) return null;
+    value = typeof value === 'object' && value !== null ? (value as Record<string, unknown>)[id] : undefined;
+    fields = Array.isArray(found.options['fields']) ? (found.options['fields'] as FieldDef[]) : [];
+  }
+  return found ? { field: found, value } : null;
+}
+
+/**
+ * The name of the image a list shows for an entry, from the field its type names. For a field
+ * that holds several images, the first.
+ */
+export function entryImage(type: ContentTypeDef, data: EntryData): string | null {
+  const at = type.list?.imagePath ? fieldAt(type, data, type.list.imagePath) : null;
+  const value = Array.isArray(at?.value) ? at.value[0] : at?.value;
+  return typeof value === 'string' && value !== '' ? value : null;
 }
 
 /** Where an entry stands, as the editor shows it. */

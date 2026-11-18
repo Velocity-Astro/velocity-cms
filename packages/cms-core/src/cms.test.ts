@@ -496,6 +496,17 @@ describe('describing a content type again', () => {
     ]);
   });
 
+  it('stores what a list of entries shows by field id, and refuses a field the type does not have', async () => {
+    const type = await cms.schema.define(owner, { ...agents, listImage: 'name', listFields: ['kind', 'phone.display'] });
+    const phone = type.fields.find((field) => field.key === 'phone');
+    expect(type.list).toEqual({
+      imagePath: [id(type, 'name')],
+      fieldPaths: [[id(type, 'kind')], [phone?.id, (phone?.options['fields'] as FieldDef[])[0]?.id]],
+    });
+    expect((await cms.schema.define(owner, agents)).list).toBeUndefined();
+    await expect(cms.schema.define(owner, { ...agents, listFields: ['nickname'] })).rejects.toBeInstanceOf(ValidationError);
+  });
+
   it('refuses a section or a title that names a field the type does not have', async () => {
     await expect(cms.schema.define(owner, { ...agents, titleField: 'nickname' })).rejects.toBeInstanceOf(ValidationError);
     await expect(

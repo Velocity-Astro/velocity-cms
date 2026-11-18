@@ -22,6 +22,10 @@ export interface NewContentType {
   readonly fields?: readonly NewField[];
   /** The field entries are called by in lists, by key: `name`, or `address.street` inside a group. */
   readonly titleField?: string;
+  /** The image field whose picture goes before each entry's name in lists, by key: `photos`. */
+  readonly listImage?: string;
+  /** The fields that get a column each in lists, by key: `['price', 'status']`. */
+  readonly listFields?: readonly string[];
   /** How the editor lays the fields out, with fields named by key. */
   readonly sections?: readonly NewSection[];
 }
@@ -140,7 +144,7 @@ export class SchemaService {
 
   /** A type with a description applied to it: its fields, what entries are called by, and its layout. */
   private described(type: ContentTypeDef, input: NewContentType): ContentTypeDef {
-    const { titlePath: _title, sections: _sections, urlPattern: _url, ...rest } = type;
+    const { titlePath: _title, list: _list, sections: _sections, urlPattern: _url, ...rest } = type;
     const fields = defineFields(input.fields ?? [], type.fields, this.context);
     const live = liveFields(fields);
     const sections: FieldSection[] = (input.sections ?? []).map((section) => ({
@@ -154,17 +158,23 @@ export class SchemaService {
       label: input.label,
       ...(input.urlPattern !== undefined && { urlPattern: input.urlPattern }),
       fields,
-      ...(input.titleField !== undefined && { titlePath: this.pathOf(live, input.titleField) }),
+      ...(input.titleField !== undefined && { titlePath: this.pathOf(live, input.titleField, 'the title field') }),
+      ...((input.listImage !== undefined || (input.listFields?.length ?? 0) > 0) && {
+        list: {
+          ...(input.listImage !== undefined && { imagePath: this.pathOf(live, input.listImage, 'the list image') }),
+          ...(input.listFields?.length && { fieldPaths: input.listFields.map((keys) => this.pathOf(live, keys, 'the list field')) }),
+        },
+      }),
       ...(sections.length > 0 && { sections }),
     };
   }
 
   /** The ids along a dotted key path, such as `address.street`. */
-  private pathOf(fields: readonly FieldDef[], keys: string): string[] {
+  private pathOf(fields: readonly FieldDef[], keys: string, what: string): string[] {
     const path: string[] = [];
     let within = fields;
     for (const key of keys.split('.')) {
-      const field = this.requireFieldByKey(within, key, `the title field "${keys}"`);
+      const field = this.requireFieldByKey(within, key, `${what} "${keys}"`);
       path.push(field.id);
       within = liveFields(this.fields.get(field.type).inner(field.options));
     }
