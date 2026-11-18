@@ -21,6 +21,9 @@
     },
     {
       "path": "packages/cms-admin"
+    },
+    {
+      "path": "packages/cms-plugins"
     }
   ]
 }

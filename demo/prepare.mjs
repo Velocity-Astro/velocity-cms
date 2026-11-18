@@ -25,7 +25,7 @@ if (!projectArg) throw new Error('Usage: prepare.mjs <assembled real-estate proj
 const project = path.resolve(projectArg);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const at = (relative) => path.join(project, relative);
-const PACKAGES = ['cms-core', 'cms-db', 'cms-api', 'cms-auth', 'cms-ui', 'cms-admin', 'cms-astro'];
+const PACKAGES = ['cms-core', 'cms-db', 'cms-api', 'cms-auth', 'cms-ui', 'cms-admin', 'cms-plugins', 'cms-astro'];
 
 // 1. Content types and content, before the conversion moves the files.
 const connection = await connect({});

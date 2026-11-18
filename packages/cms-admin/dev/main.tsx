@@ -13,6 +13,8 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 // The demo site's own plugin file, so the preview shows what a real site would.
 import publishLogEditor from '../../../prototypes/live-site/files/publish-log-editor.js';
+// Read from its source, so the preview needs no build of it.
+import { seo } from '../../cms-plugins/src/index.js';
 import { AdminApp, type PluginEditorModule } from '../src/index.js';
 import { MemoryAdminClient, sampleContentTypes, sampleEntries, sampleUser } from '../src/testing/index.js';
 
@@ -42,21 +44,8 @@ const client = new MemoryAdminClient({
         cms.routes.add('GET', '/log', async () => ({ items: (await cms.store.get('log')) ?? [] }));
       },
     }),
-    {
-      name: 'seo',
-      apiVersion: 1,
-      label: { en: 'SEO' },
-      description: { en: 'Titles, descriptions and a check before publishing.' },
-      version: '0.1.0',
-      permissions: ['entry:read'],
-      enabledByDefault: false,
-      settings: [
-        { key: 'titleSuffix', type: 'text', label: { en: 'Title ending' }, help: { en: 'Added to every page title, such as " | Lakeshore Realty".' }, required: true },
-        { key: 'maxLength', type: 'number', label: { en: 'Longest description' }, help: { en: 'In characters. Search engines cut longer ones short.' } },
-        { key: 'requireDescription', type: 'boolean', label: { en: 'Require a description before publishing' } },
-      ],
-      setup: () => undefined,
-    },
+    // The SEO plugin that comes with the CMS, as every site has it: available until an owner activates it.
+    seo,
     { name: 'redirects', apiVersion: 1, label: { en: 'Redirects' }, description: { en: 'Send old addresses to new pages.' }, version: '0.1.0', permissions: ['entry:read', 'entry:write'], enabledByDefault: false, setup: () => undefined },
     { name: 'forms', apiVersion: 2, label: { en: 'Forms' }, setup: () => undefined },
   ],
@@ -72,8 +61,10 @@ createRoot(document.getElementById('root') as HTMLElement).render(
       siteName="Lakeshore Realty"
       basePath="/"
       pluginEditors={async (name) => {
-        if (name !== 'publish-log') throw new Error(`The preview has no editor file for "${name}".`);
-        return { default: publishLogEditor } as PluginEditorModule;
+        if (name === 'publish-log') return { default: publishLogEditor } as PluginEditorModule;
+        // The text a site would serve at /plugins/seo.js, run as the module it is.
+        if (name === 'seo') return import(/* @vite-ignore */ URL.createObjectURL(new Blob([seo.editor ?? ''], { type: 'text/javascript' }))) as Promise<PluginEditorModule>;
+        throw new Error(`The preview has no editor file for "${name}".`);
       }}
     />
   </StrictMode>,

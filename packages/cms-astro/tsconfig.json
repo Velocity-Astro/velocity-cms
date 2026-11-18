@@ -19,6 +19,9 @@
     },
     {
       "path": "../cms-auth"
+    },
+    {
+      "path": "../cms-plugins"
     }
   ]
 }

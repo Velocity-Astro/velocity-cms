@@ -2,7 +2,7 @@ import { createCms, type Actor, type Cms, type SearchIndex } from '@velocity/cms
 import { openDatabase, SqliteEntryRepository, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Db } from '@velocity/cms-db';
 import { mediaStoreFromEnv } from './media-store.js';
 import { siteSecret } from './secret.js';
-import { sitePlugins } from './site-plugins.js';
+import { allPlugins } from './site-plugins.js';
 
 export interface ConnectionOptions {
   /**
@@ -53,10 +53,10 @@ export function sharedConnection(options: ConnectionOptions): Promise<Connection
   const url = resolveUrl(options);
   let connection = shared.get(url);
   if (!connection) {
-    // The site's plugins start with its one connection, so a field type they add is known
+    // The site's plugins, and the ones that come with the CMS, start with its one connection, so a field type they add is known
     // before the first page or the editor reads content.
     connection = connect(options).then(async (opened) => {
-      await opened.cms.plugins.load(sitePlugins());
+      await opened.cms.plugins.load(allPlugins());
       return opened;
     });
     shared.set(url, connection);

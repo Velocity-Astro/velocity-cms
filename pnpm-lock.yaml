@@ -112,6 +112,9 @@ importers:
       '@velocity/cms-db':
         specifier: workspace:*
         version: link:../cms-db
+      '@velocity/cms-plugins':
+        specifier: workspace:*
+        version: link:../cms-plugins
     devDependencies:
       astro:
         specifier: 7.4.5
@@ -169,6 +172,16 @@ importers:
       zod:
         specifier: ^4.6.6
         version: 4.6.7
+
+  packages/cms-plugins:
+    dependencies:
+      '@velocity/cms-core':
+        specifier: workspace:*
+        version: link:../cms-core
+    devDependencies:
+      '@velocity/cms-admin':
+        specifier: workspace:*
+        version: link:../cms-admin
 
   packages/cms-ui:
     dependencies:
