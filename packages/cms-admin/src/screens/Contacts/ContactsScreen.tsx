@@ -1,17 +1,24 @@
 import type { Contact } from '@velocity/cms-core';
-import { Box, Button, Dialog, EmptyState, Form, PageHeader, SearchField, Stack, Table, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity/cms-ui';
-import { Contact as ContactIcon, Plus, SearchX } from 'lucide-react';
+import { Box, Button, Dialog, EmptyState, Form, Inline, PageHeader, SearchField, Segmented, Select, Stack, Table, Tag, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity/cms-ui';
+import { Contact as ContactIcon, ListFilter, Plus, SearchX, Settings2 } from 'lucide-react';
 import { useDeferredValue, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { paths } from '../../app/paths.js';
 import { useGo } from '../../app/use-go.js';
 import { AdminRequestError } from '../../client/errors.js';
-import { useContacts, useCreateContact, useForms, useSession } from '../../client/queries.js';
+import { useContacts, useCreateContact, useForms, usePipeline, useSession, useTeam } from '../../client/queries.js';
 import { relativeTime } from '../../lib/relative-time.js';
 import { useClosing } from '../../lib/use-closing.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 import { useSourceOf } from './contact-source.js';
+import { PipelineBoard } from './PipelineBoard.js';
+import { STAGE_TONE, useFollowUp, useOwnerName, useStageName } from './pipeline.js';
+import { StagesDialog } from './StagesDialog.js';
 
+const ALL = 'all';
+const MINE = 'mine';
+const NOBODY = 'nobody';
 const NO_PROBLEMS: Readonly<Record<string, string>> = {};
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
@@ -31,18 +38,38 @@ function ContactList() {
   const go = useGo();
   const [words, setWords] = useState('');
   const search = useDeferredValue(words.trim());
-  const contacts = useContacts({ limit: 200, ...(search !== '' && { search }) });
+  const session = useSession();
+  const [address, setAddress] = useSearchParams();
+  const view = address.get('view') === 'board' ? 'board' : 'list';
+  const [stage, setStage] = useState(ALL);
+  const [owner, setOwner] = useState(ALL);
+  const ownerId = owner === ALL ? undefined : owner === NOBODY ? null : owner === MINE ? session.data?.id : owner;
+  const filter = { ...(search !== '' && { search }), ...(ownerId !== undefined && { ownerId }) };
+  const contacts = useContacts({ limit: 200, ...filter, ...(stage !== ALL && { stage }) });
   const forms = useForms();
+  const pipeline = usePipeline();
+  const team = useTeam();
   const sourceOf = useSourceOf(forms.data);
+  const stageName = useStageName();
+  const ownerName = useOwnerName(team.data);
+  const followUp = useFollowUp();
   const [isCreating, setCreating] = useState(false);
+  const [isEditingStages, setEditingStages] = useState(false);
+  const stages = pipeline.data?.stages ?? [];
+  const isNarrowed = stage !== ALL || owner !== ALL;
 
   const columns: TableColumn[] = [
     { id: 'name', label: messages.contacts.columnName },
-    { id: 'phone', label: messages.contacts.columnPhone },
+    { id: 'stage', label: messages.contacts.columnStage },
+    { id: 'owner', label: messages.contacts.columnOwner },
+    { id: 'followUp', label: messages.contacts.columnFollowUp },
     { id: 'source', label: messages.contacts.columnSource },
     { id: 'added', label: messages.contacts.columnAdded, align: 'end' },
   ];
-  const rows: TableRow[] = (contacts.data?.items ?? []).map((contact: Contact) => ({
+  const rows: TableRow[] = (contacts.data?.items ?? []).map((contact: Contact) => {
+    const placed = stages.find((candidate) => candidate.id === contact.stage);
+    const due = contact.followUpAt === undefined ? undefined : followUp(contact.followUpAt);
+    return {
     id: contact.id,
     cells: {
       name: (
@@ -55,7 +82,9 @@ function ContactList() {
           )}
         </Stack>
       ),
-      phone: contact.phone ?? '',
+      stage: placed ? <Tag tone={STAGE_TONE[placed.kind]}>{stageName(placed)}</Tag> : '',
+      owner: <Text tone="secondary">{ownerName(contact.ownerId)}</Text>,
+      followUp: due ? due.tone === 'neutral' ? <Text tone="secondary">{due.text}</Text> : <Tag tone={due.tone}>{due.text}</Tag> : '',
       source: (
         <Text size="sm" tone="secondary">
           {sourceOf(contact)}
@@ -67,7 +96,8 @@ function ContactList() {
         </Text>
       ),
     },
-  }));
+    };
+  });
   const create = (
     <Button icon={Plus} onPress={() => setCreating(true)}>
       {messages.contacts.newContact}
@@ -78,21 +108,75 @@ function ContactList() {
   return (
     <Box paddingX={12} paddingY={10}>
       <Stack gap={6}>
-        <PageHeader title={messages.contacts.title} description={messages.contacts.description} actions={create} />
+        <PageHeader
+          title={messages.contacts.title}
+          description={messages.contacts.description}
+          actions={
+            <Inline gap={2}>
+              <Segmented
+                label={messages.contacts.view}
+                options={[
+                  { id: 'list', label: messages.contacts.viewList },
+                  { id: 'board', label: messages.contacts.viewBoard },
+                ]}
+                selected={view}
+                onChange={(next) => setAddress(next === 'board' ? { view: 'board' } : {}, { replace: true })}
+              />
+              {create}
+            </Inline>
+          }
+        />
         <Stack gap={2}>
           <SearchField label={messages.contacts.search} placeholder={messages.contacts.searchPlaceholder} value={words} onChange={setWords} clearLabel={messages.contacts.clearSearch} />
-          {contacts.isSuccess && (
+          <Inline gap={3} align="end" justify="between">
+            <Inline gap={3} align="end">
+              {view === 'list' && (
+                <Select
+                  label={messages.contacts.filterStage}
+                  width="sm"
+                  options={[{ id: ALL, label: messages.contacts.allStages }, ...stages.map((candidate) => ({ id: candidate.id, label: stageName(candidate) }))]}
+                  value={stage}
+                  onChange={setStage}
+                />
+              )}
+              <Select
+                label={messages.contacts.filterOwner}
+                width="sm"
+                options={[
+                  { id: ALL, label: messages.contacts.everyone },
+                  { id: MINE, label: messages.contacts.mine },
+                  { id: NOBODY, label: messages.contacts.nobody },
+                  ...(team.data ?? []).filter((member) => member.id !== session.data?.id).map((member) => ({ id: member.id, label: member.name })),
+                ]}
+                value={owner}
+                onChange={setOwner}
+              />
+            </Inline>
+            {view === 'board' && pipeline.isSuccess && (
+              <Button variant="secondary" icon={Settings2} onPress={() => setEditingStages(true)}>
+                {messages.contacts.editStages}
+              </Button>
+            )}
+          </Inline>
+          {view === 'list' && contacts.isSuccess && (
             <Text size="sm" tone="muted">
               {messages.contacts.count(contacts.data.total)}
             </Text>
           )}
         </Stack>
+        {view === 'board' && pipeline.isPending && <LoadingState shape="summary" />}
+        {view === 'board' && pipeline.isError && <ErrorState error={pipeline.error} onRetry={() => void pipeline.refetch()} />}
+        {view === 'board' && pipeline.isSuccess && <PipelineBoard pipeline={pipeline.data} team={team.data} filter={filter} />}
+        {view === 'list' && <>
         {contacts.isPending && <LoadingState shape="table" />}
         {contacts.isError && <ErrorState error={contacts.error} onRetry={() => void contacts.refetch()} />}
-        {isEmpty && search === '' && <EmptyState icon={ContactIcon} title={messages.contacts.emptyTitle} description={messages.contacts.emptyDescription} action={create} />}
+        {isEmpty && search === '' && isNarrowed && <EmptyState icon={ListFilter} title={messages.contacts.nothingMatchesTitle} description={messages.contacts.nothingMatchesDescription} />}
+        {isEmpty && search === '' && !isNarrowed && <EmptyState icon={ContactIcon} title={messages.contacts.emptyTitle} description={messages.contacts.emptyDescription} action={create} />}
         {isEmpty && search !== '' && <EmptyState icon={SearchX} title={messages.contacts.nothingFoundTitle} description={messages.contacts.nothingFoundDescription(search)} />}
         {contacts.isSuccess && rows.length > 0 && <Table label={messages.contacts.title} columns={columns} rows={rows} onRowAction={(id) => go(paths.contact(id))} />}
+        </>}
       </Stack>
+      {isEditingStages && pipeline.data && <StagesDialog pipeline={pipeline.data} onClose={() => setEditingStages(false)} />}
       {/* Made anew each time it opens, so it never shows what was typed last time. */}
       {isCreating && <NewContactDialog onClose={() => setCreating(false)} />}
     </Box>

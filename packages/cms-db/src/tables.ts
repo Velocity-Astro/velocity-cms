@@ -144,12 +144,31 @@ export const contacts = sqliteTable(
     phone: text('phone'),
     sourceFormId: text('source_form_id'),
     sourcePage: text('source_page'),
+    // Whoever wrote in before there was a pipeline starts where a new contact does.
+    stage: text('stage').notNull().default('new'),
+    ownerId: text('owner_id'),
+    followUpAt: text('follow_up_at'),
     revision: integer('revision').notNull(),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },
-  (table) => [uniqueIndex('contacts_email').on(table.email), index('contacts_created').on(table.createdAt)],
+  (table) => [
+    uniqueIndex('contacts_email').on(table.email),
+    index('contacts_created').on(table.createdAt),
+    index('contacts_stage').on(table.stage, table.createdAt),
+    index('contacts_follow_up').on(table.followUpAt),
+  ],
 );
+
+/**
+ * Small things a site keeps one of, each stored whole as JSON under its name: the pipeline's
+ * stages today. `revision` is repeated beside it for the check a save makes.
+ */
+export const siteSettings = sqliteTable('site_settings', {
+  key: text('key').primaryKey(),
+  revision: integer('revision').notNull(),
+  value: text('value', { mode: 'json' }).$type<unknown>().notNull(),
+});
 
 /** What the team wrote down about a contact. */
 export const contactNotes = sqliteTable(

@@ -1,4 +1,4 @@
-import type { Cms, ContactChanges, ContentTypeChanges, FieldArrangement, FieldChanges, FieldSection, FormChanges, NewContact, NewField, NewForm, Role } from '@velocity/cms-core';
+import type { Cms, ContactChanges, PipelineChanges, ContentTypeChanges, FieldArrangement, FieldChanges, FieldSection, FormChanges, NewContact, NewField, NewForm, Role } from '@velocity/cms-core';
 import { z } from 'zod';
 import type { ApiSession, Authenticator } from './authenticator.js';
 import { ApiError, errorResponse, isFault, json } from './http.js';
@@ -133,6 +133,10 @@ const submissionMark = z.strictObject({ status: z.enum(['new', 'handled', 'spam'
 const forgetRequest = z.strictObject({ email: z.string() });
 const contactList = z.object({
   search: z.string().max(200).optional(),
+  stage: z.string().max(100).optional(),
+  /** A person's id, or `none` for the contacts nobody looks after. */
+  owner: z.string().max(100).optional(),
+  due: z.string().max(10).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
   offset: z.coerce.number().int().min(0).default(0),
 });
@@ -141,7 +145,14 @@ const contactChanges = z.strictObject({
   email: z.string().optional(),
   name: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
+  stage: z.string().optional(),
+  ownerId: z.string().nullable().optional(),
+  followUpAt: z.string().nullable().optional(),
   expectedRevision: z.number().int().positive(),
+});
+const pipelineChanges = z.strictObject({
+  stages: z.array(z.strictObject({ id: z.string().optional(), label: z.string().optional(), kind: z.enum(['open', 'won', 'lost']) })).max(50),
+  expectedRevision: z.number().int().min(0),
 });
 const newNote = z.strictObject({ text: z.string() });
 const publishRequest = z.strictObject({ expectedRevision: z.number().int().positive() });
@@ -161,7 +172,7 @@ export class CmsApi {
   constructor(options: CmsApiOptions) {
     this.#options = options;
     this.#basePath = `/${(options.basePath ?? '/api/cms').split('/').filter(Boolean).join('/')}`;
-    const { schema, content, fields, media, previews, plugins, forms, submissions, contacts } = options.cms;
+    const { schema, content, fields, media, previews, plugins, forms, submissions, contacts, pipeline } = options.cms;
     const defaultLocale = options.defaultLocale ?? 'en';
 
     this.#router
@@ -316,9 +327,26 @@ export class CmsApi {
         const { email } = parse(forgetRequest, await this.#body(call.request));
         return json({ removed: await submissions.erase(who, email) });
       })
+      .add('GET', '/pipeline', async (call) => json(await pipeline.get(actor(call))))
+      .add('PUT', '/pipeline', async (call) => {
+        const who = actor(call);
+        const body = parse(pipelineChanges, await this.#body(call.request));
+        return json(await pipeline.save(who, deep<PipelineChanges>(body)));
+      })
+      // Who a contact can be given to: names and roles, never an email.
+      .add('GET', '/team', async (call) => json({ items: await contacts.owners(actor(call)) }))
       .add('GET', '/contacts', async (call) => {
         const query = parse(contactList, Object.fromEntries(call.url.searchParams));
-        return json(await contacts.find(actor(call), { limit: query.limit, offset: query.offset, ...(query.search !== undefined && { search: query.search }) }));
+        return json(
+          await contacts.find(actor(call), {
+            limit: query.limit,
+            offset: query.offset,
+            ...(query.search !== undefined && { search: query.search }),
+            ...(query.stage !== undefined && { stage: query.stage }),
+            ...(query.owner !== undefined && { ownerId: query.owner === 'none' ? null : query.owner }),
+            ...(query.due !== undefined && { followUpBy: query.due }),
+          }),
+        );
       })
       .add('POST', '/contacts', async (call) => {
         const who = actor(call);

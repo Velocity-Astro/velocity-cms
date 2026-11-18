@@ -1,5 +1,5 @@
 import { MutationCache, QueryCache, QueryClient, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, ContactChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity/cms-core';
+import type { ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, Page, PipelineChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity/cms-core';
 import type { ContactListQuery, EntryChanges, EntryListQuery, ImageList, NewEntry, NewPerson, NewType, NewTypeField, SubmissionListQuery } from './admin-client.js';
 import { AdminRequestError } from './errors.js';
 import { useClient } from './client-context.js';
@@ -35,6 +35,8 @@ const keys = {
   contactList: (query: ContactListQuery) => ['contacts', 'list', query] as const,
   contact: (id: string) => ['contacts', 'one', id] as const,
   contactTimeline: (id: string) => ['contacts', 'timeline', id] as const,
+  pipeline: ['contacts', 'pipeline'] as const,
+  team: ['team'] as const,
 };
 
 /**
@@ -409,6 +411,44 @@ export function useForgetSender() {
 export function useContacts(query: ContactListQuery = {}) {
   const client = useClient();
   return useQuery({ queryKey: keys.contactList(query), queryFn: () => client.listContacts(query), placeholderData: (previous) => previous });
+}
+
+/** One list of contacts per query, asked for together: the columns of the board. */
+export function useContactLists(queries: readonly ContactListQuery[]) {
+  const client = useClient();
+  return useQueries({
+    queries: queries.map((query) => ({ queryKey: keys.contactList(query), queryFn: () => client.listContacts(query), placeholderData: (previous: Page<Contact> | undefined) => previous })),
+  });
+}
+
+/**
+ * Puts a contact in another stage. It stays pending until the lists have been asked for again,
+ * so the board can show the card where it was put for as long as the lists still say otherwise.
+ */
+export function useMoveContact() {
+  const client = useClient();
+  const cache = useQueryClient();
+  return useMutation({
+    mutationFn: ({ contact, stage }: { contact: Contact; stage: string }) => client.updateContact(contact.id, { stage, expectedRevision: contact.revision }),
+    onSettled: () => cache.invalidateQueries({ queryKey: keys.contacts }),
+  });
+}
+
+/** The stages a contact moves through. */
+export function usePipeline() {
+  const client = useClient();
+  return useQuery({ queryKey: keys.pipeline, queryFn: () => client.getPipeline() });
+}
+
+export function useSavePipeline() {
+  const client = useClient();
+  return useMutation({ mutationFn: (changes: PipelineChanges) => client.savePipeline(changes), onSuccess: useContactsChanged() });
+}
+
+/** Who a contact can be given to. */
+export function useTeam() {
+  const client = useClient();
+  return useQuery({ queryKey: keys.team, queryFn: () => client.listTeam() });
 }
 
 export function useContact(id: string) {

@@ -1,5 +1,6 @@
 import { createCms, type Actor, type Cms, type SearchIndex } from '@velocity/cms-core';
-import { openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Db } from '@velocity/cms-db';
+import { AuthTeam } from '@velocity/cms-auth/team';
+import { openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqlitePipelineStore, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Db } from '@velocity/cms-db';
 import { mediaStoreFromEnv } from './media-store.js';
 import { siteSecret } from './secret.js';
 import { allPlugins } from './site-plugins.js';
@@ -40,6 +41,8 @@ export async function connect(options: ConnectionOptions): Promise<Connection> {
     forms: new SqliteFormRepository(database.db),
     submissions: new SqliteSubmissionRepository(database.db),
     contacts: new SqliteContactRepository(database.db),
+    pipeline: new SqlitePipelineStore(database.db),
+    team: new AuthTeam(database.db),
     // A secret too short to sign with is the editor's to report, not a reason to read no content.
     ...(secret !== undefined && secret.length >= 32 && { previews: { secret } }),
     ...(store && { media: { storage: { files: new SqliteMediaRepository(database.db), store } } }),

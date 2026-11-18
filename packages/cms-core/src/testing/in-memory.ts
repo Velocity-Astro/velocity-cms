@@ -1,9 +1,10 @@
 import { ConflictError } from '../errors.js';
-import type { Contact, ContactNote, ContentTypeDef, Entry, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus } from '../model.js';
+import type { Contact, ContactNote, Pipeline, ContentTypeDef, Entry, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus } from '../model.js';
 import type {
   Clock,
   ContactQuery,
   ContactRepository,
+  PipelineStore,
   EntryQuery,
   EntryRepository,
   FormRepository,
@@ -348,6 +349,20 @@ export class InMemoryPluginStore implements PluginStore {
 }
 
 /** Keeps contacts and their notes in memory. */
+export class InMemoryPipelineStore implements PipelineStore {
+  #pipeline: Pipeline | null = null;
+
+  async get(): Promise<Pipeline | null> {
+    return this.#pipeline;
+  }
+
+  async save(pipeline: Pipeline, expectedRevision: number | null): Promise<Pipeline> {
+    if ((this.#pipeline?.revision ?? null) !== expectedRevision) throw new ConflictError('The stages were changed by someone else. Reload them and try again.');
+    this.#pipeline = pipeline;
+    return pipeline;
+  }
+}
+
 export class InMemoryContactRepository implements ContactRepository {
   readonly #contacts = new Map<string, Contact>();
   readonly #notes = new Map<string, ContactNote>();
@@ -364,7 +379,14 @@ export class InMemoryContactRepository implements ContactRepository {
     const words = (query.search ?? '').trim().toLowerCase();
     const matches = [...this.#contacts.values()]
       .filter((contact) => words === '' || [contact.name, contact.email, contact.phone].some((text) => text?.toLowerCase().includes(words)))
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
+      .filter((contact) => query.stage === undefined || contact.stage === query.stage)
+      .filter((contact) => query.ownerId === undefined || (contact.ownerId ?? null) === query.ownerId)
+      .filter((contact) => query.followUpBy === undefined || (contact.followUpAt !== undefined && contact.followUpAt <= query.followUpBy))
+      .sort((a, b) =>
+        query.followUpBy === undefined
+          ? b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id)
+          : (a.followUpAt ?? '').localeCompare(b.followUpAt ?? '') || a.id.localeCompare(b.id),
+      );
     const offset = query.offset ?? 0;
     return { items: matches.slice(offset, offset + (query.limit ?? 50)), total: matches.length };
   }
@@ -378,6 +400,12 @@ export class InMemoryContactRepository implements ContactRepository {
     if (other && other.id !== contact.id) throw new ConflictError(`Another contact has the email "${contact.email}".`);
     this.#contacts.set(contact.id, contact);
     return contact;
+  }
+
+  async moveStage(from: string, to: string): Promise<number> {
+    const moving = [...this.#contacts.values()].filter((contact) => contact.stage === from);
+    for (const contact of moving) this.#contacts.set(contact.id, { ...contact, stage: to });
+    return moving.length;
   }
 
   async remove(id: string): Promise<void> {

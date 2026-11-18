@@ -5,6 +5,7 @@ import { authSession, authUser, authVerification, openDatabase, type Database } 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { AuthSetupError, CmsAuth } from './auth.js';
 import { MemoryMailer } from './mailer.js';
+import { AuthTeam } from './team.js';
 
 const ORIGIN = 'https://site.test';
 const SECRET = 'a-test-secret-that-is-long-enough-0123456789';
@@ -65,6 +66,15 @@ describe('inviting people', () => {
       message: expect.stringContaining('could not be sent, so nobody was added'),
     });
     expect(await auth.listUsers(owner)).toEqual([]);
+  });
+
+  it('says who is on the team by name and role, with no email', async () => {
+    const dana = await auth.invite(owner, { email: 'dana@example.com', name: 'Dana', role: 'editor' });
+    const ben = await auth.invite(owner, { email: 'ben@example.com', name: 'Ben', role: 'author' });
+    expect(await new AuthTeam(database.db).members()).toEqual([
+      { id: ben.id, name: 'Ben', role: 'author' },
+      { id: dana.id, name: 'Dana', role: 'editor' },
+    ]);
   });
 
   it('refuses anyone but an owner', async () => {

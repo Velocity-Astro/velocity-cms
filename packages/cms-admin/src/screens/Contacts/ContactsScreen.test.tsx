@@ -65,3 +65,84 @@ it('says so when there are no contacts, and adds one by hand with each problem o
   expect(await screen.findByRole('heading', { level: 1, name: 'Li Wei' })).toBeTruthy();
   expect((await client.listContacts()).items).toMatchObject([{ email: 'li@example.com', name: 'Li Wei', phone: '512 555 0199' }]);
 });
+
+it('shows where each contact stands, and narrows the list to a stage or to who looks after them', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/contacts', signedIn());
+  const ana = within(await screen.findByRole('row', { name: /Ana Ruiz/ }));
+  expect(await ana.findByText('New')).toBeTruthy();
+  await user.click(screen.getByRole('button', { name: /Stage$/ }));
+  await user.click(await screen.findByRole('option', { name: 'Contacted' }));
+  expect(await screen.findByRole('heading', { level: 2, name: 'Nobody matches' })).toBeTruthy();
+  const [first] = (await client.listContacts({ search: 'ana' })).items;
+  if (!first) throw new Error('No contact for Ana');
+  await client.updateContact(first.id, { stage: 'contacted', ownerId: 'u1', expectedRevision: first.revision });
+  await user.click(screen.getByRole('button', { name: /Stage$/ }));
+  await user.click(await screen.findByRole('option', { name: 'All stages' }));
+  await user.click(screen.getByRole('button', { name: /Looked after by$/ }));
+  await user.click(await screen.findByRole('option', { name: 'Me' }));
+  await waitFor(() => expect(screen.queryByRole('row', { name: /Tom Okafor/ })).toBeNull());
+  const mine = within(await screen.findByRole('row', { name: /Ana Ruiz/ }));
+  expect(await mine.findByText('Contacted')).toBeTruthy();
+  expect(await mine.findByText('Dana')).toBeTruthy();
+  expect(screen.getByText('1 contact')).toBeTruthy();
+});
+
+it('shows the contacts on a board by stage, and moves one from its menu', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/contacts', signedIn());
+  await screen.findByRole('row', { name: /Ana Ruiz/ });
+  await user.click(screen.getByRole('radio', { name: 'Board' }));
+  const board = within(await screen.findByRole('group', { name: 'Pipeline' }));
+  expect(board.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)).toEqual(['New', 'Contacted', 'Qualified', 'Won', 'Lost']);
+  const fresh = within(board.getByRole('region', { name: 'New' }));
+  expect(fresh.getAllByRole('listitem')).toHaveLength(2);
+  expect(within(board.getByRole('region', { name: 'Won' })).getByText('Nobody here')).toBeTruthy();
+  await user.click(fresh.getByRole('button', { name: 'Move Ana Ruiz' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Qualified' }));
+  expect(await screen.findByText('Ana Ruiz moved to Qualified')).toBeTruthy();
+  await waitFor(() => expect(within(board.getByRole('region', { name: 'Qualified' })).getByRole('button', { name: /^Ana Ruiz/ })).toBeTruthy());
+  expect(within(board.getByRole('region', { name: 'New' })).getAllByRole('listitem')).toHaveLength(1);
+  expect((await client.listContacts({ stage: 'qualified' })).total).toBe(1);
+  // A card opens its contact.
+  await user.click(within(board.getByRole('region', { name: 'Qualified' })).getByRole('button', { name: /^Ana Ruiz/ }));
+  expect(await screen.findByRole('heading', { level: 1, name: 'Ana Ruiz' })).toBeTruthy();
+});
+
+it('says what went wrong when a card cannot be moved, and leaves it where it was', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/contacts?view=board', signedIn());
+  const board = within(await screen.findByRole('group', { name: 'Pipeline' }));
+  const fresh = within(board.getByRole('region', { name: 'New' }));
+  const [ana] = (await client.listContacts({ search: 'ana' })).items;
+  if (!ana) throw new Error('No contact for Ana');
+  // Someone else changed her since the board was drawn.
+  await client.updateContact(ana.id, { name: 'Ana R.', expectedRevision: ana.revision });
+  await user.click(fresh.getByRole('button', { name: 'Move Ana Ruiz' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Won' }));
+  expect(await screen.findByText('The contact was not moved')).toBeTruthy();
+  await waitFor(() => expect(within(board.getByRole('region', { name: 'New' })).getByRole('button', { name: /^Ana R\./ })).toBeTruthy());
+  expect(within(board.getByRole('region', { name: 'Won' })).getByText('Nobody here')).toBeTruthy();
+});
+
+it('renames, adds and removes stages, with each problem on its row', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/contacts?view=board', signedIn());
+  await screen.findByRole('group', { name: 'Pipeline' });
+  await user.click(screen.getByRole('button', { name: 'Edit stages' }));
+  const dialog = within(await screen.findByRole('dialog', { name: 'Stages' }));
+  const names = () => dialog.getAllByRole('textbox', { name: /^Name/ }) as HTMLInputElement[];
+  expect(names().map((name) => name.placeholder)).toEqual(['New', 'Contacted', 'Qualified', 'Won', 'Lost']);
+  await user.type(names()[1] as HTMLElement, 'Called back');
+  await user.click(dialog.getByRole('button', { name: 'Remove stage 3' }));
+  await user.click(dialog.getByRole('button', { name: 'Add stage' }));
+  await user.click(dialog.getByRole('button', { name: 'Save stages' }));
+  expect(await dialog.findByText('Give the stage a name.')).toBeTruthy();
+  expect(names()[1]?.value).toBe('Called back');
+  await user.type(names()[4] as HTMLElement, 'Viewing booked');
+  await user.click(dialog.getByRole('button', { name: 'Save stages' }));
+  expect(await screen.findByText('Stages saved')).toBeTruthy();
+  const board = within(screen.getByRole('group', { name: 'Pipeline' }));
+  await waitFor(() => expect(board.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)).toEqual(['New', 'Called back', 'Won', 'Lost', 'Viewing booked']));
+  expect((await client.getPipeline()).revision).toBe(1);
+});

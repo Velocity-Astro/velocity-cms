@@ -1,4 +1,4 @@
-import type { Contact, ContactChanges, ContactNote, NewContact, TimelineItem, PluginSettings, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
+import type { Contact, ContactChanges, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
@@ -82,6 +82,12 @@ export interface SubmissionListQuery {
 export interface ContactListQuery {
   /** Words to find in the name, email or phone. */
   readonly search?: string;
+  /** Only contacts in this stage of the pipeline. */
+  readonly stage?: string;
+  /** Only contacts this person looks after, or with `null`, the ones nobody does. */
+  readonly ownerId?: string | null;
+  /** Only contacts to get back to on or before this day (`2026-03-14`), soonest first. */
+  readonly followUpBy?: string;
   /** Defaults to 50. */
   readonly limit?: number;
   readonly offset?: number;
@@ -214,6 +220,12 @@ export interface AdminClient {
   forgetSender(email: string): Promise<number>;
   /** The people who wrote to the site, newest first. Only for those who may read contacts. */
   listContacts(query?: ContactListQuery): Promise<Page<Contact>>;
+  /** The stages a contact moves through, in order. */
+  getPipeline(): Promise<Pipeline>;
+  /** Replaces the stages. Contacts in a stage that is removed move to the first. */
+  savePipeline(changes: PipelineChanges): Promise<Pipeline>;
+  /** Who a contact can be given to, by name. For those who may read contacts. */
+  listTeam(): Promise<readonly TeamMember[]>;
   getContact(id: string): Promise<Contact>;
   /** Adds a contact by hand. An email a contact already has is refused, naming the field. */
   createContact(input: NewContact): Promise<Contact>;

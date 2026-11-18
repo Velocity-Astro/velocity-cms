@@ -28,12 +28,13 @@ export async function createHttpServer(seed: AdminClientSeed, user: SessionUser)
 
   const authenticator = new FixedAuthenticator({ user, actor: { kind: 'user', id: user.id, role: user.role } });
   const storage = { files: new InMemoryMediaRepository(), store: new InMemoryMediaStore() };
-  const cms = createCms({ types, entries, previews: { secret: 'http-test-server-preview-secret-0' }, ...(seed.uploads !== false && { media: { storage } }) });
+  const people = new MemoryPeople(seed.people ?? [user]);
+  const cms = createCms({ types, entries, team: people, previews: { secret: 'http-test-server-preview-secret-0' }, ...(seed.uploads !== false && { media: { storage } }) });
   cms.media.include(new InMemoryImageLibrary(seed.images));
   await seedForms(cms, seed.forms, seed.submissions);
   await cms.plugins.load(seed.plugins ?? []);
   const passkeys: { id: string; name: string }[] = [];
-  const api = new CmsApi({ cms, authenticator, people: new MemoryPeople(seed.people ?? [user]) });
+  const api = new CmsApi({ cms, authenticator, people });
   const requests: Request[] = [];
   const client = new HttpAdminClient({
     auth: {

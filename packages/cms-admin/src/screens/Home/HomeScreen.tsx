@@ -8,6 +8,7 @@ import { useContentTypes, useEntriesOfTypes, useSession } from '../../client/que
 import { entryState, entryTitle, groupTranslations, localized, type EntryState } from '../../lib/content.js';
 import { dayPart } from '../../lib/day-part.js';
 import { relativeTime } from '../../lib/relative-time.js';
+import { FollowUps } from './FollowUps.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 
 /** How each state is coloured. The words come from the messages. */
@@ -106,6 +107,8 @@ export function HomeScreen({ siteName }: HomeScreenProps) {
                 ))}
               </Inline>
             </Stack>
+            {/* Contacts are for owners and editors. */}
+            {session.data && session.data.role !== 'author' && <FollowUps userId={session.data.id} />}
             <Stack gap={3}>
               <Heading level={2}>{messages.home.recentTitle}</Heading>
               {rows.length === 0 ? (

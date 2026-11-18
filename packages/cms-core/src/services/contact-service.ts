@@ -2,9 +2,10 @@ import type { AccessControl, Actor } from '../access.js';
 import { ConflictError, NotFoundError, ValidationError, type ValidationIssue } from '../errors.js';
 import type { EventBus } from '../events.js';
 import type { FieldType } from '../field-type.js';
-import type { Contact, ContactNote, FormDef, Page, Submission, SubmissionAnswer, TimelineItem } from '../model.js';
-import type { Clock, ContactQuery, ContactRepository, FormRepository, IdGenerator, SubmissionRepository } from '../ports.js';
+import type { Contact, ContactNote, FormDef, Page, Submission, SubmissionAnswer, TeamMember, TimelineItem } from '../model.js';
+import type { Clock, ContactQuery, ContactRepository, FormRepository, IdGenerator, SubmissionRepository, Team } from '../ports.js';
 import type { Registry } from '../registry.js';
+import type { PipelineService } from './pipeline-service.js';
 import { removeSubmissions } from './submission-service.js';
 
 /** A contact as someone adds one by hand. */
@@ -12,6 +13,10 @@ export interface NewContact {
   readonly email: string;
   readonly name?: string;
   readonly phone?: string;
+  /** The stage to start in. Left out, the pipeline's first. */
+  readonly stage?: string;
+  readonly ownerId?: string;
+  readonly followUpAt?: string;
 }
 
 /** What to change in a contact. Anything left out stays as it is; `null` clears it. */
@@ -19,6 +24,12 @@ export interface ContactChanges {
   readonly email?: string;
   readonly name?: string | null;
   readonly phone?: string | null;
+  /** The id of a stage of the pipeline. */
+  readonly stage?: string;
+  /** The id of someone on the team who may read contacts. */
+  readonly ownerId?: string | null;
+  /** The day to get back to them, as `2026-03-14`. */
+  readonly followUpAt?: string | null;
   /** The revision the editor loaded. The update is refused if someone saved in between. */
   readonly expectedRevision: number;
 }
@@ -42,7 +53,16 @@ export class ContactService {
     private readonly events: EventBus,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
+    private readonly pipeline: PipelineService,
+    private readonly team?: Team,
   ) {}
+
+  /** Who a contact can be given to: everyone on the team who may read contacts, by name. */
+  async owners(actor: Actor): Promise<TeamMember[]> {
+    this.access.require(actor, 'contact:read');
+    const members = (await this.team?.members()) ?? [];
+    return members.filter((member) => this.access.can({ kind: 'user', id: member.id, role: member.role }, 'contact:read'));
+  }
 
   async find(actor: Actor, query: ContactQuery = {}): Promise<Page<Contact>> {
     this.access.require(actor, 'contact:read');
@@ -60,12 +80,16 @@ export class ContactService {
     const details = this.checked({ email: input.email, name: input.name, phone: input.phone });
     if (details.email === undefined) throw problems([{ path: ['email'], message: 'This is needed.' }]);
     await this.free(details.email, null);
+    const place = await this.placed(actor, { stage: input.stage, ownerId: input.ownerId, followUpAt: input.followUpAt });
     const now = this.clock.now();
     const contact: Contact = {
       id: this.ids.next(),
       email: details.email,
       ...(details.name !== undefined && { name: details.name }),
       ...(details.phone !== undefined && { phone: details.phone }),
+      stage: place.stage ?? (await this.firstStage()),
+      ...(place.ownerId !== undefined && { ownerId: place.ownerId }),
+      ...(place.followUpAt !== undefined && { followUpAt: place.followUpAt }),
       revision: 1,
       createdAt: now,
       updatedAt: now,
@@ -82,14 +106,20 @@ export class ContactService {
     const details = this.checked({ email: changes.email, name: changes.name ?? undefined, phone: changes.phone ?? undefined });
     const email = details.email ?? current.email;
     if (email !== current.email) await this.free(email, current.id);
-    const { name: _name, phone: _phone, ...kept } = current;
+    const place = await this.placed(actor, { stage: changes.stage, ownerId: changes.ownerId ?? undefined, followUpAt: changes.followUpAt ?? undefined });
+    const { name: _name, phone: _phone, ownerId: _ownerId, followUpAt: _followUpAt, ...kept } = current;
     const name = changes.name === null ? undefined : (details.name ?? current.name);
     const phone = changes.phone === null ? undefined : (details.phone ?? current.phone);
+    const ownerId = changes.ownerId === null ? undefined : (place.ownerId ?? current.ownerId);
+    const followUpAt = changes.followUpAt === null ? undefined : (place.followUpAt ?? current.followUpAt);
     const contact: Contact = {
       ...kept,
       email,
       ...(name !== undefined && { name }),
       ...(phone !== undefined && { phone }),
+      stage: place.stage ?? current.stage,
+      ...(ownerId !== undefined && { ownerId }),
+      ...(followUpAt !== undefined && { followUpAt }),
       revision: current.revision + 1,
       updatedAt: this.clock.now(),
     };
@@ -207,6 +237,7 @@ export class ContactService {
         ...(name !== undefined && { name }),
         ...(phone !== undefined && { phone }),
         source: { formId: form.id, ...(submission.page !== undefined && { page: submission.page }) },
+        stage: await this.firstStage(),
         revision: 1,
         createdAt: now,
         updatedAt: now,
@@ -277,6 +308,31 @@ export class ContactService {
     return { ...(email !== undefined && { email }), ...(name !== undefined && name !== '' && { name }), ...(phone !== undefined && phone !== '' && { phone }) };
   }
 
+  /** Where a new contact starts. */
+  private async firstStage(): Promise<string> {
+    const [first] = (await this.pipeline.current()).stages;
+    if (!first) throw new ConflictError('The pipeline has no stages.');
+    return first.id;
+  }
+
+  /** A stage, an owner and a day to follow up, each checked. Problems name the fields. */
+  private async placed(actor: Actor, input: { stage: string | undefined; ownerId: string | undefined; followUpAt: string | undefined }): Promise<{ stage?: string; ownerId?: string; followUpAt?: string }> {
+    const issues: ValidationIssue[] = [];
+    if (input.stage !== undefined && !(await this.pipeline.current()).stages.some((stage) => stage.id === input.stage)) {
+      issues.push({ path: ['stage'], message: 'This stage is no longer in the pipeline. Choose another.' });
+    }
+    if (input.ownerId !== undefined && !(await this.owners(actor)).some((member) => member.id === input.ownerId)) {
+      issues.push({ path: ['ownerId'], message: 'Choose someone on the team who may read contacts.' });
+    }
+    if (input.followUpAt !== undefined && !isDay(input.followUpAt)) issues.push({ path: ['followUpAt'], message: 'Enter a day, such as 2026-03-14.' });
+    if (issues.length > 0) throw problems(issues);
+    return {
+      ...(input.stage !== undefined && { stage: input.stage }),
+      ...(input.ownerId !== undefined && { ownerId: input.ownerId }),
+      ...(input.followUpAt !== undefined && { followUpAt: input.followUpAt }),
+    };
+  }
+
   private async free(email: string, self: string | null): Promise<void> {
     const other = await this.contacts.getByEmail(email);
     if (other && other.id !== self) throw problems([{ path: ['email'], message: 'Another contact has this email address.' }]);
@@ -287,6 +343,13 @@ export class ContactService {
     if (!contact) throw new NotFoundError('Contact', id);
     return contact;
   }
+}
+
+/** Whether the text is a real day written as `2026-03-14`, in this century or later. */
+function isDay(text: string): boolean {
+  if (!/^[2-9]\d{3}-\d{2}-\d{2}$/.test(text)) return false;
+  const date = new Date(`${text}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === text;
 }
 
 const problems = (issues: ValidationIssue[]): ValidationError =>

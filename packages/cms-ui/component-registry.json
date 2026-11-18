@@ -203,6 +203,15 @@
       "uses": ["Button", "IconButton", "Menu", "Tag"]
     },
     {
+      "name": "Board",
+      "layer": "pattern",
+      "group": "Data",
+      "description": "Columns of cards, where a card is dragged from one column to another. Each card also has a menu that moves it, for whoever does not drag.",
+      "example": "<Board label=\"Pipeline\" columns={columns} emptyText=\"Nobody here\" onOpen={open} onMove={move} moveLabel={(name) => `Move ${name}`} />",
+      "useInstead": "Table for a list to read or search; SectionList to put things in an order.",
+      "uses": ["IconButton", "Menu", "Tag"]
+    },
+    {
       "name": "OptionPicker",
       "layer": "pattern",
       "group": "Overlays",

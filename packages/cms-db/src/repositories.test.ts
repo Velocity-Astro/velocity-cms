@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, expect, it } from 'vitest';
 import { createCms } from '@velocity/cms-core';
-import { contactRepositoryContract, entryRepositoryContract, formRepositoryContract, submissionRepositoryContract, mediaRepositoryContract, pluginStoreContract, schemaRepositoryContract, searchIndexContract } from '@velocity/cms-core/testing';
-import { openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Database } from './index.js';
+import { contactRepositoryContract, pipelineStoreContract, entryRepositoryContract, formRepositoryContract, submissionRepositoryContract, mediaRepositoryContract, pluginStoreContract, schemaRepositoryContract, searchIndexContract } from '@velocity/cms-core/testing';
+import { openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqlitePipelineStore, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Database } from './index.js';
 
 const opened: Database[] = [];
 const memory = async () => {
@@ -18,6 +18,7 @@ entryRepositoryContract('SqliteEntryRepository', async () => new SqliteEntryRepo
 formRepositoryContract('SqliteFormRepository', async () => new SqliteFormRepository(await memory()));
 submissionRepositoryContract('SqliteSubmissionRepository', async () => new SqliteSubmissionRepository(await memory()));
 contactRepositoryContract('SqliteContactRepository', async () => new SqliteContactRepository(await memory()));
+pipelineStoreContract('SqlitePipelineStore', async () => new SqlitePipelineStore(await memory()));
 schemaRepositoryContract('SqliteSchemaRepository', async () => new SqliteSchemaRepository(await memory()));
 mediaRepositoryContract('SqliteMediaRepository', async () => new SqliteMediaRepository(await memory()));
 pluginStoreContract('SqlitePluginStore', async () => new SqlitePluginStore(await memory()));

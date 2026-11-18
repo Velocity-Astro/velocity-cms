@@ -5,11 +5,12 @@ import { createFieldRegistry } from './fields/index.js';
 import { PublishChecks } from './checks.js';
 import { PageHeads } from './pages.js';
 import { PluginHost } from './plugin.js';
-import type { Clock, ContactRepository, EntryRepository, FormRepository, IdGenerator, PluginStore, SchemaRepository, SubmissionRepository } from './ports.js';
-import { InMemoryContactRepository, InMemoryFormRepository, InMemoryPluginStore, InMemorySubmissionRepository } from './testing/in-memory.js';
+import type { Clock, ContactRepository, EntryRepository, FormRepository, IdGenerator, PipelineStore, PluginStore, SchemaRepository, SubmissionRepository, Team } from './ports.js';
+import { InMemoryContactRepository, InMemoryFormRepository, InMemoryPipelineStore, InMemoryPluginStore, InMemorySubmissionRepository } from './testing/in-memory.js';
 import type { Registry } from './registry.js';
 import { ContentService } from './services/content-service.js';
 import { ContactService } from './services/contact-service.js';
+import { PipelineService } from './services/pipeline-service.js';
 import { FormService } from './services/form-service.js';
 import { SubmissionService } from './services/submission-service.js';
 import { MediaService, type MediaServiceOptions } from './services/media-service.js';
@@ -33,6 +34,10 @@ export interface CmsOptions {
   readonly submissions?: SubmissionRepository;
   /** Where contacts and the team's notes about them are kept. Without one, in memory, as above. */
   readonly contacts?: ContactRepository;
+  /** Where the stages of the pipeline are kept once someone changes them. Without one, in memory. */
+  readonly pipeline?: PipelineStore;
+  /** Who is on the team, so a contact can be given to one of them. Without it nobody can be. */
+  readonly team?: Team;
   readonly clock?: Clock;
   readonly ids?: IdGenerator;
   /**
@@ -54,6 +59,8 @@ export interface Cms {
   readonly submissions: SubmissionService;
   /** The people who wrote to the site, what each sent and what the team noted. */
   readonly contacts: ContactService;
+  /** The stages a contact moves through. */
+  readonly pipeline: PipelineService;
   readonly previews: PreviewService;
   readonly fields: Registry<FieldType>;
   readonly events: EventBus;
@@ -85,9 +92,11 @@ export function createCms(options: CmsOptions): Cms {
   const formStore = options.forms ?? new InMemoryFormRepository();
   const submissionStore = options.submissions ?? new InMemorySubmissionRepository();
   const forms = new FormService(formStore, submissionStore, fields, access, events, clock, ids);
-  const contacts = new ContactService(options.contacts ?? new InMemoryContactRepository(), submissionStore, formStore, fields, access, events, clock, ids);
+  const contactStore = options.contacts ?? new InMemoryContactRepository();
+  const pipeline = new PipelineService(options.pipeline ?? new InMemoryPipelineStore(), contactStore, access, events, ids);
+  const contacts = new ContactService(contactStore, submissionStore, formStore, fields, access, events, clock, ids, pipeline, options.team);
   const submissions = new SubmissionService(submissionStore, formStore, fields, access, events, clock, ids, contacts);
   const previews = new PreviewService(content, schema, clock, options.previews);
   const plugins = new PluginHost({ fields, events, checks, pages, store: options.pluginStore ?? new InMemoryPluginStore(), ids, schema, content, access, clock, ...(options.onPluginFault && { onFault: options.onPluginFault }) });
-  return { schema, content, media, forms, submissions, contacts, previews, fields, events, access, plugins, pages };
+  return { schema, content, media, forms, submissions, contacts, pipeline, previews, fields, events, access, plugins, pages };
 }

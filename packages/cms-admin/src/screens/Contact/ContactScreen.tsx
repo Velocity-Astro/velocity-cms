@@ -15,6 +15,7 @@ import { useClosing } from '../../lib/use-closing.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 import { useSourceOf } from '../Contacts/contact-source.js';
 import { answerText } from '../Form/form-fields.js';
+import { ContactWork } from './ContactWork.js';
 
 const NO_PROBLEMS: Readonly<Record<string, string>> = {};
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -108,7 +109,9 @@ function ContactPage({ contact }: { readonly contact: Contact }) {
         <Split
           asideLabel={messages.contacts.detailsLabel}
           aside={
-            <Card title={messages.contacts.details}>
+            <Stack gap={4}>
+              <ContactWork contact={contact} />
+              <Card title={messages.contacts.details}>
               <Stack gap={4}>
                 {facts.map(([label, value]) => (
                   <Stack key={label} gap={0}>
@@ -119,7 +122,8 @@ function ContactPage({ contact }: { readonly contact: Contact }) {
                   </Stack>
                 ))}
               </Stack>
-            </Card>
+              </Card>
+            </Stack>
           }
         >
           <Timeline contact={contact} />

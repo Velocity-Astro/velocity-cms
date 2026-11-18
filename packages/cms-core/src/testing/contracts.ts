@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ConflictError } from '../errors.js';
-import type { Contact, ContactNote, ContentTypeDef, Entry, FormDef, MediaFile, Submission } from '../model.js';
-import type { ContactRepository, EntryRepository, FormRepository, SubmissionRepository, MediaRepository, MediaStore, PluginStore, SchemaRepository, SearchDocument, SearchIndex } from '../ports.js';
+import type { Contact, ContactNote, ContentTypeDef, Entry, FormDef, MediaFile, Pipeline, Submission } from '../model.js';
+import type { ContactRepository, PipelineStore, EntryRepository, FormRepository, SubmissionRepository, MediaRepository, MediaStore, PluginStore, SchemaRepository, SearchDocument, SearchIndex } from '../ports.js';
 
 /**
  * The contract tests for storage adapters.
@@ -679,12 +679,32 @@ const contact = (overrides: Partial<Contact> = {}): Contact => ({
   name: 'Ana Ruiz',
   phone: '512 555 0142',
   source: { formId: 'm1', page: '/contact/' },
+  stage: 'new',
   revision: 1,
   createdAt: '2026-02-01T00:00:00.000Z',
   updatedAt: '2026-02-01T00:00:00.000Z',
   ...overrides,
 });
 const note = (overrides: Partial<ContactNote> = {}): ContactNote => ({ id: 'n1', contactId: 'c1', text: 'Called back.', createdBy: 'u1', createdAt: '2026-02-02T00:00:00.000Z', ...overrides });
+
+/** Run this against every `PipelineStore` adapter. */
+export function pipelineStoreContract(name: string, create: () => Promise<PipelineStore>): void {
+  describe(`${name}: PipelineStore contract`, () => {
+    it('answers null until a pipeline is saved, gives it back as saved, and refuses a save from an old revision', async () => {
+      const store = await create();
+      expect(await store.get()).toBeNull();
+      const first: Pipeline = { stages: [{ id: 'new', kind: 'open' }, { id: 's1', label: 'Viewing booked', kind: 'open' }, { id: 'won', kind: 'won' }], revision: 1 };
+      await expect(store.save(first, 1)).rejects.toBeInstanceOf(ConflictError);
+      expect(await store.save(first, null)).toEqual(first);
+      expect(await store.get()).toEqual(first);
+      await expect(store.save({ ...first, revision: 2 }, null)).rejects.toBeInstanceOf(ConflictError);
+      const second: Pipeline = { stages: [{ id: 'new', label: 'Fresh', kind: 'open' }], revision: 2 };
+      await store.save(second, 1);
+      await expect(store.save({ ...second, revision: 3 }, 1)).rejects.toBeInstanceOf(ConflictError);
+      expect(await store.get()).toEqual(second);
+    });
+  });
+}
 
 /** Run this against every `ContactRepository` adapter. */
 export function contactRepositoryContract(name: string, create: () => Promise<ContactRepository>): void {
@@ -702,15 +722,15 @@ export function contactRepositoryContract(name: string, create: () => Promise<Co
     });
 
     it('gives back a contact exactly as it was saved, with or without what is optional, by id and by email', async () => {
-      const bare: Contact = { id: 'c2', email: 'tom@example.com', revision: 1, createdAt: at(2), updatedAt: at(2) };
-      const noPage = contact({ id: 'c3', email: 'li@example.com', source: { formId: 'm1' } });
+      const bare: Contact = { id: 'c2', email: 'tom@example.com', stage: 'new', revision: 1, createdAt: at(2), updatedAt: at(2) };
+      const noPage = contact({ id: 'c3', email: 'li@example.com', source: { formId: 'm1' }, stage: 'won', ownerId: 'u1', followUpAt: '2026-03-14' });
       await repository.save(contact(), null);
       await repository.save(bare, null);
       await repository.save(noPage, null);
       expect(await repository.get('c1')).toEqual(contact());
       expect(await repository.getByEmail('ana@example.com')).toEqual(contact());
       expect(await repository.get('c2')).toEqual(bare);
-      expect(Object.keys((await repository.get('c2')) ?? {}).sort()).toEqual(['createdAt', 'email', 'id', 'revision', 'updatedAt']);
+      expect(Object.keys((await repository.get('c2')) ?? {}).sort()).toEqual(['createdAt', 'email', 'id', 'revision', 'stage', 'updatedAt']);
       expect(await repository.get('c3')).toEqual(noPage);
     });
 
@@ -739,6 +759,23 @@ export function contactRepositoryContract(name: string, create: () => Promise<Co
       expect(await ids({ search: '0199' })).toEqual(['c3']);
       expect(await ids({ search: '100%' })).toEqual([]);
       expect((await repository.find({ search: 'example.com', limit: 1 })).total).toBe(3);
+    });
+
+    it('finds by stage, by who looks after them and by the day to follow up, soonest first, and moves a whole stage', async () => {
+      await repository.save(contact({ id: 'c1', createdAt: at(1), ownerId: 'u1', followUpAt: '2026-03-20' }), null);
+      await repository.save(contact({ id: 'c2', email: 'tom@example.com', createdAt: at(2), stage: 'contacted', ownerId: 'u2', followUpAt: '2026-03-10' }), null);
+      await repository.save(contact({ id: 'c3', email: 'li@example.com', createdAt: at(3), stage: 'contacted' }), null);
+      await repository.save(contact({ id: 'c4', email: 'sam@example.com', createdAt: at(4), ownerId: 'u1', followUpAt: '2026-03-10' }), null);
+      expect(await ids({ stage: 'contacted' })).toEqual(['c3', 'c2']);
+      expect(await ids({ ownerId: 'u1' })).toEqual(['c4', 'c1']);
+      expect(await ids({ ownerId: null })).toEqual(['c3']);
+      expect(await ids({ followUpBy: '2026-03-20' })).toEqual(['c2', 'c4', 'c1']);
+      expect(await ids({ followUpBy: '2026-03-15', ownerId: 'u1' })).toEqual(['c4']);
+      expect((await repository.find({ stage: 'new', limit: 1 })).total).toBe(2);
+      expect(await repository.moveStage('contacted', 'new')).toBe(2);
+      expect(await repository.moveStage('contacted', 'new')).toBe(0);
+      expect(await ids({ stage: 'new' })).toEqual(['c4', 'c3', 'c2', 'c1']);
+      expect((await repository.get('c2'))?.revision).toBe(1);
     });
 
     it('keeps notes newest first, each with its contact, and removes one only for its own contact', async () => {

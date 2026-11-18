@@ -1,4 +1,4 @@
-import { AccessControl, ConflictError, NotFoundError, ROLES, ValidationError, type Actor, type Role } from '@velocity/cms-core';
+import { AccessControl, ConflictError, NotFoundError, ROLES, ValidationError, type Actor, type Role, type Team, type TeamMember } from '@velocity/cms-core';
 import type { NewPerson, Person } from '../client/admin-client.js';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -8,12 +8,17 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * manage people, an address is here once, nobody removes themselves and one owner always stays.
  * It stands in for `cms-auth` behind both test clients.
  */
-export class MemoryPeople {
+export class MemoryPeople implements Team {
   readonly #people: Person[];
   readonly #access = new AccessControl();
 
   constructor(people: readonly Person[] = []) {
     this.#people = [...people];
+  }
+
+  /** The team as the CMS sees it: ids, names and roles. */
+  async members(): Promise<TeamMember[]> {
+    return this.#people.map(({ id, name, role }) => ({ id, name, role })).sort((a, b) => a.name.localeCompare(b.name));
   }
 
   async listUsers(actor: Actor): Promise<Person[]> {

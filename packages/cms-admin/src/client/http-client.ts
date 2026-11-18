@@ -1,4 +1,4 @@
-import { readImage, type Contact, type ContactChanges, type ContactNote, type NewContact, type TimelineItem, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PluginSettings, type PluginEditorInfo, type PluginRouteMethod, type EntryData, type FormChanges, type FormDef, type NewForm, type PreviewLink, type SiteImage, type Submission, type SubmissionStatus } from '@velocity/cms-core';
+import { readImage, type Contact, type ContactChanges, type Pipeline, type PipelineChanges, type TeamMember, type ContactNote, type NewContact, type TimelineItem, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PluginSettings, type PluginEditorInfo, type PluginRouteMethod, type EntryData, type FormChanges, type FormDef, type NewForm, type PreviewLink, type SiteImage, type Submission, type SubmissionStatus } from '@velocity/cms-core';
 import type { AdminClient, ContactListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from './admin-client.js';
 import { AdminRequestError, type RequestErrorCode, type RequestIssue } from './errors.js';
 
@@ -238,9 +238,24 @@ export class HttpAdminClient implements AdminClient {
   listContacts(query: ContactListQuery = {}): Promise<Page<Contact>> {
     const search = new URLSearchParams();
     if (query.search !== undefined && query.search !== '') search.set('search', query.search);
+    if (query.stage !== undefined) search.set('stage', query.stage);
+    if (query.ownerId !== undefined) search.set('owner', query.ownerId ?? 'none');
+    if (query.followUpBy !== undefined) search.set('due', query.followUpBy);
     if (query.limit !== undefined) search.set('limit', String(query.limit));
     if (query.offset !== undefined) search.set('offset', String(query.offset));
     return this.#get(`/contacts?${search}`);
+  }
+
+  getPipeline(): Promise<Pipeline> {
+    return this.#get('/pipeline');
+  }
+
+  savePipeline(changes: PipelineChanges): Promise<Pipeline> {
+    return this.#send('PUT', '/pipeline', changes);
+  }
+
+  async listTeam(): Promise<readonly TeamMember[]> {
+    return (await this.#get<{ items: readonly TeamMember[] }>('/team')).items;
   }
 
   getContact(id: string): Promise<Contact> {
