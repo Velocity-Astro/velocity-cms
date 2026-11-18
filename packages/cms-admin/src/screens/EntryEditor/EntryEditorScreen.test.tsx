@@ -216,7 +216,7 @@ it('shows what went wrong when the entry cannot be loaded, and tries again', asy
   expect(await screen.findByRole('heading', { level: 1, name: '6214 Lakeshore Drive' })).toBeTruthy();
 });
 
-it('switches to the entry\'s other language, once there is nothing unsaved to lose', async () => {
+it('switches to the entry\'s other language', async () => {
   const user = userEvent.setup();
   const [first, ...rest] = sampleEntries();
   if (!first) throw new Error('No sample entries.');
@@ -225,16 +225,45 @@ it('switches to the entry\'s other language, once there is nothing unsaved to lo
 
   const languages = within(await screen.findByRole('radiogroup', { name: 'Language' }));
   expect(languages.getByRole('radio', { name: 'English' }).getAttribute('aria-checked')).toBe('true');
-
-  // While something is typed and not saved, the other language waits.
-  await user.type(await field('Title'), '!');
-  expect(languages.getByRole('radio', { name: 'Spanish' })).toHaveProperty('disabled', true);
-  await user.click(saveBar().getByRole('button', { name: 'Save draft' }));
-  await waitFor(() => expect(languages.getByRole('radio', { name: 'Spanish' })).toHaveProperty('disabled', false));
-
   await user.click(languages.getByRole('radio', { name: 'Spanish' }));
   expect(await screen.findByRole('heading', { level: 1, name: 'Paseo del Lago 6214' })).toBeTruthy();
   expect((await field('Slug')).value).toBe('paseo-del-lago');
+});
+
+it('asks before leaving with unsaved changes, and keeps what was typed when the person stays', async () => {
+  const user = userEvent.setup();
+  renderApp('/content/listings/e1', signedIn());
+  await user.type(await field('Title'), ' East');
+
+  await user.click(saveBar().getByRole('link', { name: 'Listings' }));
+  const question = within(await screen.findByRole('alertdialog', { name: 'Leave without saving?' }));
+  await user.click(question.getByRole('button', { name: 'Keep editing' }));
+  await waitFor(() => expect(screen.queryByRole('alertdialog', { name: 'Leave without saving?' })).toBeNull());
+  expect((await field('Title')).value).toBe('6214 Lakeshore Drive East');
+
+  await user.click(within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: 'Agents' }));
+  await user.click(within(await screen.findByRole('alertdialog', { name: 'Leave without saving?' })).getByRole('button', { name: 'Leave without saving' }));
+  expect(await screen.findByRole('heading', { level: 1, name: 'Agents' })).toBeTruthy();
+});
+
+it('does not ask when nothing was changed, or once the changes are saved', async () => {
+  const user = userEvent.setup();
+  renderApp('/content/listings/e1', signedIn());
+  await user.type(await field('Title'), ' East');
+  await user.click(saveBar().getByRole('button', { name: 'Save draft' }));
+  await waitFor(() => expect(saveBar().getByRole('button', { name: 'Save draft' })).toHaveProperty('disabled', true));
+  await user.click(within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: 'Agents' }));
+  expect(await screen.findByRole('heading', { level: 1, name: 'Agents' })).toBeTruthy();
+  expect(screen.queryByRole('alertdialog', { name: 'Leave without saving?' })).toBeNull();
+});
+
+it('does not ask about a new entry nobody typed in', async () => {
+  const user = userEvent.setup();
+  renderApp('/content/agents/new', signedIn());
+  await field('Slug');
+  await user.click(within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: 'Listings' }));
+  expect(await screen.findByRole('heading', { level: 1, name: 'Listings' })).toBeTruthy();
+  expect(screen.queryByRole('alertdialog', { name: 'Leave without saving?' })).toBeNull();
 });
 
 it('shows no language switch for an entry in one language', async () => {
