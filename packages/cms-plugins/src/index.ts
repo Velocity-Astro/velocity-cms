@@ -1,7 +1,9 @@
 import type { PluginDefinition } from '@velocity/cms-core';
 import { seo } from './seo/plugin.js';
+import { webhooks } from './webhooks/plugin.js';
 
 export { seo } from './seo/plugin.js';
+export { webhooks, deliveryAddress } from './webhooks/plugin.js';
 export { analyse, type SeoAnalysis, type SeoConfig, type SeoProblem } from './seo/analyse.js';
 
 /**
@@ -9,4 +11,4 @@ export { analyse, type SeoAnalysis, type SeoConfig, type SeoProblem } from './se
  * owner activates it under Plugins, so nobody needs a developer to add one. A plugin joins this
  * list when it is built on the plugin surface alone and says `enabledByDefault: false`.
  */
-export const catalogue: readonly PluginDefinition[] = [seo];
+export const catalogue: readonly PluginDefinition[] = [seo, webhooks];

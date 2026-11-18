@@ -16,7 +16,7 @@ import type { SchemaService } from './services/schema-service.js';
 export const PLUGIN_API_VERSION = 1;
 
 /** What a plugin may ask for. People are never a plugin's to manage, and neither are other plugins. */
-export const PLUGIN_PERMISSIONS: readonly Permission[] = ['schema:write', 'entry:read', 'entry:write', 'entry:publish', 'submission:read'];
+export const PLUGIN_PERMISSIONS: readonly Permission[] = ['schema:write', 'entry:read', 'entry:write', 'entry:publish', 'submission:read', 'contact:read'];
 
 const NAME = /^[a-z][a-z0-9-]{0,39}$/;
 
@@ -49,10 +49,16 @@ export interface PluginDefinition {
   readonly permissions?: readonly Permission[];
   /**
    * What an owner can set, described as fields are. The editor draws the form, and the plugin
-   * reads the answers with `cms.settings.get()`. Keys and secrets do not belong here: they stay
-   * in the site's environment.
+   * reads the answers with `cms.settings.get()`. A key or a password does not belong here: name
+   * it in `secrets`.
    */
   readonly settings?: readonly NewField[];
+  /**
+   * The keys and passwords an owner gives the plugin, such as another service's API key. Each is
+   * kept sealed, is never sent back to the editor once saved, and is read with
+   * `cms.secrets.get(key)`.
+   */
+  readonly secrets?: readonly PluginSecretDef[];
   /**
    * Whether it runs before an owner has chosen. A plugin a developer named in the site's config
    * does, which is the default. A plugin that ships with the CMS says `false`: it is listed as
@@ -69,6 +75,51 @@ export interface PluginDefinition {
   /** Runs when the plugin is switched on: at the site's start, or when an owner activates it. Whatever it throws switches the plugin off. */
   setup(cms: PluginContext): void | Promise<void>;
 }
+
+/** A key or a password a plugin asks an owner for. */
+export interface PluginSecretDef {
+  readonly key: string;
+  readonly label: LocalizedText;
+  readonly help?: LocalizedText;
+}
+
+/** A secret as the editor is told of it: whether one is saved, never what it is. */
+export interface PluginSecretInfo extends PluginSecretDef {
+  readonly isSet: boolean;
+}
+
+/** `waiting`: to be tried, or tried again. `done`: it worked. `failed`: given up on after the last try. */
+export type PluginTaskStatus = 'waiting' | 'done' | 'failed';
+
+/** One piece of work a plugin asked to have done, as an owner sees it. What it carried is never shown. */
+export interface PluginTask {
+  readonly id: string;
+  /** The kind of work, as the plugin named it. */
+  readonly kind: string;
+  /** What it is, in the plugin's words, such as the address something is sent to. Never anyone's data. */
+  readonly label?: string;
+  readonly status: PluginTaskStatus;
+  /** How many times it has been tried. */
+  readonly attempts: number;
+  readonly createdAt: Timestamp;
+  /** When it is tried next, while it waits. */
+  readonly nextAt?: Timestamp;
+  readonly finishedAt?: Timestamp;
+  /** Why the last try failed. */
+  readonly lastError?: string;
+  /** Whether an owner can have a failed one tried again: what it carried is still kept. */
+  readonly canRetry: boolean;
+}
+
+/** Does one piece of work. Whatever it throws counts as a failed try, and the work is tried again later. */
+export type PluginTaskRunner = (payload: unknown, task: { readonly id: string; readonly attempt: number }) => void | Promise<void>;
+
+/** How long after each failed try the next one waits. After the last, the work is given up on. */
+export const TASK_RETRY_AFTER_MS: readonly number[] = [60_000, 5 * 60_000, 30 * 60_000, 2 * 3_600_000, 12 * 3_600_000];
+/** How long a failed piece of work keeps what it carried, so an owner can have it tried again. */
+export const TASK_KEPT_MS = 7 * 24 * 3_600_000;
+/** How many finished pieces of work a plugin's history shows. */
+export const TASK_HISTORY = 50;
 
 /** Gives a plugin's description its type, and nothing else. */
 export function definePlugin(plugin: PluginDefinition): PluginDefinition {
@@ -104,6 +155,21 @@ export interface PluginContext {
     set(key: string, value: unknown): Promise<void>;
     remove(key: string): Promise<void>;
     list(prefix: string): Promise<Record<string, unknown>>;
+  };
+  /** What the owner saved under one of the plugin's `secrets`, or `undefined` when nothing is. Read it when it is needed. */
+  readonly secrets: { get(key: string): Promise<string | undefined> };
+  /**
+   * Work that must not be lost when it fails once, such as sending something to another service.
+   * `define` names a kind of work and what does it; `add` asks for one piece of it. It is tried
+   * at once, and when the runner throws, again after a minute, then at longer waits for about a
+   * day, before it is given up on. An owner sees each piece under Plugins, by its `label`, and
+   * can have a failed one tried again. What it carries (`payload`, anything JSON can hold) is
+   * kept in the site's database until the work is done. A piece of work may run twice, so give
+   * the other side its `id` to tell.
+   */
+  readonly tasks: {
+    define(kind: string, run: PluginTaskRunner): void;
+    add(kind: string, payload: unknown, options?: { readonly label?: string }): Promise<void>;
   };
   /**
    * The site's pages. `head` adds a rule that changes what a page says about itself to search
@@ -152,6 +218,8 @@ export type PluginStatus = 'on' | 'off' | 'failed' | 'unsupported' | 'invalid';
 export interface PluginSettings {
   readonly fields: readonly FieldDef[];
   readonly values: EntryData;
+  /** The keys and passwords it asks for, and whether each is saved. */
+  readonly secrets: readonly PluginSecretInfo[];
 }
 
 /** Something a running plugin got wrong after it started. */
@@ -172,6 +240,8 @@ export interface PluginAdds {
   readonly pageHead: boolean;
   /** What it listens for, such as `entry.published`. */
   readonly events: readonly string[];
+  /** The kinds of work it has that are tried again when they fail. */
+  readonly tasks: readonly string[];
 }
 
 /** A plugin that adds to the editor, as the editor needs to know it to load its file. */
@@ -180,7 +250,7 @@ export interface PluginEditorInfo {
   readonly label: LocalizedText;
 }
 
-const NOTHING_ADDED: PluginAdds = { fieldTypes: [], checks: 0, pageHead: false, events: [] };
+const NOTHING_ADDED: PluginAdds = { fieldTypes: [], checks: 0, pageHead: false, events: [], tasks: [] };
 
 /** A plugin as the Plugins screen shows it. */
 export interface PluginInfo {
@@ -214,6 +284,8 @@ export interface PluginHostParts {
   readonly content: ContentService;
   readonly access: AccessControl;
   readonly clock: Clock;
+  /** The site's secret. What an owner saves under a plugin's `secrets` is sealed with it; without one, none can be saved. */
+  readonly secret?: string;
   /** Told of every plugin failure, for the server's log. */
   readonly onFault?: (plugin: string, error: unknown) => void;
 }
@@ -226,7 +298,25 @@ const segmentsOf = (path: string) => path.split('/').filter(Boolean);
 const ENABLED = 'enabled';
 const SETTINGS = 'settings';
 const FIELDS = 'fields';
+type SealKey = Awaited<ReturnType<typeof globalThis.crypto.subtle.importKey>>;
+const SECRET = 'secret:';
+const TASK = 'task:';
 const OWN = 'data:';
+/** How often waiting work is looked for, and how much of it one look takes on. */
+const WORK_EVERY_MS = 30_000;
+const WORK_AT_ONCE = 5;
+const LONGEST_SECRET = 2000;
+const LONGEST_TASK_ERROR = 300;
+
+/** A piece of work as it is kept: what an owner sees, and what it carries. */
+interface StoredTask extends Omit<PluginTask, 'canRetry'> {
+  readonly payload?: unknown;
+}
+
+const isTask = (value: unknown): value is StoredTask => isRecord(value) && typeof value['id'] === 'string' && typeof value['kind'] === 'string' && typeof value['status'] === 'string';
+const shown = ({ payload, ...task }: StoredTask): PluginTask => ({ ...task, canRetry: task.status === 'failed' && payload !== undefined });
+const toHex = (bytes: Uint8Array) => [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+const fromHex = (hex: string) => new Uint8Array((hex.match(/../g) ?? []).map((pair) => Number.parseInt(pair, 16)));
 /** How long one running copy of the site may go without asking whether a plugin was switched on or off elsewhere. */
 const SYNC_EVERY_MS = 5000;
 
@@ -248,6 +338,8 @@ interface Held {
   fields: FieldDef[];
   /** The field types it has registered, which stay registered while the site runs. */
   readonly registered: Set<string>;
+  /** What does each kind of work it defined. */
+  readonly runners: Map<string, PluginTaskRunner>;
 }
 
 /**
@@ -263,6 +355,9 @@ export class PluginHost {
   readonly #plugins = new Map<string, Held>();
   #syncedAt = 0;
   #syncing: Promise<void> | null = null;
+  #workedAt = 0;
+  #working: Promise<void> | null = null;
+  #sealKey: Promise<SealKey> | null = null;
 
   constructor(parts: PluginHostParts) {
     this.#parts = parts;
@@ -289,6 +384,7 @@ export class PluginHost {
   async list(actor: Actor): Promise<PluginInfo[]> {
     this.#parts.access.require(actor, 'plugin:manage');
     await this.#sync();
+    await this.work();
     return [...this.#plugins.values()].map((held) => held.info).sort((a, b) => a.name.localeCompare(b.name));
   }
 
@@ -324,7 +420,74 @@ export class PluginHost {
   async settings(actor: Actor, name: string): Promise<PluginSettings> {
     this.#parts.access.require(actor, 'plugin:manage');
     const held = this.#held(name);
-    return { fields: liveFields(held.fields), values: await this.#stored(name) };
+    return { fields: liveFields(held.fields), values: await this.#stored(name), secrets: await this.#secrets(held) };
+  }
+
+  /**
+   * Saves one of a plugin's secrets, or with `null` takes it away. It is sealed with the site's
+   * secret before it is kept, and nothing ever sends it back. Owners only.
+   */
+  async setSecret(actor: Actor, name: string, key: string, value: string | null): Promise<PluginSettings> {
+    this.#parts.access.require(actor, 'plugin:manage');
+    const held = this.#held(name);
+    if (!(held.definition?.secrets ?? []).some((secret) => secret.key === key)) throw new NotFoundError('Plugin secret', `${name}/${key}`);
+    if (value === null) await this.#parts.store.remove(name, `${SECRET}${key}`);
+    else {
+      const text = value.trim();
+      if (text === '' || text.length > LONGEST_SECRET) {
+        throw new ValidationError(`"${key}" cannot be saved: ${text === '' ? 'it is empty. Paste the key or password, or remove the one that is saved.' : `it is longer than ${LONGEST_SECRET} characters.`}`, [{ path: [key], message: text === '' ? 'Fill this in.' : 'This is too long.' }]);
+      }
+      await this.#parts.store.set(name, `${SECRET}${key}`, await this.#seal(text));
+    }
+    await this.#parts.events.emit('plugin.changed', { plugin: name, actor });
+    return this.settings(actor, name);
+  }
+
+  /** A plugin's work, newest first: what waits, what was done and what was given up on. Owners only. */
+  async tasks(actor: Actor, name: string): Promise<PluginTask[]> {
+    this.#parts.access.require(actor, 'plugin:manage');
+    const held = this.#held(name);
+    await this.work();
+    return (await this.#tasksOf(held.info.name)).reverse().map(shown);
+  }
+
+  /** Has a piece of work that was given up on tried again, now. Owners only. */
+  async retryTask(actor: Actor, name: string, id: string): Promise<PluginTask> {
+    this.#parts.access.require(actor, 'plugin:manage');
+    const held = this.#held(name);
+    const task = await this.#parts.store.get(name, `${TASK}${id}`);
+    if (!isTask(task)) throw new NotFoundError('Plugin task', id);
+    if (task.status !== 'failed' || task.payload === undefined) throw new ConflictError('Only work that was given up on, and whose content is still kept, can be tried again.');
+    if (held.info.status !== 'on') throw new ConflictError(`The plugin "${name}" is switched off. Activate it, then try again.`);
+    const { finishedAt: _gone, ...rest } = task;
+    return shown(await this.#attempt(held, { ...rest, status: 'waiting', attempts: 0 }));
+  }
+
+  /**
+   * Tries the work that is due, for every running plugin. It is called wherever plugins are used,
+   * at most every half minute; a host with a clock of its own (a scheduled job) may call it too,
+   * with `now` to look whenever it asks.
+   */
+  async work(options: { readonly now?: boolean } = {}): Promise<void> {
+    if (options.now !== true && Date.now() - this.#workedAt < WORK_EVERY_MS) return;
+    this.#working ??= (async () => {
+      try {
+        const now = this.#parts.clock.now();
+        for (const held of this.#plugins.values()) {
+          if (held.info.status !== 'on' || held.runners.size === 0) continue;
+          const tasks = await this.#tasksOf(held.info.name);
+          for (const task of tasks.filter((candidate) => candidate.status === 'waiting' && (candidate.nextAt ?? '') <= now).slice(0, WORK_AT_ONCE)) await this.#attempt(held, task);
+          await this.#tidy(held.info.name, tasks, now);
+        }
+      } catch (error) {
+        // Work that could not be looked for is looked for again next time.
+        this.#parts.onFault?.('tasks', error);
+      } finally {
+        this.#workedAt = Date.now();
+        this.#working = null;
+      }
+    })();
+    await this.#working;
   }
 
   /** Saves a plugin's settings, checked as an entry's fields are when it is published. Owners only. */
@@ -341,7 +504,7 @@ export class PluginHost {
     }
     await this.#parts.store.set(name, SETTINGS, checked);
     await this.#parts.events.emit('plugin.changed', { plugin: name, actor });
-    return { fields: liveFields(held.fields), values: checked };
+    return { fields: liveFields(held.fields), values: checked, secrets: await this.#secrets(held) };
   }
 
   /**
@@ -370,6 +533,85 @@ export class PluginHost {
     throw new NotFoundError('Plugin address', `${method} /${name}/${segments.join('/')}`);
   }
 
+  /** A plugin's work as it is kept, oldest first. */
+  async #tasksOf(name: string): Promise<StoredTask[]> {
+    return (await this.#parts.store.list(name, TASK)).map(([, value]) => value).filter(isTask);
+  }
+
+  /** Tries one piece of work, and keeps how it went. */
+  async #attempt(held: Held, task: StoredTask): Promise<StoredTask> {
+    const { name } = held.info;
+    const attempts = task.attempts + 1;
+    const { nextAt: _was, lastError: _before, ...rest } = task;
+    let next: StoredTask;
+    try {
+      const run = held.runners.get(task.kind);
+      if (!run) throw new Error(`The plugin no longer does "${task.kind}".`);
+      await run(task.payload, { id: task.id, attempt: attempts });
+      // Done: what it carried is not kept a moment longer.
+      const { payload: _sent, ...done } = rest;
+      next = { ...done, status: 'done', attempts, finishedAt: this.#parts.clock.now() };
+    } catch (error) {
+      const lastError = messageOf(error).slice(0, LONGEST_TASK_ERROR);
+      const wait = TASK_RETRY_AFTER_MS[attempts - 1];
+      if (wait === undefined) {
+        next = { ...rest, status: 'failed', attempts, lastError, finishedAt: this.#parts.clock.now() };
+        this.#fault(name, `task ${task.kind}`, error);
+      } else {
+        next = { ...rest, status: 'waiting', attempts, lastError, nextAt: new Date(Date.parse(this.#parts.clock.now()) + wait).toISOString() };
+      }
+    }
+    await this.#parts.store.set(name, `${TASK}${task.id}`, next);
+    return next;
+  }
+
+  /** Forgets finished work beyond what the history shows, and what failed work carried once it is too old to try again. */
+  async #tidy(name: string, tasks: readonly StoredTask[], now: Timestamp): Promise<void> {
+    const finished = tasks.filter((task) => task.status !== 'waiting');
+    for (const task of finished.slice(0, Math.max(0, finished.length - TASK_HISTORY))) await this.#parts.store.remove(name, `${TASK}${task.id}`);
+    const before = new Date(Date.parse(now) - TASK_KEPT_MS).toISOString();
+    for (const task of finished.slice(-TASK_HISTORY)) {
+      if (task.status !== 'failed' || task.payload === undefined || (task.finishedAt ?? now) > before) continue;
+      const { payload: _old, ...kept } = task;
+      await this.#parts.store.set(name, `${TASK}${task.id}`, kept);
+    }
+  }
+
+  async #secrets(held: Held): Promise<PluginSecretInfo[]> {
+    const saved = new Set((await this.#parts.store.list(held.info.name, SECRET)).map(([key]) => key.slice(SECRET.length)));
+    return (held.definition?.secrets ?? []).map((secret) => ({ ...secret, isSet: saved.has(secret.key) }));
+  }
+
+  /** The key secrets are sealed with, made from the site's secret. */
+  #key(): Promise<SealKey> {
+    const { secret } = this.#parts;
+    if (secret === undefined || secret.length < 32) {
+      throw new ConflictError('This site has no secret to seal keys and passwords with. Set VELOCITY_CMS_SECRET to at least 32 characters, then save this again.');
+    }
+    this.#sealKey ??= (async () => {
+      const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(`velocity-cms plugin secrets\n${secret}`));
+      return globalThis.crypto.subtle.importKey('raw', digest, 'AES-GCM', false, ['encrypt', 'decrypt']);
+    })();
+    return this.#sealKey;
+  }
+
+  async #seal(text: string): Promise<{ iv: string; sealed: string }> {
+    const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
+    const sealed = await globalThis.crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await this.#key(), new TextEncoder().encode(text));
+    return { iv: toHex(iv), sealed: toHex(new Uint8Array(sealed)) };
+  }
+
+  /** What was sealed, or `undefined` when it cannot be opened: the site's secret changed since. */
+  async #open(stored: unknown): Promise<string | undefined> {
+    if (!isRecord(stored) || typeof stored['iv'] !== 'string' || typeof stored['sealed'] !== 'string') return undefined;
+    try {
+      const opened = await globalThis.crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromHex(stored['iv']) }, await this.#key(), fromHex(stored['sealed']));
+      return new TextDecoder().decode(opened);
+    } catch {
+      return undefined;
+    }
+  }
+
   #held(name: string): Held {
     const held = this.#plugins.get(name);
     if (!held) throw new NotFoundError('Plugin', name);
@@ -389,7 +631,7 @@ export class PluginHost {
     const fallback = `plugin-${index + 1}`;
     const label = isRecord(given['label']) ? (given['label'] as LocalizedText) : { en: name ?? fallback };
     const refuse = (status: PluginStatus, problem: string, as = name ?? fallback) => {
-      this.#plugins.set(as, { info: { name: as, label, permissions: [], status, hasSettings: false, hasEditor: false, adds: NOTHING_ADDED, problem, faults: 0 }, stops: [], routes: [], fields: [], registered: new Set() });
+      this.#plugins.set(as, { info: { name: as, label, permissions: [], status, hasSettings: false, hasEditor: false, adds: NOTHING_ADDED, problem, faults: 0 }, stops: [], routes: [], fields: [], registered: new Set(), runners: new Map() });
       this.#parts.onFault?.(as, new Error(problem));
       return null;
     };
@@ -434,6 +676,7 @@ export class PluginHost {
       routes: [],
       fields: [],
       registered: new Set(),
+      runners: new Map(),
     };
     this.#plugins.set(name, held);
     return held;
@@ -459,6 +702,7 @@ export class PluginHost {
     for (const stop of held.stops) stop();
     held.stops = [];
     held.routes = [];
+    held.runners.clear();
     held.info = { ...held.info, adds: NOTHING_ADDED };
   }
 
@@ -512,11 +756,11 @@ export class PluginHost {
       held.fields = [];
       this.#fault(name, 'settings', error);
     }
-    held.info = { ...held.info, hasSettings: liveFields(held.fields).length > 0 };
+    held.info = { ...held.info, hasSettings: liveFields(held.fields).length > 0 || (held.definition?.secrets ?? []).length > 0 };
   }
 
   #context(held: Held, permissions: readonly Permission[]): PluginContext {
-    const { fields, events, checks, pages, store, schema, content } = this.#parts;
+    const { fields, events, checks, pages, store, schema, content, clock, ids } = this.#parts;
     const { name } = held.info;
     /** Whether the plugin still runs here, asked just before it is used. */
     const isOn = async () => {
@@ -577,6 +821,23 @@ export class PluginHost {
         set: (key, value) => store.set(name, `${OWN}${key}`, value),
         remove: (key) => store.remove(name, `${OWN}${key}`),
         list: async (prefix) => Object.fromEntries((await store.list(name, `${OWN}${prefix}`)).map(([key, value]) => [key.slice(OWN.length), value])),
+      },
+      secrets: {
+        get: async (key) => this.#open(await store.get(name, `${SECRET}${key}`)),
+      },
+      tasks: {
+        define: (kind, run) => {
+          held.runners.set(kind, run);
+          if (!held.info.adds.tasks.includes(kind)) held.info = { ...held.info, adds: { ...held.info.adds, tasks: [...held.info.adds.tasks, kind] } };
+        },
+        add: async (kind, payload, options) => {
+          if (!held.runners.has(kind)) throw new ConflictError(`The plugin "${name}" has not defined the work "${kind}". Call \`tasks.define\` in setup first.`);
+          const now = clock.now();
+          // Ids sort by when the work was asked for, so the history reads in order.
+          const id = `${now.replace(/\D/g, '')}-${ids.next()}`;
+          await this.#attempt(held, { id, kind, ...(options?.label !== undefined && { label: options.label.slice(0, 200) }), status: 'waiting', attempts: 0, createdAt: now, nextAt: now, payload });
+          await this.work();
+        },
       },
       pages: {
         head: (rule) => {

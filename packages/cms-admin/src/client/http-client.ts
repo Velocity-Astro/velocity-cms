@@ -1,4 +1,4 @@
-import { readImage, type Contact, type ContactChanges, type Deal, type DealChanges, type Forecast, type NewDeal, type Pipeline, type PipelineChanges, type TeamMember, type ContactNote, type NewContact, type TimelineItem, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PluginSettings, type PluginEditorInfo, type PluginRouteMethod, type EntryData, type FormChanges, type FormDef, type NewForm, type PreviewLink, type SiteImage, type Submission, type SubmissionStatus } from '@velocity/cms-core';
+import { readImage, type Contact, type ContactChanges, type Deal, type DealChanges, type Forecast, type NewDeal, type Pipeline, type PipelineChanges, type TeamMember, type ContactNote, type NewContact, type TimelineItem, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PluginSettings, type PluginTask, type PluginEditorInfo, type PluginRouteMethod, type EntryData, type FormChanges, type FormDef, type NewForm, type PreviewLink, type SiteImage, type Submission, type SubmissionStatus } from '@velocity/cms-core';
 import type { AdminClient, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from './admin-client.js';
 import { AdminRequestError, type RequestErrorCode, type RequestIssue } from './errors.js';
 
@@ -364,6 +364,18 @@ export class HttpAdminClient implements AdminClient {
 
   savePluginSettings(name: string, values: EntryData): Promise<PluginSettings> {
     return this.#send('PUT', `/plugin-settings/${encodeURIComponent(name)}`, { values });
+  }
+
+  setPluginSecret(name: string, key: string, value: string | null): Promise<PluginSettings> {
+    return this.#send('PUT', `/plugin-secrets/${encodeURIComponent(name)}/${encodeURIComponent(key)}`, { value });
+  }
+
+  async listPluginTasks(name: string): Promise<readonly PluginTask[]> {
+    return (await this.#get<{ items: PluginTask[] }>(`/plugin-tasks/${encodeURIComponent(name)}`)).items;
+  }
+
+  retryPluginTask(name: string, id: string): Promise<PluginTask> {
+    return this.#send('POST', `/plugin-tasks/${encodeURIComponent(name)}/${encodeURIComponent(id)}/retry`, {});
   }
 
   listPasskeys(): Promise<readonly Passkey[]> {

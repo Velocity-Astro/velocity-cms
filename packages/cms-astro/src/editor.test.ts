@@ -54,10 +54,11 @@ afterEach(() => {
 
 describe('the plugins that come with the CMS', () => {
   it('are on every site, switched off, after the site\'s own, which win a name', () => {
-    expect(allPlugins().map((plugin) => (plugin as { name: string }).name)).toEqual(['seo']);
+    expect(allPlugins().map((plugin) => (plugin as { name: string }).name)).toEqual(['seo', 'webhooks']);
     const own = { name: 'seo', apiVersion: 1, label: { en: 'Our SEO' }, setup: () => undefined };
     registerSitePlugins([{ name: 'publish-log' }, own]);
-    expect(allPlugins()).toEqual([{ name: 'publish-log' }, own]);
+    expect(allPlugins().map((plugin) => (plugin as { name: string }).name)).toEqual(['publish-log', 'seo', 'webhooks']);
+    expect(allPlugins()[1]).toBe(own);
     registerSitePlugins([]);
     expect(allPlugins()[0]).toMatchObject({ name: 'seo', enabledByDefault: false });
   });

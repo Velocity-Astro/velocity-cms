@@ -8,6 +8,7 @@ import { FieldEditor } from '../../fields/FieldEditor.js';
 import { localized } from '../../lib/content.js';
 import { useClosing } from '../../lib/use-closing.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
+import { PluginSecrets } from './PluginSecrets.js';
 
 const NO_PROBLEMS: ReadonlyMap<string, string> = new Map();
 
@@ -67,6 +68,7 @@ export function PluginSettingsDialog({ plugin, onClose }: { readonly plugin: Plu
           {settings.data.fields.map((field) => (
             <FieldEditor key={field.id} field={field} value={values[field.id]} onChange={(value) => setTyped((before) => ({ ...before, [field.id]: value }))} path={field.key} problems={problems} />
           ))}
+          {settings.data.secrets.length > 0 && <PluginSecrets plugin={plugin.name} secrets={settings.data.secrets} />}
         </Form>
       )}
     </Dialog>

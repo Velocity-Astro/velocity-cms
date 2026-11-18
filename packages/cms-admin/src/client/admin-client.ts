@@ -1,4 +1,4 @@
-import type { Contact, ContactChanges, Deal, DealChanges, Forecast, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
+import type { Contact, ContactChanges, Deal, DealChanges, Forecast, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginTask, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
@@ -285,6 +285,15 @@ export interface AdminClient {
   getPluginSettings(name: string): Promise<PluginSettings>;
   /** Saves a plugin's settings. Refused, with the settings to look at, when one is not filled in correctly. */
   savePluginSettings(name: string, values: EntryData): Promise<PluginSettings>;
+  /**
+   * Saves one of a plugin's keys or passwords, or with `null` takes the saved one away. What was
+   * saved never comes back: the settings only say that one is there. Owners only.
+   */
+  setPluginSecret(name: string, key: string, value: string | null): Promise<PluginSettings>;
+  /** What a plugin was asked to do that is tried again when it fails, newest first. Owners only. */
+  listPluginTasks(name: string): Promise<readonly PluginTask[]>;
+  /** Has a piece of a plugin's work that was given up on tried again, now. */
+  retryPluginTask(name: string, id: string): Promise<PluginTask>;
   /** The signed-in person's own passkeys, oldest first. */
   listPasskeys(): Promise<readonly Passkey[]>;
   /** Removes one of the signed-in person's own passkeys. That device then signs in with a link. */

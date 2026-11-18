@@ -143,6 +143,12 @@ export {
   type PluginFault,
   type PluginInfo,
   type PluginStatus,
+  type PluginSecretDef,
+  type PluginSecretInfo,
+  type PluginTask,
+  type PluginTaskRunner,
+  type PluginTaskStatus,
+  TASK_RETRY_AFTER_MS,
 } from './plugin.js';
 export { HOME_SLUG, MAX_SLUG_LENGTH, MAX_SLUG_PARTS, SLUG_PATH_NAME, isSlug, isSlugPath, takesSlugPath } from './slug.js';
 export { MARK_CLOSE, MARK_OPEN, escapeHtml, markedExcerpt, searchWords } from './search-text.js';

@@ -119,3 +119,72 @@ it('draws a plugin\'s settings as a form, shows what the server says on each, an
   const saved = await client.getPluginSettings('seo');
   expect(Object.values(saved.values)).toEqual([' | Lakeshore', 160]);
 });
+
+/** A plugin that asks for a key and sends things, as a connector would. */
+const mailer = (state: { works: boolean; add?: () => Promise<void> }) =>
+  definePlugin({
+    name: 'mailer',
+    apiVersion: 1,
+    label: { en: 'Mailer' },
+    secrets: [{ key: 'apiKey', label: { en: 'API key' }, help: { en: 'From your account page.' } }],
+    setup(plugin) {
+      plugin.tasks.define('send', () => {
+        if (!state.works) throw new Error('The service answered 500.');
+      });
+      state.add = () => plugin.tasks.add('send', { to: 'carried@example.com' }, { label: 'Welcome message' });
+    },
+  });
+
+it('saves a key by itself, shows only that one is saved, and takes it away again', async () => {
+  const user = userEvent.setup();
+  renderApp('/plugins', site({ plugins: [mailer({ works: true })] }));
+  await user.click(await screen.findByRole('button', { name: 'Settings for Mailer' }));
+  const dialog = within(await screen.findByRole('dialog', { name: 'Mailer settings' }));
+  const field = await dialog.findByLabelText(/^API key/);
+  expect(dialog.getByText('From your account page.')).toBeTruthy();
+  expect((dialog.getByRole('button', { name: 'Save API key' }) as HTMLButtonElement).disabled).toBe(true);
+
+  await user.type(field, 'sk-12345');
+  await user.click(dialog.getByRole('button', { name: 'Save API key' }));
+  expect(await dialog.findByText('Saved. It is not shown again.')).toBeTruthy();
+  expect(await screen.findByText('API key saved')).toBeTruthy();
+  // The field and what was typed are gone from the page.
+  expect(dialog.queryByLabelText(/^API key/)).toBeNull();
+  expect(document.body.innerHTML).not.toContain('sk-12345');
+
+  await user.click(dialog.getByRole('button', { name: 'Replace API key' }));
+  expect(((await dialog.findByLabelText(/^API key/)) as HTMLInputElement).value).toBe('');
+  await user.click(dialog.getByRole('button', { name: 'Keep the saved one' }));
+  await user.click(await dialog.findByRole('button', { name: 'Remove API key' }));
+  expect(await dialog.findByLabelText(/^API key/)).toBeTruthy();
+  expect(await screen.findByText('API key removed')).toBeTruthy();
+});
+
+it('shows what a plugin was asked to do, with why something still waits', async () => {
+  const user = userEvent.setup();
+  const state: { works: boolean; add?: () => Promise<void> } = { works: false };
+  renderApp('/plugins', site({ plugins: [mailer(state)] }));
+  const row = within(await screen.findByRole('row', { name: /Mailer/ }));
+  expect(row.getByText(/deliveries that are tried again when they fail/)).toBeTruthy();
+
+  await user.click(row.getByRole('button', { name: 'Activity of Mailer' }));
+  const empty = within(await screen.findByRole('dialog', { name: 'Mailer activity' }));
+  expect(await empty.findByText('Nothing yet')).toBeTruthy();
+  await user.click(empty.getByRole('button', { name: 'Close' }));
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Mailer activity' })).toBeNull());
+
+  await state.add?.();
+  state.works = true;
+  await state.add?.();
+  await user.click(row.getByRole('button', { name: 'Activity of Mailer' }));
+  const dialog = within(await screen.findByRole('dialog', { name: 'Mailer activity' }));
+  const rows = await dialog.findAllByRole('row', { name: /Welcome message/ });
+  expect(rows).toHaveLength(2);
+  expect(rows.filter((candidate) => within(candidate).queryByText('Done') !== null)).toHaveLength(1);
+  const waiting = within(rows.find((candidate) => within(candidate).queryByText('Waiting') !== null) as HTMLElement);
+  expect(waiting.getByText('Waiting')).toBeTruthy();
+  expect(waiting.getByText('The service answered 500.')).toBeTruthy();
+  expect(waiting.getByText('Tried once. Next try within a minute')).toBeTruthy();
+  // What it carried is never on the page.
+  expect(document.body.innerHTML).not.toContain('carried@example.com');
+});
