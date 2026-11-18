@@ -8,6 +8,7 @@
  */
 import CallToAction from '@/components/cms/blocks/CallToAction.astro';
 import FeatureGrid from '@/components/cms/blocks/FeatureGrid.astro';
+import Form from '@/components/cms/blocks/Form.astro';
 import FeatureSplit from '@/components/cms/blocks/FeatureSplit.astro';
 import HomeHero from '@/components/cms/blocks/HomeHero.astro';
 import Image from '@/components/cms/blocks/Image.astro';
@@ -46,6 +47,7 @@ export const blocks: Record<string, (props: any) => any> = {
   reviews: Reviews,
   valuation: Valuation,
   journal: Journal,
+  form: Form,
   team: Team,
 };
 

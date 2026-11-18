@@ -35,7 +35,7 @@ export {
   type RateLimiter,
   type SubmissionNotice,
 } from './form-post.js';
-export { siteForm, siteFormPosts, type SiteForm } from './site-forms.js';
+export { FORM_SCRIPT, siteForm, siteFormPosts, type FormChoice, type SiteForm } from './site-forms.js';
 export { menuLinks, type MenuColumn, type MenuLink, type MenuOptions } from './menu.js';
 export type { PageHead } from '@velocity/cms-core';
 export { cmsLoader, type CmsLoaderOptions } from './loader.js';

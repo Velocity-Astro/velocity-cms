@@ -49,6 +49,7 @@ export interface VelocityCmsOptions {
  * - `/sitemap-live.xml`: the live pages' share of the sitemap
  * - `/og/<page>.png`: a share image for any live page, drawn on first use
  * - `/api/cms/search.json` and `/cms-search.js`: search from the CMS database
+ * - `/api/cms/submit/<form>` and `/cms-form.js`: where a form posts, and the script that sends it in place
  * - `/api/cms/published`: where a publish is announced
  * - `/media/<file>`: the images people upload in the editor
  * - preview links, through a middleware
@@ -87,6 +88,7 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
         injectRoute({ pattern: '/api/cms/search.json', entrypoint: route('search.json.ts') });
         injectRoute({ pattern: '/api/cms/published', entrypoint: route('published.ts') });
         injectRoute({ pattern: '/cms-search.js', entrypoint: route('search-client.js.ts') });
+        injectRoute({ pattern: '/cms-form.js', entrypoint: route('form-client.js.ts') });
         injectRoute({ pattern: '/cms-preview.js', entrypoint: route('preview-client.js.ts') });
         injectRoute({ pattern: '/media/[file]', entrypoint: route('media.ts') });
         injectRoute({ pattern: '/api/cms/submit/[form]', entrypoint: route('submit.ts') });

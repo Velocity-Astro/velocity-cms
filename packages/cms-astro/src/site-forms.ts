@@ -56,20 +56,26 @@ export interface SiteForm extends PublicForm {
   readonly trap: string;
 }
 
+/** The address of the script that sends a form without leaving its page (`data-cms-form`). */
+export const FORM_SCRIPT = '/cms-form.js';
+
+/** Which form: its key, as a template names one, or its id, as a field of type `form` holds one. */
+export type FormChoice = string | { readonly id: string };
+
 /**
- * A form of the CMS for the page being drawn, by key, or `null` when there is none open under
- * that key, so the template leaves it out. It never throws: a page is not lost over its form.
+ * A form of the CMS for the page being drawn, or `null` when there is none open under that key
+ * or id, so the template leaves it out. It never throws: a page is not lost over its form.
  */
-export async function siteForm(page: DrawnPage, key: string): Promise<SiteForm | null> {
+export async function siteForm(page: DrawnPage, choice: FormChoice): Promise<SiteForm | null> {
   try {
     const { cms } = await sharedConnection({});
-    const form = await cms.forms.forSite(key);
+    const form = typeof choice === 'string' ? await cms.forms.forSite(choice) : await cms.forms.forSiteById(choice.id);
     if (!form) return null;
-    const token = await formToken(siteSecret(), key);
+    const token = await formToken(siteSecret(), form.key);
     const locale = page.currentLocale;
     return {
       ...form,
-      action: `/api/cms/submit/${encodeURIComponent(key)}`,
+      action: `/api/cms/submit/${encodeURIComponent(form.key)}`,
       hidden: {
         [FORM_PAGE_FIELD]: page.url.pathname,
         ...(locale !== undefined && { [FORM_LOCALE_FIELD]: locale }),

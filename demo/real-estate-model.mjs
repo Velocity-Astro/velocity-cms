@@ -348,6 +348,12 @@ const pageBlocks = [
     text('photoAlt', 'What the photo shows', { help: 'Read aloud to people who cannot see it.' }),
     choice('results', 'Recent results', { show: 'Show the last three', hide: 'Leave them out' }),
   ]),
+  block('form', 'Form', { description: 'One of the site\'s forms, with a heading beside it. What people send arrives under Forms.', icon: 'mail', group: 'Action' }, [
+    ...heading,
+    long('lead', 'Lead'),
+    field('form')('form', 'Form', { required: true, help: 'Forms are made and changed under Forms.' }),
+    tone(),
+  ]),
 ];
 
 const pages = {
@@ -404,6 +410,25 @@ export const importedTypes = ['listings', 'agents', 'neighborhoods', 'reviews'];
  * same until someone edits them. `page` is the slug of a page made in the editor; the link is
  * stored as that entry, so it follows the page if its address changes.
  */
+/** The forms a new site starts with. Nobody is emailed until someone names an address under Forms. */
+export const sampleForms = [
+  {
+    key: 'contact',
+    label: en('Contact'),
+    fields: [
+      text('name', 'Your name', { required: true, options: { maxLength: 80 } }),
+      field('email')('email', 'Email', { required: true }),
+      field('phone')('phone', 'Phone'),
+      choice('topic', 'What is it about?', { buying: 'Buying a home', selling: 'Selling a home', renting: 'Renting', management: 'Property management', other: 'Something else' }),
+      text('message', 'Message', { required: true, options: { multiline: true, maxLength: 3000 } }),
+    ],
+    submitLabel: en('Send message'),
+    success: en('Thanks. We will get back to you within one business day.'),
+    contact: { name: 'name', email: 'email', phone: 'phone' },
+    retentionDays: 365,
+  },
+];
+
 export const sampleMenus = {
   header: [
     {
@@ -530,6 +555,21 @@ export const samplePages = [
         { question: 'Do I have to leave for showings?', answer: 'It helps. Buyers stay longer and say more when the owner is out, and we give you a day\'s notice.' },
       ] } },
       { block: 'call-to-action', data: { title: 'Find out what your home could sell for', lead: 'A free, written estimate from an agent who knows your street.', photo: 'home-modern', buttonLabel: 'Talk to an agent', buttonTo: { kind: 'address', href: '/contact/' }, secondLabel: 'See recent sales', secondTo: { kind: 'address', href: '/homes-for-sale/' } } },
+    ],
+  },
+  {
+    locale: 'en',
+    slug: 'ask-a-question',
+    title: 'Ask a question',
+    description: 'Send us a question about buying, selling, renting or managing a home. A local agent answers within one business day.',
+    body: [
+      { block: 'page-hero', data: { eyebrow: 'Contact', title: 'Ask us anything', lead: 'No question is too small. A local agent reads every message and answers within one business day.', size: 'md', background: 'glow' } },
+      // `form` names a sample form by key here; the demo stores the form's id.
+      { block: 'form', data: { eyebrow: 'Write to us', title: 'Send a question', lead: 'Tell us what you are planning. This form is built in the editor, under Forms: add a field there and it is here at once.', form: 'contact', tone: 'secondary' } },
+      { block: 'questions', data: { title: 'Before you write', items: [
+        { question: 'How soon will I hear back?', answer: 'Within one business day, and usually the same afternoon.' },
+        { question: 'Who reads my message?', answer: 'An agent in our office. We never pass your details to anyone else.' },
+      ] } },
     ],
   },
   // The same two pages in Spanish, from the template's own Spanish copy. `translates` names the

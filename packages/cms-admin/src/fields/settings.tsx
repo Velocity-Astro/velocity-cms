@@ -159,6 +159,7 @@ export const fieldSettings: FieldSettingsRegistry = new Registry<FieldSettings>(
     problem: (options, messages) => (typeof options['to'] === 'string' && options['to'] !== '' ? undefined : messages.builder.referenceNeeded),
   })
   .register({ type: 'link', initial: {}, canBeListed: true })
+  .register({ type: 'form', initial: {} })
   .register({
     type: 'group',
     initial: { fields: [] },

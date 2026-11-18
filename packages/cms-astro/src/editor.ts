@@ -115,6 +115,15 @@ export class EditorHost {
       invalidateLiveContent();
       this.#published = true;
     });
+    // A page that draws a form was kept with the form's fields as they were.
+    const formChanged = () => {
+      invalidateLiveContent();
+      this.#published = true;
+    };
+    cms.events.on('form.saved', formChanged);
+    cms.events.on('form.trashed', formChanged);
+    cms.events.on('form.restored', formChanged);
+    cms.events.on('form.deleted', formChanged);
     cms.events.on('type.archived', shown);
     cms.events.on('type.restored', shown);
   }

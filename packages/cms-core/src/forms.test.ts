@@ -145,6 +145,14 @@ describe('FormService', () => {
     expect(await cms.forms.forSite('nothing')).toBeNull();
   });
 
+  it('gives the site the form a section chose, by id, whatever its key is today', async () => {
+    await cms.forms.update(editor, contact.id, { key: 'get-in-touch', expectedRevision: 1 });
+    expect(await cms.forms.forSiteById(contact.id)).toMatchObject({ key: 'get-in-touch', label: { en: 'Contact us' } });
+    expect(await cms.forms.forSiteById('nothing')).toBeNull();
+    await cms.forms.trash(editor, contact.id);
+    expect(await cms.forms.forSiteById(contact.id)).toBeNull();
+  });
+
   it('moves a form to the trash with what it was sent, frees its key, restores it, and deletes it for good with its submissions', async () => {
     await cms.submissions.submit('contact', answers);
     const trashed = await cms.forms.trash(editor, contact.id);

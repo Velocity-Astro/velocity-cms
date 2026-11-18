@@ -183,6 +183,22 @@ export class ReferenceField extends FieldType<string, { to: string }> {
 }
 
 /**
+ * One of the site's forms, such as the contact form a section of a page shows.
+ *
+ * It stores the form's id, never its key, so the form can be renamed. The page asks for the form
+ * as it is today when it is drawn, and leaves the section out when the form is closed or gone.
+ */
+export class FormField extends FieldType<string, NoOptions> {
+  readonly type = 'form';
+  readonly editor = 'form-picker';
+  readonly options = noOptions;
+
+  schema() {
+    return z.string().min(1);
+  }
+}
+
+/**
  * One of the site's images, such as a listing's photo.
  *
  * It stores the image's name, which is what the site's pages look images up by. The editor shows
@@ -327,5 +343,6 @@ export function createFieldRegistry(): Registry<FieldType> {
     .register(new GroupField())
     .register(new ListField())
     .register(new BlocksField())
-    .register(new LinkField());
+    .register(new LinkField())
+    .register(new FormField());
 }
