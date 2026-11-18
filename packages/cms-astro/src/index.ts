@@ -17,7 +17,7 @@ export {
   type CmsEntryFilter,
   type CmsLiveLoaderOptions,
 } from './live-loader.js';
-export { isPreview } from './preview.js';
+export { isEditorPreview, isPreview } from './preview.js';
 export { pageHead, type DrawnPage } from './page-head.js';
 export { entryPage, entryPageAddresses, type EntryPage, type EntryPageOptions } from './entry-page.js';
 export type { PageHead } from '@velocity/cms-core';

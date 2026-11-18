@@ -1,11 +1,11 @@
 import type { ContentTypeDef, Entry, EntryData, FieldDef } from '@velocity/cms-core';
 import { SLUG_PATH, isSlug, liveFields } from '@velocity/cms-core';
-import { Box, Button, Card, ConfirmDialog, Form, SaveBar, Segmented, Split, Stack, Tag, Text, TextField, toast } from '@velocity/cms-ui';
+import { Box, Button, Card, ConfirmDialog, Form, SaveBar, Segmented, Split, Stack, Tag, Text, TextField, Workbench, toast } from '@velocity/cms-ui';
 import { useState } from 'react';
 import { paths } from '../../app/paths.js';
 import { AdminRequestError } from '../../client/errors.js';
 import { useCreateEntry, usePreviewEntry, usePublishEntry, useUnpublishEntry, useUpdateEntry } from '../../client/queries.js';
-import { FieldGrid } from '../../fields/index.js';
+import { FieldGrid, PageFocusProvider, useControlFor } from '../../fields/index.js';
 import { entryState, entryTitle, languageName, localized, sameData, withValue, type EntryState } from '../../lib/content.js';
 import { openPreviewTab } from '../../lib/preview-tab.js';
 import { relativeTime } from '../../lib/relative-time.js';
@@ -14,6 +14,7 @@ import { useLeaveGuard } from '../../lib/use-leave-guard.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 import { PluginBoundary } from '../../plugins/PluginBoundary.js';
 import { usePluginExtensions } from '../../plugins/plugin-editor.js';
+import { PagePane } from './PagePane.js';
 
 const STATE_TONE = { draft: 'neutral', scheduled: 'info', published: 'success', unpublishedChanges: 'warning' } as const satisfies Record<
   EntryState,
@@ -192,6 +193,9 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
     })),
     ...(rest.length > 0 ? [{ key: '$rest', ...(type.sections?.length && { title: messages.editor.otherFields }), aside: false, fields: rest }] : []),
   ];
+  // An entry whose fields include the page itself, and which has a page, is edited beside it.
+  const controlFor = useControlFor();
+  const showsPage = hasPage && live.some((field) => controlFor(field.type)?.showsPage === true);
   // What plugins show beside this entry: a card each, which gets what is in the form now.
   const panels = usePluginExtensions()
     .panels.filter((panel) => panel.types === undefined || panel.types.includes(type.key))
@@ -211,6 +215,9 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
       <FieldGrid fields={section.fields} values={data} onChange={changeField} pathOf={(field) => field.key} problems={problems} {...(section.aside && { perRow: 1 as const })} />
     </Card>
   );
+
+  /** A card in the form's column beside the page, where there is room for one field per row. */
+  const narrowCard = (section: (typeof sections)[number]) => card({ ...section, aside: true });
 
   return (
     <Stack gap={0} fill>
@@ -261,7 +268,36 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
       />
       <Box paddingX={12} paddingY={8} grow>
         <Form label={messages.editor.form} gap={5} onSubmit={() => void run('save')}>
-          {isSingle && panels.length === 0 && !sections.some((section) => section.aside) ? (
+          {showsPage ? (
+            // The page is beside the form, so everything else is in the form's one column.
+            <PageFocusProvider>
+              <Workbench paneLabel={messages.editor.pagePane} pane={<PagePane entry={entry} data={data} title={title ?? typeName} />}>
+                {sections.filter((section) => !section.aside).map(narrowCard)}
+                {!isSingle && (
+                  <Card title={slugPattern !== undefined ? messages.editor.addressSection : messages.editor.identifierSection}>
+                    <TextField
+                      label={messages.editor.slug}
+                      value={slug}
+                      onChange={(next) => {
+                        setTypedSlug(next);
+                        setSlugProblem(null);
+                      }}
+                      isRequired
+                      description={
+                        slugPattern !== undefined
+                          ? messages.editor.slugDescription(slugPattern.replace('[slug]', slug === '' ? '…' : slug))
+                          : messages.editor.slugAsIdentifier
+                      }
+                      {...(slugProblem !== null && { errorMessage: slugProblem })}
+                    />
+                  </Card>
+                )}
+                {sections.filter((section) => section.aside).map(card)}
+                {panels}
+              </Workbench>
+            </PageFocusProvider>
+          ) : isSingle && panels.length === 0 && !sections.some((section) => section.aside) ? (
+
             // Nothing to show beside the content, so the content has the page.
             <Stack gap={6}>{sections.map(card)}</Stack>
           ) : (

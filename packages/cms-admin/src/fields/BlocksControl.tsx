@@ -1,22 +1,27 @@
 import { liveFields, type BlockDef, type BlockValue, type FieldDef } from '@velocity/cms-core';
 import { ConfirmDialog, OptionPicker, SectionList, Text, type PickerOption } from '@velocity/cms-ui';
 import { Copy, Eye, EyeOff, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { localized, withValue } from '../lib/content.js';
 import { useLast } from '../lib/use-closing.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
 import { blockIcon } from './block-icons.js';
 import type { FieldControlProps } from './field-control.js';
 import { FieldGrid } from './FieldGrid.js';
+import { useControlFor } from './FieldSummary.js';
+import { usePageFocus } from './page-focus.js';
 
 const isSection = (value: unknown): value is BlockValue =>
   typeof value === 'object' && value !== null && typeof (value as BlockValue).id === 'string' && typeof (value as BlockValue).block === 'string';
 
-/** A few of a section's own words: the first line of text it holds, in the order of its fields. */
-function summaryOf(block: BlockDef, section: BlockValue): string | undefined {
+/**
+ * A few of a section's own words: the first line of text it holds, in the order of its fields.
+ * `isWords` leaves out the fields that hold a choice or a figure, which say nothing about it.
+ */
+function summaryOf(block: BlockDef, section: BlockValue, isWords: (field: FieldDef) => boolean): string | undefined {
   for (const field of liveFields(block.fields)) {
     const value = section.data[field.id];
-    if (typeof value === 'string' && value.trim() !== '') return value;
+    if (typeof value === 'string' && value.trim() !== '' && isWords(field)) return value;
   }
   return undefined;
 }
@@ -37,8 +42,18 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
   const [isPicking, setPicking] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
 
+  const controlFor = useControlFor();
+  const focus = usePageFocus();
+  const pressed = focus?.pressed;
   const change = (next: readonly BlockValue[]) => onChange(next.length === 0 ? undefined : next);
-  const open = (id: string) => setOpenIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
+  const open = (id: string) => {
+    setOpenIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
+    focus?.open(id);
+  };
+  // A section pressed on the page beside the form opens here.
+  useEffect(() => {
+    if (pressed) setOpenIds((ids) => (ids.includes(pressed.id) ? ids : [...ids, pressed.id]));
+  }, [pressed]);
   const remove = (id: string) => {
     change(sections.filter((section) => section.id !== id));
     setOpenIds((ids) => ids.filter((candidate) => candidate !== id));
@@ -93,7 +108,11 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
         onAdd={() => setPicking(true)}
         isFull={max !== undefined && sections.length >= max}
         openIds={openIds}
-        onOpenChange={(id, isOpen) => setOpenIds((ids) => (isOpen ? [...ids.filter((candidate) => candidate !== id), id] : ids.filter((candidate) => candidate !== id)))}
+        revealId={pressed?.id}
+        onOpenChange={(id, isOpen) => {
+          if (isOpen) open(id);
+          else setOpenIds((ids) => ids.filter((candidate) => candidate !== id));
+        }}
         onMove={(from, to) => {
           const next = [...sections];
           const [moved] = next.splice(from, 1);
@@ -110,7 +129,7 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
           const inner = block ? liveFields(block.fields) : [];
           const prefix = `${path}.${index}.`;
           const found = [...problems.keys()].filter((key) => key.startsWith(prefix)).length;
-          const summary = block ? summaryOf(block, section) : undefined;
+          const summary = block ? summaryOf(block, section, (inner) => controlFor(inner.type)?.width !== 'compact') : undefined;
           const hidden = section.hidden === true;
           return {
             id: section.id,

@@ -212,6 +212,24 @@
       "uses": ["Dialog"]
     },
     {
+      "name": "Workbench",
+      "layer": "pattern",
+      "group": "Layout",
+      "description": "A form with what it makes shown large beside it and kept in view: the sections of a page, and the page.",
+      "example": "<Workbench paneLabel=\"The page\" pane={<PagePreview … />}>…</Workbench>",
+      "useInstead": "Split for a form with a few settings beside it; Grid for things of equal weight.",
+      "uses": []
+    },
+    {
+      "name": "PagePreview",
+      "layer": "pattern",
+      "group": "Page",
+      "description": "A page of the site as it would look with what is in a form now, in a frame, at a phone's, a tablet's or the full width. The site draws the page; pressing a section on it says which.",
+      "example": "<PagePreview label=\"The page, as it would look\" address={preview.path} draft={JSON.stringify(draft)} width={width} emptyText=\"Save the page once to see it here.\" onSectionPress={open} />",
+      "useInstead": "Thumbnail for a picture; a Link that opens a new tab to read the page whole.",
+      "uses": []
+    },
+    {
       "name": "MediaGrid",
       "layer": "pattern",
       "group": "Media",

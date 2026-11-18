@@ -159,5 +159,11 @@ export function convert(project) {
   add('src/components/cms/BuilderPage.astro', 'builder/BuilderPage.astro');
   for (const name of fs.readdirSync(path.join(files, 'builder/blocks'))) add(`src/components/cms/blocks/${name}`, `builder/blocks/${name}`);
 
+  // 11. The editor shows a page beside its form, in a frame. Velocity forbids every frame; a
+  //     site with the CMS allows its own pages to frame each other and still no other site.
+  edit('vercel.json', (text) =>
+    must(text, '"key": "X-Frame-Options",\n          "value": "DENY"', '"key": "X-Frame-Options",\n          "value": "SAMEORIGIN"'),
+  );
+
   return changes;
 }
