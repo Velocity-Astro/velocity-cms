@@ -35,7 +35,7 @@ export function convert(project) {
 
   // 1. The integration, and a cache rule for every page rendered on demand.
   edit('astro.config.mjs', (config) => {
-    let next = `import velocityCms from '@velocity/cms-astro';\n${must(config, '  integrations: [', '  integrations: [\n    velocityCms({ unlisted: [...searchPages], images: "./src/assets/photos", plugins: ["./src/cms/publish-log-plugin.ts"] }),')}`;
+    let next = `import velocityCms from '@velocity/cms-astro';\n${must(config, '  integrations: [', '  integrations: [\n    velocityCms({ unlisted: [...searchPages], images: "./src/assets/photos", plugins: ["./src/cms/publish-log-plugin.ts"], entryPages: ["pages"] }),')}`;
     next = must(
       next,
       '  cache: {',
@@ -151,6 +151,13 @@ export function convert(project) {
     if (!next.includes('content={description}')) throw new Error('Expected to find: content={description}');
     return next.replaceAll('content={description}', 'content={head.description}');
   });
+
+  // 10. Pages built in the editor: the blocks they are made of, and the frame that draws them.
+  //     The route that takes every translated page (step 4) also takes these.
+  add('src/cms/blocks.ts', 'builder/blocks.ts');
+  add('src/components/cms/Blocks.astro', 'builder/Blocks.astro');
+  add('src/components/cms/BuilderPage.astro', 'builder/BuilderPage.astro');
+  for (const name of fs.readdirSync(path.join(files, 'builder/blocks'))) add(`src/components/cms/blocks/${name}`, `builder/blocks/${name}`);
 
   return changes;
 }

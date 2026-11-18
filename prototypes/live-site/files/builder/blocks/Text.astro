@@ -1,0 +1,30 @@
+---
+/** Words: a heading beside or above text shaped in the editor. */
+import Band from '@/components/estate/Band.astro';
+import type { RichText } from '@/cms/blocks';
+
+interface Props {
+  title?: string;
+  body?: RichText;
+  layout?: 'beside' | 'stacked';
+  tone?: 'default' | 'secondary';
+}
+
+const { title, body, layout = 'beside', tone = 'default' } = Astro.props;
+const prose = 'estate-rich-text text-foreground-secondary flex flex-col gap-4 text-[1.0625rem] leading-relaxed';
+---
+
+{
+  layout === 'beside' && title ? (
+    <Band tone={tone} width="wide">
+      <div class="grid gap-12 lg:grid-cols-2">
+        <h2 class="estate-display text-3xl sm:text-4xl">{title}</h2>
+        <div class={prose} set:html={body?.html ?? ''} />
+      </div>
+    </Band>
+  ) : (
+    <Band tone={tone} title={title}>
+      <div class:list={[prose, 'max-w-3xl']} set:html={body?.html ?? ''} />
+    </Band>
+  )
+}

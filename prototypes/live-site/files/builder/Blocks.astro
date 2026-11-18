@@ -1,0 +1,19 @@
+---
+/**
+ * Draws the sections of a page built in the editor, in order, each with its own block from
+ * src/cms/blocks.ts. A section of a kind this site has no block for is left out.
+ */
+import { blocks, type Section } from '@/cms/blocks';
+
+interface Props {
+  sections?: Section[];
+}
+
+const { sections = [] } = Astro.props;
+const known = sections.flatMap((section) => {
+  const Block = blocks[section.block];
+  return Block ? [{ Block, section }] : [];
+});
+---
+
+{known.map(({ Block, section }) => <Block {...section.data} />)}

@@ -1,16 +1,19 @@
 ---
 /**
- * Every translated page, rendered on demand. The pages themselves live in src/live-pages/lang/,
- * unchanged from when they were routes.
+ * Every translated page, rendered on demand, and every page built in the editor. The translated
+ * pages themselves live in src/live-pages/lang/, unchanged from when they were routes. A page the
+ * site has a file for comes first; an address none of them owns is looked up in the CMS.
  */
-import { matchLocalizedPage } from '@velocity/cms-astro';
+import { entryPage, matchLocalizedPage } from '@velocity/cms-astro';
+import BuilderPage from '@/components/cms/BuilderPage.astro';
 
 export const prerender = false;
 
 const pages = import.meta.glob('/src/live-pages/lang/*.astro', { eager: true });
 const match = await matchLocalizedPage(pages, Astro.params.lang, Astro.params.path);
-if (!match) return new Response(null, { status: 404 });
-const { Page, props } = match;
+const built = match ? undefined : await entryPage(Astro, { types: ['pages'] });
+if (!match && !built) return new Response(null, { status: 404 });
+const Page = match?.Page;
 ---
 
-<Page {...props} />
+{Page ? <Page {...match.props} /> : built && <BuilderPage page={built.entry.data} />}
