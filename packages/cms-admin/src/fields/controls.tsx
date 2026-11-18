@@ -6,6 +6,7 @@ import { prepareImage } from '../lib/prepare-image.js';
 import { entryTitle, groupTranslations, localized, sameData, withValue } from '../lib/content.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
 import { createFieldControlRegistry, type FieldControlProps, type FieldControls, type FieldSummaryProps } from './field-control.js';
+import { BlocksControl } from './BlocksControl.js';
 import { FieldEditor } from './FieldEditor.js';
 import { FieldGrid } from './FieldGrid.js';
 
@@ -363,5 +364,6 @@ export function createFieldControls(): FieldControls {
     .register({ type: 'image', Component: ImageControl })
     .register({ type: 'rich-text', Component: RichTextControl })
     .register({ type: 'group', Component: GroupControl })
-    .register({ type: 'list', Component: ListControl });
+    .register({ type: 'list', Component: ListControl })
+    .register({ type: 'blocks', Component: BlocksControl });
 }
