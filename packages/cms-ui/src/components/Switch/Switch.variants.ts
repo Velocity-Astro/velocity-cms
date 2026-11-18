@@ -9,3 +9,5 @@ export const switchTrackClass = [
 ].join(' ');
 
 export const switchThumbClass = 'size-3.5 rounded-full bg-background shadow-sm transition-transform motion-base group-data-selected:translate-x-4';
+
+export const switchHiddenLabelClass = 'sr-only';

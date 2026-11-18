@@ -96,7 +96,7 @@ it('shows a plugin\'s panel beside an entry of the types it names', async () => 
 it('says on the Plugins screen what an active plugin adds, and opens its screen from there', async () => {
   const user = userEvent.setup();
   renderApp('/plugins', site({ plugins: [counter()] }), editors);
-  const row = within(await screen.findByRole('row', { name: /Counter/ }));
+  const row = within(await screen.findByRole('region', { name: /Counter/ }));
   expect(row.getByText('Adds the "Counter" screen in the sidebar, the "Broken screen" screen in the sidebar, the "Length" panel on entries.')).toBeTruthy();
   await user.click(row.getByRole('button', { name: 'Open Counter' }));
   expect(await screen.findByRole('heading', { level: 1, name: 'Counter' })).toBeTruthy();
@@ -115,7 +115,7 @@ it('carries on without a plugin whose editor file cannot be loaded, and tells th
   renderApp('/plugins', site({ plugins: [counter()] }), async () => {
     throw new Error('The file was not found.');
   });
-  const row = within(await screen.findByRole('row', { name: /Counter/ }));
+  const row = within(await screen.findByRole('region', { name: /Counter/ }));
   expect(row.getByText('Its part of the editor could not be loaded: The file was not found.')).toBeTruthy();
   expect(screen.queryByRole('link', { name: 'Counter' })).toBeNull();
 });
