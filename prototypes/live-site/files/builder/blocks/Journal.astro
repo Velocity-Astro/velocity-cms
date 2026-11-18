@@ -1,0 +1,40 @@
+---
+/** The three newest guides from the blog. Left out while there are none. */
+import BlogCard from '@/components/blog/BlogCard.astro';
+import Band from '@/components/estate/Band.astro';
+import EstateButton from '@/components/estate/EstateButton.astro';
+import { findPhoto, postCovers } from '@/content/estate';
+import { getLocale, localizeRoute } from '@/i18n';
+import { getPostReadingTime, getPostSlug, getPostUrl, getPosts } from '@/lib/blog';
+
+interface Props {
+  eyebrow?: string;
+  title?: string;
+  linkLabel?: string;
+}
+
+const { eyebrow, title, linkLabel } = Astro.props;
+const locale = getLocale(Astro);
+const route = (id: Parameters<typeof localizeRoute>[0]) => localizeRoute(id, locale);
+const posts = await getPosts(locale);
+---
+
+{posts.length > 0 && (
+  <Band eyebrow={eyebrow} title={title} width="wide" pad="none" class="pb-8">
+    {linkLabel && <EstateButton slot="action" tone="link" href={route('blog')} trailingIcon="arrow-right">{linkLabel}</EstateButton>}
+    <ul class="grid gap-6 md:grid-cols-3" data-reveal-group>
+      {posts.slice(0, 3).map((post) => (
+        <li>
+          <BlogCard
+            title={post.data.title}
+            description={post.data.description}
+            href={getPostUrl(post)}
+            publishedAt={post.data.publishedAt}
+            readingTime={getPostReadingTime(post)}
+            image={postCovers[getPostSlug(post)] ? findPhoto(postCovers[getPostSlug(post)]) : undefined}
+          />
+        </li>
+      ))}
+    </ul>
+  </Band>
+)}

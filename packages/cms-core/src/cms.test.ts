@@ -161,6 +161,9 @@ describe('ContentService', () => {
     const deep = await create('services/roofing');
     expect(pageAddress(pages, deep, 'en')).toBe('/services/roofing/');
     expect(pageAddress(pages, await create('services'), 'en')).toBe('/services/');
+    // The page called index is the home page.
+    expect(pageAddress(pages, await create('index'), 'en')).toBe('/');
+    expect(pageAddress({ ...pages, localizedUrlPatterns: { es: '/es/[...slug]' } }, { locale: 'es', slug: 'index', data: {} }, 'en')).toBe('/es/');
     for (const slug of ['/services', 'services/', 'services//roofing', 'services/../admin', 'Services/Roofing', 'a/b/c/d/e/f']) {
       await expect(create(slug)).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['$slug'] }] });
     }

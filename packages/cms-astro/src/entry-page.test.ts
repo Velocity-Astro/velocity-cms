@@ -72,6 +72,15 @@ describe('a page made in the editor', () => {
     // A page with one part to its address is not found under a longer one.
     expect(await entryPageAt(cms, '/our-story/more/', ['pages'])).toBeUndefined();
     expect(await publishedAddresses(cms, ['guides'])).toEqual(['/guides/selling/pricing/']);
+
+    // The page called index is the one at the top, and has no other address.
+    const top = await cms.content.create(owner, { typeId: guides.id, locale: 'en', slug: 'index', data: {} });
+    expect(await entryPageAt(cms, '/guides/', ['guides'])).toBeUndefined();
+    await cms.content.publish(owner, top.id);
+    expect(await entryPageAt(cms, '/guides/', ['guides'])).toMatchObject({ entry: { slug: 'index' } });
+    expect(await entryPageAt(cms, '/guides', ['guides'])).toMatchObject({ entry: { slug: 'index' } });
+    expect(await entryPageAt(cms, '/guides/index/', ['guides'])).toBeUndefined();
+    expect((await publishedAddresses(cms, ['guides'])).sort()).toEqual(['/guides/', '/guides/selling/pricing/']);
   });
 
   it('joins the site\'s addresses once published, after the pages the site has files for', async () => {

@@ -1,0 +1,31 @@
+---
+/**
+ * What the home page tells search engines about the business, from the site's own config. The
+ * template's home page carried it; a home page built in the editor is given it by its route.
+ */
+import type { RealEstateAgent, WithContext } from 'schema-dts';
+import JsonLd from '@/components/seo/JsonLd.astro';
+import { toOpeningHoursSpecification } from '@/components/premium/opening-hours';
+import { estate } from '@/config/estate.config';
+import siteConfig from '@/config/site.config';
+
+const schema: WithContext<RealEstateAgent> = {
+  '@context': 'https://schema.org',
+  '@type': 'RealEstateAgent',
+  name: siteConfig.name,
+  url: siteConfig.url,
+  telephone: estate.phone.href.replace('tel:', ''),
+  email: estate.email,
+  address: {
+    '@type': 'PostalAddress',
+    streetAddress: estate.office.street,
+    addressLocality: estate.office.city,
+    addressRegion: estate.office.region,
+    postalCode: estate.office.postcode,
+    addressCountry: estate.office.country,
+  },
+  openingHoursSpecification: toOpeningHoursSpecification(estate.openingHours) as never,
+};
+---
+
+<JsonLd schema={schema} />

@@ -1,0 +1,14 @@
+---
+/** What clients said, straight from the CMS, in one of the template's four layouts. */
+import Reviews from '@/components/estate/Reviews.astro';
+
+interface Props {
+  eyebrow?: string;
+  title?: string;
+  layout?: 'spotlight' | 'cards' | 'wall' | 'people';
+}
+
+const { eyebrow, title, layout = 'spotlight' } = Astro.props;
+---
+
+<Reviews layout={layout} eyebrow={eyebrow} title={title} />

@@ -131,6 +131,8 @@ export function convert(project) {
     next = must(next, '{listing.description.map((paragraph) => <p>{paragraph}</p>)}', '<Fragment set:html={listing.description.html} />');
     return must(next, 'class="text-foreground-secondary flex max-w-3xl flex-col gap-4 text-[1.0625rem] leading-relaxed"', 'class="estate-rich-text text-foreground-secondary flex max-w-3xl flex-col gap-4 text-[1.0625rem] leading-relaxed"');
   });
+  // The home page shows the first paragraph of the listing it puts forward.
+  edit('src/views/HomeView.astro', (view) => must(view, '{spotlight.description}</p>', '{spotlight.description.paragraphs[0]}</p>'));
   edit('src/views/AgentView.astro', (view) => {
     const next = must(view, '{agent.bio.map((paragraph) => <p>{paragraph}</p>)}', '<Fragment set:html={agent.bio.html} />');
     return must(next, '<div class="text-foreground-secondary flex flex-col gap-4 text-[1.0625rem] leading-relaxed">', '<div class="estate-rich-text text-foreground-secondary flex flex-col gap-4 text-[1.0625rem] leading-relaxed">');
@@ -198,6 +200,17 @@ const ordered =
       "    title: t('footer.company'),\n    links: company.length > 0 ? company.map(({ label, href }) => ({ label, href })) : [\n",
     );
   });
+
+  // 13. Home and About are pages built in the editor when the CMS has them published, and the
+  //     template's own views until then, so a site is never without either.
+  add('src/components/cms/HomeSchema.astro', 'builder/HomeSchema.astro');
+  const builtFirst = (view, inside = '') => (source) => {
+    let next = must(source, `import ${view} from '@/views/${view}.astro';`, `import { entryPage } from '@velocity/cms-astro';\nimport BuilderPage from '@/components/cms/BuilderPage.astro';${inside && "\nimport HomeSchema from '@/components/cms/HomeSchema.astro';"}\nimport ${view} from '@/views/${view}.astro';`);
+    next = must(next, "import { defaultLocale } from '@/i18n';\n", "import { defaultLocale } from '@/i18n';\n\nconst built = await entryPage(Astro, { types: ['pages'] });\n");
+    return must(next, `<${view} locale={defaultLocale} />`, `{built ? <BuilderPage page={built.entry.data}>${inside}</BuilderPage> : <${view} locale={defaultLocale} />}`);
+  };
+  edit('src/pages/index.astro', builtFirst('HomeView', '<HomeSchema />'));
+  edit('src/pages/about.astro', builtFirst('AboutView'));
 
   return changes;
 }

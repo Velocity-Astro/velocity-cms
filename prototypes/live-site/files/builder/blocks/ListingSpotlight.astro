@@ -1,0 +1,58 @@
+---
+/** One listing in full: a mosaic of its photos beside the price, the facts and two buttons. */
+import MediaSlot from '@/components/patterns/MediaSlot.astro';
+import Icon from '@/components/ui/primitives/Icon/Icon.astro';
+import Band from '@/components/estate/Band.astro';
+import EstateButton from '@/components/estate/EstateButton.astro';
+import ListingFacts from '@/components/estate/ListingFacts.astro';
+import { estate, formatPrice } from '@/config/estate.config';
+import { getAvailable, getListing, getNeighborhoods, listingUrl, streetLine } from '@/content/estate';
+import { getLocale, useTranslations } from '@/i18n';
+
+interface Props {
+  eyebrow?: string;
+  listing?: string;
+  buttonLabel?: string;
+  tourLabel?: string;
+}
+
+const { eyebrow, listing, buttonLabel, tourLabel } = Astro.props;
+const locale = getLocale(Astro);
+const t = useTranslations(locale);
+// The listing chosen in the editor, or the one the template names, or the newest for sale.
+const [chosen, forSale, neighborhoods] = await Promise.all([getListing(listing ?? estate.home.spotlight, locale), getAvailable(locale, 'sale'), getNeighborhoods(locale)]);
+const spotlight = chosen?.data ?? forSale[0]?.data;
+const hoodName = new Map(neighborhoods.map(({ data }) => [data.slug, data.name]));
+const spotlightMore = spotlight ? Math.max(spotlight.photos.length - 3, 0) : 0;
+---
+
+{spotlight && (
+  <Band tone="secondary" width="wide" background="grain">
+    <div class="grid items-center gap-10 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:gap-16">
+      <a href={listingUrl(spotlight, locale)} class="grid h-[22rem] grid-cols-3 grid-rows-2 gap-3 sm:h-[30rem] lg:h-[36rem]" tabindex="-1" aria-hidden="true" data-reveal>
+        {spotlight.photos.slice(0, 3).map((photo: string, index: number) => (
+          <span class:list={['estate-zoom relative block overflow-hidden rounded-2xl', index === 0 ? 'col-span-2 row-span-2' : '']}>
+            <MediaSlot photo={photo} alt="" ratio="fill" sizes={index === 0 ? '(min-width: 1024px) 40vw, 66vw' : '(min-width: 1024px) 20vw, 33vw'} label={t('media.listing')} />
+            {index === 2 && spotlightMore > 0 && (
+              <span class="invert-section absolute inset-0 grid place-items-center bg-[color-mix(in_oklch,var(--scrim)_55%,transparent)] text-lg font-semibold">{t('home.spotlight.more', { count: spotlightMore })}</span>
+            )}
+          </span>
+        ))}
+      </a>
+      <div class="flex flex-col gap-5">
+        {eyebrow && <p class="estate-eyebrow">{eyebrow}</p>}
+        <h2 class="estate-display text-2xl sm:text-3xl">{spotlight.headline}</h2>
+        <p class="text-foreground-secondary flex items-center gap-2 text-[0.9375rem]">
+          <Icon name="map-pin" size="sm" />{streetLine(spotlight)} · {hoodName.get(spotlight.neighborhood) ?? spotlight.address.city}
+        </p>
+        <p class="estate-display estate-figure text-4xl">{formatPrice(spotlight.price)}</p>
+        <ListingFacts listing={spotlight} size="md" class="border-border border-y py-4" />
+        <p class="text-foreground-secondary line-clamp-4 text-lg">{spotlight.description.paragraphs[0]}</p>
+        <div class="mt-2 flex flex-wrap gap-3">
+          <EstateButton href={listingUrl(spotlight, locale)} size="lg" trailingIcon="arrow-right">{buttonLabel ?? t('home.spotlight.view')}</EstateButton>
+          <EstateButton tone="outline" href={`${listingUrl(spotlight, locale)}#tour`} size="lg" leadingIcon="calendar">{tourLabel ?? t('home.spotlight.tour')}</EstateButton>
+        </div>
+      </div>
+    </div>
+  </Band>
+)}
