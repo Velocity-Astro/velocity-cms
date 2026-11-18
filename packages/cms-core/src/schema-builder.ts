@@ -33,6 +33,12 @@ export function toPublicData(
   for (const field of liveFields(fields)) {
     const value = data[field.id];
     if (value === undefined) continue;
+    // A site that runs older code than its database (a rollback, a deploy still on its way) meets
+    // field types it has not heard of. Reading stays up: the value goes out as it is stored.
+    if (!context.fields.has(field.type)) {
+      result[field.key] = value;
+      continue;
+    }
     const type = context.fields.get(field.type);
     result[field.key] = type.toPublic(value, type.options.parse(field.options), context);
   }

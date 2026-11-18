@@ -189,6 +189,18 @@ describe('ContentService', () => {
     expect(hasUnpublishedChanges(republished)).toBe(false);
   });
 
+  it('still reads an entry for visitors when a field has a type this code does not know', async () => {
+    const draft = await cms.content.create(editor, { typeId: listings.id, locale: 'en', slug: 'a', data: valid() });
+    const live = await cms.content.publish(editor, draft.id);
+    // What an older deploy sees after a newer one has changed the content type.
+    const newer: ContentTypeDef = {
+      ...listings,
+      fields: listings.fields.map((field) => (field.key === 'headline' ? { ...field, type: 'from-the-future', options: {} } : field)),
+    };
+    const expected = cms.content.toPublic(listings, live);
+    expect(cms.content.toPublic(newer, live)).toEqual(expected);
+  });
+
   it('has nothing for visitors before the first publish or after an unpublish', async () => {
     const draft = await cms.content.create(editor, { typeId: listings.id, locale: 'en', slug: 'a', data: valid() });
     expect(() => cms.content.toPublic(listings, draft)).toThrow(NotFoundError);
