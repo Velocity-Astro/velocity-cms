@@ -1,0 +1,38 @@
+name: Bug
+description: Something does not work as it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: A security problem must not be reported here. See SECURITY.md.
+  - type: textarea
+    id: did
+    attributes:
+      label: What you did
+      description: The steps, as exactly as you can. A failing test or a small repository is best.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened
+      description: Include the message shown and anything in the server's log. Remove secrets and personal data first.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where it runs
+      description: Node version, Astro adapter and host, and whether the database is a file or hosted.

@@ -1,64 +1,86 @@
 # Velocity CMS
 
-A content management system for [Velocity](https://github.com/southwellmedia/velocity) sites: a visual editor at `/admin`, a lightweight SQLite database, and changes that are live the moment you publish. Pages are served from a cache that is cleared on publish, so the site stays as fast as a static one. A fully static site that rebuilds on publish is available as an option.
+A content management system for [Astro](https://astro.build) sites, built for [Velocity](https://github.com/southwellmedia/velocity). People edit at `/admin`; the content lives in a small SQLite database beside the site; and a change is on the site about a second after it is published, with no rebuild.
 
-> **Status: phase 0, prototypes.** Nothing here is ready to use. The repository is private until the first beta.
+> **Beta.** Versions are `0.x`: the plugin API and the template API may still change between releases, each change with a note on how to move. The packages are not on npm yet. Until they are, run it from this repository.
 
-## What's here
+## What it does
+
+| | |
+|---|---|
+| **Content** | Content types made in a visual builder or described in code. Drafts and published versions, trash, duplicate, history with restore, scheduled publishing, preview links, several languages. |
+| **Pages** | A page builder of sections, with the live page beside the form. Pages under pages, a home page, menus edited in the CMS. |
+| **Media** | An image library with uploads, kept in a folder or any S3-compatible bucket. |
+| **Forms** | A form builder, forms as page sections, spam marking, notices by email, export and erase of what a person sent. |
+| **CRM** | Contacts with a timeline and notes, a pipeline board, owners and follow-up days, deals with a forecast, custom fields, CSV import. |
+| **Plugins** | A plugin API with settings, secrets and retried background work. Five come with it, off until an owner switches one on: SEO, Webhooks, and the experimental Mailchimp, Slack and HubSpot. |
+| **People** | Sign-in by email link or passkey, no passwords. Owner, editor and author roles. Invitations. |
+| **Site** | Live pages from a cache that a publish clears. Search and the sitemap follow. A fully static build is an option. |
+
+## Try it
+
+Node 22.23.4 or newer and pnpm 10.
+
+```sh
+git clone https://github.com/Velocity-Astro/velocity-cms.git
+cd velocity-cms
+pnpm install
+pnpm build
+
+cd examples/starter
+npx velocity-cms init you@example.com "Your Name"
+npm run seed
+npm run dev
+```
+
+`init` prints a link that signs you in. Open it once the site is running, then open Pages and change something. [`examples/starter`](examples/starter) is a small site to read and copy from: its README says what is where.
+
+## Add it to a site
+
+In an Astro site with a server adapter:
+
+```sh
+npx velocity-cms init you@example.com "Your Name"
+```
+
+It writes a secret to `.env`, keeps it out of git, adds `velocityCms()` to the Astro config and makes you the owner. It can be run again and changes nothing that is there. What a site then needs is what the starter has: a description of its content (`cms/model.mjs`), a route that draws pages, and a component for each kind of section.
+
+A deployed site needs `VELOCITY_CMS_SECRET` and its address (`site` in the Astro config, or `VELOCITY_CMS_ORIGIN`) on the host, and a database: a file on a machine that keeps its disk, or a hosted libSQL database (`VELOCITY_CMS_DATABASE_URL`, `VELOCITY_CMS_DATABASE_TOKEN`) anywhere else. Node on a server and Vercel are tried. Netlify and Cloudflare are not yet.
+
+## Known limits
+
+- SQLite and libSQL only.
+- The editor is in English. The site can be in any language.
+- The Mailchimp, Slack and HubSpot plugins pass their tests but have not run against the real services.
+- Forms have no file uploads, no challenge such as Turnstile, and send nothing to the visitor.
+- One pipeline per site. No importers for other CMSs.
+- No outside security review yet. See [SECURITY.md](SECURITY.md).
+
+## The packages
 
 | Package | What it owns |
 |---|---|
-| [`@velocity/cms-core`](packages/cms-core) | The content model and every rule about it: content types, fields, entries, permissions, events. Knows nothing about a database, Astro or HTTP. |
-| [`@velocity/cms-db`](packages/cms-db) | SQLite and libSQL storage: tables, migrations, and the repositories the core asks for. |
-| [`@velocity/cms-astro`](packages/cms-astro) | The Astro side: a live loader for pages rendered on demand, a Content Layer loader for static builds, and the integration. |
+| [`cms-core`](packages/cms-core) | The content model and every rule about it: types, fields, entries, forms, contacts, deals, plugins, permissions, events. Knows nothing about a database, Astro or HTTP. |
+| [`cms-db`](packages/cms-db) | SQLite and libSQL storage: tables, migrations, search. |
+| [`cms-api`](packages/cms-api) | The CMS over HTTP, on web-standard `Request` and `Response`. |
+| [`cms-auth`](packages/cms-auth) | Sign-in: email links and passkeys. |
+| [`cms-ui`](packages/cms-ui) | The editor's design system. |
+| [`cms-admin`](packages/cms-admin) | The editor's screens. |
+| [`cms-plugins`](packages/cms-plugins) | The plugins that come with the CMS. |
+| [`cms-astro`](packages/cms-astro) | The Astro integration, the live loader and the `velocity-cms` command. |
 
-`prototypes/` holds the phase 0 experiments and their measured results.
+Five rules shape the code. [`AGENTS.md`](AGENTS.md) has the detail, for people and for coding agents alike.
 
-## How the code is organised
+1. **Dependencies point inward.** The core depends on Zod and nothing else. A lint rule fails the build if a package imports against this.
+2. **One path for every change.** The editor, the API, the command line and plugins all go through the same services, so permissions, validation, history and events are written once.
+3. **Interfaces at every edge.** Storage is an interface in `cms-core/src/ports.ts`. An adapter is finished when it passes the contract tests.
+4. **We build on our own extension points.** Built-in field types and plugins register exactly as yours do.
+5. **Classes for behaviour, plain objects for data.**
 
-Five rules shape everything. `AGENTS.md` has the detail.
+## Contributing
 
-1. **Dependencies point inward.** Outer packages depend on the core. The core depends on Zod and nothing else. A lint rule fails the build if a package imports against this.
-2. **One path for every change.** The editor, the API, the CLI and plugins all go through the same services, so permissions, validation, history and events are written once.
-3. **Interfaces at every edge.** Storage is an interface in `cms-core/src/ports.ts`. An adapter is finished when it passes the contract tests in `@velocity/cms-core/testing`.
-4. **We build on our own extension points.** Built-in field types register exactly as a plugin's do.
-5. **Classes for behaviour, plain objects for data.** Field types and services are classes. Entries and content types are plain typed objects.
+Bug reports, fixes and ideas are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) says how to set up, what a pull request needs, and how to sign off your commits. Please report a security problem privately: see [SECURITY.md](SECURITY.md).
 
-## Working on it
+## Licence and name
 
-Node 22.23.4 or newer, pnpm 10.
-
-```sh
-pnpm install
-pnpm validate   # lint, build, test
-```
-
-| Task | Command |
-|---|---|
-| Type-check and build | `pnpm build` |
-| Tests | `pnpm test` |
-| Lint, including package boundaries | `pnpm lint` |
-| New database migration, after editing `packages/cms-db/src/tables.ts` | `pnpm --filter @velocity/cms-db migrations:generate` |
-
-## Adding a field type
-
-```ts
-import { z } from 'zod';
-import { FieldType } from '@velocity/cms-core';
-
-class RatingField extends FieldType<number, { max: number }> {
-  readonly type = 'rating';
-  readonly editor = 'rating-input';
-  readonly options = z.object({ max: z.number().int().positive().default(5) });
-
-  schema({ max }: { max: number }) {
-    return z.number().int().min(1).max(max);
-  }
-}
-
-cms.fields.register(new RatingField());
-```
-
-## Licence
-
-MIT.
+The code is [MIT](LICENSE). The names "Velocity" and "Velocity CMS" and the logo are not part of that licence: see [TRADEMARKS.md](TRADEMARKS.md).

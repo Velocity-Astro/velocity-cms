@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: A security problem
+    url: https://github.com/Velocity-Astro/velocity-cms/security/advisories/new
+    about: Report it privately. Please do not open a public issue.
