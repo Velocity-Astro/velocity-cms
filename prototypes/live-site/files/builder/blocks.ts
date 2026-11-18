@@ -62,13 +62,3 @@ export interface RichText {
   paragraphs: string[];
 }
 
-/**
- * Where a button made in the editor may lead: a page of this site, or a web, mail or phone
- * address. Anything else (a script, a file on the visitor's computer) is no link at all.
- */
-export function safeLink(link: string | undefined): string | undefined {
-  const href = link?.trim();
-  if (!href) return undefined;
-  if (href.startsWith('/') && !href.startsWith('//')) return href;
-  return /^(https:\/\/|mailto:|tel:)/i.test(href) ? href : undefined;
-}

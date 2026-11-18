@@ -27,6 +27,36 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const at = (relative) => path.join(project, relative);
 const PACKAGES = ['cms-core', 'cms-db', 'cms-api', 'cms-auth', 'cms-ui', 'cms-admin', 'cms-plugins', 'cms-astro'];
 
+/**
+ * Entry data with each address typed into a text field `xLink` moved to the link field `xTo`
+ * that took its place, wherever the two sit: in a section, a group or a list. `was` is the
+ * fields as they were before this deploy, where the text field was still in use.
+ */
+function movedLinks(was, now, data) {
+  if (data === null || typeof data !== 'object') return data;
+  const next = { ...data };
+  for (const field of now) {
+    const old = was.find((candidate) => candidate.id === field.id);
+    const value = next[field.id];
+    if (field.type === 'link' && field.key.endsWith('To') && value === undefined) {
+      const text = was.find((candidate) => candidate.type === 'text' && candidate.key === `${field.key.slice(0, -2)}Link`);
+      const typed = text && data[text.id];
+      if (typeof typed === 'string' && typed.trim() !== '') next[field.id] = { kind: 'address', href: typed.trim() };
+    } else if (field.type === 'group' && value) {
+      next[field.id] = movedLinks(old?.options.fields ?? [], field.options.fields, value);
+    } else if (field.type === 'list' && field.options.of.type === 'group' && Array.isArray(value)) {
+      next[field.id] = value.map((item) => movedLinks(old?.options.of.options.fields ?? [], field.options.of.options.fields, item));
+    } else if (field.type === 'blocks' && Array.isArray(value)) {
+      next[field.id] = value.map((section) => {
+        const block = field.options.blocks.find((candidate) => candidate.id === section.block);
+        const blockWas = old?.options.blocks.find((candidate) => candidate.id === section.block);
+        return block ? { ...section, data: movedLinks(blockWas?.fields ?? [], block.fields, section.data) } : section;
+      });
+    }
+  }
+  return next;
+}
+
 // 1. Content types and content, before the conversion moves the files.
 const connection = await connect({});
 try {
@@ -57,9 +87,31 @@ try {
   // already has the others and never touches a page someone has edited.
   const have = (await connection.cms.content.find(OWNER, { typeId: pages.id, limit: 500 })).items;
   const missing = samplePages.filter((page) => !have.some((entry) => entry.locale === page.locale && entry.slug === page.slug));
+  // The first deploy where a button picks its page: an address typed in the old text field
+  // moves to the link beside it, so no button loses where it led.
+  for (const entry of have) {
+    const data = movedLinks(before.find((type) => type.key === 'pages')?.fields ?? [], pages.fields, entry.data);
+    if (JSON.stringify(data) === JSON.stringify(entry.data)) continue;
+    const wasLive = entry.published !== undefined && JSON.stringify(entry.published.data) === JSON.stringify(entry.data);
+    const saved = await connection.cms.content.update(OWNER, entry.id, { data, expectedRevision: entry.revision });
+    if (wasLive) await connection.cms.content.publish(OWNER, saved.id);
+    console.log(`The buttons of "${entry.slug}" (${entry.locale}) keep their addresses as links${wasLive ? '' : ' (saved as a draft: the page had changes not yet published)'}.`);
+  }
+  for (const page of missing) {
+    // A page in another language joins the English page it is a version of.
+    const { translates = page.slug, ...record } = page;
+    const [first] = (await connection.cms.content.find(OWNER, { typeId: pages.id, limit: 500 })).items.filter((entry) => entry.slug === translates && entry.locale !== page.locale);
+    const draft = await connection.cms.content.create(OWNER, {
+      typeId: pages.id,
+      locale: page.locale,
+      slug: page.slug,
+      data: toStored(pages.fields, record),
+      ...(first && { translationGroup: first.translationGroup }),
+    });
+    await connection.cms.content.publish(OWNER, draft.id);
+  }
   if (missing.length > 0) {
-    await importRecords(connection.cms, pages, missing);
-    console.log(`Added ${missing.length} sample page${missing.length === 1 ? '' : 's'}: ${missing.map((page) => page.slug).join(', ')}.`);
+    console.log(`Added ${missing.length} sample page${missing.length === 1 ? '' : 's'}: ${missing.map((page) => `${page.slug} (${page.locale})`).join(', ')}.`);
   }
   // The menus are an entry too. A site with none gets the template's own links to edit.
   const navigation = types.get('navigation');

@@ -3,26 +3,28 @@
 import MediaSlot from '@/components/patterns/MediaSlot.astro';
 import Icon, { type IconName } from '@/components/ui/primitives/Icon/Icon.astro';
 import Band from '@/components/estate/Band.astro';
-import { safeLink } from '@/cms/blocks';
+import { linkTo } from '@velocity/cms-astro';
 import { getLocale, useTranslations } from '@/i18n';
 
 interface Props {
   eyebrow?: string;
   title?: string;
   lead?: string;
-  items?: { icon?: string; photo?: string; title?: string; text?: string; linkLabel?: string; linkLink?: string }[];
+  items?: { icon?: string; photo?: string; title?: string; text?: string; linkLabel?: string; linkTo?: unknown }[];
 }
 
 const { eyebrow, title, lead, items = [] } = Astro.props;
 const t = useTranslations(getLocale(Astro));
-const services = items.map((item) => ({
+const services = await Promise.all(
+  items.map(async (item) => ({
   icon: (item.icon ?? 'home') as IconName,
   photo: item.photo,
   title: item.title ?? '',
   body: item.text ?? '',
   cta: item.linkLabel ?? '',
-  href: safeLink(item.linkLink) ?? '#',
-}));
+  href: (await linkTo(Astro, item.linkTo))?.href ?? '#',
+  })),
+);
 ---
 
 <Band eyebrow={eyebrow} title={title} lead={lead} width="wide" center>
