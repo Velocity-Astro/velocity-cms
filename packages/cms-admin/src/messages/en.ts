@@ -247,6 +247,7 @@ export const en = {
     addsPanel: (title: string) => `the "${title}" panel on entries`,
     addsFieldTypes: (count: number) => (count === 1 ? 'a kind of field' : `${count} kinds of field`),
     addsChecks: (count: number) => (count === 1 ? 'a check before publishing' : `${count} checks before publishing`),
+    addsPageHead: 'titles and descriptions for search engines on the site\'s pages',
     addsEvents: (events: readonly string[]) => `something that runs when ${events.join(' or ')}`,
     events: {
       'type.saved': 'a content type is saved',

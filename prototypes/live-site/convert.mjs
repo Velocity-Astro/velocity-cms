@@ -136,5 +136,21 @@ export function convert(project) {
     return must(next, '<div class="text-foreground-secondary flex flex-col gap-4 text-[1.0625rem] leading-relaxed">', '<div class="estate-rich-text text-foreground-secondary flex flex-col gap-4 text-[1.0625rem] leading-relaxed">');
   });
 
+  // 9. What each page says to search engines passes through the CMS, so a plugin such as SEO
+  //    can write an entry's own title and description, or ask for the page to be left out.
+  edit('src/components/seo/SEO.astro', (source) => {
+    let next = must(source, "import siteConfig from '@/config/site.config';", "import { pageHead } from '@velocity/cms-astro';\nimport siteConfig from '@/config/site.config';");
+    next = must(
+      next,
+      'const pageTitle = title ? `${title} — ${siteConfig.name}` : siteConfig.name;',
+      'const head = await pageHead(Astro, { ...(title !== undefined && { title }), description, noindex });\nconst pageTitle = head.fullTitle ?? (head.title ? `${head.title} — ${siteConfig.name}` : siteConfig.name);',
+    );
+    // A demo build asks search engines to leave every page out, whatever a page says; a real one
+    // goes by the page, and so by the CMS.
+    next = next.replace("const robotsContent = [noindex ? 'noindex' : 'index',", "const robotsContent = [head.noindex ? 'noindex' : 'index',");
+    if (!next.includes('content={description}')) throw new Error('Expected to find: content={description}');
+    return next.replaceAll('content={description}', 'content={head.description}');
+  });
+
   return changes;
 }

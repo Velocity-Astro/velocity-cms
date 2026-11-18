@@ -3,6 +3,7 @@ import { EventBus } from './events.js';
 import type { FieldType } from './field-type.js';
 import { createFieldRegistry } from './fields/index.js';
 import { PublishChecks } from './checks.js';
+import { PageHeads } from './pages.js';
 import { PluginHost } from './plugin.js';
 import type { Clock, EntryRepository, IdGenerator, PluginStore, SchemaRepository } from './ports.js';
 import { InMemoryPluginStore } from './testing/in-memory.js';
@@ -43,6 +44,8 @@ export interface Cms {
   readonly access: AccessControl;
   /** The site's plugins. A host calls `plugins.load` once, before it serves anything. */
   readonly plugins: PluginHost;
+  /** What each page says about itself to search engines, after the plugins' rules. The site asks it as it draws a page. */
+  readonly pages: PageHeads;
 }
 
 const systemClock: Clock = { now: () => new Date().toISOString() };
@@ -60,9 +63,10 @@ export function createCms(options: CmsOptions): Cms {
   const events = new EventBus();
   const schema = new SchemaService(options.types, fields, access, events, clock, ids);
   const checks = new PublishChecks();
+  const pages = new PageHeads();
   const content = new ContentService(options.entries, schema, fields, access, events, clock, ids, checks);
   const media = new MediaService(access, events, clock, options.media);
   const previews = new PreviewService(content, schema, clock, options.previews);
-  const plugins = new PluginHost({ fields, events, checks, store: options.pluginStore ?? new InMemoryPluginStore(), ids, schema, content, access, clock, ...(options.onPluginFault && { onFault: options.onPluginFault }) });
-  return { schema, content, media, previews, fields, events, access, plugins };
+  const plugins = new PluginHost({ fields, events, checks, pages, store: options.pluginStore ?? new InMemoryPluginStore(), ids, schema, content, access, clock, ...(options.onPluginFault && { onFault: options.onPluginFault }) });
+  return { schema, content, media, previews, fields, events, access, plugins, pages };
 }

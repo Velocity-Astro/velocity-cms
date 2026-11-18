@@ -15,6 +15,8 @@ export interface CmsEvents {
   'media.removed': { file: MediaFile; actor: Actor };
   /** A plugin was switched on or off, or its settings were saved. */
   'plugin.changed': { plugin: string; actor: Actor };
+  /** A plugin says the site's pages would now come out differently, so kept copies are stale. */
+  'pages.changed': { plugin: string };
 }
 
 type Listener<T> = (payload: T) => void | Promise<void>;

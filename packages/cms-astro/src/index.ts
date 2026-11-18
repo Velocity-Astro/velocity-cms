@@ -18,6 +18,8 @@ export {
   type CmsLiveLoaderOptions,
 } from './live-loader.js';
 export { isPreview } from './preview.js';
+export { pageHead, type DrawnPage } from './page-head.js';
+export type { PageHead } from '@velocity/cms-core';
 export { cmsLoader, type CmsLoaderOptions } from './loader.js';
 export {
   liveAddresses,

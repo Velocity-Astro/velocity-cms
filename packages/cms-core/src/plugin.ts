@@ -4,6 +4,7 @@ import { defineFields, type NewField } from './define-fields.js';
 import { CmsError, ConflictError, NotFoundError, ValidationError } from './errors.js';
 import type { CmsEvents, EventBus } from './events.js';
 import type { FieldType } from './field-type.js';
+import type { PageHeadRule, PageHeads } from './pages.js';
 import { liveFields, type EntryData, type FieldDef, type LocalizedText, type Timestamp } from './model.js';
 import type { Clock, IdGenerator, PluginStore } from './ports.js';
 import type { Registry } from './registry.js';
@@ -94,8 +95,23 @@ export interface PluginContext {
   readonly checks: { add(when: 'publish', check: PublishCheck): () => void };
   /** What the owner set, by field key. Read it when it is needed, not once in `setup`: it can change. */
   readonly settings: { get(): Promise<Record<string, unknown>> };
-  /** Small values of the plugin's own, kept in the site's database. No other plugin can read them. */
-  readonly store: { get(key: string): Promise<unknown>; set(key: string, value: unknown): Promise<void>; remove(key: string): Promise<void> };
+  /**
+   * Small values of the plugin's own, kept in the site's database. No other plugin can read them.
+   * `list` gives every value whose key starts with `prefix`, by key.
+   */
+  readonly store: {
+    get(key: string): Promise<unknown>;
+    set(key: string, value: unknown): Promise<void>;
+    remove(key: string): Promise<void>;
+    list(prefix: string): Promise<Record<string, unknown>>;
+  };
+  /**
+   * The site's pages. `head` adds a rule that changes what a page says about itself to search
+   * engines: its title, its description, whether it is listed. A rule that fails is caught and
+   * noted, and the page is drawn without it. `changed` tells the site that pages would now come
+   * out differently, so it stops showing the ones it kept.
+   */
+  readonly pages: { head(rule: PageHeadRule): () => void; changed(): Promise<void> };
   /**
    * Answers requests at `/api/cms/plugins/<name><path>`, for the plugin's screens in the editor.
    * Only signed-in people reach it, and only those who hold `requires` (reading content, unless
@@ -152,6 +168,8 @@ export interface PluginAdds {
   readonly fieldTypes: readonly string[];
   /** How many rules it checks before a publish. */
   readonly checks: number;
+  /** Whether it changes what pages say about themselves to search engines. */
+  readonly pageHead: boolean;
   /** What it listens for, such as `entry.published`. */
   readonly events: readonly string[];
 }
@@ -162,7 +180,7 @@ export interface PluginEditorInfo {
   readonly label: LocalizedText;
 }
 
-const NOTHING_ADDED: PluginAdds = { fieldTypes: [], checks: 0, events: [] };
+const NOTHING_ADDED: PluginAdds = { fieldTypes: [], checks: 0, pageHead: false, events: [] };
 
 /** A plugin as the Plugins screen shows it. */
 export interface PluginInfo {
@@ -189,6 +207,7 @@ export interface PluginHostParts {
   readonly fields: Registry<FieldType>;
   readonly events: EventBus;
   readonly checks: PublishChecks;
+  readonly pages: PageHeads;
   readonly store: PluginStore;
   readonly ids: IdGenerator;
   readonly schema: SchemaService;
@@ -497,7 +516,7 @@ export class PluginHost {
   }
 
   #context(held: Held, permissions: readonly Permission[]): PluginContext {
-    const { fields, events, checks, store, schema, content } = this.#parts;
+    const { fields, events, checks, pages, store, schema, content } = this.#parts;
     const { name } = held.info;
     /** Whether the plugin still runs here, asked just before it is used. */
     const isOn = async () => {
@@ -553,6 +572,23 @@ export class PluginHost {
         get: (key) => store.get(name, `${OWN}${key}`),
         set: (key, value) => store.set(name, `${OWN}${key}`, value),
         remove: (key) => store.remove(name, `${OWN}${key}`),
+        list: async (prefix) => Object.fromEntries((await store.list(name, `${OWN}${prefix}`)).map(([key, value]) => [key.slice(OWN.length), value])),
+      },
+      pages: {
+        head: (rule) => {
+          const stop = pages.add(async (page, head) => {
+            try {
+              return (await isOn()) ? await rule(page, head) : undefined;
+            } catch (error) {
+              this.#fault(name, 'page head', error);
+              return undefined;
+            }
+          });
+          held.stops.push(stop);
+          held.info = { ...held.info, adds: { ...held.info.adds, pageHead: true } };
+          return stop;
+        },
+        changed: () => events.emit('pages.changed', { plugin: name }),
       },
       routes: {
         add: (method, path, handler, options) => void held.routes.push({ method, segments: segmentsOf(path), handler, requires: options?.requires ?? 'entry:read' }),

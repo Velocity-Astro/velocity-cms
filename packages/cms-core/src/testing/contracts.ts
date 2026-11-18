@@ -444,6 +444,17 @@ export function pluginStoreContract(name: string, create: () => Promise<PluginSt
       expect(await store.get('forms', 'count')).toBe(2);
     });
 
+    it('lists one plugin\'s values under a prefix, by key, and takes the prefix as it is written', async () => {
+      await store.set('seo', 'meta:b', 2);
+      await store.set('seo', 'meta:a', { title: 'A' });
+      await store.set('seo', 'metaX', 'not under the prefix');
+      await store.set('seo', 'm%ta:c', 'a sign that is not a wildcard');
+      await store.set('forms', 'meta:a', 'another plugin');
+      expect(await store.list('seo', 'meta:')).toEqual([['meta:a', { title: 'A' }], ['meta:b', 2]]);
+      expect(await store.list('seo', 'm%')).toEqual([['m%ta:c', 'a sign that is not a wildcard']]);
+      expect(await store.list('seo', 'nothing:')).toEqual([]);
+    });
+
     it('removes a value, and ignores a key nothing is under', async () => {
       await store.set('seo', 'count', 1);
       await store.remove('seo', 'count');
