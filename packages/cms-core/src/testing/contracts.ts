@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ConflictError } from '../errors.js';
-import type { ContentTypeDef, Entry, MediaFile } from '../model.js';
-import type { EntryRepository, MediaRepository, MediaStore, PluginStore, SchemaRepository, SearchDocument, SearchIndex } from '../ports.js';
+import type { ContentTypeDef, Entry, FormDef, MediaFile, Submission } from '../model.js';
+import type { EntryRepository, FormRepository, SubmissionRepository, MediaRepository, MediaStore, PluginStore, SchemaRepository, SearchDocument, SearchIndex } from '../ports.js';
 
 /**
  * The contract tests for storage adapters.
@@ -501,6 +501,174 @@ export function pluginStoreContract(name: string, create: () => Promise<PluginSt
       await store.remove('seo', 'count');
       await store.remove('seo', 'count');
       expect(await store.get('seo', 'count')).toBeUndefined();
+    });
+  });
+}
+
+const form = (overrides: Partial<FormDef> = {}): FormDef => ({
+  id: 'm1',
+  key: 'contact',
+  label: { en: 'Contact' },
+  fields: [{ id: 'f1', key: 'email', type: 'email', label: { en: 'Email' }, translated: false, required: true, options: {} }],
+  notify: ['office@example.com'],
+  contact: { email: 'f1' },
+  open: true,
+  revision: 1,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+  ...overrides,
+});
+
+export function formRepositoryContract(name: string, create: () => Promise<FormRepository>): void {
+  describe(`${name}: FormRepository contract`, () => {
+    let repository: FormRepository;
+    beforeEach(async () => {
+      repository = await create();
+    });
+
+    it('answers null for a form that does not exist', async () => {
+      expect(await repository.get('nobody')).toBeNull();
+      expect(await repository.getByKey('nobody')).toBeNull();
+    });
+
+    it('stores a form and gives it back unchanged, by id and by key', async () => {
+      await repository.save(form(), null);
+      expect(await repository.get('m1')).toEqual(form());
+      expect(await repository.getByKey('contact')).toEqual(form());
+      expect(await repository.get('m1')).not.toHaveProperty('deletedAt');
+    });
+
+    it('replaces a form when the expected revision matches, and refuses when it has moved on', async () => {
+      await repository.save(form(), null);
+      const next = form({ revision: 2, label: { en: 'Get in touch' }, open: false });
+      await repository.save(next, 1);
+      expect(await repository.get('m1')).toEqual(next);
+      await expect(repository.save(form({ revision: 2 }), 1)).rejects.toBeInstanceOf(ConflictError);
+      await expect(repository.save(form(), null)).rejects.toBeInstanceOf(ConflictError);
+    });
+
+    it('refuses a key another form uses, and lists forms by key', async () => {
+      await repository.save(form(), null);
+      await expect(repository.save(form({ id: 'm2' }), null)).rejects.toBeInstanceOf(ConflictError);
+      await repository.save(form({ id: 'm2', key: 'apply' }), null);
+      expect((await repository.list()).map((item) => item.key)).toEqual(['apply', 'contact']);
+    });
+
+    it('keeps a form in the trash out of the list and off its key, which another form may take', async () => {
+      const gone = form({ revision: 2, deletedAt: '2026-01-02T00:00:00.000Z' });
+      await repository.save(form(), null);
+      await repository.save(gone, 1);
+      expect(await repository.get('m1')).toEqual(gone);
+      expect(await repository.getByKey('contact')).toBeNull();
+      expect(await repository.list()).toEqual([]);
+      expect(await repository.list({ trashed: true })).toEqual([gone]);
+      await repository.save(form({ id: 'm2' }), null);
+      // Coming back, it needs its key like any other.
+      await expect(repository.save(form({ revision: 3 }), 2)).rejects.toBeInstanceOf(ConflictError);
+    });
+
+    it('removes a form, and ignores an id nothing has', async () => {
+      await repository.save(form(), null);
+      await repository.remove('m1');
+      await repository.remove('m1');
+      expect(await repository.get('m1')).toBeNull();
+      await repository.save(form(), null);
+    });
+  });
+}
+
+const submission = (overrides: Partial<Submission> = {}): Submission => ({
+  id: 's1',
+  formId: 'm1',
+  status: 'new',
+  data: { f1: 'ana@example.com', f2: 3 },
+  email: 'ana@example.com',
+  createdAt: '2026-02-01T00:00:00.000Z',
+  ...overrides,
+});
+
+export function submissionRepositoryContract(name: string, create: () => Promise<SubmissionRepository>): void {
+  describe(`${name}: SubmissionRepository contract`, () => {
+    let repository: SubmissionRepository;
+    beforeEach(async () => {
+      repository = await create();
+    });
+    const ids = async (query: Parameters<SubmissionRepository['find']>[0]) => (await repository.find(query)).items.map((item) => item.id);
+    const at = (day: number) => `2026-02-0${day}T00:00:00.000Z`;
+
+    it('answers null for a submission that does not exist', async () => {
+      expect(await repository.get('nobody')).toBeNull();
+    });
+
+    it('gives back a submission exactly as it was added, with or without what is optional', async () => {
+      const full = submission({ id: 's2', locale: 'es', page: '/es/contacto/', status: 'handled', handledAt: at(2), handledBy: 'u1' });
+      const bare: Submission = { id: 's3', formId: 'm1', status: 'spam', data: {}, createdAt: at(1) };
+      await repository.add(submission());
+      await repository.add(full);
+      await repository.add(bare);
+      expect(await repository.get('s1')).toEqual(submission());
+      expect(await repository.get('s2')).toEqual(full);
+      expect(await repository.get('s3')).toEqual(bare);
+      expect(Object.keys((await repository.get('s3')) ?? {}).sort()).toEqual(['createdAt', 'data', 'formId', 'id', 'status']);
+    });
+
+    it('refuses an id another submission has', async () => {
+      await repository.add(submission());
+      await expect(repository.add(submission({ data: {} }))).rejects.toBeInstanceOf(ConflictError);
+    });
+
+    it('lists the newest first, pages in a stable order and reports the full total', async () => {
+      await repository.add(submission({ id: 's1', createdAt: at(1) }));
+      await repository.add(submission({ id: 's3', createdAt: at(3) }));
+      await repository.add(submission({ id: 's2b', createdAt: at(2) }));
+      await repository.add(submission({ id: 's2a', createdAt: at(2) }));
+      expect(await ids({})).toEqual(['s3', 's2a', 's2b', 's1']);
+      const page = await repository.find({ limit: 2, offset: 1 });
+      expect(page.items.map((item) => item.id)).toEqual(['s2a', 's2b']);
+      expect(page.total).toBe(4);
+    });
+
+    it('filters by form, status, email and time', async () => {
+      await repository.add(submission({ id: 's1', createdAt: at(1) }));
+      await repository.add(submission({ id: 's2', createdAt: at(2), status: 'spam', email: 'bo@example.com' }));
+      await repository.add(submission({ id: 's3', createdAt: at(3), formId: 'm2' }));
+      const { email: _none, ...unnamed } = submission({ id: 's4', createdAt: at(4) });
+      await repository.add(unnamed);
+      expect(await ids({ formId: 'm1' })).toEqual(['s4', 's2', 's1']);
+      expect(await ids({ formId: 'm1', status: 'new' })).toEqual(['s4', 's1']);
+      expect(await ids({ email: 'ana@example.com' })).toEqual(['s3', 's1']);
+      expect(await ids({ before: at(3) })).toEqual(['s2', 's1']);
+      expect(await ids({ formId: 'm2', before: at(3) })).toEqual([]);
+    });
+
+    it('counts a form\'s submissions by status, with zero for a status it has none of', async () => {
+      await repository.add(submission({ id: 's1' }));
+      await repository.add(submission({ id: 's2' }));
+      await repository.add(submission({ id: 's3', status: 'spam' }));
+      await repository.add(submission({ id: 's4', formId: 'm2', status: 'handled' }));
+      expect(await repository.counts('m1')).toEqual({ new: 2, handled: 0, spam: 1 });
+      expect(await repository.counts('nobody')).toEqual({ new: 0, handled: 0, spam: 0 });
+    });
+
+    it('replaces a submission that exists, drops what is no longer set, and ignores one that does not exist', async () => {
+      await repository.add(submission({ status: 'handled', handledAt: at(2), handledBy: 'u1' }));
+      await repository.update(submission({ status: 'new' }));
+      expect(await repository.get('s1')).toEqual(submission());
+      await repository.update(submission({ id: 'nobody' }));
+      expect(await repository.get('nobody')).toBeNull();
+    });
+
+    it('removes submissions by id or by form, and ignores what is not there', async () => {
+      await repository.add(submission({ id: 's1' }));
+      await repository.add(submission({ id: 's2' }));
+      await repository.add(submission({ id: 's3' }));
+      await repository.add(submission({ id: 's4', formId: 'm2' }));
+      await repository.remove(['s1', 'nobody']);
+      await repository.remove([]);
+      expect(await ids({})).toEqual(['s2', 's3', 's4']);
+      await repository.removeOfForm('m1');
+      await repository.removeOfForm('nobody');
+      expect(await ids({})).toEqual(['s4']);
     });
   });
 }

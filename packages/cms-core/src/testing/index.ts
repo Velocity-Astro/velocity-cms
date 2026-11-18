@@ -1,5 +1,7 @@
 export {
   entryRepositoryContract,
+  formRepositoryContract,
+  submissionRepositoryContract,
   mediaRepositoryContract,
   mediaStoreContract,
   pluginStoreContract,
@@ -9,6 +11,8 @@ export {
 export {
   FakeClock,
   InMemoryEntryRepository,
+  InMemoryFormRepository,
+  InMemorySubmissionRepository,
   InMemoryImageLibrary,
   InMemoryMediaRepository,
   InMemoryMediaStore,

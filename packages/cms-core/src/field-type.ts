@@ -71,6 +71,24 @@ export abstract class FieldType<TValue = unknown, TOptions extends object = obje
     return described;
   }
 
+  /**
+   * Whether a visitor can fill this in on a form of the site. Only plain values qualify: a form
+   * never takes markup, a link into the site or anything that holds other fields.
+   */
+  get takesSubmissions(): boolean {
+    return false;
+  }
+
+  /**
+   * The value from what a form on the site sent, which is text unless a script sent more. An
+   * answer of `undefined` means nothing was given. The schema still judges what comes back.
+   */
+  fromSubmitted(raw: unknown, _options: TOptions): unknown {
+    if (typeof raw !== 'string') return raw ?? undefined;
+    const text = raw.trim();
+    return text === '' ? undefined : text;
+  }
+
   /** The fields this type holds, for a type that holds fields. A list asks the type of its items. */
   inner(_options: Readonly<Record<string, unknown>>, _fields?: Registry<FieldType>): readonly FieldDef[] {
     return [];

@@ -1,8 +1,8 @@
 import type { AccessControl, Actor, Permission } from './access.js';
 import type { PublishCheck, PublishChecks } from './checks.js';
 import { defineFields, type NewField } from './define-fields.js';
-import { CmsError, ConflictError, NotFoundError, ValidationError } from './errors.js';
-import type { CmsEvents, EventBus } from './events.js';
+import { CmsError, ConflictError, ForbiddenError, NotFoundError, ValidationError } from './errors.js';
+import { EVENT_NEEDS, type CmsEvents, type EventBus } from './events.js';
 import type { FieldType } from './field-type.js';
 import type { PageHeadRule, PageHeads } from './pages.js';
 import { liveFields, type EntryData, type FieldDef, type LocalizedText, type Timestamp } from './model.js';
@@ -16,7 +16,7 @@ import type { SchemaService } from './services/schema-service.js';
 export const PLUGIN_API_VERSION = 1;
 
 /** What a plugin may ask for. People are never a plugin's to manage, and neither are other plugins. */
-export const PLUGIN_PERMISSIONS: readonly Permission[] = ['schema:write', 'entry:read', 'entry:write', 'entry:publish'];
+export const PLUGIN_PERMISSIONS: readonly Permission[] = ['schema:write', 'entry:read', 'entry:write', 'entry:publish', 'submission:read'];
 
 const NAME = /^[a-z][a-z0-9-]{0,39}$/;
 
@@ -538,6 +538,10 @@ export class PluginHost {
       },
       events: {
         on: (event, listener) => {
+          const needed = EVENT_NEEDS[event];
+          if (needed !== undefined && !permissions.includes(needed)) {
+            throw new ForbiddenError(`The plugin "${name}" listens for "${event}", which carries what visitors sent. Declare "${needed}" in its permissions.`);
+          }
           const stop = events.on(event, async (payload) => {
             try {
               if (await isOn()) await listener(payload);

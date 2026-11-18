@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, expect, it } from 'vitest';
 import { createCms } from '@velocity/cms-core';
-import { entryRepositoryContract, mediaRepositoryContract, pluginStoreContract, schemaRepositoryContract, searchIndexContract } from '@velocity/cms-core/testing';
-import { openDatabase, SqliteEntryRepository, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Database } from './index.js';
+import { entryRepositoryContract, formRepositoryContract, submissionRepositoryContract, mediaRepositoryContract, pluginStoreContract, schemaRepositoryContract, searchIndexContract } from '@velocity/cms-core/testing';
+import { openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Database } from './index.js';
 
 const opened: Database[] = [];
 const memory = async () => {
@@ -15,6 +15,8 @@ const memory = async () => {
 afterAll(() => opened.forEach((database) => database.close()));
 
 entryRepositoryContract('SqliteEntryRepository', async () => new SqliteEntryRepository(await memory()));
+formRepositoryContract('SqliteFormRepository', async () => new SqliteFormRepository(await memory()));
+submissionRepositoryContract('SqliteSubmissionRepository', async () => new SqliteSubmissionRepository(await memory()));
 schemaRepositoryContract('SqliteSchemaRepository', async () => new SqliteSchemaRepository(await memory()));
 mediaRepositoryContract('SqliteMediaRepository', async () => new SqliteMediaRepository(await memory()));
 pluginStoreContract('SqlitePluginStore', async () => new SqlitePluginStore(await memory()));
