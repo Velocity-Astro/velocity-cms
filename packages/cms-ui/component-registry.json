@@ -198,7 +198,7 @@
       "layer": "pattern",
       "group": "Forms",
       "description": "Sections of different kinds in an order a person chooses. Each opens to show its own fields, and has a menu of what else can be done with it.",
-      "example": "<SectionList label=\"Sections\" items={items} openIds={open} onOpenChange={toggle} emptyText=\"No sections yet\" addLabel=\"Add section\" onAdd={pick} onMove={move} onAction={act} moveUpLabel={…} moveDownLabel={…} moreLabel={…} />",
+      "example": "<SectionList label=\"Sections\" items={items} openIds={open} onOpenChange={toggle} emptyText=\"No sections yet\" addLabel=\"Add section\" onAdd={pick} onMove={move} onAction={act} moveUpLabel={…} moveDownLabel={…} moreLabel={…} dragLabel={…} />",
       "useInstead": "Repeater for several of the same small thing; Tabs to switch between views of one thing.",
       "uses": ["Button", "IconButton", "Menu", "Tag"]
     },

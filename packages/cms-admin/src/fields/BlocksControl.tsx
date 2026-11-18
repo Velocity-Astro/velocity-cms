@@ -123,6 +123,7 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
         moveUpLabel={(position) => messages.editor.sectionMoveUp(nameOf(blockOf(blocks, sections[position - 1])), position)}
         moveDownLabel={(position) => messages.editor.sectionMoveDown(nameOf(blockOf(blocks, sections[position - 1])), position)}
         moreLabel={(position) => messages.editor.sectionMore(nameOf(blockOf(blocks, sections[position - 1])), position)}
+        dragLabel={(position) => messages.editor.sectionDrag(nameOf(blockOf(blocks, sections[position - 1])), position)}
         items={sections.map((section, index) => {
           const block = blockOf(blocks, section);
           const isRetired = block === undefined || block.retiredAt !== undefined;

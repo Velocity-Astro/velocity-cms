@@ -24,13 +24,19 @@ const say = (data: unknown, from: { origin?: string; source?: MessageEventSource
   });
 
 it('asks the site for the page at once, sending what is in the form into the frame', () => {
-  const { container } = render(example());
+  render(example());
   expect(submit).toHaveBeenCalledOnce();
-  const form = container.querySelector('form');
+  const form = document.querySelector('form');
   expect(form?.getAttribute('action')).toBe('/why-list-with-us/?preview=abc');
   expect(form?.method).toBe('post');
   expect(form?.target).toBe(frame().name);
   expect(form?.querySelector<HTMLInputElement>('input[name="draft"]')?.value).toBe('{"id":"p1","data":{}}');
+});
+
+it('keeps its form out of a form it is shown in, since a form may not hold another', () => {
+  render(<form aria-label="The screen's own">{example()}</form>);
+  expect(screen.getByRole('form', { name: "The screen's own" }).querySelector('form')).toBeNull();
+  expect(document.querySelector('form[method="post"]')?.parentElement).toBe(document.body);
 });
 
 it('draws the page again once the typing pauses, not on every key', () => {

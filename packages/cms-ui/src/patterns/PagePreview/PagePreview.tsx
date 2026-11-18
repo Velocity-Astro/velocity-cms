@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import {
   pagePreviewBarClass,
   pagePreviewClass,
@@ -103,9 +104,13 @@ export function PagePreview({ label, address, draft, note, toolbar, emptyText, o
           <p className={pagePreviewEmptyClass}>{emptyText}</p>
         ) : (
           <>
-            <form ref={form} method="post" action={address} target={name} hidden>
-              <input type="hidden" name="draft" value={draft} readOnly />
-            </form>
+            {/* The preview is often inside a form of the screen's own, and a form may not hold another: this one lives at the end of the page. */}
+            {createPortal(
+              <form ref={form} method="post" action={address} target={name} hidden>
+                <input type="hidden" name="draft" value={draft} readOnly />
+              </form>,
+              document.body,
+            )}
             <iframe ref={frame} name={name} title={label} className={pagePreviewFrameVariants({ width })} />
           </>
         )}
