@@ -12,6 +12,7 @@ const number = field('number');
 const date = field('date');
 const toggle = field('boolean');
 const url = field('url');
+const image = field('image');
 const link = (key, label, to, extra = {}) => field('reference')(key, label, { ...extra, options: { to } });
 const long = (key, label, extra = {}) => text(key, label, { ...extra, options: { multiline: true } });
 const choice = (key, label, choices, extra = {}) =>
@@ -66,7 +67,7 @@ const listings = {
     number('lat', 'Latitude', { required: true }),
     number('lng', 'Longitude', { required: true, help: 'Latitude and longitude place the pin on the map.' }),
 
-    list('photos', 'Photos', text('photo', 'Photo'), { required: true, help: 'The first is the cover. The second shows on hover.' }),
+    list('photos', 'Photos', image('photo', 'Photo'), { required: true, help: 'The first is the cover. The second shows on hover.' }),
     text('floorPlan', 'Floor plan'),
     url('tourUrl', 'Virtual tour link'),
 
@@ -118,7 +119,7 @@ const agents = {
     text('role', 'Role', { required: true }),
     text('summary', 'Summary', { required: true, help: 'One sentence, shown on cards.' }),
     list('bio', 'Biography', long('paragraph', 'Paragraph'), { required: true, help: 'One item per paragraph.' }),
-    text('photo', 'Photo', { help: 'Without one, the card shows initials.' }),
+    image('photo', 'Photo', { help: 'Without one, the card shows initials.' }),
     group('phone', 'Phone', [text('display', 'As shown', { required: true }), text('href', 'Link', { required: true, help: 'As tel:+12145550143.' })], { required: true }),
     text('email', 'Email', { required: true }),
     text('licence', 'Licence', { required: true }),
@@ -147,7 +148,7 @@ const neighborhoods = {
     text('city', 'City', { required: true }),
     text('summary', 'Summary', { required: true, help: 'One sentence, shown on cards.' }),
     list('intro', 'Introduction', long('paragraph', 'Paragraph'), { required: true, help: 'One item per paragraph.' }),
-    text('photo', 'Photo', { required: true }),
+    image('photo', 'Photo', { required: true }),
     list('tags', 'Tags', text('tag', 'Tag'), { help: 'Short tags such as "Walkable" or "Lake access".' }),
     list('highlights', 'Highlights', group('highlight', 'Highlight', [text('title', 'Heading', { required: true }), long('body', 'Text', { required: true })])),
     list('facts', 'Quick facts', group('fact', 'Fact', [text('label', 'Label', { required: true }), text('value', 'Value', { required: true })]), {
@@ -176,7 +177,7 @@ const reviews = {
     number('rating', 'Rating', { required: true, options: { min: 1, max: 5, integer: true }, help: 'From 1 to 5.' }),
     choice('kind', 'Kind', { buying: 'Buying', selling: 'Selling', renting: 'Renting', management: 'Management' }, { required: true }),
     link('agent', 'Agent', 'agents', { help: 'Shows the review on their page.' }),
-    text('photo', 'Photo', { help: 'A photo of the home it was about.' }),
+    image('photo', 'Photo', { help: 'A photo of the home it was about.' }),
     text('reviewId', 'Reference', { required: true, help: 'Shared by every language of this review.' }),
     order,
   ],

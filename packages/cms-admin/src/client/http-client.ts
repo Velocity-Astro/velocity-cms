@@ -1,4 +1,4 @@
-import type { ContentTypeDef, Entry, Page } from '@velocity/cms-core';
+import type { ContentTypeDef, Entry, Page, SiteImage } from '@velocity/cms-core';
 import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, NewEntry, SessionUser } from './admin-client.js';
 import { AdminRequestError, type RequestErrorCode, type RequestIssue } from './errors.js';
 
@@ -53,6 +53,10 @@ export class HttpAdminClient implements AdminClient {
 
   async listFieldTypes(): Promise<readonly FieldTypeInfo[]> {
     return (await this.#get<{ items: FieldTypeInfo[] }>('/field-types')).items;
+  }
+
+  async listImages(): Promise<readonly SiteImage[]> {
+    return (await this.#get<{ items: SiteImage[] }>('/images')).items;
   }
 
   listEntries(query: EntryListQuery): Promise<Page<Entry>> {

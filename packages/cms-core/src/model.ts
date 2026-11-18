@@ -134,3 +134,13 @@ export interface Page<T> {
 export function liveFields(fields: readonly FieldDef[]): FieldDef[] {
   return fields.filter((field) => field.deletedAt === undefined);
 }
+
+/** An image the site has, which an image field can point at. */
+export interface SiteImage {
+  /** What an image field stores, and what the site's pages look the image up by. */
+  readonly name: string;
+  /** Where a browser can load a small copy of it from. */
+  readonly url: string;
+  readonly width?: number;
+  readonly height?: number;
+}

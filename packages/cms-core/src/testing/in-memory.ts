@@ -1,10 +1,11 @@
 import { ConflictError } from '../errors.js';
-import type { ContentTypeDef, Entry, Page, Revision } from '../model.js';
+import type { ContentTypeDef, Entry, Page, Revision, SiteImage } from '../model.js';
 import type {
   Clock,
   EntryQuery,
   EntryRepository,
   IdGenerator,
+  ImageLibrary,
   SaveOptions,
   SchemaRepository,
   SearchDocument,
@@ -159,5 +160,14 @@ export class InMemorySearchIndex implements SearchIndex {
       ),
     }));
     return { total: scored.length, hits };
+  }
+}
+
+/** A fixed set of images. */
+export class InMemoryImageLibrary implements ImageLibrary {
+  constructor(private readonly images: readonly SiteImage[] = []) {}
+
+  async list(): Promise<readonly SiteImage[]> {
+    return this.images;
   }
 }

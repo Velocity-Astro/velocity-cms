@@ -1,7 +1,7 @@
 import { liveFields, type FieldDef } from '@velocity/cms-core';
-import { DateField, Fieldset, NumberField, Repeater, Select, Switch, Text, TextArea, TextField } from '@velocity/cms-ui';
+import { DateField, Fieldset, ImagePicker, NumberField, Repeater, Select, Switch, Text, TextArea, TextField } from '@velocity/cms-ui';
 import { useState } from 'react';
-import { useContentTypes, useEntries } from '../client/queries.js';
+import { useContentTypes, useEntries, useImages } from '../client/queries.js';
 import { entryTitle, groupTranslations, localized, sameData, withValue } from '../lib/content.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
 import { createFieldControlRegistry, type FieldControlProps, type FieldControls } from './field-control.js';
@@ -148,6 +148,36 @@ function ReferenceControl({ field, label, help, isLabelHidden = false, value, on
   );
 }
 
+/**
+ * One of the site's images, shown as a picture and chosen from the site's images. What is stored
+ * is the image's name. A name with no image is still shown, so opening and saving never drops it.
+ */
+function ImageControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {
+  const messages = useMessages();
+  const images = useImages();
+  const current = typeof value === 'string' && value !== '' ? value : null;
+  const missing = current !== null && images.isSuccess && !images.data.some((image) => image.name === current);
+  const wrong = problem ?? (images.isError ? messages.editor.imagesNotLoaded : missing ? messages.editor.imageMissing : undefined);
+  return (
+    <ImagePicker
+      label={label}
+      isLabelHidden={isLabelHidden}
+      value={current}
+      images={images.data ?? []}
+      onChange={onChange}
+      isRequired={field.required}
+      chooseLabel={messages.editor.imageChoose}
+      changeLabel={messages.editor.imageChange}
+      noneText={messages.editor.imageNone}
+      dialogTitle={messages.editor.imageChoose}
+      closeLabel={messages.editor.close}
+      emptyText={images.isPending ? messages.editor.imagesLoading : messages.editor.imagesEmpty}
+      {...(help !== undefined && { description: help })}
+      {...(wrong !== undefined && { errorMessage: wrong })}
+    />
+  );
+}
+
 /** Several fields kept together as one value. Each is drawn by its own control, so groups nest. */
 function GroupControl({ field, label, help, value, onChange, path, problem, problems }: FieldControlProps) {
   const inner = Array.isArray(field.options['fields']) ? liveFields(field.options['fields'] as FieldDef[]) : [];
@@ -253,6 +283,7 @@ export function createFieldControls(): FieldControls {
     .register({ type: 'switch', Component: SwitchControl })
     .register({ type: 'select', Component: SelectControl, width: 'compact' })
     .register({ type: 'reference', Component: ReferenceControl, width: 'compact' })
+    .register({ type: 'image', Component: ImageControl })
     .register({ type: 'group', Component: GroupControl })
     .register({ type: 'list', Component: ListControl });
 }

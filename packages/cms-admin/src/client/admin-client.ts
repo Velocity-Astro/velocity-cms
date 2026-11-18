@@ -1,4 +1,4 @@
-import type { ContentTypeDef, Entry, EntryData, Page } from '@velocity/cms-core';
+import type { ContentTypeDef, Entry, EntryData, Page, SiteImage } from '@velocity/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
@@ -67,6 +67,8 @@ export interface AdminClient {
   listEntries(query: EntryListQuery): Promise<Page<Entry>>;
   /** Every field type the site has, built in or from a plugin, with the control that edits it. */
   listFieldTypes(): Promise<readonly FieldTypeInfo[]>;
+  /** The site's images, ordered by name, for an image field to choose from. */
+  listImages(): Promise<readonly SiteImage[]>;
   getEntry(id: string): Promise<Entry>;
   /** Creates a draft. Required fields may still be empty: they are checked on publish. */
   createEntry(entry: NewEntry): Promise<Entry>;

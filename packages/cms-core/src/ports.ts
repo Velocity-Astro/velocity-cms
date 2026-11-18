@@ -2,7 +2,7 @@
  * What the core needs from the outside world. The core ships no implementation of these:
  * an adapter package implements each one and proves it with the contract tests in `./testing`.
  */
-import type { ContentTypeDef, Entry, EntryStatus, Page, Revision, Timestamp } from './model.js';
+import type { ContentTypeDef, Entry, EntryStatus, Page, Revision, SiteImage, Timestamp } from './model.js';
 
 export interface EntryQuery {
   readonly typeId?: string;
@@ -109,4 +109,13 @@ export interface SearchIndex {
   /** Every document matches all the words, whatever their case or accents. */
   search(query: SearchQuery): Promise<SearchResults>;
   count(): Promise<number>;
+}
+
+/**
+ * The images a site has to choose from: a folder in the project today, an uploads library later.
+ * The site tells the CMS about them, since only the site knows where its images are.
+ */
+export interface ImageLibrary {
+  /** Every image, ordered by name. */
+  list(): Promise<readonly SiteImage[]>;
 }

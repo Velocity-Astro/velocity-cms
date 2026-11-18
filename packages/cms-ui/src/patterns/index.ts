@@ -5,4 +5,5 @@ export * from './EmptyState/index.js';
 export * from './PageHeader/index.js';
 export * from './Repeater/index.js';
 export * from './SaveBar/index.js';
+export * from './ImagePicker/index.js';
 export * from './Split/index.js';

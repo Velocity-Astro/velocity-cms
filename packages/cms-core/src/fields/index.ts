@@ -108,6 +108,22 @@ export class ReferenceField extends FieldType<string, { to: string }> {
   }
 }
 
+/**
+ * One of the site's images, such as a listing's photo.
+ *
+ * It stores the image's name, which is what the site's pages look images up by. The editor shows
+ * the picture and offers the site's images to choose from.
+ */
+export class ImageField extends FieldType<string, NoOptions> {
+  readonly type = 'image';
+  readonly editor = 'image';
+  readonly options = noOptions;
+
+  schema() {
+    return z.string().min(1);
+  }
+}
+
 /** The settings of a field that holds other fields. */
 const fieldDefs = z.custom<FieldDef[]>((value) => Array.isArray(value), 'Expected a list of fields');
 
@@ -161,6 +177,7 @@ export class ListField extends FieldType<unknown[], ListOptions> {
   }
 
   override toPublic(value: unknown[], { of }: ListOptions, context: FieldContext) {
+    if (!context.fields.has(of.type)) return value;
     const item = context.fields.get(of.type);
     const options = item.options.parse(of.options);
     return value.map((entry) => item.toPublic(entry, options, context));
@@ -184,6 +201,7 @@ export function createFieldRegistry(): Registry<FieldType> {
     .register(new UrlField())
     .register(new SelectField())
     .register(new ReferenceField())
+    .register(new ImageField())
     .register(new GroupField())
     .register(new ListField());
 }

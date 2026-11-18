@@ -1,0 +1,129 @@
+import { ImageOff } from 'lucide-react';
+import { useId, useState } from 'react';
+import { ListBox, ListBoxItem } from 'react-aria-components';
+import { Button } from '../../components/Button/index.js';
+import { Dialog } from '../../components/Dialog/index.js';
+import {
+  imagePickerChoiceClass,
+  imagePickerChoiceImageClass,
+  imagePickerChoiceNameClass,
+  imagePickerChoicesClass,
+  imagePickerClass,
+  imagePickerDescriptionClass,
+  imagePickerEmptyClass,
+  imagePickerErrorClass,
+  imagePickerLabelVariants,
+  imagePickerNameClass,
+  imagePickerPlaceholderClass,
+  imagePickerPlaceholderIconClass,
+  imagePickerRequiredMarkClass,
+  imagePickerRowClass,
+  imagePickerThumbClass,
+} from './ImagePicker.variants.js';
+
+export interface PickableImage {
+  /** What is stored when the image is chosen, and what it is called on screen. */
+  readonly name: string;
+  /** Where a small copy of it loads from. */
+  readonly url: string;
+}
+
+export interface ImagePickerProps {
+  /** What the image is for, such as "Cover photo". */
+  readonly label: string;
+  /** Hides the label from view (it is still read out), for a row of a list whose label is in view. */
+  readonly isLabelHidden?: boolean;
+  readonly description?: string;
+  readonly errorMessage?: string;
+  readonly isRequired?: boolean;
+  /** The name of the chosen image, or `null` when none is. */
+  readonly value: string | null;
+  /** Every image there is to choose from. */
+  readonly images: readonly PickableImage[];
+  readonly onChange: (name: string) => void;
+  /** The button's words when nothing is chosen, such as "Choose a photo". */
+  readonly chooseLabel: string;
+  /** The button's words when something is, such as "Change". */
+  readonly changeLabel: string;
+  /** Shown beside the button when nothing is chosen, such as "No photo chosen". */
+  readonly noneText: string;
+  /** The title of the window the images are chosen in, such as "Choose a photo". */
+  readonly dialogTitle: string;
+  /** The name of that window's close button, such as "Close". */
+  readonly closeLabel: string;
+  /** Shown in the window when there are no images, such as "This site has no photos yet." */
+  readonly emptyText: string;
+}
+
+/** Shows the image a field holds and lets a person choose another from the site's images. */
+export function ImagePicker({
+  label,
+  isLabelHidden = false,
+  description,
+  errorMessage,
+  isRequired = false,
+  value,
+  images,
+  onChange,
+  chooseLabel,
+  changeLabel,
+  noneText,
+  dialogTitle,
+  closeLabel,
+  emptyText,
+}: ImagePickerProps) {
+  const labelId = useId();
+  const [isOpen, setOpen] = useState(false);
+  const chosen = images.find((image) => image.name === value);
+
+  return (
+    <div role="group" aria-labelledby={labelId} className={imagePickerClass}>
+      <span id={labelId} className={imagePickerLabelVariants({ isLabelHidden })}>
+        {label}
+        {isRequired && (
+          <span aria-hidden="true" className={imagePickerRequiredMarkClass}>
+            {' *'}
+          </span>
+        )}
+      </span>
+      <div className={imagePickerRowClass}>
+        {chosen ? (
+          <img src={chosen.url} alt="" loading="lazy" className={imagePickerThumbClass} />
+        ) : (
+          <span className={imagePickerPlaceholderClass}>
+            <ImageOff aria-hidden="true" className={imagePickerPlaceholderIconClass} />
+          </span>
+        )}
+        <span className={imagePickerNameClass}>{value ?? noneText}</span>
+        <Button variant="secondary" size="sm" onPress={() => setOpen(true)}>
+          {value === null ? chooseLabel : changeLabel}
+        </Button>
+      </div>
+      {description !== undefined && <p className={imagePickerDescriptionClass}>{description}</p>}
+      {errorMessage !== undefined && <p className={imagePickerErrorClass}>{errorMessage}</p>}
+      <Dialog isOpen={isOpen} onOpenChange={setOpen} title={dialogTitle} closeLabel={closeLabel} size="lg">
+        <ListBox
+          aria-label={dialogTitle}
+          layout="grid"
+          selectionMode="single"
+          autoFocus
+          selectedKeys={value === null ? [] : [value]}
+          onSelectionChange={(keys) => {
+            const [name] = keys === 'all' ? [] : [...keys];
+            if (typeof name === 'string') onChange(name);
+            setOpen(false);
+          }}
+          renderEmptyState={() => <p className={imagePickerEmptyClass}>{emptyText}</p>}
+          className={imagePickerChoicesClass}
+        >
+          {images.map((image) => (
+            <ListBoxItem key={image.name} id={image.name} textValue={image.name} className={imagePickerChoiceClass}>
+              <img src={image.url} alt="" loading="lazy" className={imagePickerChoiceImageClass} />
+              <span className={imagePickerChoiceNameClass}>{image.name}</span>
+            </ListBoxItem>
+          ))}
+        </ListBox>
+      </Dialog>
+    </div>
+  );
+}

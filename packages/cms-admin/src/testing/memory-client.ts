@@ -1,5 +1,16 @@
-import { CmsError, ValidationError, createCms, type Actor, type Cms, type ContentTypeDef, type Entry, type Page } from '@velocity/cms-core';
-import { InMemoryEntryRepository, InMemorySchemaRepository } from '@velocity/cms-core/in-memory';
+import {
+  CmsError,
+  MediaService,
+  ValidationError,
+  createCms,
+  type Actor,
+  type Cms,
+  type ContentTypeDef,
+  type Entry,
+  type Page,
+  type SiteImage,
+} from '@velocity/cms-core';
+import { InMemoryEntryRepository, InMemoryImageLibrary, InMemorySchemaRepository } from '@velocity/cms-core/in-memory';
 import type { AdminClient, EntryChanges, EntryListQuery, FieldTypeInfo, NewEntry, SessionUser } from '../client/admin-client.js';
 import { AdminRequestError, type RequestErrorCode } from '../client/errors.js';
 
@@ -10,6 +21,8 @@ export interface MemoryAdminClientOptions {
   readonly passkeyUser?: SessionUser;
   readonly contentTypes?: readonly ContentTypeDef[];
   readonly entries?: readonly Entry[];
+  /** The site's images, for image fields. */
+  readonly images?: readonly SiteImage[];
   /** The language new entries are written in. Defaults to `en`. */
   readonly defaultLocale?: string;
 }
@@ -32,6 +45,7 @@ export class MemoryAdminClient implements AdminClient {
   readonly #passkeyUser: SessionUser | null;
   readonly #defaultLocale: string;
   readonly #cms: Cms;
+  readonly #media: MediaService;
   /** Settles once the content given to the constructor is in place. Every request waits for it. */
   readonly #ready: Promise<void>;
 
@@ -42,6 +56,7 @@ export class MemoryAdminClient implements AdminClient {
     const types = new InMemorySchemaRepository();
     const entries = new InMemoryEntryRepository();
     this.#cms = createCms({ types, entries });
+    this.#media = new MediaService(this.#cms.access, new InMemoryImageLibrary(options.images));
     this.#ready = (async () => {
       for (const type of options.contentTypes ?? []) await types.save(type);
       for (const entry of options.entries ?? []) await entries.save(entry, { expectedRevision: null, actorId: 'seed' });
@@ -76,6 +91,10 @@ export class MemoryAdminClient implements AdminClient {
 
   listFieldTypes(): Promise<readonly FieldTypeInfo[]> {
     return this.#request(async () => this.#cms.fields.list().map(({ type, editor }) => ({ type, editor })));
+  }
+
+  listImages(): Promise<readonly SiteImage[]> {
+    return this.#request((actor) => this.#media.images(actor));
   }
 
   listEntries(query: EntryListQuery): Promise<Page<Entry>> {
