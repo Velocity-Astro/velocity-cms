@@ -114,5 +114,25 @@ export function convert(project) {
     must(config, "  image: {\n", "  image: {\n    // Uploaded photos are served by this site, and resized by it like any other.\n    domains: [new URL(process.env.SITE_URL || 'https://example.com').hostname],\n"),
   );
 
+  // 8. Descriptions and biographies are shaped in the editor: the CMS hands them over as HTML
+  //    it made from what was written, and the pages show that.
+  add('src/lib/rich-text.ts', 'rich-text.ts');
+  add('src/styles/rich-text.css', 'rich-text.css');
+  edit('src/styles/estate.css', (css) => `@import './rich-text.css';\n${css}`);
+  edit('src/config/collections.ts', (source) => {
+    let next = must(source, '      description: z.array(z.string()).min(1),', '      description: richText,');
+    next = must(next, '    bio: z.array(z.string()).min(1),', '    bio: richText,');
+    return `import { richText } from '@/lib/rich-text';\n${next}`;
+  });
+  edit('src/views/ListingView.astro', (view) => {
+    let next = must(view, '  description: listing.description[0],', '  description: listing.description.paragraphs[0],');
+    next = must(next, '{listing.description.map((paragraph) => <p>{paragraph}</p>)}', '<Fragment set:html={listing.description.html} />');
+    return must(next, 'class="text-foreground-secondary flex max-w-3xl flex-col gap-4 text-[1.0625rem] leading-relaxed"', 'class="estate-rich-text text-foreground-secondary flex max-w-3xl flex-col gap-4 text-[1.0625rem] leading-relaxed"');
+  });
+  edit('src/views/AgentView.astro', (view) => {
+    const next = must(view, '{agent.bio.map((paragraph) => <p>{paragraph}</p>)}', '<Fragment set:html={agent.bio.html} />');
+    return must(next, '<div class="text-foreground-secondary flex flex-col gap-4 text-[1.0625rem] leading-relaxed">', '<div class="estate-rich-text text-foreground-secondary flex flex-col gap-4 text-[1.0625rem] leading-relaxed">');
+  });
+
   return changes;
 }

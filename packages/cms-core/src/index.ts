@@ -18,11 +18,26 @@ export {
   NumberField,
   SelectField,
   ReferenceField,
+  RichTextField,
   ImageField,
   TextField,
   UrlField,
   createFieldRegistry,
+  type PublicRichText,
 } from './fields/index.js';
+export {
+  fromPlainText,
+  isEmptyRichText,
+  isSafeLink,
+  richTextHtml,
+  richTextParagraphs,
+  richTextSchema,
+  type RichText,
+  type RichTextBlock,
+  type RichTextInline,
+  type RichTextListItem,
+  type RichTextMark,
+} from './rich-text.js';
 export {
   hasUnpublishedChanges,
   liveFields,

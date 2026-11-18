@@ -1,5 +1,5 @@
-import { liveFields, type FieldDef } from '@velocity/cms-core';
-import { DateField, Fieldset, ImagePicker, NumberField, Repeater, Select, Switch, Text, TextArea, TextField } from '@velocity/cms-ui';
+import { fromPlainText, liveFields, type FieldDef, type RichText } from '@velocity/cms-core';
+import { DateField, Fieldset, ImagePicker, NumberField, Repeater, RichTextEditor, Select, Switch, Text, TextArea, TextField } from '@velocity/cms-ui';
 import { useState } from 'react';
 import { useContentTypes, useEntries, useImages, useUploadImage, useUploadRules } from '../client/queries.js';
 import { prepareImage } from '../lib/prepare-image.js';
@@ -214,6 +214,29 @@ function ImageControl({ field, label, help, isLabelHidden = false, value, onChan
   );
 }
 
+/** Text saved before a field became rich text is plain: a string, or a list of paragraphs. */
+const isPlainText = (value: unknown): value is string | string[] =>
+  typeof value === 'string' || (Array.isArray(value) && value.every((item) => typeof item === 'string'));
+
+/** Text with headings, lists, quotes, bold, italics and links. */
+function RichTextControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {
+  const messages = useMessages();
+  const text = isPlainText(value) ? fromPlainText(value) : typeof value === 'object' && value !== null ? (value as RichText) : null;
+  return (
+    <RichTextEditor
+      label={label}
+      isLabelHidden={isLabelHidden}
+      value={text}
+      // Nothing to read is an empty field, so "required" means what it says.
+      onChange={(next) => onChange(next ?? undefined)}
+      isRequired={field.required}
+      words={messages.editor.richText}
+      {...(help !== undefined && { description: help })}
+      {...(problem !== undefined && { errorMessage: problem })}
+    />
+  );
+}
+
 /** Several fields kept together as one value. Each is drawn by its own control, so groups nest. */
 function GroupControl({ field, label, help, value, onChange, path, problem, problems }: FieldControlProps) {
   const inner = Array.isArray(field.options['fields']) ? liveFields(field.options['fields'] as FieldDef[]) : [];
@@ -320,6 +343,7 @@ export function createFieldControls(): FieldControls {
     .register({ type: 'select', Component: SelectControl, width: 'compact', Summary: SelectSummary })
     .register({ type: 'reference', Component: ReferenceControl, width: 'compact' })
     .register({ type: 'image', Component: ImageControl })
+    .register({ type: 'rich-text', Component: RichTextControl })
     .register({ type: 'group', Component: GroupControl })
     .register({ type: 'list', Component: ListControl });
 }

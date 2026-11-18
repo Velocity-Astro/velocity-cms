@@ -25,6 +25,7 @@ export * from './Table/index.js';
 export * from './Tabs/index.js';
 export * from './Tag/index.js';
 export * from './Text/index.js';
+export * from './RichTextEditor/index.js';
 export * from './TextArea/index.js';
 export * from './TextField/index.js';
 export * from './Thumbnail/index.js';
