@@ -2,7 +2,7 @@ import { CmsApi } from '@velocity/cms-api';
 import { createCms, type Actor } from '@velocity/cms-core';
 import { InMemoryEntryRepository, InMemorySchemaRepository } from '@velocity/cms-core/in-memory';
 import { authSession, authUser, authVerification, openDatabase, type Database } from '@velocity/cms-db';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthSetupError, CmsAuth } from './auth.js';
 import { MemoryMailer } from './mailer.js';
 import { AuthTeam } from './team.js';
@@ -16,7 +16,7 @@ let mailer: MemoryMailer;
 let auth: CmsAuth;
 
 const make = (changes: Partial<ConstructorParameters<typeof CmsAuth>[0]> = {}) =>
-  new CmsAuth({ db: database.db, secret: SECRET, origin: ORIGIN, siteName: 'Lakeshore Realty', mailer, ...changes });
+  new CmsAuth({ db: database.db, secret: SECRET, origin: ORIGIN, siteName: 'Lakeshore Realty', mailer, answerAfterMs: 0, ...changes });
 
 /** Asks for a sign-in link the way the sign-in screen does. */
 const askForLink = (email: string) =>
@@ -169,6 +169,34 @@ describe('signing in by email link', () => {
     expect([stranger.status, await stranger.text()]).toEqual([known.status, await known.text()]);
     expect(mailer.sent.map((mail) => mail.email)).toEqual(['dana@example.com']);
     expect(await database.db.select().from(authUser)).toHaveLength(1);
+  });
+
+  it('emails one address three links in ten minutes and no more, and answers as before', async () => {
+    const answers = [];
+    for (let asked = 0; asked < 5; asked += 1) answers.push((await askForLink('Dana@example.com')).status);
+    expect(answers).toEqual([200, 200, 200, 200, 200]);
+    expect(mailer.sent).toHaveLength(3);
+  });
+
+  it('answers a known address like a stranger when the email cannot be sent', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    mailer.sendSignInLink = () => Promise.reject(new Error('The mail service is down.'));
+    const known = await askForLink('dana@example.com');
+    const stranger = await askForLink('stranger@example.com');
+    expect([known.status, await known.text()]).toEqual([stranger.status, await stranger.text()]);
+    expect(logged).toHaveBeenCalledOnce();
+    logged.mockRestore();
+  });
+
+  it('takes as long to answer a stranger as someone invited', async () => {
+    auth = make({ answerAfterMs: 120 });
+    const timed = async (email: string) => {
+      const started = Date.now();
+      await askForLink(email);
+      return Date.now() - started;
+    };
+    expect(await timed('stranger@example.com')).toBeGreaterThanOrEqual(115);
+    expect(await timed('dana@example.com')).toBeGreaterThanOrEqual(115);
   });
 
   it('makes a link that works once, and keeps its token unreadable', async () => {

@@ -1,4 +1,5 @@
-import { createCms, type Actor, type Cms, type SearchIndex } from '@velocity/cms-core';
+import { lookup } from 'node:dns/promises';
+import { createCms, type Actor, type Cms, type NameLookup, type SearchIndex } from '@velocity/cms-core';
 import { AuthTeam } from '@velocity/cms-auth/team';
 import { openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqliteDealRepository, SqlitePipelineStore, SqliteCustomFieldsStore, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Db } from '@velocity/cms-db';
 import { mediaStoreFromEnv } from './media-store.js';
@@ -29,6 +30,9 @@ export interface Connection {
   close(): void;
 }
 
+/** Every address a host's name leads to, so a plugin can refuse a name that leads to a private machine. */
+const lookUp: NameLookup = async (host) => (await lookup(host, { all: true })).map((found) => found.address);
+
 export async function connect(options: ConnectionOptions): Promise<Connection> {
   const authToken = options.authToken ?? (process.env.VELOCITY_CMS_DATABASE_TOKEN || undefined);
   const url = resolveUrl(options);
@@ -49,6 +53,7 @@ export async function connect(options: ConnectionOptions): Promise<Connection> {
     ...(secret !== undefined && secret.length >= 32 && { previews: { secret } }),
     ...(store && { media: { storage: { files: new SqliteMediaRepository(database.db), store } } }),
     pluginStore: new SqlitePluginStore(database.db),
+    lookup: lookUp,
     onPluginFault: (plugin, error) => console.error(`[velocity-cms] The plugin "${plugin}" failed.`, error),
   });
   return { cms, search: new SqliteSearchIndex(database.db), db: database.db, close: () => database.close() };

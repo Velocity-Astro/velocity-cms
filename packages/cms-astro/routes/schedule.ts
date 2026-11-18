@@ -9,10 +9,10 @@ export const prerender = false;
  * visiting. Only the holder of `VELOCITY_CMS_SECRET` may call it, and it answers with nothing
  * about the content.
  */
-const look: APIRoute = async ({ request, cache, url }) => {
+const look: APIRoute = async ({ request, cache }) => {
   cache.set(false);
   if (!hasSiteSecret(request)) return new Response(null, { status: 404, headers: { 'cache-control': 'no-store' } });
-  await publishDue(request, cache, url.origin, { now: true });
+  await publishDue(request, cache, { now: true });
   return new Response(null, { status: 204, headers: { 'cache-control': 'no-store' } });
 };
 

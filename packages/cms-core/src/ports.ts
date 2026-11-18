@@ -295,6 +295,13 @@ export interface PluginStore {
   list(plugin: string, prefix: string): Promise<[string, unknown][]>;
 }
 
+/**
+ * Looks a host's name up and answers with every numeric address it leads to. A site that can
+ * look names up gives one, so nothing a plugin sends reaches a private machine behind a public
+ * name. It throws when the name leads nowhere.
+ */
+export type NameLookup = (host: string) => Promise<readonly string[]>;
+
 /** The records of uploaded images. */
 export interface MediaRepository {
   /** Every upload, ordered by name. */

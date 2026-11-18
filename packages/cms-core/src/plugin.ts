@@ -6,7 +6,8 @@ import { EVENT_NEEDS, type CmsEvents, type EventBus } from './events.js';
 import type { FieldType } from './field-type.js';
 import type { PageHeadRule, PageHeads } from './pages.js';
 import { liveFields, type EntryData, type FieldDef, type LocalizedText, type Timestamp } from './model.js';
-import type { Clock, IdGenerator, PluginStore } from './ports.js';
+import { isPrivateAddress } from './net.js';
+import type { Clock, IdGenerator, NameLookup, PluginStore } from './ports.js';
 import type { Registry } from './registry.js';
 import { toPublicData, validateData } from './schema-builder.js';
 import type { ContentService } from './services/content-service.js';
@@ -159,6 +160,13 @@ export interface PluginContext {
   /** What the owner saved under one of the plugin's `secrets`, or `undefined` when nothing is. Read it when it is needed. */
   readonly secrets: { get(key: string): Promise<string | undefined> };
   /**
+   * The world outside the site. `isPublic` says whether a host's name leads only to public
+   * addresses: ask before sending anything to an address a person typed, since a public name can
+   * point at a machine beside the site. A site that cannot look names up answers yes; a name that
+   * leads nowhere, or anywhere private, answers no.
+   */
+  readonly net: { isPublic(host: string): Promise<boolean> };
+  /**
    * Work that must not be lost when it fails once, such as sending something to another service.
    * `define` names a kind of work and what does it; `add` asks for one piece of it. It is tried
    * at once, and when the runner throws, again after a minute, then at longer waits for about a
@@ -286,6 +294,8 @@ export interface PluginHostParts {
   readonly clock: Clock;
   /** The site's secret. What an owner saves under a plugin's `secrets` is sealed with it; without one, none can be saved. */
   readonly secret?: string;
+  /** How the site looks a host's name up, where it can. See `PluginContext.net`. */
+  readonly lookup?: NameLookup;
   /** Told of every plugin failure, for the server's log. */
   readonly onFault?: (plugin: string, error: unknown) => void;
 }
@@ -824,6 +834,18 @@ export class PluginHost {
       },
       secrets: {
         get: async (key) => this.#open(await store.get(name, `${SECRET}${key}`)),
+      },
+      net: {
+        isPublic: async (host) => {
+          const { lookup } = this.#parts;
+          if (!lookup) return true;
+          try {
+            const addresses = await lookup(host);
+            return addresses.length > 0 && !addresses.some(isPrivateAddress);
+          } catch {
+            return false;
+          }
+        },
       },
       tasks: {
         define: (kind, run) => {

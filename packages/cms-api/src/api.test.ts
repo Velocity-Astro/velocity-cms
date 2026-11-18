@@ -215,6 +215,22 @@ describe('writing', () => {
     const big = await call('POST', '/entries', { type: 'listings', slug: 'x', data: { [fieldId('title')]: 'é'.repeat(80) } });
     expect([big.status, big.body.error?.code]).toEqual([413, 'too_large']);
   });
+
+  it('stops reading a body sent in parts, which says no length, once it is too large', async () => {
+    api = new CmsApi({ cms, authenticator, maxBodyBytes: 100 });
+    let parts = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        parts += 1;
+        if (parts > 1000) controller.close();
+        else controller.enqueue(new TextEncoder().encode('x'.repeat(60)));
+      },
+    });
+    const request = new Request(`${SITE}/api/cms/entries`, { method: 'POST', headers: { 'content-type': 'application/json', origin: SITE }, body, duplex: 'half' } as RequestInit);
+    const response = await api.handle(request);
+    expect(response.status).toBe(413);
+    expect(parts).toBeLessThan(10);
+  });
 });
 
 describe('requests from other sites', () => {

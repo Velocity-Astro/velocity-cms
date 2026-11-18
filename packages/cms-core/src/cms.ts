@@ -5,7 +5,7 @@ import { createFieldRegistry } from './fields/index.js';
 import { PublishChecks } from './checks.js';
 import { PageHeads } from './pages.js';
 import { PluginHost } from './plugin.js';
-import type { Clock, ContactRepository, DealRepository, EntryRepository, FormRepository, IdGenerator, PipelineStore, CustomFieldsStore, PluginStore, SchemaRepository, SubmissionRepository, Team } from './ports.js';
+import type { Clock, ContactRepository, DealRepository, EntryRepository, FormRepository, IdGenerator, NameLookup, PipelineStore, CustomFieldsStore, PluginStore, SchemaRepository, SubmissionRepository, Team } from './ports.js';
 import { InMemoryContactRepository, InMemoryDealRepository, InMemoryFormRepository, InMemoryPipelineStore, InMemoryCustomFieldsStore, InMemoryPluginStore, InMemorySubmissionRepository } from './testing/in-memory.js';
 import type { Registry } from './registry.js';
 import { ContentService } from './services/content-service.js';
@@ -53,6 +53,8 @@ export interface CmsOptions {
    * kept in memory and forgotten when the server stops, which only suits tests.
    */
   readonly pluginStore?: PluginStore;
+  /** How the site looks a host's name up, so plugins can refuse a name that leads to a private machine. */
+  readonly lookup?: NameLookup;
   /** Told of every plugin failure, for the server's log. */
   readonly onPluginFault?: (plugin: string, error: unknown) => void;
 }
@@ -112,6 +114,6 @@ export function createCms(options: CmsOptions): Cms {
   const submissions = new SubmissionService(submissionStore, formStore, fields, access, events, clock, ids, contacts, deals);
   const previews = new PreviewService(content, schema, clock, options.previews);
   const sealWith = options.secret ?? options.previews?.secret;
-  const plugins = new PluginHost({ fields, events, checks, pages, store: options.pluginStore ?? new InMemoryPluginStore(), ids, schema, content, access, clock, ...(sealWith !== undefined && { secret: sealWith }), ...(options.onPluginFault && { onFault: options.onPluginFault }) });
+  const plugins = new PluginHost({ fields, events, checks, pages, store: options.pluginStore ?? new InMemoryPluginStore(), ids, schema, content, access, clock, ...(sealWith !== undefined && { secret: sealWith }), ...(options.lookup && { lookup: options.lookup }), ...(options.onPluginFault && { onFault: options.onPluginFault }) });
   return { schema, content, media, forms, submissions, contacts, pipeline, customFields, deals, previews, fields, events, access, plugins, pages };
 }
