@@ -108,7 +108,7 @@ export function createCms(options: CmsOptions): Cms {
   const pipeline = new PipelineService(options.pipeline ?? new InMemoryPipelineStore(), contactStore, access, events, ids, dealStore, options.team);
   const customFields = new CustomFieldsService(options.customFields ?? new InMemoryCustomFieldsStore(), fields, access, events, clock, ids);
   const contacts = new ContactService(contactStore, submissionStore, formStore, fields, access, events, clock, ids, pipeline, options.team, dealStore, customFields);
-  const deals = new DealService(dealStore, contactStore, contacts, pipeline, access, events, clock, ids, customFields);
+  const deals = new DealService(dealStore, contactStore, contacts, pipeline, access, events, clock, ids, customFields, { types: options.types, entries: options.entries });
   const submissions = new SubmissionService(submissionStore, formStore, fields, access, events, clock, ids, contacts);
   const previews = new PreviewService(content, schema, clock, options.previews);
   const sealWith = options.secret ?? options.previews?.secret;

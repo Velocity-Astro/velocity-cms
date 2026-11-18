@@ -69,6 +69,11 @@ export interface ContentTypeDef {
   /** How the editor lays the fields out. A field in no section is shown after them. */
   readonly sections?: readonly FieldSection[];
   /**
+   * Whether a deal can be about one of this type's entries: a listing, a membership, a service.
+   * Left out, it cannot.
+   */
+  readonly forDeals?: true;
+  /**
    * Set when the type was archived: it is out of the editor and its pages are off the site. Its
    * fields and entries are kept as they were, so restoring it brings everything back.
    */
@@ -403,6 +408,8 @@ export interface Deal {
   readonly contactId: string;
   /** What it is about: "Sale of 18 Alder Court". */
   readonly title: string;
+  /** The entry of the site it is about, when it is about one. The title stays its own words. */
+  readonly about?: DealSubject;
   /** What it is worth, in whole units of the pipeline's currency. */
   readonly value: number;
   /** The id of a stage of the pipeline. */
@@ -419,6 +426,17 @@ export interface Deal {
   readonly revision: number;
   readonly createdAt: Timestamp;
   readonly updatedAt: Timestamp;
+}
+
+/**
+ * The entry a deal is about. Stored as the entry, never its name or address, so a rename changes
+ * nothing; an entry that has since gone leaves the deal with its title.
+ */
+export interface DealSubject {
+  /** The id of the entry's content type. */
+  readonly typeId: string;
+  /** The entry's translation group, which every language of it shares and which never changes. */
+  readonly entry: string;
 }
 
 /** What one stage holds in deals. */

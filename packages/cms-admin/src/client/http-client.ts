@@ -248,6 +248,10 @@ export class HttpAdminClient implements AdminClient {
 
   listDeals(query: DealListQuery = {}): Promise<Page<Deal>> {
     const search = new URLSearchParams();
+    if (query.about !== undefined) {
+      search.set('aboutType', query.about.typeId);
+      search.set('aboutEntry', query.about.entry);
+    }
     if (query.contactId !== undefined) search.set('contact', query.contactId);
     if (query.stage !== undefined) search.set('stage', query.stage);
     if (query.ownerId !== undefined) search.set('owner', query.ownerId ?? 'none');

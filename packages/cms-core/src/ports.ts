@@ -2,12 +2,14 @@
  * What the core needs from the outside world. The core ships no implementation of these:
  * an adapter package implements each one and proves it with the contract tests in `./testing`.
  */
-import type { ContentTypeDef, Entry, EntryStatus, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus, Timestamp, Contact, ContactNote, Deal, Pipeline, TeamMember, CustomFields } from './model.js';
+import type { ContentTypeDef, Entry, EntryStatus, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus, Timestamp, Contact, ContactNote, Deal, DealSubject, Pipeline, TeamMember, CustomFields } from './model.js';
 
 export interface EntryQuery {
   readonly typeId?: string;
   readonly locale?: string;
   readonly status?: EntryStatus;
+  /** The versions of one entry in its languages. */
+  readonly translationGroup?: string;
   /** The slug of the version being worked on. */
   readonly slug?: string;
   /** The slug visitors see. Matches published entries only. */
@@ -149,6 +151,8 @@ export interface DealQuery {
   readonly stage?: string;
   /** Only deals this person looks after, or with `null`, the ones nobody does. */
   readonly ownerId?: string | null;
+  /** Only deals about this entry. */
+  readonly about?: DealSubject;
   /** Defaults to 50. */
   readonly limit?: number;
   readonly offset?: number;

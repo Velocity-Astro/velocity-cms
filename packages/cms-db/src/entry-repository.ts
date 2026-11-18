@@ -48,6 +48,7 @@ export class SqliteEntryRepository implements EntryRepository {
     if (query.typeId !== undefined) filters.push(eq(entries.typeId, query.typeId));
     if (query.locale !== undefined) filters.push(eq(entries.locale, query.locale));
     if (query.status !== undefined) filters.push(eq(entries.status, query.status));
+    if (query.translationGroup !== undefined) filters.push(eq(entries.translationGroup, query.translationGroup));
     if (query.slug !== undefined) filters.push(eq(entries.slug, query.slug));
     if (query.publishedSlug !== undefined) filters.push(eq(entries.publishedSlug, query.publishedSlug));
     const where = and(...filters);

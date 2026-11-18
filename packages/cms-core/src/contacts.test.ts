@@ -321,6 +321,33 @@ describe('deals', () => {
     expect(heard).toEqual(['deal.saved', 'deal.saved', 'deal.saved', 'deal.deleted']);
   });
 
+  it('can be about an entry of a content type that takes deals, and are found by it', async () => {
+    const listings = await cms.schema.create(owner, { key: 'listings', kind: 'collection', label: { en: 'Listings' } });
+    const alder = await cms.content.create(editor, { typeId: listings.id, locale: 'en', slug: 'alder', data: {} });
+    const about = { typeId: listings.id, entry: alder.translationGroup };
+    expect(await issuesOf(cms.deals.create(editor, { contactId: tom.id, title: 'Sale', value: 1, about }))).toEqual([
+      ['about', 'Deals cannot be about this kind of content. Choose another, or turn it on for the content type.'],
+    ]);
+    expect((await cms.schema.update(owner, listings.id, { forDeals: true })).forDeals).toBe(true);
+    // A change that says nothing about deals leaves the choice as it was.
+    expect((await cms.schema.update(owner, listings.id, { label: { en: 'Homes' } })).forDeals).toBe(true);
+    expect(await issuesOf(cms.deals.create(editor, { contactId: tom.id, title: 'Sale', value: 1, about: { typeId: listings.id, entry: 'nothing' } }))).toEqual([
+      ['about', 'This entry is no longer here. Choose another.'],
+    ]);
+    const deal = await cms.deals.create(editor, { contactId: tom.id, title: 'Sale of Alder', value: 1, about });
+    const other = await cms.deals.create(editor, { contactId: tom.id, title: 'Something else', value: 1 });
+    expect(deal.about).toEqual(about);
+    expect((await cms.deals.find(editor, { about })).items.map((item) => item.id)).toEqual([deal.id]);
+
+    // A change that leaves the subject out keeps it, and it is kept when its type stops taking deals.
+    await cms.schema.update(owner, listings.id, { forDeals: false });
+    expect((await cms.schema.get(listings.id)).forDeals).toBeUndefined();
+    expect((await cms.deals.update(editor, deal.id, { value: 2, expectedRevision: 1 })).about).toEqual(about);
+    expect((await cms.deals.update(editor, deal.id, { about, expectedRevision: 2 })).about).toEqual(about);
+    expect(await issuesOf(cms.deals.update(editor, other.id, { about, expectedRevision: 1 }))).toHaveLength(1);
+    expect((await cms.deals.update(editor, deal.id, { about: null, expectedRevision: 3 })).about).toBeUndefined();
+  });
+
   it('are forecast stage by stage: open deals count by their stage\'s chance, and won and lost are told apart', async () => {
     await cms.deals.create(editor, { contactId: tom.id, title: 'A', value: 1000 });
     await cms.deals.create(editor, { contactId: tom.id, title: 'B', value: 3000, stage: 'qualified' });

@@ -32,6 +32,8 @@ export interface NewContentType {
   readonly listFields?: readonly string[];
   /** How the editor lays the fields out, with fields named by key. */
   readonly sections?: readonly NewSection[];
+  /** Whether a deal can be about one of its entries. Left out, what the editor chose stays. */
+  readonly forDeals?: boolean;
 }
 
 /** What can be changed about a content type itself. Its key stays: code and addresses use it. */
@@ -43,6 +45,8 @@ export interface ContentTypeChanges {
   readonly titlePath?: readonly string[] | null;
   /** What a list of entries shows beside each name, as paths of field ids. `null` shows the name alone. */
   readonly list?: ListSummary | null;
+  /** Whether a deal can be about one of its entries. Deals already about one keep it either way. */
+  readonly forDeals?: boolean;
 }
 
 /** Where a field is, when it is not one of the type's own. */
@@ -186,7 +190,7 @@ export class SchemaService {
   /** Changes what a content type is called, where its entries live and what lists show of them. Fields are changed one at a time. */
   async update(actor: Actor, typeId: string, change: ContentTypeChanges): Promise<ContentTypeDef> {
     this.access.require(actor, 'schema:write');
-    const { urlPattern, titlePath, list, ...type } = await this.getLive(typeId);
+    const { urlPattern, titlePath, list, forDeals, ...type } = await this.getLive(typeId);
     if (change.label !== undefined) requireLabel(change.label, 'content type');
     if (typeof change.urlPattern === 'string') requirePattern(change.urlPattern);
     for (const path of [change.titlePath, change.list?.imagePath, ...(change.list?.fieldPaths ?? [])]) {
@@ -201,6 +205,7 @@ export class SchemaService {
       ...(typeof address === 'string' && { urlPattern: address }),
       ...(title && { titlePath: title }),
       ...(summary && (summary.imagePath !== undefined || (summary.fieldPaths?.length ?? 0) > 0) && { list: summary }),
+      ...((change.forDeals ?? forDeals === true) && { forDeals: true as const }),
     });
   }
 
@@ -340,7 +345,7 @@ export class SchemaService {
 
   /** A type with a description applied to it: its fields, what entries are called by, and its layout. */
   private described(type: ContentTypeDef, input: NewContentType): ContentTypeDef {
-    const { titlePath: _title, list: _list, sections: _sections, urlPattern: _url, localizedUrlPatterns: _urls, ...rest } = type;
+    const { titlePath: _title, list: _list, sections: _sections, urlPattern: _url, localizedUrlPatterns: _urls, forDeals, ...rest } = type;
     const fields = defineFields(input.fields ?? [], type.fields, this.context);
     const live = liveFields(fields);
     const sections: FieldSection[] = (input.sections ?? []).map((section) => ({
@@ -363,6 +368,7 @@ export class SchemaService {
         },
       }),
       ...(sections.length > 0 && { sections }),
+      ...((input.forDeals ?? forDeals === true) && { forDeals: true as const }),
     };
   }
 

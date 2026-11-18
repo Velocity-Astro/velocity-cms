@@ -1,4 +1,4 @@
-import type { CustomFields, CustomFieldsChanges, Contact, ContactChanges, Deal, DealChanges, Forecast, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginTask, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
+import type { CustomFields, CustomFieldsChanges, Contact, ContactChanges, Deal, DealChanges, DealSubject, Forecast, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginTask, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Role, SiteImage } from '@velocity/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
@@ -98,6 +98,8 @@ export interface DealListQuery {
   readonly stage?: string;
   /** Only deals this person looks after, or with `null`, the ones nobody does. */
   readonly ownerId?: string | null;
+  /** Only deals about this entry. */
+  readonly about?: DealSubject;
   /** Defaults to 50. */
   readonly limit?: number;
   readonly offset?: number;

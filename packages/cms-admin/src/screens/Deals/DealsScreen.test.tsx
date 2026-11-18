@@ -3,7 +3,7 @@ import { userEvent } from '@testing-library/user-event';
 import { dismissToasts } from '@velocity/cms-ui';
 import { afterEach, expect, it } from 'vitest';
 import { renderApp } from '../../testing/render-app.js';
-import { sampleContentTypes, sampleForms, sampleSubmissions, sampleUser } from '../../testing/sample-content.js';
+import { sampleContentTypes, sampleEntries, sampleForms, sampleSubmissions, sampleUser } from '../../testing/sample-content.js';
 
 const signedIn = (role: 'owner' | 'editor' | 'author' = 'owner') => ({ user: { ...sampleUser, role }, contentTypes: sampleContentTypes, forms: sampleForms, submissions: sampleSubmissions });
 
@@ -92,4 +92,44 @@ it('adds a field of the site\'s own to deals, and fills it in on a new deal', as
   const { items } = await client.listContacts({});
   const deal = await client.createDeal({ contactId: items[0]?.id ?? '', title: 'Sale on Alder', value: 100, data: { [product?.id ?? '']: 'Listing' } });
   expect(deal.data).toEqual({ [product?.id ?? '']: 'Listing' });
+});
+
+it('says which listing a deal is about, shows it on the board and lists the deal on the listing', async () => {
+  const user = userEvent.setup();
+  const types = sampleContentTypes.map((type) => (type.key === 'listings' ? { ...type, forDeals: true as const } : type));
+  const { client } = renderApp('/contacts', { ...signedIn(), contentTypes: types, entries: sampleEntries() });
+  await user.click(await screen.findByRole('row', { name: /Ana Ruiz/ }));
+  const card = within(await screen.findByRole('region', { name: 'Deals' }));
+  await user.click(await card.findByRole('button', { name: 'Add deal' }));
+  const dialog = within(await screen.findByRole('dialog', { name: 'New deal' }));
+  await user.click(await dialog.findByRole('button', { name: /On the site, it is about/ }));
+  await user.click(await screen.findByRole('option', { name: 'Listings' }));
+  await user.click(await dialog.findByRole('button', { name: /Which of Listings/ }));
+  await user.click(await screen.findByRole('option', { name: '18 Alder Court' }));
+  // A deal with no words of its own yet takes the listing's.
+  expect((dialog.getByRole('textbox', { name: /^What it is about/ }) as HTMLInputElement).value).toBe('18 Alder Court');
+  await user.type(dialog.getByRole('textbox', { name: /^What it is about/ }), ', to Ana');
+  await user.type(dialog.getByRole('textbox', { name: /^Worth, in USD/ }), '450000');
+  await user.click(dialog.getByRole('button', { name: 'Add deal' }));
+  expect(await screen.findByText('18 Alder Court, to Ana added')).toBeTruthy();
+  expect((await client.listDeals()).items[0]?.about).toEqual({ typeId: 'type-listings', entry: 'e2' });
+
+  await user.click(screen.getByRole('link', { name: 'Deals' }));
+  const board = within(await screen.findByRole('region', { name: 'New' }));
+  expect(await board.findByText('18 Alder Court')).toBeTruthy();
+
+  await user.click(screen.getByRole('link', { name: 'Listings' }));
+  await user.click(await screen.findByRole('row', { name: /18 Alder Court/ }));
+  const deals = within(await screen.findByRole('region', { name: 'Deals about this' }));
+  expect(await deals.findByRole('row', { name: /18 Alder Court, to Ana/ })).toBeTruthy();
+  expect(deals.getByText('$450,000')).toBeTruthy();
+});
+
+it('offers nothing about the site while no content type takes deals', async () => {
+  const user = userEvent.setup();
+  renderApp('/contacts', { ...signedIn(), entries: sampleEntries() });
+  await user.click(await screen.findByRole('row', { name: /Ana Ruiz/ }));
+  await user.click(await within(await screen.findByRole('region', { name: 'Deals' })).findByRole('button', { name: 'Add deal' }));
+  const dialog = within(await screen.findByRole('dialog', { name: 'New deal' }));
+  expect(dialog.queryByRole('button', { name: /On the site, it is about/ })).toBeNull();
 });
