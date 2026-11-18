@@ -87,6 +87,7 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
         injectRoute({ pattern: '/api/cms/search.json', entrypoint: route('search.json.ts') });
         injectRoute({ pattern: '/api/cms/published', entrypoint: route('published.ts') });
         injectRoute({ pattern: '/cms-search.js', entrypoint: route('search-client.js.ts') });
+        injectRoute({ pattern: '/cms-preview.js', entrypoint: route('preview-client.js.ts') });
         injectRoute({ pattern: '/media/[file]', entrypoint: route('media.ts') });
         injectRoute({ pattern: '/api/cms/auth/[...path]', entrypoint: route('auth.ts') });
         injectRoute({ pattern: '/api/cms/[...path]', entrypoint: route('api.ts') });

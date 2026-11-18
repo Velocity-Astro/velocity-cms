@@ -10,3 +10,5 @@ export * from './Split/index.js';
 export * from './MediaGrid/index.js';
 export * from './OptionPicker/index.js';
 export * from './SectionList/index.js';
+export * from './PagePreview/index.js';
+export * from './Workbench/index.js';

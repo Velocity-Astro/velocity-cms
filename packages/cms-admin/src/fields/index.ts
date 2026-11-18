@@ -11,3 +11,4 @@ export {
 export { FieldEditor, type FieldEditorProps } from './FieldEditor.js';
 export { FieldSummary, useControlFor } from './FieldSummary.js';
 export { FieldGrid, type FieldGridProps } from './FieldGrid.js';
+export { PageFocusProvider, usePageFocus, type PageFocus } from './page-focus.js';

@@ -277,6 +277,11 @@
   animation-timing-function: var(--motion-ease);
 }
 
+/* As tall as the room a screen has under its bar, for a pane that stays in view. */
+@utility pane-tall {
+  height: var(--pane-height);
+}
+
 @utility layer-raised {
   z-index: var(--layer-raised);
 }

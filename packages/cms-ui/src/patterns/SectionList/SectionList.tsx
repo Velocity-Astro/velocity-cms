@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Ellipsis, Plus, type LucideIcon } from 'lucide-react';
-import { useId, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { Button as AriaButton, Disclosure, DisclosurePanel, Heading } from 'react-aria-components';
 import { Button } from '../../components/Button/index.js';
 import { IconButton } from '../../components/IconButton/index.js';
@@ -71,6 +71,8 @@ export interface SectionListProps {
   readonly moveUpLabel: (position: number) => string;
   readonly moveDownLabel: (position: number) => string;
   readonly moreLabel: (position: number) => string;
+  /** A section to bring into view, when it was chosen somewhere else on the screen. */
+  readonly revealId?: string | undefined;
 }
 
 /** Sections of different kinds in an order a person chooses. Each opens to show its own fields. */
@@ -90,8 +92,16 @@ export function SectionList({
   moveUpLabel,
   moveDownLabel,
   moreLabel,
+  revealId,
 }: SectionListProps) {
   const labelId = useId();
+  const list = useRef<HTMLOListElement>(null);
+  useEffect(() => {
+    if (revealId === undefined) return;
+    const section = [...(list.current?.children ?? [])].find((item) => item instanceof HTMLElement && item.dataset['section'] === revealId);
+    // Not every browser-like place tests run in can scroll.
+    if (section && typeof section.scrollIntoView === 'function') section.scrollIntoView({ block: 'nearest' });
+  }, [revealId]);
   return (
     <div role="group" aria-labelledby={labelId} className={sectionListClass}>
       <span id={labelId} className={sectionListLabelClass}>
@@ -101,13 +111,13 @@ export function SectionList({
       {items.length === 0 ? (
         <p className={sectionListEmptyClass}>{emptyText}</p>
       ) : (
-        <ol className={sectionListItemsClass}>
+        <ol ref={list} className={sectionListItemsClass}>
           {items.map(({ id, title, summary, icon: Icon, tag, problem, content, actions }, index) => {
             const isOpen = openIds.includes(id);
             const tone = tag === undefined ? 'default' : 'quiet';
             const Chevron = isOpen ? ChevronDown : ChevronRight;
             return (
-              <li key={id}>
+              <li key={id} data-section={id}>
                 <Disclosure className={sectionVariants({ state: problem === undefined ? 'default' : 'problem' })} isExpanded={isOpen} onExpandedChange={(next) => onOpenChange(id, next)}>
                   <div className={sectionHeaderClass}>
                     <Heading level={3} className={sectionHeadingClass}>

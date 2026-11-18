@@ -1,6 +1,6 @@
 import type { Cms, ContentTypeDef, PageHead, PageInfo } from '@velocity/cms-core';
 import { sharedConnection, SITE } from './connection.js';
-import { isPreview } from './preview.js';
+import { isPreview, withPreviewDraft } from './preview.js';
 
 /** The language of the pages at a type's `urlPattern`. */
 const DEFAULT_LOCALE = 'en';
@@ -32,7 +32,7 @@ export async function pageAt(cms: Cms, types: readonly ContentTypeDef[], path: s
       if (slug === null) continue;
       const version = isPreview() ? 'working' : 'published';
       const entry = await cms.content.findBySlug(SITE, { typeId: type.id, locale, slug, version });
-      if (entry) return { type, locale, entry: cms.content.toPublic(type, entry, version) };
+      if (entry) return { type, locale, entry: cms.content.toPublic(type, withPreviewDraft(entry), version) };
     }
   }
   return {};

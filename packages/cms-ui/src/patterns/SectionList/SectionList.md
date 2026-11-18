@@ -19,6 +19,7 @@ Sections of different kinds in an order a person chooses. Each opens to show its
 - Each section has move up, move down and a menu of the actions it is given. The first cannot move up and the last cannot move down.
 - A section with a `tag`, such as "Hidden", is shown quieter, so it reads as not on the page.
 - With no sections it shows `emptyText`, never an empty frame.
+- `revealId` brings a section into view when it was chosen somewhere else, such as on the page beside the form.
 
 ## Example
 

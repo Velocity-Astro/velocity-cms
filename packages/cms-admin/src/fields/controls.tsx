@@ -365,5 +365,5 @@ export function createFieldControls(): FieldControls {
     .register({ type: 'rich-text', Component: RichTextControl })
     .register({ type: 'group', Component: GroupControl })
     .register({ type: 'list', Component: ListControl })
-    .register({ type: 'blocks', Component: BlocksControl });
+    .register({ type: 'blocks', Component: BlocksControl, showsPage: true });
 }

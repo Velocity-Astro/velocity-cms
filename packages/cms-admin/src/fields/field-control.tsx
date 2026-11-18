@@ -48,6 +48,11 @@ export interface FieldControl {
    * one, text and numbers are shown as they are stored and anything else is left out.
    */
   readonly Summary?: ComponentType<FieldSummaryProps>;
+  /**
+   * True for a control whose field is the page itself, such as its sections. An entry with one,
+   * and a page of its own, is edited with the page shown beside the form.
+   */
+  readonly showsPage?: boolean;
   /** `end` when summaries are figures, so a column of them lines up. */
   readonly summaryAlign?: 'start' | 'end';
 }

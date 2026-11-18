@@ -1,7 +1,7 @@
 import type { LiveLoader } from 'astro/loaders';
 import { isLiveType, type ContentTypeDef, type Entry } from '@velocity/cms-core';
 import { sharedConnection, SITE, type ConnectionOptions } from './connection.js';
-import { isPreview } from './preview.js';
+import { isPreview, withPreviewDraft } from './preview.js';
 
 export interface CmsLiveLoaderOptions extends ConnectionOptions {
   /** The key of the content type to load, e.g. `listings`. */
@@ -59,7 +59,7 @@ export function cmsLiveLoader(
 
   const toLive = (cms: Awaited<ReturnType<typeof sharedConnection>>['cms'], type: ContentTypeDef, entry: Entry) => {
     // A preview reads the version being worked on. Everyone else reads the published one.
-    const shown = cms.content.toPublic(type, entry, isPreview() ? 'working' : 'published');
+    const shown = cms.content.toPublic(type, withPreviewDraft(entry), isPreview() ? 'working' : 'published');
     const id = `${shown.locale}/${shown.slug}`;
     return {
       id,

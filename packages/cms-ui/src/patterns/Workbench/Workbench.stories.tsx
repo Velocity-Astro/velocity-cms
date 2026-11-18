@@ -1,0 +1,34 @@
+import type { Meta, StoryObj } from '@storybook/react-vite';
+import { Card } from '../../components/Card/index.js';
+import { Text } from '../../components/Text/index.js';
+import { TextField } from '../../components/TextField/index.js';
+import { Workbench } from './Workbench.js';
+
+const meta = {
+  title: 'Patterns/Layout/Workbench',
+  component: Workbench,
+  parameters: { layout: 'fullscreen' },
+  args: {
+    paneLabel: 'The page',
+    children: (
+      <>
+        <Card title="Page">
+          <TextField label="Title" value="Why list with us" onChange={() => undefined} />
+        </Card>
+        <Card title="Sections">
+          <Text tone="muted">The sections of the page.</Text>
+        </Card>
+      </>
+    ),
+    pane: (
+      <Card title="The page">
+        <Text tone="muted">What the form makes, kept in view.</Text>
+      </Card>
+    ),
+  },
+} satisfies Meta<typeof Workbench>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Default: Story = {};

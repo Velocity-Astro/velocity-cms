@@ -1,0 +1,84 @@
+import { act, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { expectAccessible } from '../../testing/accessible.js';
+import { PagePreview, type PagePreviewProps } from './PagePreview.js';
+
+const example = (props: Partial<PagePreviewProps> = {}) => (
+  <PagePreview label="The page, as it would look" address="/why-list-with-us/?preview=abc" draft='{"id":"p1","data":{}}' emptyText="Save the page once to see it here." {...props} />
+);
+
+let submit: ReturnType<typeof vi.spyOn>;
+beforeEach(() => {
+  submit = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => undefined);
+});
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
+
+const frame = () => screen.getByTitle<HTMLIFrameElement>('The page, as it would look');
+/** What the page in the frame says to the editor. */
+const say = (data: unknown, from: { origin?: string; source?: MessageEventSource | null } = {}) =>
+  act(() => {
+    window.dispatchEvent(new MessageEvent('message', { data, origin: from.origin ?? window.location.origin, source: from.source === undefined ? frame().contentWindow : from.source }));
+  });
+
+it('asks the site for the page at once, sending what is in the form into the frame', () => {
+  const { container } = render(example());
+  expect(submit).toHaveBeenCalledOnce();
+  const form = container.querySelector('form');
+  expect(form?.getAttribute('action')).toBe('/why-list-with-us/?preview=abc');
+  expect(form?.method).toBe('post');
+  expect(form?.target).toBe(frame().name);
+  expect(form?.querySelector<HTMLInputElement>('input[name="draft"]')?.value).toBe('{"id":"p1","data":{}}');
+});
+
+it('draws the page again once the typing pauses, not on every key', () => {
+  vi.useFakeTimers();
+  const { rerender } = render(example());
+  rerender(example({ draft: 'a' }));
+  rerender(example({ draft: 'ab' }));
+  act(() => void vi.advanceTimersByTime(400));
+  expect(submit).toHaveBeenCalledTimes(1);
+  act(() => void vi.advanceTimersByTime(200));
+  expect(submit).toHaveBeenCalledTimes(2);
+});
+
+it('says which section was pressed on the page', () => {
+  const onSectionPress = vi.fn();
+  render(example({ onSectionPress }));
+  say({ source: 'velocity-cms', type: 'section', id: 's2' });
+  expect(onSectionPress).toHaveBeenCalledWith('s2');
+});
+
+it('listens to nothing but this site\'s own page in this frame', () => {
+  const onSectionPress = vi.fn();
+  render(example({ onSectionPress }));
+  say({ source: 'velocity-cms', type: 'section', id: 's2' }, { origin: 'https://elsewhere.example' });
+  say({ source: 'velocity-cms', type: 'section', id: 's2' }, { source: window });
+  say({ source: 'something-else', type: 'section', id: 's2' });
+  say({ source: 'velocity-cms', type: 'section', id: 7 });
+  say(null);
+  expect(onSectionPress).not.toHaveBeenCalled();
+});
+
+it('asks the page to show a section, when it is chosen and when the page has been drawn again', () => {
+  const { rerender } = render(example());
+  const post = vi.spyOn(frame().contentWindow as Window, 'postMessage').mockImplementation(() => undefined);
+  rerender(example({ shownSectionId: 's3' }));
+  expect(post).toHaveBeenLastCalledWith({ source: 'velocity-cms', type: 'show', id: 's3' }, window.location.origin);
+  say({ source: 'velocity-cms', type: 'ready' });
+  expect(post).toHaveBeenCalledTimes(2);
+});
+
+it('says so when there is no page yet, and asks for nothing', () => {
+  render(example({ address: undefined }));
+  expect(screen.getByText('Save the page once to see it here.')).toBeTruthy();
+  expect(screen.queryByTitle('The page, as it would look')).toBeNull();
+  expect(submit).not.toHaveBeenCalled();
+});
+
+it('has no accessibility violations', async () => {
+  const { container } = render(example({ note: 'Shows the form as it is now.' }));
+  await expectAccessible(container);
+});

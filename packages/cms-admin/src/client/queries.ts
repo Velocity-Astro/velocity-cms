@@ -262,6 +262,25 @@ export function usePreviewEntry() {
   return useMutation({ mutationFn: (id: string) => client.previewEntry(id) });
 }
 
+/** How long a link for the page beside the form is used before a new one is asked for. A link lasts an hour. */
+const PREVIEW_REFRESH = 30 * 60_000;
+
+/**
+ * A link to the entry's page for the frame beside its form, asked for again well before it runs
+ * out. `saved` is the entry's revision: a save may have changed the page's address.
+ */
+export function usePagePreview(id: string | undefined, saved: number | undefined) {
+  const client = useClient();
+  return useQuery({
+    queryKey: ['page-preview', id, saved] as const,
+    queryFn: () => client.previewEntry(id ?? ''),
+    enabled: id !== undefined,
+    staleTime: PREVIEW_REFRESH,
+    refetchInterval: PREVIEW_REFRESH,
+    retry: false,
+  });
+}
+
 export function usePeople() {
   const client = useClient();
   return useQuery({ queryKey: keys.people, queryFn: () => client.listPeople() });
