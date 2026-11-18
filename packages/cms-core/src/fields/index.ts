@@ -6,8 +6,10 @@ import { Registry } from '../registry.js';
 import { fromPlainText, richTextHtml, richTextParagraphs, richTextSchema, type RichText } from '../rich-text.js';
 import { buildFieldsSchema, toPublicData } from '../schema-builder.js';
 import { BlocksField } from './blocks.js';
+import { LinkField } from './link.js';
 
 export { BlocksField, defineBlock, type NewBlock } from './blocks.js';
+export { LinkField, type AddressLink, type EntryLink, type LinkValue } from './link.js';
 
 const noOptions = z.object({});
 type NoOptions = z.infer<typeof noOptions>;
@@ -254,5 +256,6 @@ export function createFieldRegistry(): Registry<FieldType> {
     .register(new RichTextField())
     .register(new GroupField())
     .register(new ListField())
-    .register(new BlocksField());
+    .register(new BlocksField())
+    .register(new LinkField());
 }

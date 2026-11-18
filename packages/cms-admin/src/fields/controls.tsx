@@ -9,6 +9,7 @@ import { createFieldControlRegistry, type FieldControlProps, type FieldControls,
 import { BlocksControl } from './BlocksControl.js';
 import { FieldEditor } from './FieldEditor.js';
 import { FieldGrid } from './FieldGrid.js';
+import { LinkControl } from './LinkControl.js';
 
 /** A field setting, when it is a number. Settings are checked by the server, not here. */
 function numberOption(field: FieldDef, name: string): number | undefined {
@@ -361,6 +362,7 @@ export function createFieldControls(): FieldControls {
     .register({ type: 'switch', Component: SwitchControl })
     .register({ type: 'select', Component: SelectControl, width: 'compact', Summary: SelectSummary })
     .register({ type: 'reference', Component: ReferenceControl, width: 'compact' })
+    .register({ type: 'link', Component: LinkControl })
     .register({ type: 'image', Component: ImageControl })
     .register({ type: 'rich-text', Component: RichTextControl })
     .register({ type: 'group', Component: GroupControl })

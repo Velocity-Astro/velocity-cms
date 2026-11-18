@@ -17,8 +17,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { connect } from '../packages/cms-astro/dist/connection.js';
 import { convert } from '../prototypes/live-site/convert.mjs';
-import { OWNER, importRecords } from '../prototypes/publish-speed/lib.mjs';
-import { importedTypes, realEstateModel, samplePages } from './real-estate-model.mjs';
+import { OWNER, importRecords, toStored } from '../prototypes/publish-speed/lib.mjs';
+import { importedTypes, realEstateModel, sampleMenus, samplePages } from './real-estate-model.mjs';
 
 const [projectArg] = process.argv.slice(2);
 if (!projectArg) throw new Error('Usage: prepare.mjs <assembled real-estate project>');
@@ -51,6 +51,21 @@ try {
   if ((await connection.cms.content.find(OWNER, { typeId: pages.id, limit: 1 })).total === 0) {
     await importRecords(connection.cms, pages, samplePages);
     console.log(`Added ${samplePages.length} sample page${samplePages.length === 1 ? '' : 's'}.`);
+  }
+  // The menus are an entry too. A site with none gets the template's own links to edit.
+  const navigation = types.get('navigation');
+  if ((await connection.cms.content.find(OWNER, { typeId: navigation.id, limit: 1 })).total === 0) {
+    const made = (await connection.cms.content.find(OWNER, { typeId: pages.id, limit: 500 })).items;
+    const links = (items) =>
+      items.flatMap(({ label, href, page }) => {
+        const entry = made.find((candidate) => candidate.locale === 'en' && candidate.slug === page);
+        if (href) return [{ label, link: { kind: 'address', href } }];
+        return entry ? [{ label, link: { kind: 'entry', type: 'pages', entry: entry.translationGroup } }] : [];
+      });
+    const menus = { header: links(sampleMenus.header), footer: links(sampleMenus.footer) };
+    const draft = await connection.cms.content.create(OWNER, { typeId: navigation.id, locale: 'en', slug: 'navigation', data: toStored(navigation.fields, menus) });
+    await connection.cms.content.publish(OWNER, draft.id);
+    console.log('Added the header and footer menus.');
   }
 } finally {
   connection.close();

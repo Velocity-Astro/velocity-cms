@@ -129,6 +129,44 @@ export function samplePage(now: Date = new Date()): Entry {
   };
 }
 
+/** The site's menus: one entry, whose links go to pages by name or to an address typed by hand. */
+export const sampleNavigationType: ContentTypeDef = {
+  id: 'type-navigation',
+  key: 'navigation',
+  kind: 'single',
+  label: { en: 'Navigation' },
+  fields: [
+    field('f-header', 'header', 'list', 'Header links', {
+      options: {
+        of: {
+          type: 'group',
+          options: { fields: [field('f-link-label', 'label', 'text', 'Label', { required: true }), field('f-link-link', 'link', 'link', 'Goes to', { required: true })] },
+        },
+      },
+    }),
+  ],
+};
+
+export function sampleNavigation(now: Date = new Date()): Entry {
+  return {
+    id: 'n1',
+    typeId: 'type-navigation',
+    locale: 'en',
+    translationGroup: 'n1',
+    slug: 'navigation',
+    status: 'draft',
+    data: {
+      'f-header': [
+        { 'f-link-label': 'Why list with us', 'f-link-link': { kind: 'entry', type: 'pages', entry: 'p1' } },
+        { 'f-link-label': 'Instagram', 'f-link-link': { kind: 'address', href: 'https://instagram.com/example' } },
+      ],
+    },
+    revision: 1,
+    createdAt: hoursAgo(30, now),
+    updatedAt: hoursAgo(3, now),
+  };
+}
+
 const hoursAgo = (hours: number, now: Date) => new Date(now.getTime() - hours * 60 * 60 * 1000).toISOString();
 
 /** Listings in each state the list can show. Times are relative to `now`, so the list always reads the same. */
