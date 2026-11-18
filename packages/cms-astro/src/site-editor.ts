@@ -1,4 +1,5 @@
 import { AuthSetupError, type Mailer } from '@velocity/cms-auth';
+import type { ImageLibrary } from '@velocity/cms-core';
 import { sharedConnection } from './connection.js';
 import { EditorHost, LogMailer } from './editor.js';
 import { siteSecret } from './secret.js';
@@ -13,6 +14,8 @@ export interface SiteEditorSettings {
   readonly adminPath: string;
   /** How sign-in links are delivered. Without one they are printed to the server's log. */
   readonly mailer?: Mailer | undefined;
+  /** The site's images, for image fields. Without them there are none to choose from. */
+  readonly images?: ImageLibrary | undefined;
 }
 
 /** The editor cannot be served until the site's settings are completed. The message says how. */
@@ -54,6 +57,7 @@ async function createHost(origin: string, settings: SiteEditorSettings): Promise
       siteName: settings.siteName,
       adminPath: settings.adminPath,
       mailer: settings.mailer ?? new LogMailer(),
+      ...(settings.images && { images: settings.images }),
       onFault: (error) => console.error('[velocity-cms]', error),
     });
   } catch (error) {

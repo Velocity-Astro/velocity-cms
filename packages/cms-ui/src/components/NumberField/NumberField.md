@@ -23,3 +23,7 @@ brought back inside when the person leaves the field.
 ```tsx
 <NumberField label="Price" value={price} onChange={setPrice} minValue={0} isInteger />
 ```
+
+## In a list
+
+Inside a `Repeater`, pass `isLabelHidden`: the list's label is in view above the rows, and each row's own label is still read out. Nowhere else.

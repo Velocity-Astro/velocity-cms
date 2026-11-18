@@ -1,6 +1,6 @@
 import { CmsApi } from '@velocity/cms-api';
 import { CmsAuth, type Mailer, type SignInMail } from '@velocity/cms-auth';
-import type { ContentTypeDef, Entry } from '@velocity/cms-core';
+import type { ContentTypeDef, Entry, ImageLibrary } from '@velocity/cms-core';
 import { AdminFiles, builtEditorDirectory } from './admin-files.js';
 import type { Connection } from './connection.js';
 import { invalidateLiveContent } from './live-loader.js';
@@ -13,6 +13,8 @@ export interface EditorHostOptions {
   readonly origin: string;
   readonly siteName: string;
   readonly mailer: Mailer;
+  /** The site's images, for image fields to choose from. */
+  readonly images?: ImageLibrary;
   /** Where the editor is served. Defaults to `/admin`. */
   readonly adminPath?: string;
   /** Where the API is served. Defaults to `/api/cms`; sign-in sits under it at `/auth`. */
@@ -65,7 +67,13 @@ export class EditorHost {
       adminPath,
       access: cms.access,
     });
-    this.#api = new CmsApi({ cms, authenticator: this.auth, basePath: apiPath, ...(options.onFault && { onFault: options.onFault }) });
+    this.#api = new CmsApi({
+      cms,
+      authenticator: this.auth,
+      basePath: apiPath,
+      ...(options.images && { images: options.images }),
+      ...(options.onFault && { onFault: options.onFault }),
+    });
     this.#files = new AdminFiles(options.editorDirectory ?? builtEditorDirectory(), { siteName: options.siteName, adminPath, apiPath, authPath });
 
     // The site keeps what it read from the CMS for a moment. A publish must be seen at once.

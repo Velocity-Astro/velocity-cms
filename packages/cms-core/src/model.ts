@@ -37,6 +37,8 @@ export interface FieldSection {
   readonly label: LocalizedText;
   /** Top-level fields, in the order they are shown. */
   readonly fieldIds: readonly string[];
+  /** True for a section shown beside the content, with its address and status: order, references. */
+  readonly aside?: boolean;
 }
 
 export type ContentTypeKind = 'collection' | 'single';
@@ -131,4 +133,14 @@ export interface Page<T> {
 /** The live fields of a type or group: everything not removed. */
 export function liveFields(fields: readonly FieldDef[]): FieldDef[] {
   return fields.filter((field) => field.deletedAt === undefined);
+}
+
+/** An image the site has, which an image field can point at. */
+export interface SiteImage {
+  /** What an image field stores, and what the site's pages look the image up by. */
+  readonly name: string;
+  /** Where a browser can load a small copy of it from. */
+  readonly url: string;
+  readonly width?: number;
+  readonly height?: number;
 }

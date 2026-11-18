@@ -1,4 +1,4 @@
-import type { ContentTypeDef, Entry } from '@velocity/cms-core';
+import type { ContentTypeDef, Entry, SiteImage } from '@velocity/cms-core';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { AdminClient } from '../client/admin-client.js';
 import { sampleContentTypes, sampleEntries } from './sample-content.js';
@@ -6,6 +6,7 @@ import { sampleContentTypes, sampleEntries } from './sample-content.js';
 export interface AdminClientSeed {
   readonly contentTypes: readonly ContentTypeDef[];
   readonly entries: readonly Entry[];
+  readonly images?: readonly SiteImage[];
 }
 
 /**
@@ -19,12 +20,26 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
     let client: AdminClient;
 
     beforeEach(async () => {
-      client = await make({ contentTypes: sampleContentTypes, entries: sampleEntries(new Date('2026-11-17T12:00:00.000Z')) });
+      client = await make({
+        contentTypes: sampleContentTypes,
+        entries: sampleEntries(new Date('2026-11-17T12:00:00.000Z')),
+        images: [
+          { name: 'porch', url: '/images/porch.jpg' },
+          { name: 'kitchen', url: '/images/kitchen.jpg', width: 1200, height: 800 },
+        ],
+      });
     });
 
     it('lists content types by key, and the control for each field type', async () => {
       expect((await client.listContentTypes()).map((type) => type.key)).toEqual(['agents', 'listings']);
       expect(await client.listFieldTypes()).toContainEqual({ type: 'number', editor: 'number-input' });
+    });
+
+    it("lists the site's images by name", async () => {
+      expect(await client.listImages()).toEqual([
+        { name: 'kitchen', url: '/images/kitchen.jpg', width: 1200, height: 800 },
+        { name: 'porch', url: '/images/porch.jpg' },
+      ]);
     });
 
     it('lists entries most recently saved first, a page at a time', async () => {

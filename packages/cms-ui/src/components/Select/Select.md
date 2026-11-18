@@ -31,3 +31,7 @@ chooses, Escape closes and leaves the value as it was.
   onChange={setStatus}
 />
 ```
+
+## In a list
+
+Inside a `Repeater`, pass `isLabelHidden`: the list's label is in view above the rows, and each row's own label is still read out. Nowhere else.

@@ -21,3 +21,7 @@ Several lines of plain text, with its label, help and error. It lines up with `T
   onChange={setSummary}
 />
 ```
+
+## In a list
+
+Inside a `Repeater`, pass `isLabelHidden`: the list's label is in view above the rows, and each row's own label is still read out. Nowhere else.

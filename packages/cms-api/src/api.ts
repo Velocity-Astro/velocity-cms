@@ -1,4 +1,4 @@
-import type { Cms } from '@velocity/cms-core';
+import { MediaService, type Cms, type ImageLibrary } from '@velocity/cms-core';
 import { z } from 'zod';
 import type { ApiSession, Authenticator } from './authenticator.js';
 import { ApiError, errorResponse, isFault, json } from './http.js';
@@ -7,6 +7,8 @@ import { Router } from './router.js';
 export interface CmsApiOptions {
   readonly cms: Cms;
   readonly authenticator: Authenticator;
+  /** The site's images, for image fields to choose from. Without it there are none to offer. */
+  readonly images?: ImageLibrary;
   /** Where the API is mounted on the site. Defaults to `/api/cms`. */
   readonly basePath?: string;
   /** The language an entry is written in when the request names none. Defaults to `en`. */
@@ -60,6 +62,7 @@ export class CmsApi {
     this.#basePath = `/${(options.basePath ?? '/api/cms').split('/').filter(Boolean).join('/')}`;
     const { schema, content, fields } = options.cms;
     const defaultLocale = options.defaultLocale ?? 'en';
+    const media = new MediaService(options.cms.access, options.images);
 
     this.#router
       .add('GET', '/session', async ({ session }) => json({ user: session?.user ?? null }))
@@ -71,6 +74,7 @@ export class CmsApi {
         actor(call);
         return json({ items: fields.list().map(({ type, editor }) => ({ type, editor })) });
       })
+      .add('GET', '/images', async (call) => json({ items: await media.images(actor(call)) }))
       .add('GET', '/entries', async (call) => {
         const query = parse(entryList, Object.fromEntries(call.url.searchParams));
         const type = await schema.getByKey(query.type);

@@ -47,3 +47,8 @@ it('has no accessibility violations', async () => {
   const { container } = render(<NumberField label="Price" description="In dollars" isRequired />);
   await expectAccessible(container);
 });
+
+it('keeps its label for screen readers when the label is hidden', () => {
+  render(<NumberField label="Photo 2" isLabelHidden />);
+  expect(screen.getByText('Photo 2').className).toContain('sr-only');
+});

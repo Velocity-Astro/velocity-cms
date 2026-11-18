@@ -32,3 +32,8 @@ it('has no accessibility violations', async () => {
   const { container } = render(<TextArea label="Summary" description="Shown in search results" isRequired />);
   await expectAccessible(container);
 });
+
+it('keeps its label for screen readers when the label is hidden', () => {
+  render(<TextArea label="Photo 2" isLabelHidden />);
+  expect(screen.getByText('Photo 2').className).toContain('sr-only');
+});

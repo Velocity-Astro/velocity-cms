@@ -35,7 +35,7 @@ export function convert(project) {
 
   // 1. The integration, and a cache rule for every page rendered on demand.
   edit('astro.config.mjs', (config) => {
-    let next = `import velocityCms from '@velocity/cms-astro';\n${must(config, '  integrations: [', '  integrations: [\n    velocityCms({ unlisted: [...searchPages] }),')}`;
+    let next = `import velocityCms from '@velocity/cms-astro';\n${must(config, '  integrations: [', '  integrations: [\n    velocityCms({ unlisted: [...searchPages], images: "./src/assets/photos" }),')}`;
     next = must(
       next,
       '  cache: {',

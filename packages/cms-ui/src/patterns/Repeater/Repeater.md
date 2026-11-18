@@ -24,7 +24,7 @@ A list a person builds: add an item, fill it in, put the items in order, take on
 ```tsx
 <Repeater
   label="Photos"
-  items={photos.map((photo, index) => ({ id: String(index), content: <TextField label={`Photo ${index + 1}`} value={photo} /> }))}
+  items={photos.map((photo, index) => ({ id: String(index), content: <TextField label={`Photo ${index + 1}`} isLabelHidden value={photo} /> }))}
   emptyText="No photos yet"
   addLabel="Add photo"
   onAdd={add}

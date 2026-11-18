@@ -26,4 +26,5 @@ export {
   type StaticPath,
 } from './live-pages.js';
 export { hasSiteSecret } from './secret.js';
+export { folderImages, type ImageFile } from './site-images.js';
 export { indexPages, indexSite, searchSite, toSearchDocument } from './site-search.js';

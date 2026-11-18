@@ -1,7 +1,8 @@
 import { liveFields, type FieldDef } from '@velocity/cms-core';
-import { DateField, Fieldset, NumberField, Repeater, Select, Switch, Text, TextArea, TextField } from '@velocity/cms-ui';
+import { DateField, Fieldset, ImagePicker, NumberField, Repeater, Select, Switch, Text, TextArea, TextField } from '@velocity/cms-ui';
 import { useState } from 'react';
-import { localized, sameData, withValue } from '../lib/content.js';
+import { useContentTypes, useEntries, useImages } from '../client/queries.js';
+import { entryTitle, groupTranslations, localized, sameData, withValue } from '../lib/content.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
 import { createFieldControlRegistry, type FieldControlProps, type FieldControls } from './field-control.js';
 import { FieldEditor } from './FieldEditor.js';
@@ -13,9 +14,10 @@ function numberOption(field: FieldDef, name: string): number | undefined {
   return typeof option === 'number' ? option : undefined;
 }
 
-function TextControl({ field, label, help, value, onChange, problem }: FieldControlProps) {
+function TextControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {
   const shared = {
     label,
+    isLabelHidden,
     ...(help !== undefined && { description: help }),
     value: typeof value === 'string' ? value : '',
     onChange: (next: string) => onChange(next === '' ? undefined : next),
@@ -25,11 +27,12 @@ function TextControl({ field, label, help, value, onChange, problem }: FieldCont
   return field.options['multiline'] === true ? <TextArea {...shared} /> : <TextField {...shared} />;
 }
 
-function UrlControl({ field, label, help, value, onChange, problem }: FieldControlProps) {
+function UrlControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {
   return (
     <TextField
       type="url"
       label={label}
+      isLabelHidden={isLabelHidden}
       value={typeof value === 'string' ? value : ''}
       onChange={(next) => onChange(next === '' ? undefined : next)}
       isRequired={field.required}
@@ -39,12 +42,13 @@ function UrlControl({ field, label, help, value, onChange, problem }: FieldContr
   );
 }
 
-function NumberControl({ field, label, help, value, onChange, problem }: FieldControlProps) {
+function NumberControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {
   const min = numberOption(field, 'min');
   const max = numberOption(field, 'max');
   return (
     <NumberField
       label={label}
+      isLabelHidden={isLabelHidden}
       value={typeof value === 'number' ? value : null}
       onChange={(next) => onChange(next ?? undefined)}
       width="full"
@@ -58,11 +62,12 @@ function NumberControl({ field, label, help, value, onChange, problem }: FieldCo
   );
 }
 
-function DateControl({ field, label, help, value, onChange, problem }: FieldControlProps) {
+function DateControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {
   return (
     <DateField
       width="full"
       label={label}
+      isLabelHidden={isLabelHidden}
       value={typeof value === 'string' ? value : null}
       onChange={(next) => onChange(next ?? undefined)}
       isRequired={field.required}
@@ -76,7 +81,7 @@ function SwitchControl({ label, value, onChange }: FieldControlProps) {
   return <Switch label={label} isSelected={value === true} onChange={onChange} />;
 }
 
-function SelectControl({ field, label, help, value, onChange, problem }: FieldControlProps) {
+function SelectControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {
   const messages = useMessages();
   const locale = useLocale();
   const choices = Array.isArray(field.options['choices']) ? field.options['choices'].filter((choice) => typeof choice === 'string') : [];
@@ -89,6 +94,7 @@ function SelectControl({ field, label, help, value, onChange, problem }: FieldCo
   return (
     <Select
       label={label}
+      isLabelHidden={isLabelHidden}
       {...(help !== undefined && { description: help })}
       options={choices.map((choice) => ({ id: choice, label: named(choice) }))}
       placeholder={messages.editor.choose}
@@ -96,6 +102,78 @@ function SelectControl({ field, label, help, value, onChange, problem }: FieldCo
       isRequired={field.required}
       {...(typeof value === 'string' && { value })}
       {...(problem !== undefined && { errorMessage: problem })}
+    />
+  );
+}
+
+/** As many entries as can be offered to link to. A longer list needs a search, which comes with search on the server. */
+const LINKABLE = 200;
+
+/**
+ * A link to an entry of another type, chosen by name. What is stored is the entry's slug. A
+ * link to an entry that is no longer there is still offered, by its slug, so opening and
+ * saving never drops it.
+ */
+function ReferenceControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const to = typeof field.options['to'] === 'string' ? field.options['to'] : '';
+  const types = useContentTypes();
+  const entries = useEntries({ type: to, limit: LINKABLE });
+  const type = types.data?.find((candidate) => candidate.key === to);
+
+  const found = type
+    ? groupTranslations(entries.data?.items ?? [], locale).map(({ primary }) => ({ id: primary.slug, label: entryTitle(type, primary.data) ?? primary.slug }))
+    : [];
+  const options = found
+    // Two entries may share a name; the list still needs one row per slug.
+    .filter((option, index) => found.findIndex((other) => other.id === option.id) === index)
+    .sort((a, b) => a.label.localeCompare(b.label, locale));
+  const current = typeof value === 'string' ? value : undefined;
+  const missing = current !== undefined && !options.some((option) => option.id === current);
+  const wrong = problem ?? (entries.isError ? messages.editor.linkNotLoaded : undefined);
+
+  return (
+    <Select
+      label={label}
+      isLabelHidden={isLabelHidden}
+      options={missing ? [{ id: current, label: entries.isSuccess ? messages.editor.linkMissing(current) : current }, ...options] : options}
+      placeholder={messages.editor.choose}
+      onChange={onChange}
+      isRequired={field.required}
+      {...(current !== undefined && { value: current })}
+      {...(help !== undefined && { description: help })}
+      {...(wrong !== undefined && { errorMessage: wrong })}
+    />
+  );
+}
+
+/**
+ * One of the site's images, shown as a picture and chosen from the site's images. What is stored
+ * is the image's name. A name with no image is still shown, so opening and saving never drops it.
+ */
+function ImageControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {
+  const messages = useMessages();
+  const images = useImages();
+  const current = typeof value === 'string' && value !== '' ? value : null;
+  const missing = current !== null && images.isSuccess && !images.data.some((image) => image.name === current);
+  const wrong = problem ?? (images.isError ? messages.editor.imagesNotLoaded : missing ? messages.editor.imageMissing : undefined);
+  return (
+    <ImagePicker
+      label={label}
+      isLabelHidden={isLabelHidden}
+      value={current}
+      images={images.data ?? []}
+      onChange={onChange}
+      isRequired={field.required}
+      chooseLabel={messages.editor.imageChoose}
+      changeLabel={messages.editor.imageChange}
+      noneText={messages.editor.imageNone}
+      dialogTitle={messages.editor.imageChoose}
+      closeLabel={messages.editor.close}
+      emptyText={images.isPending ? messages.editor.imagesLoading : messages.editor.imagesEmpty}
+      {...(help !== undefined && { description: help })}
+      {...(wrong !== undefined && { errorMessage: wrong })}
     />
   );
 }
@@ -184,6 +262,7 @@ function ListControl({ field, label, help, value, onChange, path, problem, probl
             onChange={(next) => change(items.map((existing, at) => (at === index ? next : existing)))}
             path={`${path}.${index}`}
             problems={problems}
+            isLabelHidden
           />
         ),
       }))}
@@ -203,6 +282,8 @@ export function createFieldControls(): FieldControls {
     .register({ type: 'date-picker', Component: DateControl, width: 'compact' })
     .register({ type: 'switch', Component: SwitchControl })
     .register({ type: 'select', Component: SelectControl, width: 'compact' })
+    .register({ type: 'reference', Component: ReferenceControl, width: 'compact' })
+    .register({ type: 'image', Component: ImageControl })
     .register({ type: 'group', Component: GroupControl })
     .register({ type: 'list', Component: ListControl });
 }

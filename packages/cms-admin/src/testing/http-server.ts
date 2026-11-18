@@ -1,7 +1,7 @@
 import { CmsApi } from '@velocity/cms-api';
 import { FixedAuthenticator } from '@velocity/cms-api/testing';
 import { createCms } from '@velocity/cms-core';
-import { InMemoryEntryRepository, InMemorySchemaRepository } from '@velocity/cms-core/in-memory';
+import { InMemoryEntryRepository, InMemoryImageLibrary, InMemorySchemaRepository } from '@velocity/cms-core/in-memory';
 import type { SessionUser } from '../client/admin-client.js';
 import { HttpAdminClient } from '../client/http-client.js';
 import type { AdminClientSeed } from './admin-client-contract.js';
@@ -19,7 +19,7 @@ export async function createHttpServer(seed: AdminClientSeed, user: SessionUser)
   for (const entry of seed.entries) await entries.save(entry, { expectedRevision: null, actorId: 'seed' });
 
   const authenticator = new FixedAuthenticator({ user, actor: { kind: 'user', id: user.id, role: 'owner' } });
-  const api = new CmsApi({ cms: createCms({ types, entries }), authenticator });
+  const api = new CmsApi({ cms: createCms({ types, entries }), authenticator, images: new InMemoryImageLibrary(seed.images) });
   const requests: Request[] = [];
   const client = new HttpAdminClient({
     auth: {

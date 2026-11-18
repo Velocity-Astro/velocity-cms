@@ -1,10 +1,15 @@
 import { FieldError, Input, Label, NumberField as AriaNumberField, Text } from 'react-aria-components';
-import { fieldDescriptionClass, fieldErrorClass, fieldLabelClass, fieldRequiredMarkClass } from '../field.js';
+import { fieldDescriptionClass, fieldErrorClass, fieldHiddenLabelClass, fieldLabelClass, fieldRequiredMarkClass } from '../field.js';
 import { numberFieldVariants, numberInputClass, type NumberFieldVariants } from './NumberField.variants.js';
 
 export interface NumberFieldProps extends NumberFieldVariants {
-  /** Always shown. */
+  /** Always given. It is read out even when it is not shown. */
   readonly label: string;
+  /**
+   * Keeps the label for screen readers only. For a row of a `Repeater`, whose own label is in
+   * view above the rows; anywhere else a field shows its label.
+   */
+  readonly isLabelHidden?: boolean;
   /** Help that stays visible under the field. */
   readonly description?: string;
   /** What is wrong and how to fix it. Setting it marks the field invalid. */
@@ -27,6 +32,7 @@ export interface NumberFieldProps extends NumberFieldVariants {
 /** A number, written in the person's own format, with its label, help and error. */
 export function NumberField({
   label,
+  isLabelHidden = false,
   description,
   errorMessage,
   value,
@@ -56,7 +62,7 @@ export function NumberField({
       {...(maxValue !== undefined && { maxValue })}
       {...(name !== undefined && { name })}
     >
-      <Label className={fieldLabelClass}>
+      <Label className={isLabelHidden ? fieldHiddenLabelClass : fieldLabelClass}>
         {label}
         {isRequired && (
           <span aria-hidden className={fieldRequiredMarkClass}>

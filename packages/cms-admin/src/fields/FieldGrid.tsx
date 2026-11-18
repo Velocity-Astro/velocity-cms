@@ -12,17 +12,17 @@ export interface FieldGridProps {
   /** Where a field is in the entry, as field keys: `address.city`. */
   readonly pathOf: (field: FieldDef) => string;
   readonly problems: ReadonlyMap<string, string>;
+  /** How many small controls share a row. Three, unless the form is in a narrow column. */
+  readonly perRow?: 1 | 3;
 }
 
-/** How many small controls share a row. */
-const PER_ROW = 3;
 
 /**
  * A run of fields laid out as a form: small controls that follow each other (numbers, dates,
  * choices) share a row, and everything else takes a row of its own. The order of the fields is
  * kept, so the form reads the way the content type was set up.
  */
-export function FieldGrid({ fields, values, onChange, pathOf, problems }: FieldGridProps) {
+export function FieldGrid({ fields, values, onChange, pathOf, problems, perRow = 3 }: FieldGridProps) {
   const controls = useFieldControls();
   const fieldTypes = useFieldTypes();
 
@@ -34,7 +34,7 @@ export function FieldGrid({ fields, values, onChange, pathOf, problems }: FieldG
   for (const field of fields) {
     const last = rows.at(-1);
     const [first] = last ?? [];
-    if (last && first && isCompact(field) && isCompact(first) && last.length < PER_ROW) last.push(field);
+    if (last && first && isCompact(field) && isCompact(first) && last.length < perRow) last.push(field);
     else rows.push([field]);
   }
 
@@ -54,8 +54,8 @@ export function FieldGrid({ fields, values, onChange, pathOf, problems }: FieldG
         const [first] = row;
         if (!first) return null;
         // A small control alone on its row still takes a third of it, not the whole width.
-        return isCompact(first) ? (
-          <Grid key={first.id} columns={PER_ROW} gap={4}>
+        return isCompact(first) && perRow > 1 ? (
+          <Grid key={first.id} columns={perRow} gap={4}>
             {row.map(editor)}
           </Grid>
         ) : (

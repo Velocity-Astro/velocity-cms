@@ -10,7 +10,7 @@ import {
   SelectValue,
   Text,
 } from 'react-aria-components';
-import { fieldDescriptionClass, fieldErrorClass, fieldLabelClass, fieldRequiredMarkClass } from '../field.js';
+import { fieldDescriptionClass, fieldErrorClass, fieldHiddenLabelClass, fieldLabelClass, fieldRequiredMarkClass } from '../field.js';
 import {
   selectChevronClass,
   selectIconSize,
@@ -30,8 +30,13 @@ export interface SelectOption {
 }
 
 export interface SelectProps extends SelectVariants {
-  /** Always shown. */
+  /** Always given. It is read out even when it is not shown. */
   readonly label: string;
+  /**
+   * Keeps the label for screen readers only. For a row of a `Repeater`, whose own label is in
+   * view above the rows; anywhere else a field shows its label.
+   */
+  readonly isLabelHidden?: boolean;
   readonly options: readonly SelectOption[];
   /** The id of the chosen option. */
   readonly value?: string;
@@ -51,6 +56,7 @@ export interface SelectProps extends SelectVariants {
 /** One choice from a list, with its label, help and error. */
 export function Select({
   label,
+  isLabelHidden = false,
   options,
   value,
   defaultValue,
@@ -75,7 +81,7 @@ export function Select({
       {...(placeholder !== undefined && { placeholder })}
       {...(name !== undefined && { name })}
     >
-      <Label className={fieldLabelClass}>
+      <Label className={isLabelHidden ? fieldHiddenLabelClass : fieldLabelClass}>
         {label}
         {isRequired && (
           <span aria-hidden className={fieldRequiredMarkClass}>

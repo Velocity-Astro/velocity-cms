@@ -12,6 +12,8 @@ const number = field('number');
 const date = field('date');
 const toggle = field('boolean');
 const url = field('url');
+const image = field('image');
+const link = (key, label, to, extra = {}) => field('reference')(key, label, { ...extra, options: { to } });
 const long = (key, label, extra = {}) => text(key, label, { ...extra, options: { multiline: true } });
 const choice = (key, label, choices, extra = {}) =>
   field('select')(key, label, {
@@ -23,7 +25,7 @@ const group = (key, label, fields, extra = {}) => field('group')(key, label, { .
 const list = (key, label, of, extra = {}) => field('list')(key, label, { ...extra, options: { of: { type: of.type, options: of.options ?? {} } } });
 const section = (key, label, fields) => ({ key, label: en(label), fields });
 
-const onTheSite = (fields) => section('site', 'On the site', fields);
+const onTheSite = (fields) => ({ ...section('site', 'On the site', fields), aside: true });
 const order = number('order', 'Order', { required: true, help: 'Lower numbers come first in lists.' });
 
 const listings = {
@@ -61,11 +63,11 @@ const listings = {
       text('region', 'State', { required: true }),
       text('postcode', 'ZIP code', { required: true }),
     ], { required: true }),
-    text('neighborhood', 'Neighborhood', { required: true, help: 'The neighborhood\'s short name, such as "lakeshore".' }),
+    link('neighborhood', 'Neighborhood', 'neighborhoods', { required: true }),
     number('lat', 'Latitude', { required: true }),
     number('lng', 'Longitude', { required: true, help: 'Latitude and longitude place the pin on the map.' }),
 
-    list('photos', 'Photos', text('photo', 'Photo'), { required: true, help: 'The first is the cover. The second shows on hover.' }),
+    list('photos', 'Photos', image('photo', 'Photo'), { required: true, help: 'The first is the cover. The second shows on hover.' }),
     text('floorPlan', 'Floor plan'),
     url('tourUrl', 'Virtual tour link'),
 
@@ -89,7 +91,7 @@ const listings = {
       list('leaseMonths', 'Lease lengths in months', number('months', 'Months'), { required: true }),
     ], { help: 'For rentals only.' }),
 
-    text('agent', 'Listing agent', { required: true, help: 'The agent\'s short name, such as "maya-ellison".' }),
+    link('agent', 'Listing agent', 'agents', { required: true }),
     text('path', 'Web address', { required: true, help: 'The last part of the listing\'s address in this language.' }),
     order,
   ],
@@ -102,7 +104,7 @@ const listings = {
     section('description', 'Description', ['description', 'highlights', 'features']),
     section('visits', 'Open houses', ['openHouses']),
     section('rental', 'Rental', ['rental']),
-    section('agent', 'Agent', ['agent']),
+    { ...section('agent', 'Agent', ['agent']), aside: true },
     onTheSite(['path', 'order']),
   ],
 };
@@ -117,7 +119,7 @@ const agents = {
     text('role', 'Role', { required: true }),
     text('summary', 'Summary', { required: true, help: 'One sentence, shown on cards.' }),
     list('bio', 'Biography', long('paragraph', 'Paragraph'), { required: true, help: 'One item per paragraph.' }),
-    text('photo', 'Photo', { help: 'Without one, the card shows initials.' }),
+    image('photo', 'Photo', { help: 'Without one, the card shows initials.' }),
     group('phone', 'Phone', [text('display', 'As shown', { required: true }), text('href', 'Link', { required: true, help: 'As tel:+12145550143.' })], { required: true }),
     text('email', 'Email', { required: true }),
     text('licence', 'Licence', { required: true }),
@@ -125,7 +127,7 @@ const agents = {
       buying: 'Buying', selling: 'Selling', leasing: 'Leasing', management: 'Management', relocation: 'Relocation', luxury: 'Luxury',
     }), { required: true, help: 'Used by the filter on the agents page.' }),
     list('languages', 'Languages', text('language', 'Language'), { required: true }),
-    list('areas', 'Neighborhoods', text('area', 'Neighborhood'), { help: 'The short names of the neighborhoods they know best.' }),
+    list('areas', 'Neighborhoods', link('area', 'Neighborhood', 'neighborhoods'), { help: 'The neighborhoods they know best.' }),
     order,
   ],
   sections: [
@@ -146,7 +148,7 @@ const neighborhoods = {
     text('city', 'City', { required: true }),
     text('summary', 'Summary', { required: true, help: 'One sentence, shown on cards.' }),
     list('intro', 'Introduction', long('paragraph', 'Paragraph'), { required: true, help: 'One item per paragraph.' }),
-    text('photo', 'Photo', { required: true }),
+    image('photo', 'Photo', { required: true }),
     list('tags', 'Tags', text('tag', 'Tag'), { help: 'Short tags such as "Walkable" or "Lake access".' }),
     list('highlights', 'Highlights', group('highlight', 'Highlight', [text('title', 'Heading', { required: true }), long('body', 'Text', { required: true })])),
     list('facts', 'Quick facts', group('fact', 'Fact', [text('label', 'Label', { required: true }), text('value', 'Value', { required: true })]), {
@@ -174,14 +176,14 @@ const reviews = {
     text('context', 'What they did', { required: true, help: 'Such as "Bought in Lakewood".' }),
     number('rating', 'Rating', { required: true, options: { min: 1, max: 5, integer: true }, help: 'From 1 to 5.' }),
     choice('kind', 'Kind', { buying: 'Buying', selling: 'Selling', renting: 'Renting', management: 'Management' }, { required: true }),
-    text('agent', 'Agent', { help: 'The agent\'s short name, to show the review on their page.' }),
-    text('photo', 'Photo', { help: 'A photo of the home it was about.' }),
+    link('agent', 'Agent', 'agents', { help: 'Shows the review on their page.' }),
+    image('photo', 'Photo', { help: 'A photo of the home it was about.' }),
     text('reviewId', 'Reference', { required: true, help: 'Shared by every language of this review.' }),
     order,
   ],
   sections: [
     section('review', 'Review', ['quote', 'author', 'context', 'rating', 'kind']),
-    section('with', 'Shown with', ['agent', 'photo']),
+    { ...section('with', 'Shown with', ['agent', 'photo']), aside: true },
     onTheSite(['reviewId', 'order']),
   ],
 };

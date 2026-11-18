@@ -49,3 +49,8 @@ it('has no accessibility violations, with and without an error', async () => {
   rerender(<TextField label="Street" errorMessage="Enter the street address." />);
   await expectAccessible(container);
 });
+
+it('keeps its label for screen readers when the label is hidden', () => {
+  render(<TextField label="Photo 2" isLabelHidden />);
+  expect(screen.getByText('Photo 2').className).toContain('sr-only');
+});

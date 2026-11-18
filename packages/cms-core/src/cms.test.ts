@@ -189,6 +189,18 @@ describe('ContentService', () => {
     expect(hasUnpublishedChanges(republished)).toBe(false);
   });
 
+  it('still reads an entry for visitors when a field has a type this code does not know', async () => {
+    const draft = await cms.content.create(editor, { typeId: listings.id, locale: 'en', slug: 'a', data: valid() });
+    const live = await cms.content.publish(editor, draft.id);
+    // What an older deploy sees after a newer one has changed the content type.
+    const newer: ContentTypeDef = {
+      ...listings,
+      fields: listings.fields.map((field) => (field.key === 'headline' ? { ...field, type: 'from-the-future', options: {} } : field)),
+    };
+    const expected = cms.content.toPublic(listings, live);
+    expect(cms.content.toPublic(newer, live)).toEqual(expected);
+  });
+
   it('has nothing for visitors before the first publish or after an unpublish', async () => {
     const draft = await cms.content.create(editor, { typeId: listings.id, locale: 'en', slug: 'a', data: valid() });
     expect(() => cms.content.toPublic(listings, draft)).toThrow(NotFoundError);
@@ -395,6 +407,22 @@ describe('extending with a new field type', () => {
   });
 });
 
+describe('a link to another entry', () => {
+  it('holds the slug of an entry, and needs to know which type it points into', async () => {
+    const reviews = await cms.schema.create(owner, {
+      key: 'reviews',
+      kind: 'collection',
+      label: { en: 'Reviews' },
+      fields: [{ key: 'listing', type: 'reference', label: { en: 'Listing' }, options: { to: 'listings' } }],
+    });
+    const review = await cms.content.create(owner, { typeId: reviews.id, locale: 'en', slug: 'r1', data: { [id(reviews, 'listing')]: 'lakeshore-farmhouse' } });
+    expect(cms.content.toPublic(reviews, review, 'working').data).toEqual({ listing: 'lakeshore-farmhouse' });
+    await expect(
+      cms.schema.addField(owner, reviews.id, { key: 'agent', type: 'reference', label: { en: 'Agent' } }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+});
+
 describe('describing a content type again', () => {
   const agents = {
     key: 'agents',
@@ -455,11 +483,17 @@ describe('describing a content type again', () => {
     const type = await cms.schema.define(owner, {
       ...agents,
       titleField: 'phone.display',
-      sections: [{ key: 'about', label: { en: 'About' }, fields: ['name', 'kind'] }],
+      sections: [
+        { key: 'about', label: { en: 'About' }, fields: ['name', 'kind'] },
+        { key: 'site', label: { en: 'On the site' }, fields: ['phone'], aside: true },
+      ],
     });
     const phone = type.fields.find((field) => field.key === 'phone');
     expect(type.titlePath).toEqual([phone?.id, (phone?.options['fields'] as FieldDef[])[0]?.id]);
-    expect(type.sections).toEqual([{ key: 'about', label: { en: 'About' }, fieldIds: [id(type, 'name'), id(type, 'kind')] }]);
+    expect(type.sections).toEqual([
+      { key: 'about', label: { en: 'About' }, fieldIds: [id(type, 'name'), id(type, 'kind')] },
+      { key: 'site', label: { en: 'On the site' }, fieldIds: [id(type, 'phone')], aside: true },
+    ]);
   });
 
   it('refuses a section or a title that names a field the type does not have', async () => {

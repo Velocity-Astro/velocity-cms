@@ -1,6 +1,6 @@
 import type { ContentTypeDef, Entry, EntryData, FieldDef } from '@velocity/cms-core';
 import { SLUG_PATH, isSlug, liveFields } from '@velocity/cms-core';
-import { Box, Button, Card, ConfirmDialog, Form, SaveBar, Segmented, Stack, Tag, Text, TextField, toast } from '@velocity/cms-ui';
+import { Box, Button, Card, ConfirmDialog, Form, SaveBar, Segmented, Split, Stack, Tag, Text, TextField, toast } from '@velocity/cms-ui';
 import { useState } from 'react';
 import { paths } from '../../app/paths.js';
 import { AdminRequestError } from '../../client/errors.js';
@@ -140,16 +140,24 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
   const live = liveFields(type.fields);
   const placed = new Set((type.sections ?? []).flatMap((section) => section.fieldIds));
   const rest = live.filter((field) => !placed.has(field.id));
-  const sections: { key: string; title?: string; fields: FieldDef[] }[] = [
+  const sections: { key: string; title?: string; aside: boolean; fields: FieldDef[] }[] = [
     ...(type.sections ?? []).map((section) => ({
       key: section.key,
       title: localized(section.label, locale),
+      aside: section.aside === true,
       fields: section.fieldIds.flatMap((id) => live.filter((field) => field.id === id)),
     })),
-    ...(rest.length > 0 ? [{ key: '$rest', ...(type.sections?.length && { title: messages.editor.otherFields }), fields: rest }] : []),
+    ...(rest.length > 0 ? [{ key: '$rest', ...(type.sections?.length && { title: messages.editor.otherFields }), aside: false, fields: rest }] : []),
   ];
   const savedNote =
     entry === null ? messages.editor.notSavedYet : hasChanges ? messages.editor.unsavedChanges : messages.editor.saved(relativeTime(entry.updatedAt, locale));
+
+  const card = (section: (typeof sections)[number]) => (
+    <Card key={section.key} {...(section.title !== undefined && { title: section.title })}>
+      {/* Beside the content there is room for one field per row. */}
+      <FieldGrid fields={section.fields} values={data} onChange={changeField} pathOf={(field) => field.key} problems={problems} {...(section.aside && { perRow: 1 as const })} />
+    </Card>
+  );
 
   return (
     <Stack gap={0} fill>
@@ -195,30 +203,33 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch }: E
         }
       />
       <Box paddingX={12} paddingY={8} grow>
-        <Box maxWidth="lg">
-          <Form label={messages.editor.form} gap={5} onSubmit={() => void run('save')}>
-            {sections.map((section) => (
-              <Card key={section.key} {...(section.title !== undefined && { title: section.title })}>
-                <FieldGrid fields={section.fields} values={data} onChange={changeField} pathOf={(field) => field.key} problems={problems} />
-              </Card>
-            ))}
-            <Card title={messages.editor.addressSection}>
-              <TextField
-                label={messages.editor.slug}
-                value={slug}
-                onChange={(next) => {
-                  setTypedSlug(next);
-                  setSlugProblem(null);
-                }}
-                isRequired
-                {...(type.urlPattern !== undefined && {
-                  description: messages.editor.slugDescription(type.urlPattern.replace('[slug]', slug === '' ? '…' : slug)),
-                })}
-                {...(slugProblem !== null && { errorMessage: slugProblem })}
-              />
-            </Card>
-          </Form>
-        </Box>
+        <Form label={messages.editor.form} gap={5} onSubmit={() => void run('save')}>
+          <Split
+            asideLabel={messages.editor.aside}
+            aside={
+              <>
+                <Card title={messages.editor.addressSection}>
+                  <TextField
+                    label={messages.editor.slug}
+                    value={slug}
+                    onChange={(next) => {
+                      setTypedSlug(next);
+                      setSlugProblem(null);
+                    }}
+                    isRequired
+                    {...(type.urlPattern !== undefined && {
+                      description: messages.editor.slugDescription(type.urlPattern.replace('[slug]', slug === '' ? '…' : slug)),
+                    })}
+                    {...(slugProblem !== null && { errorMessage: slugProblem })}
+                  />
+                </Card>
+                {sections.filter((section) => section.aside).map(card)}
+              </>
+            }
+          >
+            {sections.filter((section) => !section.aside).map(card)}
+          </Split>
+        </Form>
       </Box>
       {entry !== null && (
         <ConfirmDialog

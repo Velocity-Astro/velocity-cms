@@ -5,6 +5,8 @@ import type { AstroIntegration } from 'astro';
 const PACKAGE = '@velocity/cms-astro';
 const OPTIONS = 'virtual:velocity-cms/options';
 const MAILER = 'virtual:velocity-cms/mailer';
+const IMAGES = 'virtual:velocity-cms/images';
+const IMAGE_FILES = '*.{jpg,jpeg,png,webp,avif,gif}';
 const ADMIN_PATH = '/admin';
 const route = (file: string) => fileURLToPath(new URL(`../routes/${file}`, import.meta.url));
 
@@ -18,6 +20,11 @@ export interface VelocityCmsOptions {
    * project's root: `'./src/cms-mailer.ts'`. Without one, links are printed to the server's log.
    */
   readonly mailer?: string;
+  /**
+   * The folder of images that image fields choose from, from the project's root:
+   * `'./src/assets/photos'`. An image is called by its file name without the ending.
+   */
+  readonly images?: string;
 }
 
 /**
@@ -34,7 +41,7 @@ export interface VelocityCmsOptions {
  *
  * And it switches the editor on:
  *
- * - `/admin`: the editor
+ * - `/admin`: the editor, whose image fields choose from the folder named by `images`
  * - `/api/cms/*`: the API the editor calls
  * - `/api/cms/auth/*`: sign-in with an email link or a passkey
  *
@@ -73,7 +80,7 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
             plugins: [
               {
                 name: 'velocity-cms:options',
-                resolveId: (id: string) => (id === OPTIONS || id === MAILER ? `\0${id}` : undefined),
+                resolveId: (id: string) => (id === OPTIONS || id === MAILER || id === IMAGES ? `\0${id}` : undefined),
                 load: (id: string) => {
                   if (id === `\0${OPTIONS}`) {
                     const editor = { site, siteName: options.siteName ?? 'Velocity CMS', adminPath: ADMIN_PATH };
@@ -83,6 +90,17 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
                     return options.mailer
                       ? `export { default } from ${JSON.stringify(path.resolve(root, options.mailer))};`
                       : 'export default undefined;';
+                  }
+                  if (id === `\0${IMAGES}`) {
+                    if (!options.images) return 'export default undefined;';
+                    const folder = path.relative(root, path.resolve(root, options.images)).split(path.sep).join('/');
+                    return [
+                      "import { getImage } from 'astro:assets';",
+                      `import { folderImages } from ${JSON.stringify(PACKAGE)};`,
+                      `const files = import.meta.glob(${JSON.stringify(`/${folder}/${IMAGE_FILES}`)}, { eager: true, import: 'default' });`,
+                      // A small copy for the editor, made by the site's own image service.
+                      'export default folderImages(files, async (file) => (await getImage({ src: file, width: 480 })).src);',
+                    ].join('\n');
                   }
                   return undefined;
                 },

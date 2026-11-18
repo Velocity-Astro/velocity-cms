@@ -1,5 +1,5 @@
 export const saveBarClass =
-  'sticky top-0 layer-sticky flex flex-wrap items-center gap-4 border-b border-border bg-background px-6 py-3';
+  'sticky top-0 layer-sticky flex flex-wrap items-center gap-4 rounded-t-2xl border-b border-border bg-background px-6 py-3';
 
 export const saveBarBackClass = [
   'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-border-strong bg-background pr-3 pl-2 text-sm font-medium text-foreground',

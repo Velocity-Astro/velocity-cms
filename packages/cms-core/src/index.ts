@@ -17,6 +17,8 @@ export {
   ListField,
   NumberField,
   SelectField,
+  ReferenceField,
+  ImageField,
   TextField,
   UrlField,
   createFieldRegistry,
@@ -37,6 +39,7 @@ export {
   type PublicEntry,
   type PublishedVersion,
   type Revision,
+  type SiteImage,
   type Timestamp,
 } from './model.js';
 export type {
@@ -44,6 +47,7 @@ export type {
   EntryQuery,
   EntryRepository,
   IdGenerator,
+  ImageLibrary,
   SaveOptions,
   SchemaRepository,
   SearchDocument,
@@ -63,5 +67,6 @@ export {
   type CreateEntryInput,
   type UpdateEntryInput,
 } from './services/content-service.js';
+export { MediaService } from './services/media-service.js';
 export { SchemaService, type NewContentType, type NewSection } from './services/schema-service.js';
 export type { NewField } from './define-fields.js';

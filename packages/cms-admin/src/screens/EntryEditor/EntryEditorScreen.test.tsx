@@ -283,3 +283,27 @@ it('lays the fields out in the sections the content type names, and calls the en
   expect(within(screen.getByRole('region', { name: 'Other details' })).getByRole('textbox', { name: 'Title' })).toBeTruthy();
   expect(within(screen.getByRole('region', { name: 'Address on the site' })).getByRole('textbox', { name: 'Slug' })).toBeTruthy();
 });
+
+it('links to an entry of another type by name, and keeps a link it cannot find', async () => {
+  const user = userEvent.setup();
+  const [listings, agents] = sampleContentTypes;
+  if (!listings || !agents) throw new Error('No sample types.');
+  const linked = {
+    ...listings,
+    fields: [...listings.fields, { id: 'f-agent', key: 'agent', type: 'reference', label: { en: 'Agent' }, translated: false, required: false, options: { to: 'agents' } }],
+  };
+  const [first, ...rest] = sampleEntries();
+  if (!first) throw new Error('No sample entries.');
+  const nameField = agents.fields.find((candidate) => candidate.type === 'text');
+  const agent = { ...first, id: 'a1', typeId: agents.id, translationGroup: 'a1', slug: 'maya-ellison', data: { [nameField?.id ?? '']: 'Maya Ellison' } };
+  const withGone = { ...first, data: { ...first.data, 'f-agent': 'someone-gone' } };
+  const { client } = renderApp(`/content/listings/${first.id}`, { ...signedIn(), contentTypes: [linked, agents], entries: [withGone, ...rest, agent] });
+
+  const picker = await screen.findByRole('button', { name: /Agent/ });
+  await waitFor(() => expect(picker.textContent).toContain('someone-gone (not found)'));
+  await user.click(picker);
+  await user.click(await screen.findByRole('option', { name: 'Maya Ellison' }));
+  await user.click(screen.getByRole('button', { name: 'Save draft' }));
+  expect(await screen.findByText('Draft saved')).toBeTruthy();
+  expect((await client.getEntry(first.id)).data['f-agent']).toBe('maya-ellison');
+});

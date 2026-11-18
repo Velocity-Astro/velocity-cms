@@ -185,6 +185,24 @@
       "uses": ["Button", "IconButton"]
     },
     {
+      "name": "ImagePicker",
+      "layer": "pattern",
+      "group": "Forms",
+      "description": "Shows the image a field holds and lets a person choose another from the site's images, in a window.",
+      "example": "<ImagePicker label=\"Cover photo\" value={photo} images={images} onChange={setPhoto} chooseLabel=\"Choose a photo\" changeLabel=\"Change\" noneText=\"No photo chosen\" dialogTitle=\"Choose a photo\" closeLabel=\"Close\" emptyText=\"No photos yet\" />",
+      "useInstead": "Select to choose from a short list of words.",
+      "uses": ["Button", "Dialog"]
+    },
+    {
+      "name": "Split",
+      "layer": "pattern",
+      "group": "Page",
+      "description": "A wide column with a narrow one beside it, which stays in view on a wide screen and follows below on a narrow one.",
+      "example": "<Split asideLabel=\"Publishing\" aside={<Card title=\"On the site\">…</Card>}>…</Split>",
+      "useInstead": "Grid for columns of equal weight.",
+      "uses": []
+    },
+    {
       "name": "PageHeader",
       "layer": "pattern",
       "group": "Page",

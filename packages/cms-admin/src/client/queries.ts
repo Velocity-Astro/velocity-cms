@@ -12,6 +12,7 @@ const keys = {
   session: ['session'] as const,
   contentTypes: ['content-types'] as const,
   fieldTypes: ['field-types'] as const,
+  images: ['images'] as const,
   /** Every list of entries starts with this, so one call marks them all out of date. */
   entryLists: ['entries'] as const,
   entries: (query: EntryListQuery) => ['entries', query] as const,
@@ -62,6 +63,12 @@ export function useEntriesOfTypes(queries: readonly EntryListQuery[]) {
 export function useFieldTypes() {
   const client = useClient();
   return useQuery({ queryKey: keys.fieldTypes, queryFn: () => client.listFieldTypes(), staleTime: Infinity });
+}
+
+/** The site's images change only when the site is redeployed, so they are fetched once. */
+export function useImages() {
+  const client = useClient();
+  return useQuery({ queryKey: keys.images, queryFn: () => client.listImages(), staleTime: Infinity });
 }
 
 /** One entry. Not fetched while `id` is `null`, which is how a new entry's screen asks. */
