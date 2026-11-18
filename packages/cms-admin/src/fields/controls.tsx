@@ -1,5 +1,6 @@
 import { fromPlainText, liveFields, type FieldDef, type RichText } from '@velocity/cms-core';
-import { DateField, Fieldset, ImagePicker, NumberField, Repeater, Select, Skeleton, SkeletonGroup, Stack, Switch, Text, TextArea, TextField, toast } from '@velocity/cms-ui';
+import { DateField, Fieldset, ImagePicker, NumberField, Repeater, SectionList, Select, Skeleton, SkeletonGroup, Stack, Switch, Text, TextArea, TextField, toast } from '@velocity/cms-ui';
+import { Copy, Trash2 } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
 import { useContentTypes, useEntries, useImages, useUploadImage, useUploadRules } from '../client/queries.js';
 import { prepareImage } from '../lib/prepare-image.js';
@@ -9,6 +10,7 @@ import { createFieldControlRegistry, type FieldControlProps, type FieldControls,
 import { BlocksControl } from './BlocksControl.js';
 import { FieldEditor } from './FieldEditor.js';
 import { FieldGrid } from './FieldGrid.js';
+import { useControlFor } from './FieldSummary.js';
 import { LinkControl } from './LinkControl.js';
 
 /** A field setting, when it is a number. Settings are checked by the server, not here. */
@@ -258,11 +260,11 @@ function RichTextControl({ field, label, help, isLabelHidden = false, value, onC
 }
 
 /** Several fields kept together as one value. Each is drawn by its own control, so groups nest. */
-function GroupControl({ field, label, help, value, onChange, path, problem, problems }: FieldControlProps) {
+function GroupControl({ field, label, help, isLabelHidden = false, value, onChange, path, problem, problems }: FieldControlProps) {
   const inner = Array.isArray(field.options['fields']) ? liveFields(field.options['fields'] as FieldDef[]) : [];
   const values = typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
   return (
-    <Fieldset legend={label} {...(help !== undefined && { description: help })}>
+    <Fieldset legend={label} isLegendHidden={isLabelHidden} {...(help !== undefined && { description: help })}>
       {problem !== undefined && (
         <Text size="sm" tone="danger">
           {problem}
@@ -285,6 +287,24 @@ function GroupControl({ field, label, help, value, onChange, path, problem, prob
 
 const isFilled = (item: unknown) => item !== undefined && item !== null;
 
+/** One item of a list on screen. Its id stays with it while it is moved, so an open row stays open. */
+interface Row {
+  readonly id: string;
+  readonly value: unknown;
+}
+const asRow = (value: unknown, index: number): Row => ({ id: `stored-${index}`, value });
+
+/** A group is called by the first words written in it. */
+function groupTitle(field: FieldDef, value: unknown): string | undefined {
+  const inner = Array.isArray(field.options['fields']) ? liveFields(field.options['fields'] as FieldDef[]) : [];
+  const values = typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
+  for (const child of inner) {
+    const words = values[child.id];
+    if (typeof words === 'string' && words.trim() !== '') return words;
+  }
+  return undefined;
+}
+
 /**
  * Several values of the same kind, in an order the person chooses. Each item is drawn by the
  * control of the list's item type, so a list of groups and a list of plain text work alike.
@@ -294,57 +314,104 @@ function ListControl({ field, label, help, value, onChange, path, problem, probl
   const stored: readonly unknown[] = Array.isArray(value) ? value : [];
   // What is on screen, which may have items that are still empty. Only filled items are part
   // of the value. When the value changes from outside (a save, another language), it wins.
-  const [typed, setTyped] = useState<readonly unknown[]>(stored);
-  const items = sameData(typed.filter(isFilled), stored) ? typed : stored;
+  const [typed, setTyped] = useState<readonly Row[]>(() => stored.map(asRow));
+  const rows = sameData(typed.map((row) => row.value).filter(isFilled), stored) ? typed : stored.map(asRow);
+  const [openIds, setOpenIds] = useState<readonly string[]>([]);
   const of = (field.options['of'] ?? { type: 'text' }) as { readonly type: string; readonly options?: Readonly<Record<string, unknown>> };
   const max = typeof field.options['max'] === 'number' ? field.options['max'] : undefined;
 
-  const change = (next: readonly unknown[]) => {
+  const change = (next: readonly Row[]) => {
     setTyped(next);
-    const filled = next.filter(isFilled);
+    const filled = next.map((row) => row.value).filter(isFilled);
     onChange(filled.length === 0 ? undefined : filled);
   };
 
+  const controlFor = useControlFor();
+  const titleOf = controlFor(of.type)?.titleOf;
+  const itemField = (index: number): FieldDef => ({
+    id: `${field.id}.${index}`,
+    key: String(index),
+    type: of.type,
+    label: { [ITEM]: messages.editor.listItem(label, index + 1) },
+    translated: field.translated,
+    required: false,
+    options: of.options ?? {},
+  });
+  const move = (from: number, to: number) => {
+    const next = [...rows];
+    const [moved] = next.splice(from, 1);
+    if (moved) next.splice(to, 0, moved);
+    change(next);
+  };
+  const editor = (row: Row, index: number) => (
+    <FieldEditor
+      field={itemField(index)}
+      value={row.value}
+      onChange={(next) => change(rows.map((existing) => (existing.id === row.id ? { ...existing, value: next } : existing)))}
+      path={`${path}.${index}`}
+      problems={problems}
+      isLabelHidden
+    />
+  );
+  const shared = {
+    label,
+    ...(help !== undefined && { description: help }),
+    ...(problem !== undefined && { errorMessage: problem }),
+    emptyText: messages.editor.listEmpty,
+    addLabel: messages.editor.listAdd,
+    isFull: max !== undefined && rows.length >= max,
+    onMove: move,
+    moveUpLabel: (position: number) => messages.editor.listMoveUp(label, position),
+    moveDownLabel: (position: number) => messages.editor.listMoveDown(label, position),
+  };
+  const add = () => {
+    const added: Row = { id: crypto.randomUUID(), value: undefined };
+    change([...rows, added]);
+    setOpenIds((ids) => [...ids, added.id]);
+  };
+
+  // Items with words of their own (a group) are rows that open, so a long list stays short.
+  if (titleOf) {
+    return (
+      <SectionList
+        {...shared}
+        onAdd={add}
+        openIds={openIds}
+        onOpenChange={(id, isOpen) => setOpenIds((ids) => (isOpen ? [...ids, id] : ids.filter((candidate) => candidate !== id)))}
+        moreLabel={(position) => messages.editor.listMore(label, position)}
+        dragLabel={(position) => messages.editor.listDrag(label, position)}
+        onAction={(id, action) => {
+          const at = rows.findIndex((row) => row.id === id);
+          const row = rows[at];
+          if (!row) return;
+          if (action === 'remove') change(rows.filter((existing) => existing.id !== id));
+          else if (action === 'duplicate') change([...rows.slice(0, at + 1), { id: crypto.randomUUID(), value: structuredClone(row.value) }, ...rows.slice(at + 1)]);
+        }}
+        items={rows.map((row, index) => {
+          const prefix = `${path}.${index}`;
+          const found = [...problems.keys()].filter((key) => key === prefix || key.startsWith(`${prefix}.`)).length;
+          return {
+            id: row.id,
+            title: titleOf(itemField(index), row.value) ?? messages.editor.listItem(label, index + 1),
+            ...(found > 0 && { problem: messages.editor.listProblems(found) }),
+            actions: [
+              { id: 'duplicate', label: messages.editor.listDuplicate, icon: Copy, isDisabled: shared.isFull },
+              { id: 'remove', label: messages.editor.listRemoveRow, icon: Trash2, tone: 'danger' as const },
+            ],
+            content: editor(row, index),
+          };
+        })}
+      />
+    );
+  }
+
   return (
     <Repeater
-      label={label}
-      {...(help !== undefined && { description: help })}
-      {...(problem !== undefined && { errorMessage: problem })}
-      emptyText={messages.editor.listEmpty}
-      addLabel={messages.editor.listAdd}
+      {...shared}
+      onAdd={add}
       removeLabel={(position) => messages.editor.listRemove(label, position)}
-      moveUpLabel={(position) => messages.editor.listMoveUp(label, position)}
-      moveDownLabel={(position) => messages.editor.listMoveDown(label, position)}
-      isFull={max !== undefined && items.length >= max}
-      onAdd={() => change([...items, undefined])}
-      onRemove={(index) => change(items.filter((_, at) => at !== index))}
-      onMove={(from, to) => {
-        const next = [...items];
-        const [moved] = next.splice(from, 1);
-        next.splice(to, 0, moved);
-        change(next);
-      }}
-      items={items.map((item, index) => ({
-        id: String(index),
-        content: (
-          <FieldEditor
-            field={{
-              id: `${field.id}.${index}`,
-              key: String(index),
-              type: of.type,
-              label: { [ITEM]: messages.editor.listItem(label, index + 1) },
-              translated: field.translated,
-              required: false,
-              options: of.options ?? {},
-            }}
-            value={item}
-            onChange={(next) => change(items.map((existing, at) => (at === index ? next : existing)))}
-            path={`${path}.${index}`}
-            problems={problems}
-            isLabelHidden
-          />
-        ),
-      }))}
+      onRemove={(index) => change(rows.filter((_, at) => at !== index))}
+      items={rows.map((row, index) => ({ id: row.id, content: editor(row, index) }))}
     />
   );
 }
@@ -365,7 +432,7 @@ export function createFieldControls(): FieldControls {
     .register({ type: 'link', Component: LinkControl })
     .register({ type: 'image', Component: ImageControl })
     .register({ type: 'rich-text', Component: RichTextControl })
-    .register({ type: 'group', Component: GroupControl })
+    .register({ type: 'group', Component: GroupControl, titleOf: groupTitle })
     .register({ type: 'list', Component: ListControl })
     .register({ type: 'blocks', Component: BlocksControl, showsPage: true });
 }

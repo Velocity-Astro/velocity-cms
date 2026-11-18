@@ -53,6 +53,12 @@ export interface FieldControl {
    * and a page of its own, is edited with the page shown beside the form.
    */
   readonly showsPage?: boolean;
+  /**
+   * What a value of this kind is called in a few words, if it has words of its own: a group's
+   * first line of text. A list whose items have a control with this shows them as rows that
+   * open, each under that name, in place of every item laid out in full.
+   */
+  readonly titleOf?: (field: FieldDef, value: unknown) => string | undefined;
   /** `end` when summaries are figures, so a column of them lines up. */
   readonly summaryAlign?: 'start' | 'end';
 }

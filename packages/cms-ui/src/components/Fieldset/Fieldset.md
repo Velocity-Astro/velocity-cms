@@ -8,6 +8,11 @@ field inside, so "City" is heard as "Address, City".
 - A value made of parts: an address, a price with its currency, opening hours.
 - Fields inside fields. A set can sit inside another set.
 
+## Hidden legend
+
+Inside a row that opens, the row's heading already says the name. `isLegendHidden` keeps the
+legend for a screen reader and draws the set without its frame, so there is no box in a box.
+
 ## Don't use it for
 
 - Splitting a long form into sections. Use a `Heading` over a `Stack`.

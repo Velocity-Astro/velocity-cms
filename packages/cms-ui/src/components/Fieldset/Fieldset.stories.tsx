@@ -22,3 +22,4 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const WithDescription: Story = { args: { description: 'Shown on the listing and used for the map.' } };
 export const Empty: Story = { args: { legend: 'Gallery', description: 'This kind of field cannot be edited here yet.', children: null } };
+export const LegendHidden: Story = { args: { isLegendHidden: true } };

@@ -19,6 +19,15 @@ it('shows help for the whole set', () => {
   expect(within(screen.getByRole('group')).getByText('Used for the map.')).toBeTruthy();
 });
 
+it('keeps its name for a screen reader when the legend is hidden', () => {
+  render(
+    <Fieldset legend="Address" isLegendHidden>
+      <TextField label="City" />
+    </Fieldset>,
+  );
+  expect(within(screen.getByRole('group', { name: 'Address' })).getByRole('textbox', { name: 'City' })).toBeTruthy();
+});
+
 it('is accessible', async () => {
   const { container } = render(
     <Fieldset legend="Address" description="Used for the map.">
