@@ -1,4 +1,4 @@
-import type { ContactImportReport, ContactImportRow, CustomFields, CustomFieldsChanges, Contact, ContactChanges, Deal, DealChanges, DealSubject, Forecast, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginTask, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Revision, Role, SiteImage } from '@velocity-astro/cms-core';
+import type { EmailSettings, EmailSettingsChanges, ContactImportReport, ContactImportRow, CustomFields, CustomFieldsChanges, Contact, ContactChanges, Deal, DealChanges, DealSubject, Forecast, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginTask, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Revision, Role, SiteImage } from '@velocity-astro/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
@@ -242,6 +242,12 @@ export interface AdminClient {
   forgetSender(email: string): Promise<number>;
   /** The people who wrote to the site, newest first. Only for those who may read contacts. */
   listContacts(query?: ContactListQuery): Promise<Page<Contact>>;
+  /** How the site's email is sent. The provider's key is never part of it. Owners only. */
+  getEmailSettings(): Promise<EmailSettings>;
+  /** Saves how the site's email is sent. A key left out stays as it is; `null` takes it away. */
+  saveEmailSettings(changes: EmailSettingsChanges): Promise<EmailSettings>;
+  /** Sends a test email to whoever is signed in, the way the site's email is sent now. */
+  sendTestEmail(): Promise<void>;
   /** The stages a contact moves through, in order. */
   getPipeline(): Promise<Pipeline>;
   /** Replaces the stages. Contacts in a stage that is removed move to the first. */

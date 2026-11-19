@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **Settings in the editor, starting with email.** Owners have a Settings screen. Under Email they choose the email service (Resend), paste its API key, say who email comes from, and send themselves a test, with no change to the server. The key is sealed with the site's secret and never sent back to the editor. A site that sets `VELOCITY_CMS_RESEND_API_KEY` and `VELOCITY_CMS_EMAIL_FROM`, or names its own `mailer`, keeps that: it wins, and the screen says so. A change is followed by every running copy at once.
+
 ## 0.1.0-beta.3
 
 - **Settings a template reads.** `single(Astro, 'settings')` answers with what a single page of the CMS holds, by field key, so a template can keep its name, logo and contact details where people edit them.

@@ -1,5 +1,5 @@
 import { MutationCache, QueryCache, QueryClient, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ContactImportReport, ContactImportRow, ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, DealChanges, NewDeal, Page, PipelineChanges, CustomFieldsChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity-astro/cms-core';
+import type { EmailSettingsChanges, ContactImportReport, ContactImportRow, ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, DealChanges, NewDeal, Page, PipelineChanges, CustomFieldsChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity-astro/cms-core';
 import type { ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, ImageList, NewEntry, NewPerson, NewType, NewTypeField, SubmissionListQuery } from './admin-client.js';
 import { AdminRequestError } from './errors.js';
 import { useClient } from './client-context.js';
@@ -43,6 +43,7 @@ const keys = {
   dealList: (query: DealListQuery) => ['contacts', 'deals', 'list', query] as const,
   forecast: ['contacts', 'deals', 'forecast'] as const,
   team: ['team'] as const,
+  emailSettings: ['settings', 'email'] as const,
 };
 
 /**
@@ -509,6 +510,23 @@ export function useUpdateDeal() {
 export function useDeleteDeal() {
   const client = useClient();
   return useMutation({ mutationFn: (id: string) => client.deleteDeal(id), onSettled: useDealsChanged() });
+}
+
+/** How the site's email is sent. Owners only. */
+export function useEmailSettings() {
+  const client = useClient();
+  return useQuery({ queryKey: keys.emailSettings, queryFn: () => client.getEmailSettings() });
+}
+
+export function useSaveEmailSettings() {
+  const client = useClient();
+  const cache = useQueryClient();
+  return useMutation({ mutationFn: (changes: EmailSettingsChanges) => client.saveEmailSettings(changes), onSuccess: (saved) => cache.setQueryData(keys.emailSettings, saved) });
+}
+
+export function useSendTestEmail() {
+  const client = useClient();
+  return useMutation({ mutationFn: () => client.sendTestEmail() });
 }
 
 /** The stages a contact moves through. */

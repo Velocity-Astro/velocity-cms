@@ -1,18 +1,16 @@
 import type { PublicForm } from '@velocity-astro/cms-core';
 import { isLiveType } from '@velocity-astro/cms-core';
 import { sharedConnection, SITE } from './connection.js';
-import { FORM_ABOUT_FIELD, FORM_LOCALE_FIELD, FORM_PAGE_FIELD, FORM_TOKEN_FIELD, FORM_TRAP_FIELD, FormPosts, aboutMark, formToken, type NoticeMailer } from './form-post.js';
+import { FORM_ABOUT_FIELD, FORM_LOCALE_FIELD, FORM_PAGE_FIELD, FORM_TOKEN_FIELD, FORM_TRAP_FIELD, FormPosts, aboutMark, formToken } from './form-post.js';
 import { pageAt, type DrawnPage } from './page-head.js';
 import { currentSite, siteKey } from './hosted.js';
-import { mailerFromEnv } from './resend-mailer.js';
+import { LogMailer } from './editor.js';
+import { SiteMail } from './site-mail.js';
 import { siteSecret } from './secret.js';
 import { editorOrigin, type SiteEditorSettings } from './site-editor.js';
 
 /** One taker of form posts for each site this server runs. */
 const takers = new Map<string, Promise<FormPosts>>();
-
-const takesNotices = (mailer: unknown): mailer is NoticeMailer =>
-  typeof mailer === 'object' && mailer !== null && typeof (mailer as { sendSubmissionNotice?: unknown }).sendSubmissionNotice === 'function';
 
 /** The site's address for forms. A site that has not said its address yet is taken at the request's word. */
 function originOf(request: Request, settings: Pick<SiteEditorSettings, 'site' | 'dev'>): string {
@@ -39,8 +37,8 @@ export function siteFormPosts(settings: SiteEditorSettings): Promise<FormPosts> 
             const { type, entry } = await pageAt(cms, await cms.schema.list(), path);
             return type && entry ? { typeId: type.id, entry: entry.translationGroup } : undefined;
           },
-          // The site's own mailer when it sends notices, then Resend from its settings, then nobody.
-          mailer: takesNotices(settings.mailer) ? settings.mailer : mailerFromEnv(),
+          // The site's own mailer when it sends notices, then Resend from the server's settings, then what an owner set up in the editor.
+          mailer: new SiteMail({ settings: cms.settings, own: settings.mailer, fallback: new LogMailer(), hosted: currentSite() !== undefined }),
           onFault: (error) => console.error('[velocity-cms]', error instanceof Error ? error.message : error),
         }),
     );

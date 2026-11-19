@@ -2,7 +2,8 @@
  * What the core needs from the outside world. The core ships no implementation of these:
  * an adapter package implements each one and proves it with the contract tests in `./testing`.
  */
-import type { ContentTypeDef, Entry, EntryStatus, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus, Timestamp, Contact, ContactNote, Deal, DealSubject, Pipeline, TeamMember, CustomFields } from './model.js';
+import type { Actor } from './access.js';
+import type { ContentTypeDef, Entry, EntryStatus, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus, Timestamp, Contact, ContactNote, Deal, DealSubject, Pipeline, TeamMember, CustomFields, MailFixedBy } from './model.js';
 
 export interface EntryQuery {
   readonly typeId?: string;
@@ -212,6 +213,30 @@ export interface CustomFieldsStore {
 export interface Team {
   /** Everyone who can sign in, by name. */
   members(): Promise<TeamMember[]>;
+}
+
+/** Where the parts of a site's settings are kept, each whole under its name. */
+export interface SettingsStore {
+  /** One part as it was saved, or `null` when it never was. */
+  get(area: string): Promise<{ readonly value: unknown; readonly revision: number } | null>;
+  /**
+   * Replaces one part. `expectedRevision` is the revision the caller last saw, or `null` when
+   * none was saved before: one that has moved on is refused with a `ConflictError`.
+   */
+  save(area: string, value: unknown, revision: number, expectedRevision: number | null): Promise<void>;
+}
+
+/** How the site's email leaves, which only its host knows. The host hands one over with `settings.useMail`. */
+export interface MailRoom {
+  /** Who decides how email is sent when the editor's settings do not, or `null` when they do. */
+  fixedBy(): MailFixedBy | null;
+  /** Whether a test can be sent the way email is sent now. */
+  canTest(): Promise<boolean>;
+  /**
+   * Sends one email that says the settings work, to the person who asked and nobody else, the
+   * way every email is sent now. One that cannot be sent is thrown with words for that person.
+   */
+  sendTest(actor: Actor): Promise<void>;
 }
 
 /** The current time. Passed in so tests can fix it. */

@@ -521,3 +521,37 @@ export type TimelineItem =
   | { readonly kind: 'note'; readonly at: Timestamp; readonly note: ContactNote }
   /** The contact moved from one stage to another. `by` is the id of whoever moved it. */
   | { readonly kind: 'stage'; readonly at: Timestamp; readonly id: string; readonly from: string; readonly to: string; readonly by: string };
+
+/** The parts of a site's settings an owner fills in in the editor. */
+export type SettingsArea = 'email';
+
+/** The services the CMS can send email through. */
+export type EmailProvider = 'resend';
+
+/** Who decides how email is sent when the editor's settings do not: the server's own settings, the site's code, or the host that runs the site. */
+export type MailFixedBy = 'server' | 'code' | 'host';
+
+/**
+ * How the site's email is sent, as an owner sees it. The provider's key is never part of it:
+ * `hasKey` says only that one is saved.
+ */
+export interface EmailSettings {
+  readonly provider: EmailProvider;
+  /** Who the emails come from: `Lakeshore Realty <cms@lakeshore.example>`. Empty until someone says. */
+  readonly from: string;
+  readonly hasKey: boolean;
+  /** Set when something other than these settings decides how email is sent. They are kept, and unused. */
+  readonly fixedBy?: MailFixedBy;
+  /** Whether email leaves the site at all as things stand. */
+  readonly sending: boolean;
+  /** Whether a test email can be asked for. */
+  readonly canTest: boolean;
+  readonly revision: number;
+}
+
+/** What it takes to send through a provider. Only the site's own server ever holds one. */
+export interface MailAccount {
+  readonly provider: EmailProvider;
+  readonly apiKey: string;
+  readonly from: string;
+}

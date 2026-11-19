@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ConflictError } from '../errors.js';
 import type { Contact, ContactNote, ContentTypeDef, Entry, FormDef, MediaFile, Deal, Pipeline, Submission, CustomFields, FieldDef } from '../model.js';
-import type { ContactRepository, CustomFieldsStore, DealRepository, PipelineStore, EntryRepository, FormRepository, SubmissionRepository, MediaRepository, MediaStore, PluginStore, SchemaRepository, SearchDocument, SearchIndex } from '../ports.js';
+import type { ContactRepository, CustomFieldsStore, DealRepository, PipelineStore, SettingsStore, EntryRepository, FormRepository, SubmissionRepository, MediaRepository, MediaStore, PluginStore, SchemaRepository, SearchDocument, SearchIndex } from '../ports.js';
 
 /**
  * The contract tests for storage adapters.
@@ -806,6 +806,28 @@ export function pipelineStoreContract(name: string, create: () => Promise<Pipeli
       await store.save(second, 1);
       await expect(store.save({ ...second, revision: 3 }, 1)).rejects.toBeInstanceOf(ConflictError);
       expect(await store.get()).toEqual(second);
+    });
+  });
+}
+
+/** Run this against every `SettingsStore` adapter. */
+export function settingsStoreContract(name: string, create: () => Promise<SettingsStore>): void {
+  describe(`${name}: SettingsStore contract`, () => {
+    it('keeps each part by its name, gives it back as saved, and refuses a save from an old revision', async () => {
+      const store = await create();
+      expect(await store.get('email')).toBeNull();
+      const first = { provider: 'resend', from: 'hello@example.com', key: { iv: '00', sealed: 'ff' } };
+      await expect(store.save('email', first, 1, 1)).rejects.toBeInstanceOf(ConflictError);
+      await store.save('email', first, 1, null);
+      expect(await store.get('email')).toEqual({ value: first, revision: 1 });
+      await expect(store.save('email', first, 2, null)).rejects.toBeInstanceOf(ConflictError);
+      await store.save('email', { provider: 'resend', from: 'team@example.com' }, 2, 1);
+      await expect(store.save('email', first, 3, 1)).rejects.toBeInstanceOf(ConflictError);
+      expect(await store.get('email')).toEqual({ value: { provider: 'resend', from: 'team@example.com' }, revision: 2 });
+      // One part knows nothing of another.
+      expect(await store.get('storage')).toBeNull();
+      await store.save('storage', { bucket: 'photos' }, 1, null);
+      expect((await store.get('email'))?.revision).toBe(2);
     });
   });
 }

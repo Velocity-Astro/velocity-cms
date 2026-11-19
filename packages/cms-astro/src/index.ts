@@ -2,7 +2,8 @@ export { sharedConnection, type Connection, type ConnectionOptions } from './con
 export { AdminFiles, type EditorPageConfig } from './admin-files.js';
 export { EditorHost, LogMailer, type EditorHostOptions } from './editor.js';
 export { default, type VelocityCmsOptions } from './integration.js';
-export { ResendMailer, englishMailWords, mailerFromEnv, type MailWords, type ResendMailerOptions } from './resend-mailer.js';
+export { ResendMailer, MailRefusedError, englishMailWords, mailerFromEnv, type MailWords, type ResendMailerOptions, type TestMail } from './resend-mailer.js';
+export { SiteMail, type SiteMailOptions } from './site-mail.js';
 // What a site's own plugin file needs, so it imports from the one package the site installed.
 export { definePlugin, type PluginContext, type PluginDefinition } from '@velocity-astro/cms-core';
 export { registerSitePlugins } from './site-plugins.js';

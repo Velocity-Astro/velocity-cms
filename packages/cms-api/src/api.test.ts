@@ -606,6 +606,28 @@ describe('forms and what they were sent', () => {
     expect((await call('GET', '/contacts')).body).toMatchObject({ total: 1 });
   });
 
+  it('saves how email is sent without ever sending the key back, for owners only, and sends a test through the host', async () => {
+    authenticator.session = as('owner');
+    expect((await call('GET', '/settings/email')).body).toEqual({ provider: 'resend', from: '', hasKey: false, sending: false, canTest: false, revision: 0 });
+    expect((await call('PUT', '/settings/email', { from: 'nobody', apiKey: 're_123', expectedRevision: 0 })).status).toBe(422);
+    expect((await call('PUT', '/settings/email', { from: 'hello@example.com', apiKey: 're_123', sender: 'x', expectedRevision: 0 })).status).toBe(400);
+    const saved = await call('PUT', '/settings/email', { from: 'Lakeshore <hello@example.com>', apiKey: 're_123', expectedRevision: 0 });
+    expect(saved).toEqual({ status: 200, body: { provider: 'resend', from: 'Lakeshore <hello@example.com>', hasKey: true, sending: true, canTest: false, revision: 1 } });
+    expect(JSON.stringify(saved.body)).not.toContain('re_123');
+    expect((await call('PUT', '/settings/email', { from: 'hello@example.com', expectedRevision: 0 })).status).toBe(409);
+    expect((await call('POST', '/settings/email/test')).status).toBe(409);
+    const tested: string[] = [];
+    cms.settings.useMail({ fixedBy: () => null, canTest: async () => true, sendTest: async (who) => void tested.push(who.id) });
+    expect(await call('POST', '/settings/email/test')).toEqual({ status: 200, body: {} });
+    expect(tested).toEqual(['u1']);
+    expect(await cms.settings.mailAccount()).toEqual({ provider: 'resend', apiKey: 're_123', from: 'Lakeshore <hello@example.com>' });
+    expect((await call('PUT', '/settings/email', { from: 'hello@example.com', apiKey: null, expectedRevision: 1 })).body).toMatchObject({ hasKey: false, sending: false, revision: 2 });
+    authenticator.session = as('editor');
+    expect((await call('GET', '/settings/email')).status).toBe(403);
+    expect((await call('PUT', '/settings/email', { from: 'hello@example.com', expectedRevision: 2 })).status).toBe(403);
+    expect((await call('POST', '/settings/email/test')).status).toBe(403);
+  });
+
   it('reads and changes the pipeline, and places a contact in it with an owner and a day to follow up', async () => {
     expect((await call('GET', '/pipeline')).body).toMatchObject({ revision: 0, stages: [{ id: 'new' }, { id: 'contacted' }, { id: 'qualified' }, { id: 'won' }, { id: 'lost' }] });
     expect((await call('GET', '/team')).body).toEqual({ items: [{ id: 'u1', name: 'Dana', role: 'owner' }] });

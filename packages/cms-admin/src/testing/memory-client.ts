@@ -23,6 +23,9 @@ import {
   type Forecast,
   type NewDeal,
   type Pipeline,
+  type EmailSettings,
+  type EmailSettingsChanges,
+  type MailFixedBy,
   type PipelineChanges,
   type TeamMember,
   type ContactChanges,
@@ -54,6 +57,7 @@ import {
 } from '@velocity-astro/cms-core/in-memory';
 import type { AdminClient, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from '../client/admin-client.js';
 import { MemoryPeople } from './memory-people.js';
+import { MemoryMailRoom } from './memory-mail.js';
 import { AdminRequestError, type RequestErrorCode } from '../client/errors.js';
 
 export interface MemoryAdminClientOptions {
@@ -79,6 +83,8 @@ export interface MemoryAdminClientOptions {
   readonly defaultLocale?: string;
   /** Gives each upload an address the browser can show, for the preview: nothing serves the files here. Defaults to `false`. */
   readonly showUploads?: boolean;
+  /** Who decides how email is sent, when the editor's settings do not. Leave out for the editor's settings to decide. */
+  readonly emailFixedBy?: MailFixedBy;
   /** How long each signed-in request takes, in milliseconds, to see what a screen shows while it waits. Defaults to none. */
   readonly delay?: number;
 }
@@ -123,6 +129,8 @@ export class MemoryAdminClient implements AdminClient {
   readonly #passkeyUser: SessionUser | null;
   readonly #defaultLocale: string;
   readonly #cms: Cms;
+  /** How this site's email leaves: nothing is sent, and the tests asked for are kept. */
+  readonly mail: MemoryMailRoom;
   readonly #people: MemoryPeople;
   /** Settles once the content given to the constructor is in place. Every request waits for it. */
   readonly #ready: Promise<void>;
@@ -142,6 +150,9 @@ export class MemoryAdminClient implements AdminClient {
     const storage = { files: new InMemoryMediaRepository(), store: new InMemoryMediaStore() };
     const cms = createCms({ types, entries, team: this.#people, previews: { secret: PREVIEW_SECRET }, ...(options.uploads !== false && { media: { storage } }) });
     this.#cms = cms;
+    this.mail = new MemoryMailRoom(cms.settings);
+    this.mail.fixed = options.emailFixedBy ?? null;
+    cms.settings.useMail(this.mail);
     cms.media.include(new InMemoryImageLibrary(options.images));
     this.#ready = (async () => {
       for (const type of options.contentTypes ?? []) await types.save(type);
@@ -411,6 +422,18 @@ export class MemoryAdminClient implements AdminClient {
 
   getForecast(): Promise<Forecast> {
     return this.#request((actor) => this.#cms.deals.forecast(actor));
+  }
+
+  getEmailSettings(): Promise<EmailSettings> {
+    return this.#request((actor) => this.#cms.settings.email(actor));
+  }
+
+  saveEmailSettings(changes: EmailSettingsChanges): Promise<EmailSettings> {
+    return this.#request((actor) => this.#cms.settings.saveEmail(actor, changes));
+  }
+
+  sendTestEmail(): Promise<void> {
+    return this.#request((actor) => this.#cms.settings.testEmail(actor));
   }
 
   getPipeline(): Promise<Pipeline> {

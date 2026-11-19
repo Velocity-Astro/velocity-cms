@@ -1,5 +1,5 @@
 import { AppShell, Logo, dismissToasts, toast, type AppShellNavItem } from '@velocity-astro/cms-ui';
-import { Blocks, Contact, HandCoins, House, Images, Inbox, KeyRound, LogOut, Puzzle, Shapes, Trash2, Users } from 'lucide-react';
+import { Blocks, Contact, HandCoins, House, Images, Inbox, KeyRound, LogOut, Puzzle, Settings, Shapes, Trash2, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router';
 import { useGo } from './use-go.js';
@@ -104,6 +104,7 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
                       isCurrent: location.pathname === paths.types || location.pathname.startsWith(`${paths.types}/`),
                     },
                     { id: 'people', label: messages.app.people, href: paths.people, icon: Users, isCurrent: location.pathname === paths.people },
+                    { id: 'settings', label: messages.app.settings, href: paths.settings(), icon: Settings, isCurrent: location.pathname.startsWith('/settings') },
                   ]
                 : []),
               { id: 'trash', label: messages.app.trash, href: paths.trash, icon: Trash2, isCurrent: location.pathname === paths.trash },

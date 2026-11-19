@@ -289,6 +289,17 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       await expect(client.forgetSender(' ')).rejects.toMatchObject({ code: 'validation_failed' });
     });
 
+    it('saves how email is sent without ever sending the key back, and sends a test once it can', async () => {
+      expect(await client.getEmailSettings()).toEqual({ provider: 'resend', from: '', hasKey: false, sending: false, canTest: false, revision: 0 });
+      await expect(client.sendTestEmail()).rejects.toMatchObject({ code: 'conflict' });
+      await expect(client.saveEmailSettings({ from: 'nobody', apiKey: 're_123', expectedRevision: 0 })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['from'] }] });
+      const saved = await client.saveEmailSettings({ from: 'Lakeshore <hello@example.com>', apiKey: 're_123', expectedRevision: 0 });
+      expect(saved).toEqual({ provider: 'resend', from: 'Lakeshore <hello@example.com>', hasKey: true, sending: true, canTest: true, revision: 1 });
+      expect(await client.sendTestEmail()).toBeUndefined();
+      await expect(client.saveEmailSettings({ from: 'hello@example.com', expectedRevision: 0 })).rejects.toMatchObject({ code: 'conflict' });
+      expect(await client.saveEmailSettings({ from: 'hello@example.com', apiKey: null, expectedRevision: 1 })).toMatchObject({ from: 'hello@example.com', hasKey: false, sending: false, canTest: false, revision: 2 });
+    });
+
     it('keeps a pipeline of stages, and places a contact in it with someone to look after it and a day to follow up', async () => {
       const pipeline = await client.getPipeline();
       expect(pipeline.stages.map((stage) => stage.id)).toEqual(['new', 'contacted', 'qualified', 'won', 'lost']);

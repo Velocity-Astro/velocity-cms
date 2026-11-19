@@ -1,4 +1,4 @@
-import { readImage, type ContactImportReport, type ContactImportRow, type CustomFields, type CustomFieldsChanges, type Contact, type ContactChanges, type Deal, type DealChanges, type Forecast, type NewDeal, type Pipeline, type PipelineChanges, type TeamMember, type ContactNote, type NewContact, type TimelineItem, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PluginSettings, type PluginTask, type PluginEditorInfo, type PluginRouteMethod, type EntryData, type FormChanges, type FormDef, type NewForm, type PreviewLink, type Revision, type SiteImage, type Submission, type SubmissionStatus } from '@velocity-astro/cms-core';
+import { readImage, type EmailSettings, type EmailSettingsChanges, type ContactImportReport, type ContactImportRow, type CustomFields, type CustomFieldsChanges, type Contact, type ContactChanges, type Deal, type DealChanges, type Forecast, type NewDeal, type Pipeline, type PipelineChanges, type TeamMember, type ContactNote, type NewContact, type TimelineItem, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PluginSettings, type PluginTask, type PluginEditorInfo, type PluginRouteMethod, type EntryData, type FormChanges, type FormDef, type NewForm, type PreviewLink, type Revision, type SiteImage, type Submission, type SubmissionStatus } from '@velocity-astro/cms-core';
 import type { AdminClient, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from './admin-client.js';
 import { AdminRequestError, type RequestErrorCode, type RequestIssue } from './errors.js';
 
@@ -294,6 +294,18 @@ export class HttpAdminClient implements AdminClient {
 
   getForecast(): Promise<Forecast> {
     return this.#get('/deals/forecast');
+  }
+
+  getEmailSettings(): Promise<EmailSettings> {
+    return this.#get('/settings/email');
+  }
+
+  saveEmailSettings(changes: EmailSettingsChanges): Promise<EmailSettings> {
+    return this.#send('PUT', '/settings/email', changes);
+  }
+
+  async sendTestEmail(): Promise<void> {
+    await this.#send('POST', '/settings/email/test', {});
   }
 
   getPipeline(): Promise<Pipeline> {

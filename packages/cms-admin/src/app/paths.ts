@@ -5,6 +5,10 @@ export const NEW_ENTRY = 'new';
 /** The name the address of a group's fields carries each holding field's id under. */
 export const WITHIN = 'in';
 
+/** The parts of the site's settings, in the order of their tabs. */
+export const SETTINGS_AREAS = ['email'] as const;
+export type SettingsAreaId = (typeof SETTINGS_AREAS)[number];
+
 export const paths = {
   home: '/',
   signIn: '/sign-in',
@@ -21,6 +25,8 @@ export const paths = {
   plugins: '/plugins',
   /** A screen a plugin added. */
   pluginScreen: (plugin: string, screen: string) => `/plugins/${encodeURIComponent(plugin)}/${encodeURIComponent(screen)}`,
+  /** The site's settings, at one of their parts. */
+  settings: (area: SettingsAreaId = SETTINGS_AREAS[0]) => `/settings/${area}`,
   types: '/types',
   /** A content type's fields, or with `within` (field ids from the top down) the fields a group holds. */
   type: (typeKey: string, within: readonly string[] = []) =>
