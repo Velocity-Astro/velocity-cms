@@ -320,6 +320,23 @@ export interface StoredFile {
 }
 
 /**
+ * Makes an image lighter. Only an adapter can: it takes a library that knows how images are
+ * packed, which `cms-core` does not have. A site with none keeps every upload as it arrived.
+ *
+ * What it answers with is checked like any upload, so an optimizer is never believed about
+ * what it made. Both methods answer `null` when they have nothing better than what they were given.
+ */
+export interface ImageOptimizer {
+  /**
+   * The image as the site should keep it: turned the way it was taken, no larger than a page
+   * shows, with nothing about the camera or the place left in it, packed as WebP.
+   */
+  optimize(bytes: Uint8Array): Promise<Uint8Array | null>;
+  /** A copy at most `width` pixels wide, for a place that shows the image small. Never a larger one. */
+  resize(bytes: Uint8Array, width: number): Promise<Uint8Array | null>;
+}
+
+/**
  * Where uploaded files are kept: a folder on a server that has a disk, a bucket on a host that
  * does not. A key is a file name with no folders in it, and is never reused for another file.
  */

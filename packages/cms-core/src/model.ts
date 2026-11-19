@@ -233,13 +233,15 @@ export function liveFields(fields: readonly FieldDef[]): FieldDef[] {
 export interface SiteImage {
   /** What an image field stores, and what the site's pages look the image up by. */
   readonly name: string;
-  /** Where a browser can load a small copy of it from. */
+  /** Where a browser can load it from. */
   readonly url: string;
   readonly width?: number;
   readonly height?: number;
   /** Set for an image someone uploaded: when, and how large the file is in bytes. An image the site came with has neither, and cannot be removed here. */
   readonly uploadedAt?: Timestamp;
   readonly size?: number;
+  /** Where a browser can load a copy for a list of images, far lighter than the image itself. Set when the site can make one. */
+  readonly thumbnail?: string;
 }
 
 /** An image someone uploaded. The record says what the file is; the file itself is in a `MediaStore`. */

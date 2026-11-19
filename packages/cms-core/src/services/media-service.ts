@@ -1,9 +1,9 @@
 import type { AccessControl, Actor } from '../access.js';
 import { ConflictError, NotFoundError, ValidationError } from '../errors.js';
 import type { EventBus } from '../events.js';
-import { readImage } from '../image-file.js';
+import { readImage, type ImageFacts } from '../image-file.js';
 import type { MediaFile, SiteImage } from '../model.js';
-import type { Clock, ImageLibrary, MediaRepository, MediaStore, StoredFile } from '../ports.js';
+import type { Clock, ImageLibrary, ImageOptimizer, MediaRepository, MediaStore, StoredFile } from '../ports.js';
 
 /** Where uploads are kept: their records and their files. */
 export interface MediaStorage {
@@ -18,7 +18,28 @@ export interface MediaServiceOptions {
   readonly basePath?: string | undefined;
   /** The largest file accepted, in bytes. Defaults to 4 MB, which every host we deploy to lets through. */
   readonly maxBytes?: number | undefined;
+  /**
+   * Makes each upload lighter before it is kept, and makes the small copies lists show.
+   * Without it an upload is kept exactly as it arrived.
+   */
+  readonly optimizer?: ImageOptimizer | undefined;
+  /** Hears of an image the optimizer could not handle. The upload is kept as it arrived all the same. */
+  readonly onOptimizerFault?: ((error: unknown) => void) | undefined;
 }
+
+/**
+ * The longest side an image is kept with. No page shows a photo wider than this, and a
+ * phone's camera makes them twice as wide.
+ */
+export const IMAGE_LONGEST_SIDE = 2560;
+
+/**
+ * The widths a small copy of an upload can be asked for in. A fixed few, so nobody can make
+ * the site resize one image ten thousand ways.
+ */
+export const IMAGE_WIDTHS: readonly number[] = [320, 640, 960, 1280, 1920];
+/** The width lists of images in the editor ask for. */
+const THUMBNAIL_WIDTH = 640;
 
 export interface NewUpload {
   /** The file's name on the person's computer. It only suggests what the image is called. */
@@ -93,6 +114,10 @@ export class MediaService {
   /**
    * Takes a new image. The file is checked by what it holds, never by what it is called: it
    * must be a JPEG, PNG or WebP. It gets a name no other image has, made from the file's own.
+   *
+   * A site with an optimizer keeps a lighter copy and not the file it was sent: the same
+   * picture as WebP, no larger than a page shows. The file that arrived is kept instead when
+   * the copy would be no lighter, or when the optimizer fails.
    */
   async upload(actor: Actor, upload: NewUpload): Promise<SiteImage> {
     this.access.require(actor, 'entry:write');
@@ -113,21 +138,22 @@ export class MediaService {
       throw refuse(`The image is ${facts.width} by ${facts.height} pixels. The longest side can be ${MAX_SIDE} at most.`);
     }
 
+    const kept = await this.#lighter(bytes, facts);
     const name = await this.#freeName(nameFrom(upload.fileName), storage);
     const file: MediaFile = {
       name,
-      key: `${name}.${facts.extension}`,
-      contentType: facts.contentType,
-      width: facts.width,
-      height: facts.height,
-      size: bytes.length,
+      key: `${name}.${kept.facts.extension}`,
+      contentType: kept.facts.contentType,
+      width: kept.facts.width,
+      height: kept.facts.height,
+      size: kept.bytes.length,
       createdAt: this.clock.now(),
       createdBy: actor.id,
     };
     // The record goes first: it is what keeps two uploads from taking the same name.
     await storage.files.add(file);
     try {
-      await storage.store.put(file.key, { bytes, contentType: file.contentType });
+      await storage.store.put(file.key, { bytes: kept.bytes, contentType: file.contentType });
     } catch (error) {
       await storage.files.remove(name);
       throw error;
@@ -160,11 +186,53 @@ export class MediaService {
   /**
    * An uploaded file by its key, for the site to serve. Anyone may see it: an upload is public
    * from the moment it exists, as a file in the site's image folder is.
+   *
+   * With a width it is a copy no wider than that, for a place that shows the image small. Only
+   * the widths in `IMAGE_WIDTHS` exist, and only on a site with an optimizer. A copy is made
+   * when asked for and kept nowhere: whoever serves it lets browsers and the CDN keep it.
    */
-  async file(key: string): Promise<StoredFile> {
+  async file(key: string, width?: number): Promise<StoredFile> {
+    if (width !== undefined && !this.#makesCopies(width)) throw new NotFoundError('Image', key);
     const file = await this.options.storage?.store.get(key);
     if (!file) throw new NotFoundError('Image', key);
-    return file;
+    if (width === undefined) return file;
+    const facts = readImage(file.bytes);
+    // An image already that narrow is its own small copy.
+    if (!facts || facts.width <= width) return file;
+    const smaller = await this.options.optimizer?.resize(file.bytes, width).catch((error: unknown) => {
+      this.options.onOptimizerFault?.(error);
+      return null;
+    });
+    const made = smaller ? readImage(smaller) : null;
+    return smaller && made && made.width <= width ? { bytes: smaller, contentType: made.contentType } : file;
+  }
+
+  /** Whether a copy of an upload can be asked for at this width. */
+  #makesCopies(width: number): boolean {
+    return this.options.optimizer !== undefined && IMAGE_WIDTHS.includes(width);
+  }
+
+  /**
+   * What to keep of an upload: the optimizer's copy when it is a real image that is lighter,
+   * or one turned or made smaller, and otherwise the file as it arrived.
+   */
+  async #lighter(bytes: Uint8Array, facts: ImageFacts): Promise<{ bytes: Uint8Array; facts: ImageFacts }> {
+    const asIs = { bytes, facts };
+    const optimizer = this.options.optimizer;
+    if (!optimizer) return asIs;
+    let made: Uint8Array | null;
+    try {
+      made = await optimizer.optimize(bytes);
+    } catch (error) {
+      this.options.onOptimizerFault?.(error);
+      return asIs;
+    }
+    const madeFacts = made ? readImage(made) : null;
+    if (!made || !madeFacts || made.length > this.#maxBytes) return asIs;
+    // A copy is never larger than what it was made from, whichever way it was turned.
+    if (Math.max(madeFacts.width, madeFacts.height) > Math.max(facts.width, facts.height)) return asIs;
+    const reshaped = madeFacts.width !== facts.width || madeFacts.height !== facts.height;
+    return made.length < bytes.length || reshaped ? { bytes: made, facts: madeFacts } : asIs;
   }
 
   async #included(): Promise<SiteImage[]> {
@@ -180,7 +248,16 @@ export class MediaService {
   }
 
   #asImage(file: MediaFile): SiteImage {
-    return { name: file.name, url: `${this.#basePath}/${file.key}`, width: file.width, height: file.height, uploadedAt: file.createdAt, size: file.size };
+    const url = `${this.#basePath}/${file.key}`;
+    return {
+      name: file.name,
+      url,
+      width: file.width,
+      height: file.height,
+      uploadedAt: file.createdAt,
+      size: file.size,
+      ...(this.#makesCopies(THUMBNAIL_WIDTH) && file.width > THUMBNAIL_WIDTH && { thumbnail: `${url}?w=${THUMBNAIL_WIDTH}` }),
+    };
   }
 }
 

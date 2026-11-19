@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { APIContext } from 'astro';
-import { PreviewLinks, type Actor } from '@velocity-astro/cms-core';
+import { PreviewLinks, readImage, type Actor } from '@velocity-astro/cms-core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { sharedConnection } from './connection.js';
 import { NoSiteError, currentSite, hostedRequest, inSite, readInSite, siteAt, siteCacheTag, useSiteRegistry, type HostedSite } from './hosted.js';
@@ -208,6 +208,24 @@ describe('a server that runs many sites', () => {
     expect(await orchard.media?.get('porch.png')).toBeNull();
     await inSite(orchard, () => refreshUploadedImages());
     expect((await inSite(orchard, () => uploadedFile('porch.png'))).status).toBe(404);
+  });
+
+  it('keeps an upload as a lighter WebP, and serves small copies of it to its own site alone', async () => {
+    const { default: sharp } = await import('sharp');
+    const jpeg = await sharp({ create: { width: 3000, height: 2000, channels: 3, background: { r: 200, g: 120, b: 40 } } }).jpeg().toBuffer();
+    const image = await inSite(harbor, async () => (await sharedConnection({})).cms.media.upload(owner, { fileName: 'Porch.jpg', bytes: jpeg }));
+    expect(image).toMatchObject({ url: '/media/porch.webp', width: 2560, height: 1707, thumbnail: '/media/porch.webp?w=640' });
+    expect(await harbor.media?.get('porch.jpg')).toBeNull();
+
+    const small = await inSite(harbor, () => uploadedFile('porch.webp', '640'));
+    expect(small.headers.get('content-type')).toBe('image/webp');
+    expect(small.headers.get('cache-control')).toContain('immutable');
+    expect(readImage(new Uint8Array(await small.arrayBuffer()))).toMatchObject({ width: 640, height: 427 });
+    // Only the widths the CMS offers, so nobody can ask for one image ten thousand ways.
+    for (const width of ['641', '0', '99999', '640px', '']) {
+      expect((await inSite(harbor, () => uploadedFile('porch.webp', width))).status).toBe(404);
+    }
+    expect((await inSite(orchard, () => uploadedFile('porch.webp', '640'))).status).toBe(404);
   });
 
   it('refuses a site the registry describes badly', async () => {

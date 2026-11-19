@@ -1,7 +1,5 @@
-import { readImage, type NewUpload } from '@velocity-astro/cms-core';
+import { IMAGE_LONGEST_SIDE as LONGEST_SIDE, readImage, type NewUpload } from '@velocity-astro/cms-core';
 
-/** No page shows a photo wider than this, and a phone's camera makes them twice as wide. */
-const LONGEST_SIDE = 2560;
 const JPEG_QUALITY = 0.86;
 
 const withEnding = (fileName: string, ending: string): string => `${fileName.replace(/\.[^.]*$/, '')}.${ending}`;

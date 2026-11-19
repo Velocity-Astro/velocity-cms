@@ -100,6 +100,7 @@ export type {
   EntryRepository,
   IdGenerator,
   ImageLibrary,
+  ImageOptimizer,
   MediaRepository,
   MediaStore,
   PluginStore,
@@ -166,6 +167,8 @@ export {
 } from './services/content-service.js';
 export { readImage, type ImageFacts } from './image-file.js';
 export {
+  IMAGE_LONGEST_SIDE,
+  IMAGE_WIDTHS,
   MediaService,
   type MediaServiceOptions,
   type MediaStorage,

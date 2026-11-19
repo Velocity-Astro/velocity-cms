@@ -52,6 +52,7 @@ export {
   type PageSources,
   type StaticPath,
 } from './live-pages.js';
+export { SharpImageOptimizer, type SharpImageOptimizerOptions } from './image-optimizer.js';
 export { FolderMediaStore, S3MediaStore, mediaStoreFromEnv, type S3MediaStoreOptions } from './media-store.js';
 export { hasSiteSecret } from './secret.js';
 export { refreshUploadedImages, uploadedFile, uploadedImage } from './site-media.js';
