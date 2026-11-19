@@ -25,6 +25,9 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Every commit, so an earlier one can be tagged.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -35,4 +38,8 @@ jobs:
         run: |
           node scripts/next-release.mjs --notes "$VERSION" > "$RUNNER_TEMP/notes.md"
           case "$VERSION" in *-*) pre=--prerelease ;; *) pre= ;; esac
-          gh release create "v$VERSION" --target "$COMMIT" --title "$VERSION" --notes-file "$RUNNER_TEMP/notes.md" $pre
+          # The tag is pushed with git and the Release made for it: asked to tag a commit itself,
+          # GitHub refuses a workflow's own token.
+          git tag "v$VERSION" "$COMMIT"
+          git push origin "refs/tags/v$VERSION"
+          gh release create "v$VERSION" --verify-tag --title "$VERSION" --notes-file "$RUNNER_TEMP/notes.md" $pre

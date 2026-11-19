@@ -115,4 +115,10 @@ jobs:
           fi
           node scripts/next-release.mjs --notes "$VERSION" > "$RUNNER_TEMP/notes.md"
           case "$VERSION" in *-*) pre=--prerelease ;; *) pre= ;; esac
-          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "$VERSION" --notes-file "$RUNNER_TEMP/notes.md" $pre
+          # The tag is pushed with git and the Release made for it: asked to tag a commit itself,
+          # GitHub refuses a workflow's own token.
+          if ! git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" > /dev/null; then
+            git tag "v$VERSION" "$GITHUB_SHA"
+            git push origin "refs/tags/v$VERSION"
+          fi
+          gh release create "v$VERSION" --verify-tag --title "$VERSION" --notes-file "$RUNNER_TEMP/notes.md" $pre
