@@ -174,12 +174,22 @@ jobs:
       - name: Check a visitor is let in as the shared editor
         if: env.RESET == 'true'
         run: |
-          # The link itself is never printed: it signs someone in.
-          curl -sS -o /dev/null -D headers.txt -X POST -H "Origin: $SITE_URL" "$SITE_URL/demo/sign-in"
-          if ! grep -i -q '^location: .*/api/cms/auth/' headers.txt; then
-            echo "::error::$SITE_URL/demo/sign-in did not send a visitor on to sign in (answered: $(head -1 headers.txt))."
-            exit 1
+          # The link itself is never printed: it signs someone in. A new deploy can take a few
+          # seconds to answer at the site's address, so this asks more than once.
+          for attempt in 1 2 3 4 5 6; do
+            curl -sS -o /dev/null -D headers.txt -X POST -H "Origin: $SITE_URL" "$SITE_URL/demo/sign-in" || true
+            if grep -i -q '^location: .*/api/cms/auth/' headers.txt; then exit 0; fi
+            sleep 10
+          done
+          grep -i -v '^location:' headers.txt | grep -i -E '^(HTTP/|x-vercel-|x-matched-path|cache-control|content-type|server)' || true
+          if grep -i -q '^location:' headers.txt; then echo "It sent the visitor somewhere other than a sign-in link (the shared person may be missing)."; fi
+          if curl -sS "$SITE_URL/demo/" | grep -q 'action="/demo/sign-in"'; then
+            echo "The page at /demo/ offers the editor, so the site knows its visitor."
+          else
+            echo "The page at /demo/ does not offer the editor, so the site does not know its visitor (CMS_DEMO_VISITOR)."
           fi
+          echo "::error::$SITE_URL/demo/sign-in did not send a visitor on to sign in. The lines above say how it answered."
+          exit 1
 
       - name: Check the public pages answer
         run: |
