@@ -17,6 +17,10 @@ export interface MailWords {
   readonly noticeIntro?: (formName: string, siteName: string) => string;
   readonly noticeSentFrom?: string;
   readonly noticeReply?: string;
+  /** The email an owner asks for to see that the settings work. Left out, these are in English. */
+  readonly testSubject?: (siteName: string) => string;
+  readonly testGreeting?: (name: string) => string;
+  readonly testBody?: (siteName: string) => string;
 }
 
 export const englishMailWords: MailWords = {
@@ -34,6 +38,9 @@ export const englishMailWords: MailWords = {
   noticeIntro: (formName, siteName) => `Someone filled in "${formName}" on ${siteName}.`,
   noticeSentFrom: 'Sent from',
   noticeReply: 'Reply to this email to answer them. The message is also kept in the CMS.',
+  testSubject: (siteName) => `Email works for ${siteName}`,
+  testGreeting: (name) => `Hi ${name},`,
+  testBody: (siteName) => `This is a test from ${siteName}. If you are reading it, sign-in links, invitations and notices from forms will arrive too.`,
 };
 
 export interface ResendMailerOptions {
@@ -46,7 +53,30 @@ export interface ResendMailerOptions {
   readonly fetch?: typeof globalThis.fetch;
 }
 
+/** A test email to send: to the person who asked for it. */
+export interface TestMail {
+  readonly email: string;
+  readonly name: string;
+  readonly siteName: string;
+}
+
+/** The provider answered and refused. `status` is its answer; the message holds its own words, for the server's log. */
+export class MailRefusedError extends Error {
+  constructor(
+    readonly status: number,
+    detail: string,
+  ) {
+    super(`Resend refused an email (${status}). ${detail}`);
+  }
+}
+
 const escaped = (text: string) => text.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`);
+
+/** Paragraphs and nothing else. */
+function plain(...paragraphs: string[]): { html: string; text: string } {
+  const html = `<div style="max-width:480px;margin:0 auto;padding:32px 16px">${paragraphs.map((words) => `<p style="margin:0 0 16px;font:16px/1.5 system-ui,sans-serif;color:#1a1a1a">${escaped(words)}</p>`).join('')}</div>`;
+  return { html, text: paragraphs.join('\n\n') };
+}
 
 /** One paragraph of greeting, one of explanation, one button, and the address in full under it. */
 function layout(greeting: string, body: string, button: string, url: string, note?: string): { html: string; text: string } {
@@ -95,6 +125,12 @@ export class ResendMailer implements Mailer, NoticeMailer {
     );
   }
 
+  /** One email that says the settings work. It carries no link and no secret. */
+  sendTest(mail: TestMail): Promise<void> {
+    const words = { ...englishMailWords, ...this.#words };
+    return this.#send(mail.email, words.testSubject?.(mail.siteName) ?? mail.siteName, plain(words.testGreeting?.(mail.name) ?? '', words.testBody?.(mail.siteName) ?? ''));
+  }
+
   sendSubmissionNotice(mail: SubmissionNotice): Promise<void> {
     const words = { ...englishMailWords, ...this.#words };
     const intro = words.noticeIntro?.(mail.formName, mail.siteName) ?? '';
@@ -127,7 +163,7 @@ export class ResendMailer implements Mailer, NoticeMailer {
       // The provider's own words go to the server's log through whoever catches this. The address
       // is left out: a log is not the place for who works on a site.
       const detail = (await response.text().catch(() => '')).slice(0, 300);
-      throw new Error(`Resend refused an email (${response.status}). ${detail}`);
+      throw new MailRefusedError(response.status, detail);
     }
   }
 }
@@ -136,8 +172,8 @@ export class ResendMailer implements Mailer, NoticeMailer {
  * The mailer a site gets from its settings alone: Resend when `VELOCITY_CMS_RESEND_API_KEY` and
  * `VELOCITY_CMS_EMAIL_FROM` are both set, otherwise none.
  */
-export function mailerFromEnv(env: Readonly<Record<string, string | undefined>> = process.env): ResendMailer | undefined {
+export function mailerFromEnv(env: Readonly<Record<string, string | undefined>> = process.env, fetch?: typeof globalThis.fetch): ResendMailer | undefined {
   const apiKey = env['VELOCITY_CMS_RESEND_API_KEY'];
   const from = env['VELOCITY_CMS_EMAIL_FROM'];
-  return apiKey && from ? new ResendMailer({ apiKey, from }) : undefined;
+  return apiKey && from ? new ResendMailer({ apiKey, from, ...(fetch && { fetch }) }) : undefined;
 }

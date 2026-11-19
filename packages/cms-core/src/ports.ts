@@ -2,7 +2,8 @@
  * What the core needs from the outside world. The core ships no implementation of these:
  * an adapter package implements each one and proves it with the contract tests in `./testing`.
  */
-import type { ContentTypeDef, Entry, EntryStatus, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus, Timestamp, Contact, ContactNote, Deal, DealSubject, Pipeline, TeamMember, CustomFields } from './model.js';
+import type { Actor } from './access.js';
+import type { ContentTypeDef, Entry, EntryStatus, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus, Timestamp, Contact, ContactNote, Deal, DealSubject, Pipeline, TeamMember, CustomFields, MailFixedBy, SettingFixedBy, StorageKeeping } from './model.js';
 
 export interface EntryQuery {
   readonly typeId?: string;
@@ -214,6 +215,53 @@ export interface Team {
   members(): Promise<TeamMember[]>;
 }
 
+/** Where the parts of a site's settings are kept, each whole under its name. */
+export interface SettingsStore {
+  /** One part as it was saved, or `null` when it never was. */
+  get(area: string): Promise<{ readonly value: unknown; readonly revision: number } | null>;
+  /**
+   * Replaces one part. `expectedRevision` is the revision the caller last saw, or `null` when
+   * none was saved before: one that has moved on is refused with a `ConflictError`.
+   */
+  save(area: string, value: unknown, revision: number, expectedRevision: number | null): Promise<void>;
+}
+
+/** How the site's email leaves, which only its host knows. The host hands one over with `settings.useMail`. */
+export interface MailRoom {
+  /** Who decides how email is sent when the editor's settings do not, or `null` when they do. */
+  fixedBy(): MailFixedBy | null;
+  /** Whether a test can be sent the way email is sent now. */
+  canTest(): Promise<boolean>;
+  /**
+   * Sends one email that says the settings work, to the person who asked and nobody else, the
+   * way every email is sent now. One that cannot be sent is thrown with words for that person.
+   */
+  sendTest(actor: Actor): Promise<void>;
+}
+
+/** How the site's uploads are kept, which only its host knows. The host hands one over with `settings.useStorage`. */
+export interface StorageRoom {
+  /** Who decides where uploads are kept when the editor's settings do not, or `null` when they do. */
+  fixedBy(): SettingFixedBy | null;
+  /** Where an upload would be kept right now. */
+  keeping(): Promise<StorageKeeping>;
+  /**
+   * Keeps a small file in the bucket the editor's settings name, reads it back and removes it.
+   * A bucket that cannot be used is thrown with words for the person who asked.
+   */
+  test(): Promise<void>;
+}
+
+/** The service that checks a form's sender is a person, which only the host can reach. Handed over with `settings.useChallenge`. */
+export interface ChallengeRoom {
+  /**
+   * Asks the challenge service whether it knows the secret key the editor's settings hold. One
+   * it does not know, or a service that cannot be reached, is thrown with words for the person
+   * who asked.
+   */
+  test(): Promise<void>;
+}
+
 /** The current time. Passed in so tests can fix it. */
 export interface Clock {
   now(): Timestamp;
@@ -346,4 +394,9 @@ export interface MediaStore {
   get(key: string): Promise<StoredFile | null>;
   /** Removes a file. A key nothing is kept under is ignored. */
   remove(key: string): Promise<void>;
+  /**
+   * Whether there is somewhere to keep a file right now, for a store whose place an owner sets
+   * up later. A store without this always has a place.
+   */
+  ready?(): Promise<boolean>;
 }

@@ -100,7 +100,7 @@ describe('MediaService', () => {
     const reader = { kind: 'user', id: 'u3', role: 'reader' } as unknown as Actor;
     await expect(media.upload(reader, { fileName: 'a.png', bytes: tinyPng() })).rejects.toThrow();
     const closed = new MediaService(new AccessControl(), events, new FakeClock());
-    expect(closed.takesUploads).toBe(false);
+    expect(await closed.takesUploads()).toBe(false);
     await expect(closed.upload(owner, { fileName: 'a.png', bytes: tinyPng() })).rejects.toBeInstanceOf(ConflictError);
     await expect(closed.file('a.png')).rejects.toBeInstanceOf(NotFoundError);
     expect(await closed.images(owner)).toEqual([]);

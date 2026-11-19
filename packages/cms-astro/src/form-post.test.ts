@@ -192,6 +192,37 @@ describe('what keeps a form from being abused', () => {
     expect((await taker.handle(plain(await filled(taker)), 'contact', '203.0.113.9')).status).toBe(200);
   });
 
+  it('takes as many as the limit says at that moment, when one is given with the post', async () => {
+    const limiter = new MemoryRateLimiter(8, 60_000, () => now);
+    let limit = 1;
+    const taker = posts({ limiter: { take: (address) => limiter.take(address, limit) } });
+    const send = async () => (await taker.handle(plain(await filled(taker)), 'contact', '203.0.113.9')).status;
+    expect([await send(), await send()]).toEqual([200, 429]);
+    limit = 3;
+    expect([await send(), await send(), await send()]).toEqual([200, 200, 429]);
+  });
+
+  it('keeps as spam what a sender who did not pass the challenge sent, and answers them like anyone else', async () => {
+    const answered: unknown[] = [];
+    const taker = posts({ challenge: { passed: async (answer) => (answered.push(answer), answer === 'a-person') } });
+    const passed = await taker.handle(plain(await filled(taker, answers, { 'cf-turnstile-response': 'a-person' })), 'contact');
+    const failed = await taker.handle(plain(await filled(taker, answers, { 'cf-turnstile-response': 'a-script' })), 'contact');
+    const none = await taker.handle(plain(await filled(taker)), 'contact');
+    expect([passed.status, failed.status, none.status]).toEqual([200, 200, 200]);
+    expect(answered).toEqual(['a-person', 'a-script', undefined]);
+    expect((await kept()).map((submission) => submission.status).sort()).toEqual(['new', 'spam', 'spam']);
+    // Only the one who passed is news to the form's people, and the answer itself is kept nowhere.
+    expect(sent).toHaveLength(2);
+    expect(JSON.stringify(await kept())).not.toContain('a-person');
+  });
+
+  it('does not ask the challenge about a post that is already suspected', async () => {
+    let asked = 0;
+    const taker = posts({ challenge: { passed: async () => ((asked += 1), true) } });
+    await taker.handle(plain(await filled(taker, answers, { [FORM_TRAP_FIELD]: 'filled in' })), 'contact');
+    expect(asked).toBe(0);
+  });
+
   it('refuses a body over the limit, whatever it says its length is, and one that is not a form', async () => {
     const taker = posts();
     const large = await taker.handle(json({ ...answers, message: 'x'.repeat(MAX_FORM_POST_BYTES) }), 'contact');

@@ -1,3 +1,4 @@
+import { FORM_CHALLENGE_FIELD, type ChallengeCheck } from './challenge.js';
 import { NotFoundError, ValidationError, liveFields, type Cms, type DealSubject, type FormDef, type LocalizedText, type Submission } from '@velocity-astro/cms-core';
 
 /** The names a form's page sends beside its own fields. A field's key never starts with `_`. */
@@ -6,6 +7,8 @@ export const FORM_TOKEN_FIELD = '_t';
 export const FORM_PAGE_FIELD = '_page';
 export const FORM_LOCALE_FIELD = '_locale';
 export const FORM_ABOUT_FIELD = '_about';
+/** Holds the challenge's site key, so the form's script draws the challenge in a template that knows nothing of it. */
+export const FORM_CHALLENGE_KEY_FIELD = '_challenge';
 
 /** The largest post a form may send: plenty for words, far too little to fill a disk. */
 export const MAX_FORM_POST_BYTES = 64 * 1024;
@@ -18,6 +21,9 @@ export interface RateLimiter {
   take(address: string): boolean | Promise<boolean>;
 }
 
+/** How many posts one address may send in the limiter's stretch of time. */
+export type PostLimit = number | (() => number | Promise<number>);
+
 /** Counts posts per address in this server's memory: `limit` in any stretch of `windowMs`. */
 export class MemoryRateLimiter implements RateLimiter {
   readonly #taken = new Map<string, number[]>();
@@ -28,14 +34,15 @@ export class MemoryRateLimiter implements RateLimiter {
     private readonly now: () => number = Date.now,
   ) {}
 
-  take(address: string): boolean {
+  /** `limit` is the most to take from one address just now, when it is not the one this was made with. */
+  take(address: string, limit: number = this.limit): boolean {
     const since = this.now() - this.windowMs;
     // Forgets addresses that have gone quiet, so the list cannot grow without end.
     if (this.#taken.size > 5000) {
       for (const [known, times] of this.#taken) if ((times.at(-1) ?? 0) <= since) this.#taken.delete(known);
     }
     const times = (this.#taken.get(address) ?? []).filter((time) => time > since);
-    if (times.length >= this.limit) {
+    if (times.length >= limit) {
       this.#taken.set(address, times);
       return false;
     }
@@ -101,6 +108,8 @@ export interface FormPostsOptions {
   /** Who delivers notices. Without one nobody is emailed; submissions are kept all the same. */
   readonly mailer?: NoticeMailer | undefined;
   readonly limiter?: RateLimiter;
+  /** Checks that a post's sender passed the site's challenge. Without one no challenge is asked. */
+  readonly challenge?: ChallengeCheck;
   /**
    * The entry whose own page is at a path of the site, if any, so that what is sent from a
    * listing's page is known to be about that listing. Asked only when the form's page did not
@@ -168,7 +177,11 @@ export class FormPosts {
 
     const page = isOwnPath(sent[FORM_PAGE_FIELD]) ? sent[FORM_PAGE_FIELD] : undefined;
     const locale = typeof sent[FORM_LOCALE_FIELD] === 'string' ? sent[FORM_LOCALE_FIELD] : undefined;
-    const suspected = (typeof sent[FORM_TRAP_FIELD] === 'string' && sent[FORM_TRAP_FIELD] !== '') || !(await this.#drawnForAPerson(formKey, sent[FORM_TOKEN_FIELD]));
+    const suspected =
+      (typeof sent[FORM_TRAP_FIELD] === 'string' && sent[FORM_TRAP_FIELD] !== '') ||
+      !(await this.#drawnForAPerson(formKey, sent[FORM_TOKEN_FIELD])) ||
+      // Asked last: a post already suspected is not worth a question to another service.
+      !((await this.#options.challenge?.passed(sent[FORM_CHALLENGE_FIELD])) ?? true);
 
     // A page that cannot be looked up costs the submission nothing but its subject.
     const about = (await this.#marked(formKey, sent[FORM_ABOUT_FIELD])) ?? (page === undefined ? undefined : await this.#options.entryAt?.(page).catch(() => undefined));

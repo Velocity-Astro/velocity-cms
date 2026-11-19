@@ -1,4 +1,4 @@
-import type { ContactImportReport, ContactImportRow, CustomFields, CustomFieldsChanges, Contact, ContactChanges, Deal, DealChanges, DealSubject, Forecast, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginTask, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Revision, Role, SiteImage } from '@velocity-astro/cms-core';
+import type { FormsSettings, FormsSettingsChanges, GeneralSettings, GeneralSettingsChanges, EmailSettings, EmailSettingsChanges, StorageSettings, StorageSettingsChanges, ContactImportReport, ContactImportRow, CustomFields, CustomFieldsChanges, Contact, ContactChanges, Deal, DealChanges, DealSubject, Forecast, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginTask, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Revision, Role, SiteImage } from '@velocity-astro/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
@@ -242,6 +242,27 @@ export interface AdminClient {
   forgetSender(email: string): Promise<number>;
   /** The people who wrote to the site, newest first. Only for those who may read contacts. */
   listContacts(query?: ContactListQuery): Promise<Page<Contact>>;
+  /** How the site's email is sent. The provider's key is never part of it. Owners only. */
+  getEmailSettings(): Promise<EmailSettings>;
+  /** Saves how the site's email is sent. A key left out stays as it is; `null` takes it away. */
+  saveEmailSettings(changes: EmailSettingsChanges): Promise<EmailSettings>;
+  /** Sends a test email to whoever is signed in, the way the site's email is sent now. */
+  sendTestEmail(): Promise<void>;
+  /** The site's basics: what it is called. Owners only. */
+  getGeneralSettings(): Promise<GeneralSettings>;
+  saveGeneralSettings(changes: GeneralSettingsChanges): Promise<GeneralSettings>;
+  /** Where the site's uploads are kept. The bucket's secret key is never part of it. Owners only. */
+  getStorageSettings(): Promise<StorageSettings>;
+  /** Saves the bucket uploads are kept in. A secret key left out stays as it is; `null` takes it away. */
+  saveStorageSettings(changes: StorageSettingsChanges): Promise<StorageSettings>;
+  /** Tries the saved bucket: keeps a small file there, reads it back and removes it. */
+  testStorage(): Promise<void>;
+  /** How the site's forms are guarded. The challenge's secret key is never part of it. Owners only. */
+  getFormsSettings(): Promise<FormsSettings>;
+  /** Saves how the site's forms are guarded. A secret key left out stays as it is; `null` takes it away. */
+  saveFormsSettings(changes: FormsSettingsChanges): Promise<FormsSettings>;
+  /** Asks the challenge service whether it knows the saved secret key. */
+  testFormsSettings(): Promise<void>;
   /** The stages a contact moves through, in order. */
   getPipeline(): Promise<Pipeline>;
   /** Replaces the stages. Contacts in a stage that is removed move to the first. */

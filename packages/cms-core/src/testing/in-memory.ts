@@ -8,6 +8,7 @@ import type {
   DealRepository,
   StageTotal,
   PipelineStore,
+  SettingsStore,
   CustomFieldsStore,
   EntryQuery,
   EntryRepository,
@@ -432,6 +433,19 @@ export class InMemoryPipelineStore implements PipelineStore {
     if ((this.#pipeline?.revision ?? null) !== expectedRevision) throw new ConflictError('The stages were changed by someone else. Reload them and try again.');
     this.#pipeline = pipeline;
     return pipeline;
+  }
+}
+
+export class InMemorySettingsStore implements SettingsStore {
+  readonly #areas = new Map<string, { value: unknown; revision: number }>();
+
+  async get(area: string): Promise<{ value: unknown; revision: number } | null> {
+    return this.#areas.get(area) ?? null;
+  }
+
+  async save(area: string, value: unknown, revision: number, expectedRevision: number | null): Promise<void> {
+    if ((this.#areas.get(area)?.revision ?? null) !== expectedRevision) throw new ConflictError('These settings were changed by someone else. Reload them and try again.');
+    this.#areas.set(area, { value: structuredClone(value), revision });
   }
 }
 

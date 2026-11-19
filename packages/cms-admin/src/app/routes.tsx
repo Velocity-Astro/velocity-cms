@@ -13,6 +13,7 @@ import { MediaScreen } from '../screens/Media/MediaScreen.js';
 import { PluginScreenScreen } from '../screens/PluginScreen/PluginScreenScreen.js';
 import { PluginsScreen } from '../screens/Plugins/PluginsScreen.js';
 import { PeopleScreen } from '../screens/People/PeopleScreen.js';
+import { SettingsScreen } from '../screens/Settings/SettingsScreen.js';
 import { TrashScreen } from '../screens/Trash/TrashScreen.js';
 import { SignInScreen } from '../screens/SignIn/SignInScreen.js';
 import { AdminLayout } from './AdminLayout.js';
@@ -39,6 +40,8 @@ export function createRoutes(siteName: string): RouteObject[] {
             { path: 'deals', element: <DealsScreen /> },
             { path: 'plugins', element: <PluginsScreen /> },
             { path: 'plugins/:pluginName/:screenId', element: <PluginScreenScreen /> },
+            { path: 'settings', element: <SettingsScreen /> },
+            { path: 'settings/:area', element: <SettingsScreen /> },
             { path: 'types', element: <ContentTypesScreen /> },
             { path: 'types/:typeKey', element: <ContentTypeScreen /> },
             { path: 'content/:typeKey', element: <ContentListScreen /> },

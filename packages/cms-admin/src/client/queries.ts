@@ -1,5 +1,5 @@
 import { MutationCache, QueryCache, QueryClient, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ContactImportReport, ContactImportRow, ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, DealChanges, NewDeal, Page, PipelineChanges, CustomFieldsChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity-astro/cms-core';
+import type { FormsSettingsChanges, GeneralSettingsChanges, EmailSettingsChanges, StorageSettingsChanges, ContactImportReport, ContactImportRow, ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, DealChanges, NewDeal, Page, PipelineChanges, CustomFieldsChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity-astro/cms-core';
 import type { ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, ImageList, NewEntry, NewPerson, NewType, NewTypeField, SubmissionListQuery } from './admin-client.js';
 import { AdminRequestError } from './errors.js';
 import { useClient } from './client-context.js';
@@ -43,6 +43,10 @@ const keys = {
   dealList: (query: DealListQuery) => ['contacts', 'deals', 'list', query] as const,
   forecast: ['contacts', 'deals', 'forecast'] as const,
   team: ['team'] as const,
+  emailSettings: ['settings', 'email'] as const,
+  storageSettings: ['settings', 'storage'] as const,
+  formsSettings: ['settings', 'forms'] as const,
+  generalSettings: ['settings', 'general'] as const,
 };
 
 /**
@@ -509,6 +513,76 @@ export function useUpdateDeal() {
 export function useDeleteDeal() {
   const client = useClient();
   return useMutation({ mutationFn: (id: string) => client.deleteDeal(id), onSettled: useDealsChanged() });
+}
+
+/** How the site's email is sent. Owners only. */
+export function useEmailSettings() {
+  const client = useClient();
+  return useQuery({ queryKey: keys.emailSettings, queryFn: () => client.getEmailSettings() });
+}
+
+export function useSaveEmailSettings() {
+  const client = useClient();
+  const cache = useQueryClient();
+  return useMutation({ mutationFn: (changes: EmailSettingsChanges) => client.saveEmailSettings(changes), onSuccess: (saved) => cache.setQueryData(keys.emailSettings, saved) });
+}
+
+export function useSendTestEmail() {
+  const client = useClient();
+  return useMutation({ mutationFn: () => client.sendTestEmail() });
+}
+
+/** The site's basics. Owners only. */
+export function useGeneralSettings() {
+  const client = useClient();
+  return useQuery({ queryKey: keys.generalSettings, queryFn: () => client.getGeneralSettings() });
+}
+
+export function useSaveGeneralSettings() {
+  const client = useClient();
+  const cache = useQueryClient();
+  return useMutation({ mutationFn: (changes: GeneralSettingsChanges) => client.saveGeneralSettings(changes), onSuccess: (saved) => cache.setQueryData(keys.generalSettings, saved) });
+}
+
+/** How the site's forms are guarded. Owners only. */
+export function useFormsSettings() {
+  const client = useClient();
+  return useQuery({ queryKey: keys.formsSettings, queryFn: () => client.getFormsSettings() });
+}
+
+export function useSaveFormsSettings() {
+  const client = useClient();
+  const cache = useQueryClient();
+  return useMutation({ mutationFn: (changes: FormsSettingsChanges) => client.saveFormsSettings(changes), onSuccess: (saved) => cache.setQueryData(keys.formsSettings, saved) });
+}
+
+export function useTestFormsSettings() {
+  const client = useClient();
+  return useMutation({ mutationFn: () => client.testFormsSettings() });
+}
+
+/** Where the site's uploads are kept. Owners only. */
+export function useStorageSettings() {
+  const client = useClient();
+  return useQuery({ queryKey: keys.storageSettings, queryFn: () => client.getStorageSettings() });
+}
+
+export function useSaveStorageSettings() {
+  const client = useClient();
+  const cache = useQueryClient();
+  return useMutation({
+    mutationFn: (changes: StorageSettingsChanges) => client.saveStorageSettings(changes),
+    onSuccess: (saved) => {
+      cache.setQueryData(keys.storageSettings, saved);
+      // Whether the site takes uploads may have changed with it.
+      void cache.invalidateQueries({ queryKey: keys.images });
+    },
+  });
+}
+
+export function useTestStorage() {
+  const client = useClient();
+  return useMutation({ mutationFn: () => client.testStorage() });
 }
 
 /** The stages a contact moves through. */

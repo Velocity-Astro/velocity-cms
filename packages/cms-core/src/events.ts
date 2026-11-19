@@ -1,6 +1,6 @@
 import type { Actor } from './access.js';
 import type { Permission } from './access.js';
-import type { Contact, CustomFields, Deal, ContentTypeDef, Entry, FormDef, MediaFile, Pipeline, Submission } from './model.js';
+import type { Contact, CustomFields, Deal, ContentTypeDef, Entry, FormDef, MediaFile, Pipeline, SettingsArea, Submission } from './model.js';
 
 /** Everything the CMS announces, and what each announcement carries. */
 export interface CmsEvents {
@@ -41,6 +41,8 @@ export interface CmsEvents {
   'pipeline.saved': { pipeline: Pipeline; actor: Actor };
   /** The fields a site adds to its contacts and deals were changed. */
   'custom-fields.saved': { fields: CustomFields; actor: Actor };
+  /** One part of the site's settings was saved, such as how its email is sent. It carries no key. */
+  'settings.saved': { area: SettingsArea; actor: Actor };
   'media.uploaded': { file: MediaFile; actor: Actor };
   'media.removed': { file: MediaFile; actor: Actor };
   /** A plugin was switched on or off, or its settings were saved. */

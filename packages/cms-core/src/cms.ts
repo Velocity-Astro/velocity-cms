@@ -5,13 +5,15 @@ import { createFieldRegistry } from './fields/index.js';
 import { PublishChecks } from './checks.js';
 import { PageHeads } from './pages.js';
 import { PluginHost } from './plugin.js';
-import type { Clock, ContactRepository, DealRepository, EntryRepository, FormRepository, IdGenerator, NameLookup, PipelineStore, CustomFieldsStore, PluginStore, SchemaRepository, SubmissionRepository, Team } from './ports.js';
-import { InMemoryContactRepository, InMemoryDealRepository, InMemoryFormRepository, InMemoryPipelineStore, InMemoryCustomFieldsStore, InMemoryPluginStore, InMemorySubmissionRepository } from './testing/in-memory.js';
+import type { Clock, ContactRepository, DealRepository, EntryRepository, FormRepository, IdGenerator, NameLookup, PipelineStore, SettingsStore, CustomFieldsStore, PluginStore, SchemaRepository, SubmissionRepository, Team } from './ports.js';
+import { InMemoryContactRepository, InMemoryDealRepository, InMemoryFormRepository, InMemoryPipelineStore, InMemorySettingsStore, InMemoryCustomFieldsStore, InMemoryPluginStore, InMemorySubmissionRepository } from './testing/in-memory.js';
 import type { Registry } from './registry.js';
 import { ContentService } from './services/content-service.js';
 import { ContactService } from './services/contact-service.js';
 import { DealService } from './services/deal-service.js';
 import { PipelineService } from './services/pipeline-service.js';
+import { SettingsService } from './services/settings-service.js';
+import { SecretSeal } from './seal.js';
 import { CustomFieldsService } from './services/custom-fields-service.js';
 import { FormService } from './services/form-service.js';
 import { SubmissionService } from './services/submission-service.js';
@@ -28,7 +30,7 @@ export interface CmsOptions {
   readonly media?: MediaServiceOptions;
   /** The secret that signs preview links, and the language of the pages at a type's `urlPattern`. Without a secret there are no previews. */
   readonly previews?: PreviewServiceOptions;
-  /** What plugins' keys and passwords are sealed with. Left out, the previews' secret is used; with neither, none can be saved. */
+  /** What the keys and passwords of plugins and of the site's settings are sealed with. Left out, the previews' secret is used; with neither, none can be saved. */
   readonly secret?: string;
   /**
    * Where forms and what visitors send through them are kept. Without them both are kept in
@@ -42,6 +44,8 @@ export interface CmsOptions {
   readonly deals?: DealRepository;
   /** Where the stages of the pipeline are kept once someone changes them. Without one, in memory. */
   readonly pipeline?: PipelineStore;
+  /** Where what an owner sets up in the editor's settings is kept. Without one, in memory. */
+  readonly settings?: SettingsStore;
   /** Where the fields a site adds to its contacts and deals are kept. Without one, in memory. */
   readonly customFields?: CustomFieldsStore;
   /** Who is on the team, so a contact can be given to one of them. Without it nobody can be. */
@@ -72,6 +76,8 @@ export interface Cms {
   /** The stages a contact moves through. */
   readonly pipeline: PipelineService;
   readonly customFields: CustomFieldsService;
+  /** What an owner sets up for the site in the editor, such as how its email is sent. */
+  readonly settings: SettingsService;
   /** What contacts may buy, what each is worth and how far along it is. */
   readonly deals: DealService;
   readonly previews: PreviewService;
@@ -115,5 +121,6 @@ export function createCms(options: CmsOptions): Cms {
   const previews = new PreviewService(content, schema, clock, options.previews);
   const sealWith = options.secret ?? options.previews?.secret;
   const plugins = new PluginHost({ fields, events, checks, pages, store: options.pluginStore ?? new InMemoryPluginStore(), ids, schema, content, access, clock, ...(sealWith !== undefined && { secret: sealWith }), ...(options.lookup && { lookup: options.lookup }), ...(options.onPluginFault && { onFault: options.onPluginFault }) });
-  return { schema, content, media, forms, submissions, contacts, pipeline, customFields, deals, previews, fields, events, access, plugins, pages };
+  const settings = new SettingsService(options.settings ?? new InMemorySettingsStore(), new SecretSeal(sealWith, 'velocity-cms site settings'), access, events);
+  return { settings, schema, content, media, forms, submissions, contacts, pipeline, customFields, deals, previews, fields, events, access, plugins, pages };
 }

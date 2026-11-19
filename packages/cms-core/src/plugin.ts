@@ -9,6 +9,7 @@ import { liveFields, type EntryData, type FieldDef, type LocalizedText, type Tim
 import { isPrivateAddress } from './net.js';
 import type { Clock, IdGenerator, NameLookup, PluginStore } from './ports.js';
 import type { Registry } from './registry.js';
+import { SecretSeal } from './seal.js';
 import { toPublicData, validateData } from './schema-builder.js';
 import type { ContentService } from './services/content-service.js';
 import type { SchemaService } from './services/schema-service.js';
@@ -308,7 +309,6 @@ const segmentsOf = (path: string) => path.split('/').filter(Boolean);
 const ENABLED = 'enabled';
 const SETTINGS = 'settings';
 const FIELDS = 'fields';
-type SealKey = Awaited<ReturnType<typeof globalThis.crypto.subtle.importKey>>;
 const SECRET = 'secret:';
 const TASK = 'task:';
 const OWN = 'data:';
@@ -325,8 +325,6 @@ interface StoredTask extends Omit<PluginTask, 'canRetry'> {
 
 const isTask = (value: unknown): value is StoredTask => isRecord(value) && typeof value['id'] === 'string' && typeof value['kind'] === 'string' && typeof value['status'] === 'string';
 const shown = ({ payload, ...task }: StoredTask): PluginTask => ({ ...task, canRetry: task.status === 'failed' && payload !== undefined });
-const toHex = (bytes: Uint8Array) => [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
-const fromHex = (hex: string) => new Uint8Array((hex.match(/../g) ?? []).map((pair) => Number.parseInt(pair, 16)));
 /** How long one running copy of the site may go without asking whether a plugin was switched on or off elsewhere. */
 const SYNC_EVERY_MS = 5000;
 
@@ -367,10 +365,11 @@ export class PluginHost {
   #syncing: Promise<void> | null = null;
   #workedAt = 0;
   #working: Promise<void> | null = null;
-  #sealKey: Promise<SealKey> | null = null;
+  readonly #seal: SecretSeal;
 
   constructor(parts: PluginHostParts) {
     this.#parts = parts;
+    this.#seal = new SecretSeal(parts.secret, 'velocity-cms plugin secrets');
   }
 
   /**
@@ -447,7 +446,7 @@ export class PluginHost {
       if (text === '' || text.length > LONGEST_SECRET) {
         throw new ValidationError(`"${key}" cannot be saved: ${text === '' ? 'it is empty. Paste the key or password, or remove the one that is saved.' : `it is longer than ${LONGEST_SECRET} characters.`}`, [{ path: [key], message: text === '' ? 'Fill this in.' : 'This is too long.' }]);
       }
-      await this.#parts.store.set(name, `${SECRET}${key}`, await this.#seal(text));
+      await this.#parts.store.set(name, `${SECRET}${key}`, await this.#seal.seal(text));
     }
     await this.#parts.events.emit('plugin.changed', { plugin: name, actor });
     return this.settings(actor, name);
@@ -590,36 +589,6 @@ export class PluginHost {
   async #secrets(held: Held): Promise<PluginSecretInfo[]> {
     const saved = new Set((await this.#parts.store.list(held.info.name, SECRET)).map(([key]) => key.slice(SECRET.length)));
     return (held.definition?.secrets ?? []).map((secret) => ({ ...secret, isSet: saved.has(secret.key) }));
-  }
-
-  /** The key secrets are sealed with, made from the site's secret. */
-  #key(): Promise<SealKey> {
-    const { secret } = this.#parts;
-    if (secret === undefined || secret.length < 32) {
-      throw new ConflictError('This site has no secret to seal keys and passwords with. Set VELOCITY_CMS_SECRET to at least 32 characters, then save this again.');
-    }
-    this.#sealKey ??= (async () => {
-      const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(`velocity-cms plugin secrets\n${secret}`));
-      return globalThis.crypto.subtle.importKey('raw', digest, 'AES-GCM', false, ['encrypt', 'decrypt']);
-    })();
-    return this.#sealKey;
-  }
-
-  async #seal(text: string): Promise<{ iv: string; sealed: string }> {
-    const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
-    const sealed = await globalThis.crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await this.#key(), new TextEncoder().encode(text));
-    return { iv: toHex(iv), sealed: toHex(new Uint8Array(sealed)) };
-  }
-
-  /** What was sealed, or `undefined` when it cannot be opened: the site's secret changed since. */
-  async #open(stored: unknown): Promise<string | undefined> {
-    if (!isRecord(stored) || typeof stored['iv'] !== 'string' || typeof stored['sealed'] !== 'string') return undefined;
-    try {
-      const opened = await globalThis.crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromHex(stored['iv']) }, await this.#key(), fromHex(stored['sealed']));
-      return new TextDecoder().decode(opened);
-    } catch {
-      return undefined;
-    }
   }
 
   #held(name: string): Held {
@@ -833,7 +802,7 @@ export class PluginHost {
         list: async (prefix) => Object.fromEntries((await store.list(name, `${OWN}${prefix}`)).map(([key, value]) => [key.slice(OWN.length), value])),
       },
       secrets: {
-        get: async (key) => this.#open(await store.get(name, `${SECRET}${key}`)),
+        get: async (key) => this.#seal.open(await store.get(name, `${SECRET}${key}`)),
       },
       net: {
         isPublic: async (host) => {

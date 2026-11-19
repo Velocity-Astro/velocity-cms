@@ -1,4 +1,4 @@
-import type { Cms, ContactChanges, ContactImportRow, DealChanges, NewDeal, PipelineChanges, CustomFieldsChanges, ContentTypeChanges, FieldArrangement, FieldChanges, FieldSection, FormChanges, NewContact, NewField, NewForm, Role } from '@velocity-astro/cms-core';
+import type { Cms, FormsSettingsChanges, EmailSettingsChanges, StorageSettingsChanges, ContactChanges, ContactImportRow, DealChanges, NewDeal, PipelineChanges, CustomFieldsChanges, ContentTypeChanges, FieldArrangement, FieldChanges, FieldSection, FormChanges, NewContact, NewField, NewForm, Role } from '@velocity-astro/cms-core';
 import { z } from 'zod';
 import type { ApiSession, Authenticator } from './authenticator.js';
 import { ApiError, errorResponse, isFault, json } from './http.js';
@@ -168,6 +168,27 @@ const customFieldsChanges = z.strictObject({
   deal: z.array(formField).max(100).optional(),
   expectedRevision: z.number().int().min(0),
 });
+const emailSettingsChanges = z.strictObject({
+  provider: z.enum(['resend']).optional(),
+  from: z.string().max(1000),
+  apiKey: z.string().max(2000).nullable().optional(),
+  expectedRevision: z.number().int().min(0),
+});
+const storageSettingsChanges = z.strictObject({
+  endpoint: z.string().max(1000),
+  bucket: z.string().max(1000),
+  region: z.string().max(1000).optional(),
+  accessKeyId: z.string().max(1000),
+  secretAccessKey: z.string().max(2000).nullable().optional(),
+  expectedRevision: z.number().int().min(0),
+});
+const formsSettingsChanges = z.strictObject({
+  siteKey: z.string().max(1000),
+  secretKey: z.string().max(2000).nullable().optional(),
+  postsPerAddress: z.number(),
+  expectedRevision: z.number().int().min(0),
+});
+const generalSettingsChanges = z.strictObject({ siteName: z.string().max(1000), expectedRevision: z.number().int().min(0) });
 const pipelineChanges = z.strictObject({
   stages: z.array(z.strictObject({ id: z.string().optional(), label: z.string().optional(), kind: z.enum(['open', 'won', 'lost']), chance: z.number().optional() })).max(50),
   currency: z.string().max(10).optional(),
@@ -226,7 +247,7 @@ export class CmsApi {
   constructor(options: CmsApiOptions) {
     this.#options = options;
     this.#basePath = `/${(options.basePath ?? '/api/cms').split('/').filter(Boolean).join('/')}`;
-    const { schema, content, fields, media, previews, plugins, forms, submissions, contacts, pipeline, deals, customFields } = options.cms;
+    const { schema, content, fields, media, previews, plugins, forms, submissions, contacts, pipeline, deals, customFields, settings } = options.cms;
     const defaultLocale = options.defaultLocale ?? 'en';
 
     this.#router
@@ -300,7 +321,7 @@ export class CmsApi {
       })
       .add('GET', '/images', async (call) => {
         const items = await media.images(actor(call));
-        return json({ items, upload: media.takesUploads ? { maxBytes: media.maxUploadBytes } : null });
+        return json({ items, upload: (await media.takesUploads()) ? { maxBytes: media.maxUploadBytes } : null });
       })
       .add('POST', '/images', this.#upload)
       .add('DELETE', '/images/:name', async (call) => {
@@ -392,6 +413,41 @@ export class CmsApi {
         const who = actor(call);
         const { email } = parse(forgetRequest, await this.#body(call.request));
         return json({ removed: await submissions.erase(who, email) });
+      })
+      .add('GET', '/settings/email', async (call) => json(await settings.email(actor(call))))
+      .add('PUT', '/settings/email', async (call) => {
+        const who = actor(call);
+        const body = parse(emailSettingsChanges, await this.#body(call.request));
+        return json(await settings.saveEmail(who, deep<EmailSettingsChanges>(body)));
+      })
+      .add('POST', '/settings/email/test', async (call) => {
+        await settings.testEmail(actor(call));
+        return json({});
+      })
+      .add('GET', '/settings/general', async (call) => json(await settings.general(actor(call))))
+      .add('PUT', '/settings/general', async (call) => {
+        const who = actor(call);
+        return json(await settings.saveGeneral(who, parse(generalSettingsChanges, await this.#body(call.request))));
+      })
+      .add('GET', '/settings/storage', async (call) => json(await settings.storage(actor(call))))
+      .add('PUT', '/settings/storage', async (call) => {
+        const who = actor(call);
+        const body = parse(storageSettingsChanges, await this.#body(call.request));
+        return json(await settings.saveStorage(who, deep<StorageSettingsChanges>(body)));
+      })
+      .add('POST', '/settings/storage/test', async (call) => {
+        await settings.testStorage(actor(call));
+        return json({});
+      })
+      .add('GET', '/settings/forms', async (call) => json(await settings.forms(actor(call))))
+      .add('PUT', '/settings/forms', async (call) => {
+        const who = actor(call);
+        const body = parse(formsSettingsChanges, await this.#body(call.request));
+        return json(await settings.saveForms(who, deep<FormsSettingsChanges>(body)));
+      })
+      .add('POST', '/settings/forms/test', async (call) => {
+        await settings.testForms(actor(call));
+        return json({});
       })
       .add('GET', '/pipeline', async (call) => json(await pipeline.get(actor(call))))
       .add('PUT', '/pipeline', async (call) => {

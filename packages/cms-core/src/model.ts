@@ -521,3 +521,106 @@ export type TimelineItem =
   | { readonly kind: 'note'; readonly at: Timestamp; readonly note: ContactNote }
   /** The contact moved from one stage to another. `by` is the id of whoever moved it. */
   | { readonly kind: 'stage'; readonly at: Timestamp; readonly id: string; readonly from: string; readonly to: string; readonly by: string };
+
+/** The parts of a site's settings an owner fills in in the editor. */
+export type SettingsArea = 'email' | 'storage' | 'general' | 'forms';
+
+/** The services the CMS can send email through. */
+export type EmailProvider = 'resend';
+
+/** Who decides something when the editor's settings do not: the server's own settings, the site's code, or the host that runs the site. */
+export type SettingFixedBy = 'server' | 'code' | 'host';
+export type MailFixedBy = SettingFixedBy;
+
+/**
+ * How the site's email is sent, as an owner sees it. The provider's key is never part of it:
+ * `hasKey` says only that one is saved.
+ */
+export interface EmailSettings {
+  readonly provider: EmailProvider;
+  /** Who the emails come from: `Lakeshore Realty <cms@lakeshore.example>`. Empty until someone says. */
+  readonly from: string;
+  readonly hasKey: boolean;
+  /** Set when something other than these settings decides how email is sent. They are kept, and unused. */
+  readonly fixedBy?: MailFixedBy;
+  /** Whether email leaves the site at all as things stand. */
+  readonly sending: boolean;
+  /** Whether a test email can be asked for. */
+  readonly canTest: boolean;
+  readonly revision: number;
+}
+
+/** What it takes to send through a provider. Only the site's own server ever holds one. */
+export interface MailAccount {
+  readonly provider: EmailProvider;
+  readonly apiKey: string;
+  readonly from: string;
+}
+
+/** Where an upload is kept: a bucket, a folder on the server's own disk, or nowhere, when the site takes none. */
+export type StorageKeeping = 'bucket' | 'folder' | 'none';
+
+/**
+ * Where the site's uploads are kept, as an owner sees it. The bucket's secret key is never part
+ * of it: `hasSecret` says only that one is saved.
+ */
+export interface StorageSettings {
+  /** The storage service's address, such as `https://<account>.r2.cloudflarestorage.com`. Empty until someone says. */
+  readonly endpoint: string;
+  readonly bucket: string;
+  /** Empty for `auto`, which is what Cloudflare R2 takes. */
+  readonly region: string;
+  readonly accessKeyId: string;
+  readonly hasSecret: boolean;
+  /** Set when something other than these settings decides where uploads are kept. They are kept, and unused. */
+  readonly fixedBy?: SettingFixedBy;
+  /** Where an upload would be kept as things stand. */
+  readonly keeping: StorageKeeping;
+  readonly revision: number;
+}
+
+/** What it takes to use a bucket. Only the site's own server ever holds one. */
+export interface BucketAccount {
+  readonly endpoint: string;
+  readonly bucket: string;
+  readonly region?: string;
+  readonly accessKeyId: string;
+  readonly secretAccessKey: string;
+}
+
+/** The services that can check a form's sender is a person. */
+export type ChallengeProvider = 'turnstile';
+
+/**
+ * How the site's forms are guarded, as an owner sees it. The challenge's secret key is never
+ * part of it: `hasSecret` says only that one is saved.
+ */
+export interface FormsSettings {
+  readonly provider: ChallengeProvider;
+  /** The challenge's site key, which every page with a form shows. Empty until someone says. */
+  readonly siteKey: string;
+  readonly hasSecret: boolean;
+  /** Whether forms ask their sender to pass the challenge as things stand: both keys are saved. */
+  readonly checking: boolean;
+  /** How many posts the forms take from one address in ten minutes. */
+  readonly postsPerAddress: number;
+  readonly revision: number;
+}
+
+/** What it takes to check a challenge. Only the site's own server ever holds one. */
+export interface ChallengeAccount {
+  readonly provider: ChallengeProvider;
+  readonly siteKey: string;
+  readonly secretKey: string;
+}
+
+/** The site's basics, as an owner sees them. */
+export interface GeneralSettings {
+  /** What the site is called in the editor, in its emails and when a passkey is made. Empty while the site's own default is used. */
+  readonly siteName: string;
+  /** What the site is called when nothing is saved: the name its code gives. */
+  readonly defaultSiteName: string;
+  /** Set when something other than these settings names the site. */
+  readonly fixedBy?: SettingFixedBy;
+  readonly revision: number;
+}

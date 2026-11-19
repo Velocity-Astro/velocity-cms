@@ -289,6 +289,48 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       await expect(client.forgetSender(' ')).rejects.toMatchObject({ code: 'validation_failed' });
     });
 
+    it('saves how email is sent without ever sending the key back, and sends a test once it can', async () => {
+      expect(await client.getEmailSettings()).toEqual({ provider: 'resend', from: '', hasKey: false, sending: false, canTest: false, revision: 0 });
+      await expect(client.sendTestEmail()).rejects.toMatchObject({ code: 'conflict' });
+      await expect(client.saveEmailSettings({ from: 'nobody', apiKey: 're_123', expectedRevision: 0 })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['from'] }] });
+      const saved = await client.saveEmailSettings({ from: 'Lakeshore <hello@example.com>', apiKey: 're_123', expectedRevision: 0 });
+      expect(saved).toEqual({ provider: 'resend', from: 'Lakeshore <hello@example.com>', hasKey: true, sending: true, canTest: true, revision: 1 });
+      expect(await client.sendTestEmail()).toBeUndefined();
+      await expect(client.saveEmailSettings({ from: 'hello@example.com', expectedRevision: 0 })).rejects.toMatchObject({ code: 'conflict' });
+      expect(await client.saveEmailSettings({ from: 'hello@example.com', apiKey: null, expectedRevision: 1 })).toMatchObject({ from: 'hello@example.com', hasKey: false, sending: false, canTest: false, revision: 2 });
+    });
+
+    it('saves what the site is called, and goes back to its own name when that is emptied', async () => {
+      expect(await client.getGeneralSettings()).toEqual({ siteName: '', defaultSiteName: 'Lakeshore Realty', revision: 0 });
+      await expect(client.saveGeneralSettings({ siteName: 'x'.repeat(81), expectedRevision: 0 })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['siteName'] }] });
+      expect(await client.saveGeneralSettings({ siteName: ' Oakhaven  Homes ', expectedRevision: 0 })).toEqual({ siteName: 'Oakhaven Homes', defaultSiteName: 'Lakeshore Realty', revision: 1 });
+      await expect(client.saveGeneralSettings({ siteName: 'Other', expectedRevision: 0 })).rejects.toMatchObject({ code: 'conflict' });
+      expect(await client.saveGeneralSettings({ siteName: '', expectedRevision: 1 })).toMatchObject({ siteName: '', revision: 2 });
+    });
+
+    it('saves the bucket uploads are kept in without ever sending the secret key back, and tries it once it can', async () => {
+      expect(await client.getStorageSettings()).toEqual({ endpoint: '', bucket: '', region: '', accessKeyId: '', hasSecret: false, keeping: 'folder', revision: 0 });
+      await expect(client.testStorage()).rejects.toMatchObject({ code: 'conflict' });
+      const bucket = { endpoint: 'https://acct.r2.example.com', bucket: 'photos', accessKeyId: 'AKIA123', secretAccessKey: 'shh-secret', expectedRevision: 0 };
+      await expect(client.saveStorageSettings({ ...bucket, endpoint: 'http://localhost' })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['endpoint'] }] });
+      expect(await client.saveStorageSettings(bucket)).toEqual({ endpoint: 'https://acct.r2.example.com', bucket: 'photos', region: '', accessKeyId: 'AKIA123', hasSecret: true, keeping: 'bucket', revision: 1 });
+      expect(await client.testStorage()).toBeUndefined();
+      await expect(client.saveStorageSettings(bucket)).rejects.toMatchObject({ code: 'conflict' });
+      expect(await client.saveStorageSettings({ ...bucket, secretAccessKey: null, expectedRevision: 1 })).toMatchObject({ hasSecret: false, keeping: 'folder', revision: 2 });
+    });
+
+    it('saves how forms are guarded without ever sending the secret key back, and checks the keys once it can', async () => {
+      expect(await client.getFormsSettings()).toEqual({ provider: 'turnstile', siteKey: '', hasSecret: false, checking: false, postsPerAddress: 8, revision: 0 });
+      await expect(client.testFormsSettings()).rejects.toMatchObject({ code: 'conflict' });
+      const keys = { siteKey: '0x4AAAAAAAsitekey', secretKey: '0x4AAAAAAAsecretkey', postsPerAddress: 20, expectedRevision: 0 };
+      await expect(client.saveFormsSettings({ ...keys, postsPerAddress: 0 })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['postsPerAddress'] }] });
+      await expect(client.saveFormsSettings({ ...keys, siteKey: '' })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['siteKey'] }] });
+      expect(await client.saveFormsSettings(keys)).toEqual({ provider: 'turnstile', siteKey: '0x4AAAAAAAsitekey', hasSecret: true, checking: true, postsPerAddress: 20, revision: 1 });
+      expect(await client.testFormsSettings()).toBeUndefined();
+      await expect(client.saveFormsSettings(keys)).rejects.toMatchObject({ code: 'conflict' });
+      expect(await client.saveFormsSettings({ siteKey: '', secretKey: null, postsPerAddress: 20, expectedRevision: 1 })).toEqual({ provider: 'turnstile', siteKey: '', hasSecret: false, checking: false, postsPerAddress: 20, revision: 2 });
+    });
+
     it('keeps a pipeline of stages, and places a contact in it with someone to look after it and a day to follow up', async () => {
       const pipeline = await client.getPipeline();
       expect(pipeline.stages.map((stage) => stage.id)).toEqual(['new', 'contacted', 'qualified', 'won', 'lost']);

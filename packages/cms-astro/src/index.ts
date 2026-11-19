@@ -2,7 +2,9 @@ export { sharedConnection, type Connection, type ConnectionOptions } from './con
 export { AdminFiles, type EditorPageConfig } from './admin-files.js';
 export { EditorHost, LogMailer, type EditorHostOptions } from './editor.js';
 export { default, type VelocityCmsOptions } from './integration.js';
-export { ResendMailer, englishMailWords, mailerFromEnv, type MailWords, type ResendMailerOptions } from './resend-mailer.js';
+export { ResendMailer, MailRefusedError, englishMailWords, mailerFromEnv, type MailWords, type ResendMailerOptions, type TestMail } from './resend-mailer.js';
+export { SiteMail, type SiteMailOptions } from './site-mail.js';
+export { SiteMediaStore, type SiteMediaStoreOptions } from './site-storage.js';
 // What a site's own plugin file needs, so it imports from the one package the site installed.
 export { definePlugin, type PluginContext, type PluginDefinition } from '@velocity-astro/cms-core';
 export { registerSitePlugins } from './site-plugins.js';
@@ -23,6 +25,7 @@ export { entryPage, entryPageAddresses, type EntryPage, type EntryPageOptions } 
 export { linkTo, type LinkTarget } from './link.js';
 export {
   FORM_ABOUT_FIELD,
+  FORM_CHALLENGE_KEY_FIELD,
   FORM_LOCALE_FIELD,
   FORM_PAGE_FIELD,
   FORM_TOKEN_FIELD,
@@ -35,8 +38,10 @@ export {
   type FormPostsOptions,
   type NoticeMailer,
   type RateLimiter,
+  type PostLimit,
   type SubmissionNotice,
 } from './form-post.js';
+export { FORM_CHALLENGE_FIELD, SiteChallenge, TURNSTILE_HOST, TURNSTILE_SCRIPT, TURNSTILE_VERIFY, type ChallengeCheck, type SiteChallengeOptions } from './challenge.js';
 export { FORM_SCRIPT, siteForm, siteFormPosts, type FormChoice, type SiteForm, type SiteFormOptions } from './site-forms.js';
 export { menuLinks, type MenuColumn, type MenuLink, type MenuOptions } from './menu.js';
 export { single } from './single.js';
@@ -53,7 +58,7 @@ export {
   type StaticPath,
 } from './live-pages.js';
 export { SharpImageOptimizer, type SharpImageOptimizerOptions } from './image-optimizer.js';
-export { FolderMediaStore, S3MediaStore, mediaStoreFromEnv, type S3MediaStoreOptions } from './media-store.js';
+export { FolderMediaStore, S3MediaStore, StorageRefusedError, bucketFromEnv, folderFromEnv, mediaStoreFromEnv, type S3MediaStoreOptions } from './media-store.js';
 export { hasSiteSecret } from './secret.js';
 export { refreshUploadedImages, uploadedFile, uploadedImage } from './site-media.js';
 export { folderImages, type ImageFile } from './site-images.js';

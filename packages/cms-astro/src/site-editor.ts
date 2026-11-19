@@ -1,9 +1,9 @@
 import { AuthSetupError, type Mailer } from '@velocity-astro/cms-auth';
-import type { ImageLibrary } from '@velocity-astro/cms-core';
+import { ConflictError, type ImageLibrary } from '@velocity-astro/cms-core';
 import { sharedConnection } from './connection.js';
 import { EditorHost, LogMailer } from './editor.js';
 import { currentSite } from './hosted.js';
-import { mailerFromEnv } from './resend-mailer.js';
+import { SiteMail } from './site-mail.js';
 import { siteSecret } from './secret.js';
 
 /** What the integration tells the editor's routes about the site. */
@@ -85,17 +85,36 @@ async function createHost(origin: string, settings: SiteEditorSettings): Promise
     );
   }
   try {
-    return new EditorHost({
-      connection: await sharedConnection({}),
+    const connection = await sharedConnection({});
+    const hosted = currentSite();
+    // A host names its sites. Otherwise the name an owner saved, then the one the site's code gives.
+    const named = hosted ? undefined : () => connection.cms.settings.siteName();
+    const siteName = hosted?.name ?? (await named?.()) ?? settings.siteName;
+    // The site's own mailer first, then Resend from the server's settings, then what an owner set up in the editor, then the server's log.
+    const mail = new SiteMail({ settings: connection.cms.settings, own: settings.mailer, fallback: new LogMailer(), hosted: hosted !== undefined, ...(named && { siteName: named }) });
+    connection.cms.settings.useSite({ defaultName: hosted?.name ?? settings.siteName, fixedBy: hosted ? 'host' : null });
+    const host = new EditorHost({
+      connection,
       secret,
       origin,
-      siteName: currentSite()?.name ?? settings.siteName,
+      siteName,
+      ...(named && { siteNameNow: named }),
       adminPath: settings.adminPath,
-      // The site's own mailer first, then Resend from its settings, then the server's log.
-      mailer: settings.mailer ?? mailerFromEnv() ?? new LogMailer(),
+      mailer: mail,
       ...(settings.images && { images: settings.images }),
       onFault: (error) => console.error('[velocity-cms]', error),
     });
+    connection.cms.settings.useMail({
+      fixedBy: () => mail.fixedBy(),
+      canTest: () => mail.canTest(),
+      // The test goes to the address the person signs in with, which only sign-in knows.
+      sendTest: async (actor) => {
+        const person = (await host.auth.listUsers(actor)).find((user) => user.id === actor.id);
+        if (!person) throw new ConflictError('A test email goes to the person who asks for it, and only someone signed in has an address to send it to.');
+        await mail.sendTest({ email: person.email, name: person.name, siteName: hosted?.name ?? settings.siteName });
+      },
+    });
+    return host;
   } catch (error) {
     if (error instanceof AuthSetupError) throw new EditorNotSetUpError(error.message);
     throw error;

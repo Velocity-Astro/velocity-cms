@@ -23,6 +23,16 @@ import {
   type Forecast,
   type NewDeal,
   type Pipeline,
+  type EmailSettings,
+  type EmailSettingsChanges,
+  type GeneralSettings,
+  type GeneralSettingsChanges,
+  type StorageSettings,
+  type FormsSettings,
+  type FormsSettingsChanges,
+  type StorageSettingsChanges,
+  type SettingFixedBy,
+  type MailFixedBy,
   type PipelineChanges,
   type TeamMember,
   type ContactChanges,
@@ -54,6 +64,7 @@ import {
 } from '@velocity-astro/cms-core/in-memory';
 import type { AdminClient, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from '../client/admin-client.js';
 import { MemoryPeople } from './memory-people.js';
+import { MemoryChallengeRoom, MemoryMailRoom, MemoryStorageRoom } from './memory-mail.js';
 import { AdminRequestError, type RequestErrorCode } from '../client/errors.js';
 
 export interface MemoryAdminClientOptions {
@@ -79,6 +90,12 @@ export interface MemoryAdminClientOptions {
   readonly defaultLocale?: string;
   /** Gives each upload an address the browser can show, for the preview: nothing serves the files here. Defaults to `false`. */
   readonly showUploads?: boolean;
+  /** Who decides how email is sent, when the editor's settings do not. Leave out for the editor's settings to decide. */
+  readonly emailFixedBy?: MailFixedBy;
+  /** Who names the site, when the editor's settings do not. */
+  readonly siteNameFixedBy?: SettingFixedBy;
+  /** Who decides where uploads are kept, when the editor's settings do not. Leave out for the editor's settings to decide. */
+  readonly storageFixedBy?: SettingFixedBy;
   /** How long each signed-in request takes, in milliseconds, to see what a screen shows while it waits. Defaults to none. */
   readonly delay?: number;
 }
@@ -123,6 +140,12 @@ export class MemoryAdminClient implements AdminClient {
   readonly #passkeyUser: SessionUser | null;
   readonly #defaultLocale: string;
   readonly #cms: Cms;
+  /** How this site's email leaves: nothing is sent, and the tests asked for are kept. */
+  readonly mail: MemoryMailRoom;
+  /** How this site's uploads are kept: in memory, and the tests of a bucket asked for are counted. */
+  readonly storage: MemoryStorageRoom;
+  /** The challenge service: never reached, and the checks of the keys asked for are counted. */
+  readonly challenge = new MemoryChallengeRoom();
   readonly #people: MemoryPeople;
   /** Settles once the content given to the constructor is in place. Every request waits for it. */
   readonly #ready: Promise<void>;
@@ -142,6 +165,14 @@ export class MemoryAdminClient implements AdminClient {
     const storage = { files: new InMemoryMediaRepository(), store: new InMemoryMediaStore() };
     const cms = createCms({ types, entries, team: this.#people, previews: { secret: PREVIEW_SECRET }, ...(options.uploads !== false && { media: { storage } }) });
     this.#cms = cms;
+    this.mail = new MemoryMailRoom(cms.settings);
+    this.mail.fixed = options.emailFixedBy ?? null;
+    cms.settings.useMail(this.mail);
+    this.storage = new MemoryStorageRoom(cms.settings, options.uploads !== false);
+    this.storage.fixed = options.storageFixedBy ?? null;
+    cms.settings.useStorage(this.storage);
+    cms.settings.useChallenge(this.challenge);
+    cms.settings.useSite({ defaultName: 'Lakeshore Realty', fixedBy: options.siteNameFixedBy ?? null });
     cms.media.include(new InMemoryImageLibrary(options.images));
     this.#ready = (async () => {
       for (const type of options.contentTypes ?? []) await types.save(type);
@@ -229,7 +260,7 @@ export class MemoryAdminClient implements AdminClient {
     const { media } = this.#cms;
     return this.#request(async (actor) => ({
       items: (await media.images(actor)).map((image) => ({ ...image, url: this.#shown?.get(image.name) ?? image.url })),
-      upload: media.takesUploads ? { maxBytes: media.maxUploadBytes } : null,
+      upload: (await media.takesUploads()) ? { maxBytes: media.maxUploadBytes } : null,
     }));
   }
 
@@ -411,6 +442,50 @@ export class MemoryAdminClient implements AdminClient {
 
   getForecast(): Promise<Forecast> {
     return this.#request((actor) => this.#cms.deals.forecast(actor));
+  }
+
+  getEmailSettings(): Promise<EmailSettings> {
+    return this.#request((actor) => this.#cms.settings.email(actor));
+  }
+
+  saveEmailSettings(changes: EmailSettingsChanges): Promise<EmailSettings> {
+    return this.#request((actor) => this.#cms.settings.saveEmail(actor, changes));
+  }
+
+  sendTestEmail(): Promise<void> {
+    return this.#request((actor) => this.#cms.settings.testEmail(actor));
+  }
+
+  getGeneralSettings(): Promise<GeneralSettings> {
+    return this.#request((actor) => this.#cms.settings.general(actor));
+  }
+
+  saveGeneralSettings(changes: GeneralSettingsChanges): Promise<GeneralSettings> {
+    return this.#request((actor) => this.#cms.settings.saveGeneral(actor, changes));
+  }
+
+  getFormsSettings(): Promise<FormsSettings> {
+    return this.#request((actor) => this.#cms.settings.forms(actor));
+  }
+
+  saveFormsSettings(changes: FormsSettingsChanges): Promise<FormsSettings> {
+    return this.#request((actor) => this.#cms.settings.saveForms(actor, changes));
+  }
+
+  testFormsSettings(): Promise<void> {
+    return this.#request((actor) => this.#cms.settings.testForms(actor));
+  }
+
+  getStorageSettings(): Promise<StorageSettings> {
+    return this.#request((actor) => this.#cms.settings.storage(actor));
+  }
+
+  saveStorageSettings(changes: StorageSettingsChanges): Promise<StorageSettings> {
+    return this.#request((actor) => this.#cms.settings.saveStorage(actor, changes));
+  }
+
+  testStorage(): Promise<void> {
+    return this.#request((actor) => this.#cms.settings.testStorage(actor));
   }
 
   getPipeline(): Promise<Pipeline> {
