@@ -44,11 +44,20 @@ export interface S3MediaStoreOptions {
   readonly secretAccessKey: string;
   /** Defaults to `auto`, which is what Cloudflare R2 takes. */
   readonly region?: string;
+  /**
+   * A folder inside the bucket to keep every file under, such as `sites/s-4f2a`. A host that
+   * runs many sites gives each site its own, so one bucket holds them all and no site can
+   * name another's file. Lowercase letters, digits and hyphens, in parts divided by `/`.
+   */
+  readonly prefix?: string;
   /** Defaults to the server's own `fetch`. */
   readonly fetch?: typeof globalThis.fetch;
   /** Defaults to now. */
   readonly now?: () => Date;
 }
+
+/** A prefix is made of plain parts, so it can never climb out of its folder or need encoding. */
+const PREFIX = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:\/[a-z0-9]+(?:-[a-z0-9]+)*)*$/;
 
 const encoder = new TextEncoder();
 const hex = (bytes: ArrayBuffer): string => [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
@@ -67,10 +76,16 @@ async function hmac(key: ArrayBuffer | Uint8Array, text: string): Promise<ArrayB
 export class S3MediaStore implements MediaStore {
   readonly #options: S3MediaStoreOptions;
   readonly #region: string;
+  /** Empty, or the prefix with its closing slash. */
+  readonly #folder: string;
 
   constructor(options: S3MediaStoreOptions) {
+    if (options.prefix !== undefined && !PREFIX.test(options.prefix)) {
+      throw new Error(`"${options.prefix}" cannot be a prefix for uploads. Use lowercase letters, digits and hyphens, in parts divided by "/", such as "sites/s-4f2a".`);
+    }
     this.#options = options;
     this.#region = options.region ?? 'auto';
+    this.#folder = options.prefix ? `${options.prefix}/` : '';
   }
 
   async put(key: string, file: StoredFile): Promise<void> {
@@ -95,7 +110,7 @@ export class S3MediaStore implements MediaStore {
   /** One request, signed the way the protocol asks (Signature Version 4). */
   async #send(method: string, key: string, file?: StoredFile): Promise<Response> {
     const { endpoint, bucket, accessKeyId, secretAccessKey } = this.#options;
-    const url = new URL(`${endpoint.replace(/\/+$/, '')}/${encodeURIComponent(bucket)}/${key}`);
+    const url = new URL(`${endpoint.replace(/\/+$/, '')}/${encodeURIComponent(bucket)}/${this.#folder}${key}`);
     const stamp = (this.#options.now?.() ?? new Date()).toISOString().replace(/[-:]|\.\d{3}/g, '');
     const day = stamp.slice(0, 8);
     const headers: Record<string, string> = {
