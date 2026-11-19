@@ -2,6 +2,7 @@ import { AuthSetupError, type Mailer } from '@velocity-astro/cms-auth';
 import type { ImageLibrary } from '@velocity-astro/cms-core';
 import { sharedConnection } from './connection.js';
 import { EditorHost, LogMailer } from './editor.js';
+import { currentSite } from './hosted.js';
 import { mailerFromEnv } from './resend-mailer.js';
 import { siteSecret } from './secret.js';
 
@@ -28,6 +29,9 @@ export class EditorNotSetUpError extends Error {}
  * would carry a real person's sign-in to an address of the sender's choosing.
  */
 export function editorOrigin(request: Request, settings: Pick<SiteEditorSettings, 'site' | 'dev'>): string {
+  // On a server that runs many sites, the address is the one its host keeps for the site.
+  const hosted = currentSite();
+  if (hosted) return new URL(hosted.origin).origin;
   const configured = process.env.VELOCITY_CMS_ORIGIN || (settings.dev ? new URL(request.url).origin : settings.site);
   if (!configured) {
     throw new EditorNotSetUpError(
@@ -58,6 +62,8 @@ const hostOf = (address: string | undefined): string | null => {
  */
 export function pagesOrigin(request: Request, settings: Pick<SiteEditorSettings, 'site' | 'dev'>): string | null {
   const asked = new URL(request.url);
+  const hosted = currentSite();
+  if (hosted) return new URL(hosted.origin).origin;
   if (settings.dev) return asked.origin;
   const configured = [process.env.VELOCITY_CMS_ORIGIN, settings.site].map(hostOf);
   const known = [...configured, ...PLATFORM_HOSTS.map((name) => hostOf(process.env[name]))];
@@ -83,7 +89,7 @@ async function createHost(origin: string, settings: SiteEditorSettings): Promise
       connection: await sharedConnection({}),
       secret,
       origin,
-      siteName: settings.siteName,
+      siteName: currentSite()?.name ?? settings.siteName,
       adminPath: settings.adminPath,
       // The site's own mailer first, then Resend from its settings, then the server's log.
       mailer: settings.mailer ?? mailerFromEnv() ?? new LogMailer(),

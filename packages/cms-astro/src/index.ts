@@ -56,3 +56,4 @@ export { hasSiteSecret } from './secret.js';
 export { refreshUploadedImages, uploadedFile, uploadedImage } from './site-media.js';
 export { folderImages, type ImageFile } from './site-images.js';
 export { indexPages, indexSite, searchSite, toSearchDocument } from './site-search.js';
+export { NoSiteError, currentSite, hostedRequest, inSite, isHosted, siteCacheTag, useSiteRegistry, type HostedSite, type SiteRegistry } from './hosted.js';

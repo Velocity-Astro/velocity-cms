@@ -3,11 +3,13 @@ import { isLiveType } from '@velocity-astro/cms-core';
 import { sharedConnection, SITE } from './connection.js';
 import { FORM_ABOUT_FIELD, FORM_LOCALE_FIELD, FORM_PAGE_FIELD, FORM_TOKEN_FIELD, FORM_TRAP_FIELD, FormPosts, aboutMark, formToken, type NoticeMailer } from './form-post.js';
 import { pageAt, type DrawnPage } from './page-head.js';
+import { currentSite, siteKey } from './hosted.js';
 import { mailerFromEnv } from './resend-mailer.js';
 import { siteSecret } from './secret.js';
 import { editorOrigin, type SiteEditorSettings } from './site-editor.js';
 
-let posts: Promise<FormPosts> | undefined;
+/** One taker of form posts for each site this server runs. */
+const takers = new Map<string, Promise<FormPosts>>();
 
 const takesNotices = (mailer: unknown): mailer is NoticeMailer =>
   typeof mailer === 'object' && mailer !== null && typeof (mailer as { sendSubmissionNotice?: unknown }).sendSubmissionNotice === 'function';
@@ -23,13 +25,15 @@ function originOf(request: Request, settings: Pick<SiteEditorSettings, 'site' | 
 
 /** The site's one taker of form posts for the life of the server, made on first use. */
 export function siteFormPosts(settings: SiteEditorSettings): Promise<FormPosts> {
+  const key = siteKey();
+  let posts = takers.get(key);
   if (!posts) {
     const made = sharedConnection({}).then(
       ({ cms }) =>
         new FormPosts({
           cms,
           origin: (request) => originOf(request, settings),
-          siteName: settings.siteName,
+          siteName: currentSite()?.name ?? settings.siteName,
           secret: siteSecret(),
           entryAt: async (path) => {
             const { type, entry } = await pageAt(cms, await cms.schema.list(), path);
@@ -41,8 +45,9 @@ export function siteFormPosts(settings: SiteEditorSettings): Promise<FormPosts> 
         }),
     );
     posts = made;
+    takers.set(key, made);
     made.catch(() => {
-      if (posts === made) posts = undefined;
+      if (takers.get(key) === made) takers.delete(key);
     });
   }
   return posts;
