@@ -6,6 +6,7 @@ Every package is released together under one version. While versions are `0.x`, 
 
 - **Settings a template reads.** `single(Astro, 'settings')` answers with what a single page of the CMS holds, by field key, so a template can keep its name, logo and contact details where people edit them.
 - **Many sites from one copy.** A host that runs many sites names a `SiteRegistry` in `velocityCms({ sites })`. Each request is for the site its host name belongs to, with that site's own database, secret, address and uploads; a host name the registry does not know has no site, and nothing is read from the `VELOCITY_CMS_*` settings of one site. Such a copy builds no page ahead of time: a page built for no site would be served to all of them, so every page is drawn for the site that asked. A site of its own changes nothing.
+- **Uploads of many sites in one bucket.** `S3MediaStore` takes a `prefix`, a folder inside the bucket such as `sites/s-4f2a`. A host that runs many sites gives each its own, so no site can name another's file.
 
 ## 0.1.0-beta.2
 

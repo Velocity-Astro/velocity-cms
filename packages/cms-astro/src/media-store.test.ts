@@ -37,6 +37,7 @@ const account = {
 
 mediaStoreContract('FolderMediaStore', async () => new FolderMediaStore(join(mkdtempSync(join(tmpdir(), 'cms-media-')), 'not-made-yet')));
 mediaStoreContract('S3MediaStore', async () => new S3MediaStore({ ...account, fetch: fakeBucket().fetch }));
+mediaStoreContract('S3MediaStore with a prefix', async () => new S3MediaStore({ ...account, prefix: 'sites/s-1', fetch: fakeBucket().fetch }));
 
 describe('S3MediaStore', () => {
   const now = () => new Date('2026-11-18T01:02:03.000Z');
@@ -73,6 +74,24 @@ describe('S3MediaStore', () => {
     expect(await store.get('../other-bucket/secret.jpg')).toBeNull();
     await expect(store.put('a/b.jpg', { bytes: Uint8Array.from([1]), contentType: 'image/jpeg' })).rejects.toThrow('not a name');
     expect(bucket.requests).toEqual([]);
+  });
+
+  it('keeps two sites apart in one bucket by their prefix', async () => {
+    const bucket = fakeBucket();
+    const first = new S3MediaStore({ ...account, prefix: 'sites/s-1', fetch: bucket.fetch });
+    const second = new S3MediaStore({ ...account, prefix: 'sites/s-2', fetch: bucket.fetch });
+    await first.put('logo.png', { bytes: Uint8Array.from([1]), contentType: 'image/png' });
+
+    expect([...bucket.kept.keys()]).toEqual(['/velocity-cms-demo/sites/s-1/logo.png']);
+    expect(await second.get('logo.png')).toBeNull();
+    await second.remove('logo.png');
+    expect((await first.get('logo.png'))?.bytes).toEqual(Uint8Array.from([1]));
+  });
+
+  it('refuses a prefix that could lead out of its folder', () => {
+    for (const prefix of ['', '../other', 'sites/', '/sites', 'sites//s-1', 'Sites', 'a b', 'sites/..']) {
+      expect(() => new S3MediaStore({ ...account, prefix }), prefix).toThrow('cannot be a prefix');
+    }
   });
 });
 
