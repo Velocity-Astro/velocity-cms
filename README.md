@@ -1,8 +1,17 @@
 # Velocity CMS
 
-A content management system for [Astro](https://astro.build) sites, built for [Velocity](https://github.com/southwellmedia/velocity). People edit at `/admin`; the content lives in a small SQLite database beside the site; and a change is on the site about a second after it is published, with no rebuild.
+A content management system for [Astro](https://astro.build) sites, built for [Velocity](https://github.com/southwellmedia/velocity). People edit at `/admin`, the content lives in a small SQLite database beside the site, and a change is on the site about a second after it is published, with no rebuild.
+
+**[Try the demo](https://velocity-cms-real-estate-demo.vercel.app/demo/)** · **[Read the docs](https://docs.deployvelocity.com/cms/)** · **[Add it to a site](#add-it-to-a-site)**
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/page-builder-dark.webp">
+  <img src="docs/screenshots/page-builder-light.webp" alt="The page builder: a page as a list of sections, with the live page beside the form">
+</picture>
 
 > **Beta.** Versions are `0.x`: the plugin API and the template API may still change between releases, each change with a note on how to move. The packages are on npm as `@velocity-astro/cms-*`, with the `velocity-cms` command.
+
+The demo is a real estate site on the CMS, with one click into its editor. Everyone shares it and it starts over every night, so change whatever you like.
 
 ## What it does
 
@@ -17,9 +26,32 @@ A content management system for [Astro](https://astro.build) sites, built for [V
 | **People** | Sign-in by email link or passkey, no passwords. Owner, editor and author roles. Invitations. |
 | **Site** | Live pages from a cache that a publish clears. Search and the sitemap follow. A fully static build is an option. |
 
-## Try it
+## A look around
 
-Node 22.23.4 or newer and pnpm 10.
+| | |
+|---|---|
+| <picture> <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/contacts-board-dark.webp"> <img src="docs/screenshots/contacts-board-light.webp" alt="Contacts as a board by stage"></picture> | <picture> <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/deals-dark.webp"> <img src="docs/screenshots/deals-light.webp" alt="Deals by stage with what is open, forecast and won"></picture> |
+| **Contacts.** Everyone who wrote in through a form, by stage, with an owner and a day to follow up. | **Deals.** What each contact may buy, added up by stage and by how likely it is. |
+| <picture> <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/form-fields-dark.webp"> <img src="docs/screenshots/form-fields-light.webp" alt="A form and its fields"></picture> | <picture> <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/content-type-dark.webp"> <img src="docs/screenshots/content-type-light.webp" alt="A content type and its fields in the builder"></picture> |
+| **Forms.** Built in the editor, placed on a page as a section, and every sender becomes a contact. | **Content types.** Made in a visual builder or described in code, and changed without losing content. |
+| <picture> <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/listings-dark.webp"> <img src="docs/screenshots/listings-light.webp" alt="A list of entries with status and languages"></picture> | <picture> <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/plugins-dark.webp"> <img src="docs/screenshots/plugins-light.webp" alt="Plugins an owner switches on and off"></picture> |
+| **Content.** Drafts and published versions, history, scheduling, and a version per language. | **Plugins.** Switched on by an owner in the editor, with no rebuild. |
+
+## Add it to a site
+
+In an Astro site with a server adapter:
+
+```sh
+npx velocity-cms init you@example.com "Your Name"
+```
+
+It installs the CMS, writes a secret to `.env`, keeps it out of git, adds `velocityCms()` to the Astro config and makes you the owner. It prints a link that signs you in at `/admin`. It can be run again and changes nothing that is there. What a site then needs is what the starter has: a description of its content (`cms/model.mjs`), a route that draws pages, and a component for each kind of section. The [docs](https://docs.deployvelocity.com/cms/install/) walk through each.
+
+A deployed site needs `VELOCITY_CMS_SECRET` and its address (`site` in the Astro config, or `VELOCITY_CMS_ORIGIN`) on the host, and a database: a file on a machine that keeps its disk, or a hosted libSQL database (`VELOCITY_CMS_DATABASE_URL`, `VELOCITY_CMS_DATABASE_TOKEN`) anywhere else. Node on a server and Vercel are tried. Netlify and Cloudflare are not yet.
+
+## Run the starter
+
+[`examples/starter`](examples/starter) is a small site on the CMS to read and copy from: its README says what is where. Node 22.23.4 or newer and pnpm 10.
 
 ```sh
 git clone https://github.com/Velocity-Astro/velocity-cms.git
@@ -33,19 +65,7 @@ npm run seed
 npm run dev
 ```
 
-`init` prints a link that signs you in. Open it once the site is running, then open Pages and change something. [`examples/starter`](examples/starter) is a small site to read and copy from: its README says what is where.
-
-## Add it to a site
-
-In an Astro site with a server adapter:
-
-```sh
-npx velocity-cms init you@example.com "Your Name"
-```
-
-It writes a secret to `.env`, keeps it out of git, adds `velocityCms()` to the Astro config and makes you the owner. It can be run again and changes nothing that is there. What a site then needs is what the starter has: a description of its content (`cms/model.mjs`), a route that draws pages, and a component for each kind of section.
-
-A deployed site needs `VELOCITY_CMS_SECRET` and its address (`site` in the Astro config, or `VELOCITY_CMS_ORIGIN`) on the host, and a database: a file on a machine that keeps its disk, or a hosted libSQL database (`VELOCITY_CMS_DATABASE_URL`, `VELOCITY_CMS_DATABASE_TOKEN`) anywhere else. Node on a server and Vercel are tried. Netlify and Cloudflare are not yet.
+Open the link `init` printed once the site is running, then open Pages and change something.
 
 ## Known limits
 
