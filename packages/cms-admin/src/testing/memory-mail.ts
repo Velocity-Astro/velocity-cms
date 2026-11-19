@@ -1,4 +1,4 @@
-import { ConflictError, type Actor, type Cms, type MailFixedBy, type MailRoom, type SettingFixedBy, type StorageKeeping, type StorageRoom } from '@velocity-astro/cms-core';
+import { ConflictError, type Actor, type Cms, type MailFixedBy, type MailRoom, type SettingFixedBy, type StorageKeeping, type StorageRoom, type ChallengeRoom } from '@velocity-astro/cms-core';
 
 /**
  * How email leaves a site that has no server: nothing is sent, and each test asked for is kept
@@ -54,6 +54,19 @@ export class MemoryStorageRoom implements StorageRoom {
     if (this.fixed !== null) return 'bucket';
     return (await this.settings.bucketAccount()) !== null ? 'bucket' : this.hasDisk ? 'folder' : 'none';
   }
+
+  async test(): Promise<void> {
+    if (this.refuseWith !== null) throw new ConflictError(this.refuseWith);
+    this.tests += 1;
+  }
+}
+
+/** The challenge service on a site that has no server: it is never reached, and each check of the keys is counted in `tests`. */
+export class MemoryChallengeRoom implements ChallengeRoom {
+  /** How many times a check of the keys was asked for. */
+  tests = 0;
+  /** Set to have the challenge service refuse the next checks with these words. */
+  refuseWith: string | null = null;
 
   async test(): Promise<void> {
     if (this.refuseWith !== null) throw new ConflictError(this.refuseWith);

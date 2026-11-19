@@ -10,7 +10,7 @@ import {
 } from '@velocity-astro/cms-core/in-memory';
 import type { SessionUser } from '../client/admin-client.js';
 import { HttpAdminClient } from '../client/http-client.js';
-import { MemoryMailRoom, MemoryStorageRoom } from './memory-mail.js';
+import { MemoryChallengeRoom, MemoryMailRoom, MemoryStorageRoom } from './memory-mail.js';
 import { MemoryPeople } from './memory-people.js';
 import { seedForms } from './memory-client.js';
 import type { AdminClientSeed } from './admin-client-contract.js';
@@ -35,6 +35,7 @@ export async function createHttpServer(seed: AdminClientSeed, user: SessionUser)
   cms.settings.useMail(new MemoryMailRoom(cms.settings));
   cms.settings.useSite({ defaultName: 'Lakeshore Realty', fixedBy: null });
   cms.settings.useStorage(new MemoryStorageRoom(cms.settings, seed.uploads !== false));
+  cms.settings.useChallenge(new MemoryChallengeRoom());
   await seedForms(cms, seed.forms, seed.submissions);
   await cms.plugins.load(seed.plugins ?? []);
   const passkeys: { id: string; name: string }[] = [];

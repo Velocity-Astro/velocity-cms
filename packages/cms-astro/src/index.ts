@@ -25,6 +25,7 @@ export { entryPage, entryPageAddresses, type EntryPage, type EntryPageOptions } 
 export { linkTo, type LinkTarget } from './link.js';
 export {
   FORM_ABOUT_FIELD,
+  FORM_CHALLENGE_KEY_FIELD,
   FORM_LOCALE_FIELD,
   FORM_PAGE_FIELD,
   FORM_TOKEN_FIELD,
@@ -37,8 +38,10 @@ export {
   type FormPostsOptions,
   type NoticeMailer,
   type RateLimiter,
+  type PostLimit,
   type SubmissionNotice,
 } from './form-post.js';
+export { FORM_CHALLENGE_FIELD, SiteChallenge, TURNSTILE_HOST, TURNSTILE_SCRIPT, TURNSTILE_VERIFY, type ChallengeCheck, type SiteChallengeOptions } from './challenge.js';
 export { FORM_SCRIPT, siteForm, siteFormPosts, type FormChoice, type SiteForm, type SiteFormOptions } from './site-forms.js';
 export { menuLinks, type MenuColumn, type MenuLink, type MenuOptions } from './menu.js';
 export { single } from './single.js';

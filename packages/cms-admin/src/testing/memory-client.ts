@@ -28,6 +28,8 @@ import {
   type GeneralSettings,
   type GeneralSettingsChanges,
   type StorageSettings,
+  type FormsSettings,
+  type FormsSettingsChanges,
   type StorageSettingsChanges,
   type SettingFixedBy,
   type MailFixedBy,
@@ -62,7 +64,7 @@ import {
 } from '@velocity-astro/cms-core/in-memory';
 import type { AdminClient, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from '../client/admin-client.js';
 import { MemoryPeople } from './memory-people.js';
-import { MemoryMailRoom, MemoryStorageRoom } from './memory-mail.js';
+import { MemoryChallengeRoom, MemoryMailRoom, MemoryStorageRoom } from './memory-mail.js';
 import { AdminRequestError, type RequestErrorCode } from '../client/errors.js';
 
 export interface MemoryAdminClientOptions {
@@ -142,6 +144,8 @@ export class MemoryAdminClient implements AdminClient {
   readonly mail: MemoryMailRoom;
   /** How this site's uploads are kept: in memory, and the tests of a bucket asked for are counted. */
   readonly storage: MemoryStorageRoom;
+  /** The challenge service: never reached, and the checks of the keys asked for are counted. */
+  readonly challenge = new MemoryChallengeRoom();
   readonly #people: MemoryPeople;
   /** Settles once the content given to the constructor is in place. Every request waits for it. */
   readonly #ready: Promise<void>;
@@ -167,6 +171,7 @@ export class MemoryAdminClient implements AdminClient {
     this.storage = new MemoryStorageRoom(cms.settings, options.uploads !== false);
     this.storage.fixed = options.storageFixedBy ?? null;
     cms.settings.useStorage(this.storage);
+    cms.settings.useChallenge(this.challenge);
     cms.settings.useSite({ defaultName: 'Lakeshore Realty', fixedBy: options.siteNameFixedBy ?? null });
     cms.media.include(new InMemoryImageLibrary(options.images));
     this.#ready = (async () => {
@@ -457,6 +462,18 @@ export class MemoryAdminClient implements AdminClient {
 
   saveGeneralSettings(changes: GeneralSettingsChanges): Promise<GeneralSettings> {
     return this.#request((actor) => this.#cms.settings.saveGeneral(actor, changes));
+  }
+
+  getFormsSettings(): Promise<FormsSettings> {
+    return this.#request((actor) => this.#cms.settings.forms(actor));
+  }
+
+  saveFormsSettings(changes: FormsSettingsChanges): Promise<FormsSettings> {
+    return this.#request((actor) => this.#cms.settings.saveForms(actor, changes));
+  }
+
+  testFormsSettings(): Promise<void> {
+    return this.#request((actor) => this.#cms.settings.testForms(actor));
   }
 
   getStorageSettings(): Promise<StorageSettings> {

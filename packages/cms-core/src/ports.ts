@@ -252,6 +252,16 @@ export interface StorageRoom {
   test(): Promise<void>;
 }
 
+/** The service that checks a form's sender is a person, which only the host can reach. Handed over with `settings.useChallenge`. */
+export interface ChallengeRoom {
+  /**
+   * Asks the challenge service whether it knows the secret key the editor's settings hold. One
+   * it does not know, or a service that cannot be reached, is thrown with words for the person
+   * who asked.
+   */
+  test(): Promise<void>;
+}
+
 /** The current time. Passed in so tests can fix it. */
 export interface Clock {
   now(): Timestamp;

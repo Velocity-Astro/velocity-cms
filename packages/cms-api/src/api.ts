@@ -1,4 +1,4 @@
-import type { Cms, EmailSettingsChanges, StorageSettingsChanges, ContactChanges, ContactImportRow, DealChanges, NewDeal, PipelineChanges, CustomFieldsChanges, ContentTypeChanges, FieldArrangement, FieldChanges, FieldSection, FormChanges, NewContact, NewField, NewForm, Role } from '@velocity-astro/cms-core';
+import type { Cms, FormsSettingsChanges, EmailSettingsChanges, StorageSettingsChanges, ContactChanges, ContactImportRow, DealChanges, NewDeal, PipelineChanges, CustomFieldsChanges, ContentTypeChanges, FieldArrangement, FieldChanges, FieldSection, FormChanges, NewContact, NewField, NewForm, Role } from '@velocity-astro/cms-core';
 import { z } from 'zod';
 import type { ApiSession, Authenticator } from './authenticator.js';
 import { ApiError, errorResponse, isFault, json } from './http.js';
@@ -180,6 +180,12 @@ const storageSettingsChanges = z.strictObject({
   region: z.string().max(1000).optional(),
   accessKeyId: z.string().max(1000),
   secretAccessKey: z.string().max(2000).nullable().optional(),
+  expectedRevision: z.number().int().min(0),
+});
+const formsSettingsChanges = z.strictObject({
+  siteKey: z.string().max(1000),
+  secretKey: z.string().max(2000).nullable().optional(),
+  postsPerAddress: z.number(),
   expectedRevision: z.number().int().min(0),
 });
 const generalSettingsChanges = z.strictObject({ siteName: z.string().max(1000), expectedRevision: z.number().int().min(0) });
@@ -431,6 +437,16 @@ export class CmsApi {
       })
       .add('POST', '/settings/storage/test', async (call) => {
         await settings.testStorage(actor(call));
+        return json({});
+      })
+      .add('GET', '/settings/forms', async (call) => json(await settings.forms(actor(call))))
+      .add('PUT', '/settings/forms', async (call) => {
+        const who = actor(call);
+        const body = parse(formsSettingsChanges, await this.#body(call.request));
+        return json(await settings.saveForms(who, deep<FormsSettingsChanges>(body)));
+      })
+      .add('POST', '/settings/forms/test', async (call) => {
+        await settings.testForms(actor(call));
         return json({});
       })
       .add('GET', '/pipeline', async (call) => json(await pipeline.get(actor(call))))

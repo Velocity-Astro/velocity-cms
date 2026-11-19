@@ -661,6 +661,27 @@ describe('forms and what they were sent', () => {
     expect((await call('POST', '/settings/storage/test')).status).toBe(403);
   });
 
+  it('saves how forms are guarded without ever sending the secret key back, for owners only', async () => {
+    authenticator.session = as('owner');
+    expect((await call('GET', '/settings/forms')).body).toEqual({ provider: 'turnstile', siteKey: '', hasSecret: false, checking: false, postsPerAddress: 8, revision: 0 });
+    const keys = { siteKey: '0x4AAAAAAAsitekey', secretKey: '0x4AAAAAAAsecretkey', postsPerAddress: 12, expectedRevision: 0 };
+    expect((await call('PUT', '/settings/forms', { ...keys, postsPerAddress: 500 })).status).toBe(422);
+    expect((await call('PUT', '/settings/forms', { ...keys, provider: 'other' })).status).toBe(400);
+    expect((await call('POST', '/settings/forms/test')).status).toBe(409);
+    const saved = await call('PUT', '/settings/forms', keys);
+    expect(saved).toMatchObject({ status: 200, body: { siteKey: '0x4AAAAAAAsitekey', hasSecret: true, checking: true, postsPerAddress: 12, revision: 1 } });
+    expect(JSON.stringify(saved.body)).not.toContain('secretkey');
+    expect((await call('PUT', '/settings/forms', keys)).status).toBe(409);
+    const asked: string[] = [];
+    cms.settings.useChallenge({ test: async () => void asked.push('test') });
+    expect(await call('POST', '/settings/forms/test')).toEqual({ status: 200, body: {} });
+    expect(asked).toEqual(['test']);
+    authenticator.session = as('editor');
+    expect((await call('GET', '/settings/forms')).status).toBe(403);
+    expect((await call('PUT', '/settings/forms', { ...keys, expectedRevision: 1 })).status).toBe(403);
+    expect((await call('POST', '/settings/forms/test')).status).toBe(403);
+  });
+
   it('reads and changes the pipeline, and places a contact in it with an owner and a day to follow up', async () => {
     expect((await call('GET', '/pipeline')).body).toMatchObject({ revision: 0, stages: [{ id: 'new' }, { id: 'contacted' }, { id: 'qualified' }, { id: 'won' }, { id: 'lost' }] });
     expect((await call('GET', '/team')).body).toEqual({ items: [{ id: 'u1', name: 'Dana', role: 'owner' }] });

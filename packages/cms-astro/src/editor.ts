@@ -137,6 +137,10 @@ export class EditorHost {
     cms.events.on('form.trashed', formChanged);
     cms.events.on('form.restored', formChanged);
     cms.events.on('form.deleted', formChanged);
+    // A page that draws a form was kept with or without the challenge an owner has now set up.
+    cms.events.on('settings.saved', ({ area }) => {
+      if (area === 'forms') formChanged();
+    });
     cms.events.on('type.archived', shown);
     cms.events.on('type.restored', shown);
   }

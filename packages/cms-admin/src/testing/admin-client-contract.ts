@@ -319,6 +319,18 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       expect(await client.saveStorageSettings({ ...bucket, secretAccessKey: null, expectedRevision: 1 })).toMatchObject({ hasSecret: false, keeping: 'folder', revision: 2 });
     });
 
+    it('saves how forms are guarded without ever sending the secret key back, and checks the keys once it can', async () => {
+      expect(await client.getFormsSettings()).toEqual({ provider: 'turnstile', siteKey: '', hasSecret: false, checking: false, postsPerAddress: 8, revision: 0 });
+      await expect(client.testFormsSettings()).rejects.toMatchObject({ code: 'conflict' });
+      const keys = { siteKey: '0x4AAAAAAAsitekey', secretKey: '0x4AAAAAAAsecretkey', postsPerAddress: 20, expectedRevision: 0 };
+      await expect(client.saveFormsSettings({ ...keys, postsPerAddress: 0 })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['postsPerAddress'] }] });
+      await expect(client.saveFormsSettings({ ...keys, siteKey: '' })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['siteKey'] }] });
+      expect(await client.saveFormsSettings(keys)).toEqual({ provider: 'turnstile', siteKey: '0x4AAAAAAAsitekey', hasSecret: true, checking: true, postsPerAddress: 20, revision: 1 });
+      expect(await client.testFormsSettings()).toBeUndefined();
+      await expect(client.saveFormsSettings(keys)).rejects.toMatchObject({ code: 'conflict' });
+      expect(await client.saveFormsSettings({ siteKey: '', secretKey: null, postsPerAddress: 20, expectedRevision: 1 })).toEqual({ provider: 'turnstile', siteKey: '', hasSecret: false, checking: false, postsPerAddress: 20, revision: 2 });
+    });
+
     it('keeps a pipeline of stages, and places a contact in it with someone to look after it and a day to follow up', async () => {
       const pipeline = await client.getPipeline();
       expect(pipeline.stages.map((stage) => stage.id)).toEqual(['new', 'contacted', 'qualified', 'won', 'lost']);

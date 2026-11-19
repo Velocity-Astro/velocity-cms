@@ -117,3 +117,63 @@ describe('SettingsService: storage', () => {
     await expect(cms.settings.testStorage(owner)).rejects.toBeInstanceOf(ConflictError);
   });
 });
+
+describe('SettingsService: forms', () => {
+  const keys = { siteKey: '0x4AAAAAAAsitekey', secretKey: '0x4AAAAAAAsecretkey', postsPerAddress: 8, expectedRevision: 0 };
+
+  it('asks for no challenge and takes eight posts from an address until an owner says otherwise', async () => {
+    const cms = site();
+    expect(await cms.settings.forms(owner)).toEqual({ provider: 'turnstile', siteKey: '', hasSecret: false, checking: false, postsPerAddress: 8, revision: 0 });
+    expect(await cms.settings.challengeAccount()).toBeNull();
+    expect(await cms.settings.challengeSiteKey()).toBeNull();
+    expect(await cms.settings.formPostsPerAddress()).toBe(8);
+  });
+
+  it('seals the secret key, opens it only for the server, and never shows it again', async () => {
+    const store = new InMemorySettingsStore();
+    const cms = site(SECRET, store);
+    const saved = await cms.settings.saveForms(owner, { ...keys, siteKey: ` ${keys.siteKey} ` });
+    expect(saved).toEqual({ provider: 'turnstile', siteKey: keys.siteKey, hasSecret: true, checking: true, postsPerAddress: 8, revision: 1 });
+    expect(JSON.stringify(saved)).not.toContain('secretkey');
+    expect(JSON.stringify(await store.get('forms'))).not.toContain('secretkey');
+    expect(await cms.settings.challengeAccount()).toEqual({ provider: 'turnstile', siteKey: keys.siteKey, secretKey: keys.secretKey });
+    expect(await cms.settings.challengeSiteKey()).toBe(keys.siteKey);
+    // A change of the limit leaves both keys as they are.
+    expect(await cms.settings.saveForms(owner, { siteKey: keys.siteKey, postsPerAddress: 30, expectedRevision: 1 })).toMatchObject({ checking: true, postsPerAddress: 30, revision: 2 });
+    expect(await cms.settings.formPostsPerAddress()).toBe(30);
+    // A site whose secret changed can no longer open the key: no challenge is asked, rather than every post marked.
+    expect(await site('t'.repeat(32), store).settings.challengeSiteKey()).toBeNull();
+    expect(await cms.settings.saveForms(owner, { siteKey: '', secretKey: null, postsPerAddress: 30, expectedRevision: 2 })).toMatchObject({ siteKey: '', hasSecret: false, checking: false });
+    expect(await cms.settings.challengeAccount()).toBeNull();
+  });
+
+  it('refuses keys that are not keys, a secret key with no site key, a limit out of range and a stale revision', async () => {
+    const cms = site();
+    const refused = async (changes: Partial<typeof keys>) => {
+      const error: unknown = await cms.settings.saveForms(owner, { ...keys, ...changes }).catch((thrown: unknown) => thrown);
+      return error instanceof ValidationError ? error.issues.map((issue) => issue.path[0]) : error;
+    };
+    expect(await refused({ siteKey: 'a key"><script>' })).toEqual(['siteKey']);
+    expect(await refused({ secretKey: 'two words' })).toEqual(['secretKey']);
+    expect(await refused({ secretKey: '' })).toEqual(['secretKey']);
+    expect(await refused({ siteKey: '' })).toEqual(['siteKey']);
+    for (const postsPerAddress of [0, 101, 2.5]) expect(await refused({ postsPerAddress })).toEqual(['postsPerAddress']);
+    await expect(cms.settings.saveForms(owner, { ...keys, expectedRevision: 3 })).rejects.toBeInstanceOf(ConflictError);
+    // A site key alone is kept, and checks nothing until the secret key is there.
+    expect(await cms.settings.saveForms(owner, { siteKey: keys.siteKey, postsPerAddress: 8, expectedRevision: 0 })).toMatchObject({ siteKey: keys.siteKey, checking: false });
+    expect(await cms.settings.challengeSiteKey()).toBeNull();
+  });
+
+  it('checks the keys only once both are saved, through the host, and is for owners only', async () => {
+    const cms = site();
+    const asked: string[] = [];
+    cms.settings.useChallenge({ test: async () => void asked.push('test') });
+    await expect(cms.settings.testForms(owner)).rejects.toBeInstanceOf(ConflictError);
+    await cms.settings.saveForms(owner, keys);
+    await cms.settings.testForms(owner);
+    expect(asked).toEqual(['test']);
+    await expect(cms.settings.forms(editor)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(cms.settings.saveForms(editor, { ...keys, expectedRevision: 1 })).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(cms.settings.testForms(editor)).rejects.toBeInstanceOf(ForbiddenError);
+  });
+});

@@ -523,7 +523,7 @@ export type TimelineItem =
   | { readonly kind: 'stage'; readonly at: Timestamp; readonly id: string; readonly from: string; readonly to: string; readonly by: string };
 
 /** The parts of a site's settings an owner fills in in the editor. */
-export type SettingsArea = 'email' | 'storage' | 'general';
+export type SettingsArea = 'email' | 'storage' | 'general' | 'forms';
 
 /** The services the CMS can send email through. */
 export type EmailProvider = 'resend';
@@ -586,6 +586,32 @@ export interface BucketAccount {
   readonly region?: string;
   readonly accessKeyId: string;
   readonly secretAccessKey: string;
+}
+
+/** The services that can check a form's sender is a person. */
+export type ChallengeProvider = 'turnstile';
+
+/**
+ * How the site's forms are guarded, as an owner sees it. The challenge's secret key is never
+ * part of it: `hasSecret` says only that one is saved.
+ */
+export interface FormsSettings {
+  readonly provider: ChallengeProvider;
+  /** The challenge's site key, which every page with a form shows. Empty until someone says. */
+  readonly siteKey: string;
+  readonly hasSecret: boolean;
+  /** Whether forms ask their sender to pass the challenge as things stand: both keys are saved. */
+  readonly checking: boolean;
+  /** How many posts the forms take from one address in ten minutes. */
+  readonly postsPerAddress: number;
+  readonly revision: number;
+}
+
+/** What it takes to check a challenge. Only the site's own server ever holds one. */
+export interface ChallengeAccount {
+  readonly provider: ChallengeProvider;
+  readonly siteKey: string;
+  readonly secretKey: string;
 }
 
 /** The site's basics, as an owner sees them. */

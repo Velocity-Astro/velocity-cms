@@ -176,3 +176,52 @@ it('names the site under General, with what the server says on the field, and le
   expect(fixed.getByText('Set by your host')).toBeTruthy();
   expect(fixed.queryByRole('textbox')).toBeNull();
 });
+
+it('sets up the spam check under Forms and spam, checks the keys, and never shows the secret key again', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/settings', site());
+  await user.click(await screen.findByRole('tab', { name: 'Forms and spam' }));
+  const check = within(await screen.findByRole('region', { name: 'Spam check' }));
+  expect(check.getByText('No spam check')).toBeTruthy();
+  expect(check.getByRole('button', { name: 'Check the keys' })).toHaveProperty('disabled', true);
+
+  await user.type(check.getByLabelText(/^Secret key/), '0x4AAAAAAAsecretkey');
+  await user.click(check.getByRole('button', { name: 'Save spam check' }));
+  expect(await check.findByText(/Paste the site key too/)).toBeTruthy();
+  expect(check.getByLabelText(/^Secret key/)).toHaveProperty('value', '0x4AAAAAAAsecretkey');
+
+  await user.type(check.getByRole('textbox', { name: /^Site key/ }), '0x4AAAAAAAsitekey');
+  await user.click(check.getByRole('button', { name: 'Save spam check' }));
+  expect(await check.findByText('Checking senders')).toBeTruthy();
+  expect(check.queryByLabelText(/^Secret key/)).toBeNull();
+  expect(document.body.innerHTML).not.toContain('secretkey');
+
+  await user.click(check.getByRole('button', { name: 'Check the keys' }));
+  expect(await screen.findByText('Cloudflare knows the secret key')).toBeTruthy();
+  expect(client.challenge.tests).toBe(1);
+  client.challenge.refuseWith = 'Cloudflare does not know this secret key.';
+  await user.click(check.getByRole('button', { name: 'Check the keys' }));
+  expect(await screen.findByText('The keys could not be checked')).toBeTruthy();
+
+  await user.click(check.getByRole('button', { name: 'Stop checking' }));
+  const ask = within(await screen.findByRole('alertdialog', { name: 'Stop checking senders?' }));
+  await user.click(ask.getByRole('button', { name: 'Remove the keys' }));
+  expect(await check.findByText('No spam check')).toBeTruthy();
+  expect(await client.getFormsSettings()).toMatchObject({ siteKey: '', hasSecret: false, checking: false });
+});
+
+it('changes how much one address may send without touching the keys', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/settings', site());
+  await client.saveFormsSettings({ siteKey: '0x4AAAAAAAsitekey', secretKey: '0x4AAAAAAAsecretkey', postsPerAddress: 8, expectedRevision: 0 });
+  await user.click(await screen.findByRole('tab', { name: 'Forms and spam' }));
+  const limit = within(await screen.findByRole('region', { name: 'Limit' }));
+  const field = limit.getByRole('textbox', { name: /^Messages from one address/ });
+  expect(limit.getByRole('button', { name: 'Save limit' })).toHaveProperty('disabled', true);
+  await user.clear(field);
+  await user.type(field, '25');
+  await user.tab();
+  await user.click(limit.getByRole('button', { name: 'Save limit' }));
+  expect(await screen.findByText('Limit saved')).toBeTruthy();
+  expect(await client.getFormsSettings()).toMatchObject({ checking: true, postsPerAddress: 25 });
+});

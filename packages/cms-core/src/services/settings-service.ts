@@ -1,8 +1,8 @@
 import type { AccessControl, Actor } from '../access.js';
 import { ConflictError, ValidationError, type ValidationIssue } from '../errors.js';
 import type { EventBus } from '../events.js';
-import type { BucketAccount, EmailProvider, EmailSettings, GeneralSettings, MailAccount, SettingFixedBy, StorageSettings } from '../model.js';
-import type { MailRoom, SettingsStore, StorageRoom } from '../ports.js';
+import type { BucketAccount, ChallengeAccount, EmailProvider, EmailSettings, FormsSettings, GeneralSettings, MailAccount, SettingFixedBy, StorageSettings } from '../model.js';
+import type { ChallengeRoom, MailRoom, SettingsStore, StorageRoom } from '../ports.js';
 import type { SecretSeal, Sealed } from '../seal.js';
 
 /** How email is sent, as the editor sends it. */
@@ -53,6 +53,37 @@ export interface SiteNaming {
   /** Who names the site when the editor's settings do not, or `null` when they do. */
   readonly fixedBy: SettingFixedBy | null;
 }
+
+/** How the site's forms are guarded, as the editor sends it. */
+export interface FormsSettingsChanges {
+  /** The challenge's site key. Empty, with no secret key saved, for no challenge. */
+  readonly siteKey: string;
+  /** The challenge's secret key. Left out, the one that is saved stays; `null` takes it away. */
+  readonly secretKey?: string | null;
+  /** How many posts the forms take from one address in ten minutes. */
+  readonly postsPerAddress: number;
+  /** The revision the editor loaded. */
+  readonly expectedRevision: number;
+}
+
+/** What the forms take from one address in ten minutes until an owner says otherwise. */
+export const DEFAULT_FORM_POSTS_PER_ADDRESS = 8;
+export const MAX_FORM_POSTS_PER_ADDRESS = 100;
+export const MAX_CHALLENGE_KEY_LENGTH = 200;
+
+const FORMS = 'forms';
+/** A challenge's key as the service shows it: letters, digits and a few marks, nothing that could end an attribute or a line. */
+const CHALLENGE_KEY = /^[A-Za-z0-9._-]{8,200}$/;
+
+/** The forms part as it is stored. The secret key is sealed. */
+interface StoredForms {
+  readonly siteKey: string;
+  readonly postsPerAddress: number;
+  readonly secret?: Sealed;
+}
+
+const isStoredForms = (value: unknown): value is StoredForms =>
+  typeof value === 'object' && value !== null && typeof (value as { siteKey?: unknown }).siteKey === 'string' && Number.isInteger((value as { postsPerAddress?: unknown }).postsPerAddress);
 
 const GENERAL = 'general';
 const isStoredGeneral = (value: unknown): value is { readonly siteName: string } =>
@@ -123,6 +154,7 @@ export class SettingsService {
   #mail: MailRoom | null = null;
   #storage: StorageRoom | null = null;
   #naming: SiteNaming | null = null;
+  #challenge: ChallengeRoom | null = null;
 
   constructor(
     private readonly store: SettingsStore,
@@ -237,6 +269,97 @@ export class SettingsService {
       siteName: kept !== null && isStoredGeneral(kept.value) ? kept.value.siteName : '',
       defaultSiteName: this.#naming?.defaultName ?? '',
       ...(fixedBy !== null && { fixedBy }),
+      revision: kept?.revision ?? 0,
+    };
+  }
+
+  /** Tells the service how the challenge service is asked. A host calls it once it knows. */
+  useChallenge(room: ChallengeRoom): void {
+    this.#challenge = room;
+  }
+
+  /** How the site's forms are guarded, for the settings screen. Owners only. */
+  async forms(actor: Actor): Promise<FormsSettings> {
+    this.access.require(actor, 'settings:manage');
+    return this.#shownForms();
+  }
+
+  /** Saves how the site's forms are guarded. Owners only. */
+  async saveForms(actor: Actor, changes: FormsSettingsChanges): Promise<FormsSettings> {
+    this.access.require(actor, 'settings:manage');
+    const kept = await this.store.get(FORMS);
+    const current = kept !== null && isStoredForms(kept.value) ? kept.value : null;
+    const revision = kept?.revision ?? 0;
+    if (revision !== changes.expectedRevision) throw new ConflictError('The forms settings were changed by someone else. Reload them and try again.');
+
+    const issues: ValidationIssue[] = [];
+    const siteKey = changes.siteKey.trim();
+    if (siteKey !== '' && !CHALLENGE_KEY.test(siteKey)) issues.push({ path: ['siteKey'], message: 'This does not look like a site key. Paste it as Cloudflare shows it.' });
+    const typedSecret = typeof changes.secretKey === 'string' ? changes.secretKey.trim() : undefined;
+    if (typedSecret !== undefined && !CHALLENGE_KEY.test(typedSecret)) {
+      issues.push({ path: ['secretKey'], message: typedSecret === '' ? 'Paste the secret key.' : 'This does not look like a secret key. Paste it as Cloudflare shows it.' });
+    }
+    const secretStays = changes.secretKey === null ? false : typedSecret !== undefined || current?.secret !== undefined;
+    // A secret key with no site key would mark every post as spam: no page could draw the challenge.
+    if (siteKey === '' && secretStays) issues.push({ path: ['siteKey'], message: 'Paste the site key too. Forms cannot show the check without it.' });
+    const { postsPerAddress } = changes;
+    if (!Number.isInteger(postsPerAddress) || postsPerAddress < 1 || postsPerAddress > MAX_FORM_POSTS_PER_ADDRESS) {
+      issues.push({ path: ['postsPerAddress'], message: `Give a whole number from 1 to ${MAX_FORM_POSTS_PER_ADDRESS}.` });
+    }
+    if (issues.length > 0) throw new ValidationError(issues.length === 1 ? 'One thing about the forms settings needs another look.' : `${issues.length} things about the forms settings need another look.`, issues);
+
+    const secret = changes.secretKey === null ? undefined : typedSecret !== undefined ? await this.seal.seal(typedSecret) : current?.secret;
+    const next: StoredForms = { siteKey, postsPerAddress, ...(secret !== undefined && { secret }) };
+    await this.store.save(FORMS, next, revision + 1, kept === null ? null : revision);
+    await this.events.emit('settings.saved', { area: 'forms', actor });
+    return this.#shownForms();
+  }
+
+  /** Asks the challenge service whether it knows the secret key that is saved. Owners only. */
+  async testForms(actor: Actor): Promise<void> {
+    this.access.require(actor, 'settings:manage');
+    if (this.#challenge === null || (await this.challengeAccount()) === null) {
+      throw new ConflictError('There are no keys to check yet. Save the site key and the secret key first.');
+    }
+    await this.#challenge.test();
+  }
+
+  /**
+   * The challenge the editor's settings name, for the site's own server, or `null` when forms
+   * ask for none. No permission is asked, and nothing else may call it: this is the one place
+   * the saved secret key is opened.
+   */
+  async challengeAccount(): Promise<ChallengeAccount | null> {
+    const kept = await this.store.get(FORMS);
+    if (kept === null || !isStoredForms(kept.value) || kept.value.siteKey === '') return null;
+    const secretKey = await this.seal.open(kept.value.secret);
+    return secretKey === undefined ? null : { provider: 'turnstile', siteKey: kept.value.siteKey, secretKey };
+  }
+
+  /**
+   * The site key a page shows the challenge with, or `null` when forms ask for none. No
+   * permission is asked: a site key is on every page that has a form.
+   */
+  async challengeSiteKey(): Promise<string | null> {
+    return (await this.challengeAccount())?.siteKey ?? null;
+  }
+
+  /** How many posts the forms take from one address in ten minutes. No permission is asked. */
+  async formPostsPerAddress(): Promise<number> {
+    const kept = await this.store.get(FORMS);
+    return kept !== null && isStoredForms(kept.value) ? kept.value.postsPerAddress : DEFAULT_FORM_POSTS_PER_ADDRESS;
+  }
+
+  async #shownForms(): Promise<FormsSettings> {
+    const kept = await this.store.get(FORMS);
+    const current = kept !== null && isStoredForms(kept.value) ? kept.value : null;
+    const hasSecret = current?.secret !== undefined && (await this.seal.open(current.secret)) !== undefined;
+    return {
+      provider: 'turnstile',
+      siteKey: current?.siteKey ?? '',
+      hasSecret,
+      checking: hasSecret && current.siteKey !== '',
+      postsPerAddress: current?.postsPerAddress ?? DEFAULT_FORM_POSTS_PER_ADDRESS,
       revision: kept?.revision ?? 0,
     };
   }

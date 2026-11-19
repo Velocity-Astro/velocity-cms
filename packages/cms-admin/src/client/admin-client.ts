@@ -1,4 +1,4 @@
-import type { GeneralSettings, GeneralSettingsChanges, EmailSettings, EmailSettingsChanges, StorageSettings, StorageSettingsChanges, ContactImportReport, ContactImportRow, CustomFields, CustomFieldsChanges, Contact, ContactChanges, Deal, DealChanges, DealSubject, Forecast, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginTask, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Revision, Role, SiteImage } from '@velocity-astro/cms-core';
+import type { FormsSettings, FormsSettingsChanges, GeneralSettings, GeneralSettingsChanges, EmailSettings, EmailSettingsChanges, StorageSettings, StorageSettingsChanges, ContactImportReport, ContactImportRow, CustomFields, CustomFieldsChanges, Contact, ContactChanges, Deal, DealChanges, DealSubject, Forecast, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginTask, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Revision, Role, SiteImage } from '@velocity-astro/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
@@ -257,6 +257,12 @@ export interface AdminClient {
   saveStorageSettings(changes: StorageSettingsChanges): Promise<StorageSettings>;
   /** Tries the saved bucket: keeps a small file there, reads it back and removes it. */
   testStorage(): Promise<void>;
+  /** How the site's forms are guarded. The challenge's secret key is never part of it. Owners only. */
+  getFormsSettings(): Promise<FormsSettings>;
+  /** Saves how the site's forms are guarded. A secret key left out stays as it is; `null` takes it away. */
+  saveFormsSettings(changes: FormsSettingsChanges): Promise<FormsSettings>;
+  /** Asks the challenge service whether it knows the saved secret key. */
+  testFormsSettings(): Promise<void>;
   /** The stages a contact moves through, in order. */
   getPipeline(): Promise<Pipeline>;
   /** Replaces the stages. Contacts in a stage that is removed move to the first. */

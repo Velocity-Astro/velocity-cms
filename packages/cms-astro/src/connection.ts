@@ -8,6 +8,7 @@ import { currentSite } from './hosted.js';
 import { SharpImageOptimizer } from './image-optimizer.js';
 import { bucketFromEnv, folderFromEnv } from './media-store.js';
 import { SiteMediaStore } from './site-storage.js';
+import { SiteChallenge } from './challenge.js';
 import { siteSecret } from './secret.js';
 import { allPlugins } from './site-plugins.js';
 
@@ -85,6 +86,7 @@ export async function connect(options: ConnectionOptions): Promise<Connection> {
     onPluginFault: (plugin, error) => console.error(`[velocity-cms] The plugin "${plugin}" failed.`, error),
   });
   cms.settings.useStorage(store.room());
+  cms.settings.useChallenge(new SiteChallenge({ account: () => cms.settings.challengeAccount() }));
   return { cms, search: new SqliteSearchIndex(database.db), db: database.db, close: () => database.close() };
 }
 

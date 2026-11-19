@@ -15,6 +15,11 @@ export const prerender = false;
  * - a submit button may carry `data-cms-form-sending`, its words while the form is on its way.
  *   They replace the button's words, or those of the `[data-cms-form-label]` inside it.
  *
+ * - `[data-cms-form-challenge]`: where the check that the sender is a person is drawn, when an
+ *   owner set one up (Cloudflare Turnstile). Without the mark it is drawn above the submit
+ *   button. A site with a content security policy allows `https://challenges.cloudflare.com`
+ *   for scripts and frames.
+ *
  * Every word is written as text. Nothing the visitor typed comes back from the site.
  */
 const SCRIPT = `
@@ -39,6 +44,66 @@ function say(form, state, message) {
   }
 }
 
+const CHALLENGE = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+const challenges = new WeakMap();
+const waiting = new WeakMap();
+let challengeScript;
+
+/** Loads the challenge's script once, however many forms a page has. */
+function challengeReady() {
+  challengeScript ??= new Promise((resolve, reject) => {
+    if (window.turnstile) return resolve();
+    const script = document.createElement('script');
+    script.src = CHALLENGE;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => {
+      challengeScript = undefined;
+      reject(new Error('The challenge could not be loaded.'));
+    };
+    document.head.append(script);
+  });
+  return challengeScript;
+}
+
+/** Draws the check that the sender is a person, when the form carries a site key for one. */
+function challenge(form) {
+  const siteKey = form.elements.namedItem('_challenge')?.value;
+  if (!siteKey || challenges.has(form)) return;
+  let place = form.querySelector('[data-cms-form-challenge]');
+  if (!place) {
+    place = document.createElement('div');
+    place.dataset.cmsFormChallenge = '';
+    const button = form.querySelector('[type="submit"]');
+    if (button) button.before(place);
+    else form.append(place);
+  }
+  challenges.set(
+    form,
+    challengeReady()
+      .then(() => window.turnstile.render(place, { sitekey: siteKey, theme: 'auto', size: 'flexible', language: document.documentElement.lang || 'auto', callback: () => waiting.get(form)?.() }))
+      // Without the challenge the form still posts. The site decides what to make of it.
+      .catch(() => undefined),
+  );
+}
+
+/** Waits, for a while, for the sender to pass a challenge that is still being worked out. */
+async function challengePassed(form) {
+  const widget = await challenges.get(form);
+  if (widget == null || window.turnstile.getResponse(widget)) return;
+  await new Promise((resolve) => {
+    waiting.set(form, resolve);
+    setTimeout(resolve, 15000);
+  });
+  waiting.delete(form);
+}
+
+/** An answer to the challenge is used once: a new one is asked for after every post. */
+async function challengeAgain(form) {
+  const widget = await challenges.get(form);
+  if (widget != null) window.turnstile?.reset(widget);
+}
+
 async function send(form) {
   const button = form.querySelector('[type="submit"]');
   const words = button?.querySelector('[data-cms-form-label]') ?? button;
@@ -50,6 +115,7 @@ async function send(form) {
     if (button.dataset.cmsFormSending) words.textContent = button.dataset.cmsFormSending;
   }
   try {
+    await challengePassed(form);
     const response = await fetch(form.action, { method: 'POST', headers: { accept: 'application/json' }, body: new URLSearchParams(new FormData(form)) });
     const answer = await response.json().catch(() => null);
     if (response.ok && answer?.ok) {
@@ -75,6 +141,7 @@ async function send(form) {
   } catch {
     say(form, 'failed', form.dataset.cmsFormFailed ?? '');
   } finally {
+    void challengeAgain(form);
     if (button) {
       button.disabled = false;
       words.textContent = label;
@@ -86,6 +153,7 @@ function start() {
   for (const form of document.querySelectorAll('form[data-cms-form]')) {
     if (form.dataset.cmsFormReady) continue;
     form.dataset.cmsFormReady = 'true';
+    challenge(form);
     form.addEventListener('submit', (event) => {
       event.preventDefault();
       if (form.dataset.cmsFormState !== 'sending') void send(form);

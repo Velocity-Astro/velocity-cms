@@ -1,5 +1,5 @@
 import { MutationCache, QueryCache, QueryClient, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { GeneralSettingsChanges, EmailSettingsChanges, StorageSettingsChanges, ContactImportReport, ContactImportRow, ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, DealChanges, NewDeal, Page, PipelineChanges, CustomFieldsChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity-astro/cms-core';
+import type { FormsSettingsChanges, GeneralSettingsChanges, EmailSettingsChanges, StorageSettingsChanges, ContactImportReport, ContactImportRow, ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, DealChanges, NewDeal, Page, PipelineChanges, CustomFieldsChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity-astro/cms-core';
 import type { ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, ImageList, NewEntry, NewPerson, NewType, NewTypeField, SubmissionListQuery } from './admin-client.js';
 import { AdminRequestError } from './errors.js';
 import { useClient } from './client-context.js';
@@ -45,6 +45,7 @@ const keys = {
   team: ['team'] as const,
   emailSettings: ['settings', 'email'] as const,
   storageSettings: ['settings', 'storage'] as const,
+  formsSettings: ['settings', 'forms'] as const,
   generalSettings: ['settings', 'general'] as const,
 };
 
@@ -541,6 +542,23 @@ export function useSaveGeneralSettings() {
   const client = useClient();
   const cache = useQueryClient();
   return useMutation({ mutationFn: (changes: GeneralSettingsChanges) => client.saveGeneralSettings(changes), onSuccess: (saved) => cache.setQueryData(keys.generalSettings, saved) });
+}
+
+/** How the site's forms are guarded. Owners only. */
+export function useFormsSettings() {
+  const client = useClient();
+  return useQuery({ queryKey: keys.formsSettings, queryFn: () => client.getFormsSettings() });
+}
+
+export function useSaveFormsSettings() {
+  const client = useClient();
+  const cache = useQueryClient();
+  return useMutation({ mutationFn: (changes: FormsSettingsChanges) => client.saveFormsSettings(changes), onSuccess: (saved) => cache.setQueryData(keys.formsSettings, saved) });
+}
+
+export function useTestFormsSettings() {
+  const client = useClient();
+  return useMutation({ mutationFn: () => client.testFormsSettings() });
 }
 
 /** Where the site's uploads are kept. Owners only. */

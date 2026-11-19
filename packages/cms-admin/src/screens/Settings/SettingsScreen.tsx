@@ -5,6 +5,7 @@ import { SETTINGS_AREAS, paths, type SettingsAreaId } from '../../app/paths.js';
 import { useGo } from '../../app/use-go.js';
 import { useMessages } from '../../messages/messages-context.js';
 import { EmailSettingsPanel } from './EmailSettings.js';
+import { FormsSettingsPanel } from './FormsSettings.js';
 import { GeneralSettingsPanel } from './GeneralSettings.js';
 import { StorageSettingsPanel } from './StorageSettings.js';
 
@@ -15,7 +16,7 @@ export function SettingsScreen() {
   const messages = useMessages();
   const go = useGo();
   const { area } = useParams();
-  const content: Readonly<Record<SettingsAreaId, ReactNode>> = { general: <GeneralSettingsPanel />, email: <EmailSettingsPanel />, storage: <StorageSettingsPanel /> };
+  const content: Readonly<Record<SettingsAreaId, ReactNode>> = { general: <GeneralSettingsPanel />, email: <EmailSettingsPanel />, storage: <StorageSettingsPanel />, forms: <FormsSettingsPanel /> };
 
   return (
     <Box paddingX={12} paddingY={10}>

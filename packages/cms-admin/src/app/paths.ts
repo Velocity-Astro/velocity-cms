@@ -6,7 +6,7 @@ export const NEW_ENTRY = 'new';
 export const WITHIN = 'in';
 
 /** The parts of the site's settings, in the order of their tabs. */
-export const SETTINGS_AREAS = ['general', 'email', 'storage'] as const;
+export const SETTINGS_AREAS = ['general', 'email', 'storage', 'forms'] as const;
 export type SettingsAreaId = (typeof SETTINGS_AREAS)[number];
 
 export const paths = {
