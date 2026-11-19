@@ -124,6 +124,9 @@ export const showsContent = (request: Request, pathname: string, isPrerendered: 
  * exactly as if this middleware were not there.
  */
 export const onRequest: MiddlewareHandler = async (context, next) => {
+  // A page built ahead of time is the same for everyone, so it is never a preview. On a server
+  // that runs many sites it is also built for no site, and has no secret to check a token with.
+  if (context.isPrerendered) return next();
   if (showsContent(context.request, context.url.pathname, context.isPrerendered)) {
     // A page without its newest images is still a page, so a failure here is only logged.
     await refreshUploadedImages().catch((error: unknown) => console.error('[velocity-cms] Uploaded images were not read.', error));
