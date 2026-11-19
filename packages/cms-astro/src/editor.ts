@@ -16,6 +16,8 @@ export interface EditorHostOptions {
   /** The site's own address, such as `https://example.com`. */
   readonly origin: string;
   readonly siteName: string;
+  /** What an owner called the site in the editor's settings, or `null`. Asked each time the editor's page is served. */
+  readonly siteNameNow?: () => Promise<string | null>;
   readonly mailer: Mailer;
   /** The site's images, for image fields to choose from. */
   readonly images?: ImageLibrary;
@@ -61,6 +63,7 @@ export class EditorHost {
   readonly #plugins: Connection['cms']['plugins'];
   readonly #content: Connection['cms']['content'];
   readonly #onFault: ((error: unknown) => void) | undefined;
+  readonly #siteNameNow: (() => Promise<string | null>) | undefined;
   /** When entries due to be published were last looked for. */
   #lookedAt = 0;
   /** Whether anything was published or taken down since `takePublished` was last called. */
@@ -95,6 +98,7 @@ export class EditorHost {
     this.#plugins = cms.plugins;
     this.#content = cms.content;
     this.#onFault = options.onFault;
+    this.#siteNameNow = options.siteNameNow;
     // `/admin/plugins/<name>.js`: what a running plugin adds to the editor.
     this.#pluginFile = new RegExp(`^${adminPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/plugins/([a-z][a-z0-9-]{0,39})\\.js$`);
     this.#files = new AdminFiles(options.editorDirectory ?? builtEditorDirectory(), { siteName: options.siteName, adminPath, apiPath, authPath });
@@ -155,7 +159,8 @@ export class EditorHost {
    */
   async admin(request: Request): Promise<Response> {
     const name = this.#pluginFile.exec(new URL(request.url).pathname)?.[1];
-    if (name === undefined) return this.#files.respond(request);
+    // A name that cannot be read leaves the page with the one it started with: the editor still opens.
+    if (name === undefined) return this.#files.respond(request, await this.#siteNameNow?.().catch(() => null));
     if (request.method !== 'GET' && request.method !== 'HEAD') return new Response(null, { status: 405, headers: { allow: 'GET, HEAD' } });
     const file = await this.#plugins.editorFile(name);
     // Not the editor's page: a browser asked for a script, and would try to run it.

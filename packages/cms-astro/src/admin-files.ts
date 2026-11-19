@@ -52,7 +52,8 @@ export const builtEditorDirectory = (): string => appDirectory;
  */
 export class AdminFiles {
   readonly #files = new Map<string, StaticFile>();
-  readonly #page: string;
+  readonly #template: string;
+  readonly #config: EditorPageConfig;
   readonly #adminPath: string;
 
   constructor(directory: string, config: EditorPageConfig) {
@@ -66,15 +67,21 @@ export class AdminFiles {
       if (type && fs.statSync(file).isFile()) this.#files.set(name.replaceAll('\\', '/'), { body: fs.readFileSync(file), type });
     }
     this.#adminPath = config.adminPath;
-    // `<` is escaped so nothing in a site's name can end the block and start a script.
-    const settings = JSON.stringify(config).replaceAll('<', '\\u003c');
-    this.#page = fs
-      .readFileSync(index, 'utf8')
-      .replace(MARKER, `<base href="${config.adminPath}/" />\n    <script type="application/json" id="velocity-cms-config">${settings}</script>`);
+    this.#config = config;
+    this.#template = fs.readFileSync(index, 'utf8');
   }
 
-  /** Answers a request for anything under the editor's address. */
-  respond(request: Request): Response {
+  /** The editor's page with its settings written in, the site called `siteName` when one is given. */
+  #pageFor(siteName: string | null | undefined): string {
+    const config = siteName ? { ...this.#config, siteName } : this.#config;
+    // `<` is escaped so nothing in a site's name can end the block and start a script.
+    const settings = JSON.stringify(config).replaceAll('<', '\\u003c');
+    // A function, so nothing in the name is read as a pattern of the replacement.
+    return this.#template.replace(MARKER, () => `<base href="${config.adminPath}/" />\n    <script type="application/json" id="velocity-cms-config">${settings}</script>`);
+  }
+
+  /** Answers a request for anything under the editor's address. `siteName` is what an owner called the site, when they did. */
+  respond(request: Request, siteName?: string | null): Response {
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       return new Response(null, { status: 405, headers: { allow: 'GET, HEAD' } });
     }
@@ -90,6 +97,6 @@ export class AdminFiles {
     // A missing file must not be answered with the page: a browser would try to run it.
     if (inside.startsWith('assets/')) return new Response(null, { status: 404 });
     // Every other address is a screen of the editor, which works out which one in the browser.
-    return new Response(this.#page, { headers: PAGE_HEADERS });
+    return new Response(this.#pageFor(siteName), { headers: PAGE_HEADERS });
   }
 }

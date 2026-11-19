@@ -182,6 +182,7 @@ const storageSettingsChanges = z.strictObject({
   secretAccessKey: z.string().max(2000).nullable().optional(),
   expectedRevision: z.number().int().min(0),
 });
+const generalSettingsChanges = z.strictObject({ siteName: z.string().max(1000), expectedRevision: z.number().int().min(0) });
 const pipelineChanges = z.strictObject({
   stages: z.array(z.strictObject({ id: z.string().optional(), label: z.string().optional(), kind: z.enum(['open', 'won', 'lost']), chance: z.number().optional() })).max(50),
   currency: z.string().max(10).optional(),
@@ -416,6 +417,11 @@ export class CmsApi {
       .add('POST', '/settings/email/test', async (call) => {
         await settings.testEmail(actor(call));
         return json({});
+      })
+      .add('GET', '/settings/general', async (call) => json(await settings.general(actor(call))))
+      .add('PUT', '/settings/general', async (call) => {
+        const who = actor(call);
+        return json(await settings.saveGeneral(who, parse(generalSettingsChanges, await this.#body(call.request))));
       })
       .add('GET', '/settings/storage', async (call) => json(await settings.storage(actor(call))))
       .add('PUT', '/settings/storage', async (call) => {

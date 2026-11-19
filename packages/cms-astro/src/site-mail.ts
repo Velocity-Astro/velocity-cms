@@ -10,6 +10,8 @@ export interface SiteMailOptions {
   readonly own?: Mailer | undefined;
   /** What sign-in links go to when nothing sends email: the server's log. */
   readonly fallback: Mailer;
+  /** What an owner called the site in the editor, or `null`. It is what an email calls the site, when there is one. */
+  readonly siteName?: () => Promise<string | null>;
   /** Whether a host runs this site among many, so what is fixed is fixed by the host. */
   readonly hosted?: boolean;
   /** Defaults to the server's own environment. */
@@ -45,11 +47,11 @@ export class SiteMail implements Mailer, NoticeMailer {
   }
 
   async sendSignInLink(mail: SignInMail): Promise<void> {
-    await ((await this.#mailer()) ?? this.#options.fallback).sendSignInLink(mail);
+    await ((await this.#mailer()) ?? this.#options.fallback).sendSignInLink(await this.#named(mail));
   }
 
   async sendInvitation(mail: InvitationMail): Promise<void> {
-    await ((await this.#mailer()) ?? this.#options.fallback).sendInvitation(mail);
+    await ((await this.#mailer()) ?? this.#options.fallback).sendInvitation(await this.#named(mail));
   }
 
   /** A notice goes through the site's own mailer when it sends notices, and otherwise as the settings say. */
@@ -57,7 +59,7 @@ export class SiteMail implements Mailer, NoticeMailer {
     const { own } = this.#options;
     const mailer = takesNotices(own) ? own : (this.#fromServer() ?? (await this.#fromEditor()));
     if (!mailer) throw new Error('No email provider is set up. Set one up under Settings, Email in the editor.');
-    await mailer.sendSubmissionNotice(mail);
+    await mailer.sendSubmissionNotice(await this.#named(mail));
   }
 
   /** Whether email is sent in a way that can send a test. */
@@ -73,7 +75,7 @@ export class SiteMail implements Mailer, NoticeMailer {
     const mailer = await this.#mailer();
     if (!sendsTests(mailer)) throw new ConflictError('No test email can be sent yet. Save an API key and a sender first.');
     try {
-      await mailer.sendTest(mail);
+      await mailer.sendTest(await this.#named(mail));
     } catch (error) {
       if (!(error instanceof MailRefusedError)) throw new ConflictError('The email service could not be reached, so no test was sent. Try again in a moment.');
       const { status } = error;
@@ -89,6 +91,12 @@ export class SiteMail implements Mailer, NoticeMailer {
                 : `Resend could not send the test (${status}). Try again in a moment.`,
       );
     }
+  }
+
+  /** The email with the site called what an owner called it. A name that cannot be read leaves the email as it was. */
+  async #named<T extends { readonly siteName: string }>(mail: T): Promise<T> {
+    const siteName = await this.#options.siteName?.().catch(() => null);
+    return siteName ? { ...mail, siteName } : mail;
   }
 
   async #mailer(): Promise<Mailer | undefined> {

@@ -38,7 +38,7 @@ export function siteFormPosts(settings: SiteEditorSettings): Promise<FormPosts> 
             return type && entry ? { typeId: type.id, entry: entry.translationGroup } : undefined;
           },
           // The site's own mailer when it sends notices, then Resend from the server's settings, then what an owner set up in the editor.
-          mailer: new SiteMail({ settings: cms.settings, own: settings.mailer, fallback: new LogMailer(), hosted: currentSite() !== undefined }),
+          mailer: new SiteMail({ settings: cms.settings, own: settings.mailer, fallback: new LogMailer(), hosted: currentSite() !== undefined, ...(currentSite() === undefined && { siteName: () => cms.settings.siteName() }) }),
           onFault: (error) => console.error('[velocity-cms]', error instanceof Error ? error.message : error),
         }),
     );

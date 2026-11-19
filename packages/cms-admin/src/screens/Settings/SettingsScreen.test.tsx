@@ -15,7 +15,8 @@ it('sets email up from the menu: a key that is never shown again, a sender, and 
   const { client } = renderApp('/', site());
   await user.click(await screen.findByRole('link', { name: 'Settings' }));
   expect(await screen.findByRole('heading', { level: 1, name: 'Settings' })).toBeTruthy();
-  expect(screen.getByRole('tab', { name: 'Email' }).getAttribute('aria-selected')).toBe('true');
+  expect(screen.getByRole('tab', { name: 'General' }).getAttribute('aria-selected')).toBe('true');
+  await user.click(screen.getByRole('tab', { name: 'Email' }));
   const email = await card();
   expect(email.getByText('Not set up')).toBeTruthy();
   expect(email.getByText(/sign-in links are printed in the server's log/)).toBeTruthy();
@@ -66,6 +67,7 @@ it('replaces a saved key, and stops sending only after asking', async () => {
   const { client } = renderApp('/', site());
   await client.saveEmailSettings({ from: 'hello@lakeshore.example', apiKey: 're_old', expectedRevision: 0 });
   await user.click(await screen.findByRole('link', { name: 'Settings' }));
+  await user.click(await screen.findByRole('tab', { name: 'Email' }));
   const email = await card();
   await user.click(await email.findByRole('button', { name: 'Replace the key' }));
   await user.click(email.getByRole('button', { name: 'Keep the saved key' }));
@@ -150,4 +152,27 @@ it('says who keeps uploads when the server or a host decides, and when the site 
   const none = within(await screen.findByRole('region', { name: 'Uploads' }));
   expect(none.getByText('No uploads yet')).toBeTruthy();
   expect(none.getByText(/nowhere to keep uploads/)).toBeTruthy();
+});
+
+it('names the site under General, with what the server says on the field, and leaves it to a host that names its sites', async () => {
+  const user = userEvent.setup();
+  const first = renderApp('/settings', site());
+  const name = within(await screen.findByRole('region', { name: 'Site name' }));
+  const field = name.getByRole('textbox', { name: /^Site name/ });
+  expect(field.getAttribute('placeholder')).toBe('Lakeshore Realty');
+  expect(name.getByRole('button', { name: 'Save site name' })).toHaveProperty('disabled', true);
+  await user.type(field, 'x'.repeat(81));
+  await user.click(name.getByRole('button', { name: 'Save site name' }));
+  expect(await name.findByText("Keep the site's name under 80 characters.")).toBeTruthy();
+  await user.clear(field);
+  await user.type(field, 'Oakhaven Homes');
+  await user.click(name.getByRole('button', { name: 'Save site name' }));
+  expect(await screen.findByText('Site name saved')).toBeTruthy();
+  expect(await first.client.getGeneralSettings()).toMatchObject({ siteName: 'Oakhaven Homes', revision: 1 });
+  first.unmount();
+
+  renderApp('/settings/general', site({ siteNameFixedBy: 'host' }));
+  const fixed = within(await screen.findByRole('region', { name: 'Site name' }));
+  expect(fixed.getByText('Set by your host')).toBeTruthy();
+  expect(fixed.queryByRole('textbox')).toBeNull();
 });

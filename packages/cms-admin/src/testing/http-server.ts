@@ -33,6 +33,7 @@ export async function createHttpServer(seed: AdminClientSeed, user: SessionUser)
   const cms = createCms({ types, entries, team: people, previews: { secret: 'http-test-server-preview-secret-0' }, ...(seed.uploads !== false && { media: { storage } }) });
   cms.media.include(new InMemoryImageLibrary(seed.images));
   cms.settings.useMail(new MemoryMailRoom(cms.settings));
+  cms.settings.useSite({ defaultName: 'Lakeshore Realty', fixedBy: null });
   cms.settings.useStorage(new MemoryStorageRoom(cms.settings, seed.uploads !== false));
   await seedForms(cms, seed.forms, seed.submissions);
   await cms.plugins.load(seed.plugins ?? []);

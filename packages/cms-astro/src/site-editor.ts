@@ -86,14 +86,19 @@ async function createHost(origin: string, settings: SiteEditorSettings): Promise
   }
   try {
     const connection = await sharedConnection({});
-    const siteName = currentSite()?.name ?? settings.siteName;
+    const hosted = currentSite();
+    // A host names its sites. Otherwise the name an owner saved, then the one the site's code gives.
+    const named = hosted ? undefined : () => connection.cms.settings.siteName();
+    const siteName = hosted?.name ?? (await named?.()) ?? settings.siteName;
     // The site's own mailer first, then Resend from the server's settings, then what an owner set up in the editor, then the server's log.
-    const mail = new SiteMail({ settings: connection.cms.settings, own: settings.mailer, fallback: new LogMailer(), hosted: currentSite() !== undefined });
+    const mail = new SiteMail({ settings: connection.cms.settings, own: settings.mailer, fallback: new LogMailer(), hosted: hosted !== undefined, ...(named && { siteName: named }) });
+    connection.cms.settings.useSite({ defaultName: hosted?.name ?? settings.siteName, fixedBy: hosted ? 'host' : null });
     const host = new EditorHost({
       connection,
       secret,
       origin,
       siteName,
+      ...(named && { siteNameNow: named }),
       adminPath: settings.adminPath,
       mailer: mail,
       ...(settings.images && { images: settings.images }),
@@ -106,7 +111,7 @@ async function createHost(origin: string, settings: SiteEditorSettings): Promise
       sendTest: async (actor) => {
         const person = (await host.auth.listUsers(actor)).find((user) => user.id === actor.id);
         if (!person) throw new ConflictError('A test email goes to the person who asks for it, and only someone signed in has an address to send it to.');
-        await mail.sendTest({ email: person.email, name: person.name, siteName });
+        await mail.sendTest({ email: person.email, name: person.name, siteName: hosted?.name ?? settings.siteName });
       },
     });
     return host;

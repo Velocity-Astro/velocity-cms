@@ -1,4 +1,4 @@
-import { readImage, type EmailSettings, type EmailSettingsChanges, type StorageSettings, type StorageSettingsChanges, type ContactImportReport, type ContactImportRow, type CustomFields, type CustomFieldsChanges, type Contact, type ContactChanges, type Deal, type DealChanges, type Forecast, type NewDeal, type Pipeline, type PipelineChanges, type TeamMember, type ContactNote, type NewContact, type TimelineItem, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PluginSettings, type PluginTask, type PluginEditorInfo, type PluginRouteMethod, type EntryData, type FormChanges, type FormDef, type NewForm, type PreviewLink, type Revision, type SiteImage, type Submission, type SubmissionStatus } from '@velocity-astro/cms-core';
+import { readImage, type GeneralSettings, type GeneralSettingsChanges, type EmailSettings, type EmailSettingsChanges, type StorageSettings, type StorageSettingsChanges, type ContactImportReport, type ContactImportRow, type CustomFields, type CustomFieldsChanges, type Contact, type ContactChanges, type Deal, type DealChanges, type Forecast, type NewDeal, type Pipeline, type PipelineChanges, type TeamMember, type ContactNote, type NewContact, type TimelineItem, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PluginSettings, type PluginTask, type PluginEditorInfo, type PluginRouteMethod, type EntryData, type FormChanges, type FormDef, type NewForm, type PreviewLink, type Revision, type SiteImage, type Submission, type SubmissionStatus } from '@velocity-astro/cms-core';
 import type { AdminClient, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from './admin-client.js';
 import { AdminRequestError, type RequestErrorCode, type RequestIssue } from './errors.js';
 
@@ -306,6 +306,14 @@ export class HttpAdminClient implements AdminClient {
 
   async sendTestEmail(): Promise<void> {
     await this.#send('POST', '/settings/email/test', {});
+  }
+
+  getGeneralSettings(): Promise<GeneralSettings> {
+    return this.#get('/settings/general');
+  }
+
+  saveGeneralSettings(changes: GeneralSettingsChanges): Promise<GeneralSettings> {
+    return this.#send('PUT', '/settings/general', changes);
   }
 
   getStorageSettings(): Promise<StorageSettings> {

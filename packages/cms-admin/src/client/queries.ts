@@ -1,5 +1,5 @@
 import { MutationCache, QueryCache, QueryClient, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { EmailSettingsChanges, StorageSettingsChanges, ContactImportReport, ContactImportRow, ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, DealChanges, NewDeal, Page, PipelineChanges, CustomFieldsChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity-astro/cms-core';
+import type { GeneralSettingsChanges, EmailSettingsChanges, StorageSettingsChanges, ContactImportReport, ContactImportRow, ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, DealChanges, NewDeal, Page, PipelineChanges, CustomFieldsChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity-astro/cms-core';
 import type { ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, ImageList, NewEntry, NewPerson, NewType, NewTypeField, SubmissionListQuery } from './admin-client.js';
 import { AdminRequestError } from './errors.js';
 import { useClient } from './client-context.js';
@@ -45,6 +45,7 @@ const keys = {
   team: ['team'] as const,
   emailSettings: ['settings', 'email'] as const,
   storageSettings: ['settings', 'storage'] as const,
+  generalSettings: ['settings', 'general'] as const,
 };
 
 /**
@@ -528,6 +529,18 @@ export function useSaveEmailSettings() {
 export function useSendTestEmail() {
   const client = useClient();
   return useMutation({ mutationFn: () => client.sendTestEmail() });
+}
+
+/** The site's basics. Owners only. */
+export function useGeneralSettings() {
+  const client = useClient();
+  return useQuery({ queryKey: keys.generalSettings, queryFn: () => client.getGeneralSettings() });
+}
+
+export function useSaveGeneralSettings() {
+  const client = useClient();
+  const cache = useQueryClient();
+  return useMutation({ mutationFn: (changes: GeneralSettingsChanges) => client.saveGeneralSettings(changes), onSuccess: (saved) => cache.setQueryData(keys.generalSettings, saved) });
 }
 
 /** Where the site's uploads are kept. Owners only. */

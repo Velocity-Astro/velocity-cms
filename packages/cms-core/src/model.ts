@@ -523,7 +523,7 @@ export type TimelineItem =
   | { readonly kind: 'stage'; readonly at: Timestamp; readonly id: string; readonly from: string; readonly to: string; readonly by: string };
 
 /** The parts of a site's settings an owner fills in in the editor. */
-export type SettingsArea = 'email' | 'storage';
+export type SettingsArea = 'email' | 'storage' | 'general';
 
 /** The services the CMS can send email through. */
 export type EmailProvider = 'resend';
@@ -586,4 +586,15 @@ export interface BucketAccount {
   readonly region?: string;
   readonly accessKeyId: string;
   readonly secretAccessKey: string;
+}
+
+/** The site's basics, as an owner sees them. */
+export interface GeneralSettings {
+  /** What the site is called in the editor, in its emails and when a passkey is made. Empty while the site's own default is used. */
+  readonly siteName: string;
+  /** What the site is called when nothing is saved: the name its code gives. */
+  readonly defaultSiteName: string;
+  /** Set when something other than these settings names the site. */
+  readonly fixedBy?: SettingFixedBy;
+  readonly revision: number;
 }

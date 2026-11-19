@@ -628,6 +628,18 @@ describe('forms and what they were sent', () => {
     expect((await call('POST', '/settings/email/test')).status).toBe(403);
   });
 
+  it('saves what the site is called, for owners only', async () => {
+    authenticator.session = as('owner');
+    expect((await call('GET', '/settings/general')).body).toEqual({ siteName: '', defaultSiteName: '', revision: 0 });
+    expect((await call('PUT', '/settings/general', { siteName: 'Lake\nshore', expectedRevision: 0 })).status).toBe(422);
+    expect((await call('PUT', '/settings/general', { siteName: ' Lakeshore  Realty ', expectedRevision: 0 })).body).toEqual({ siteName: 'Lakeshore Realty', defaultSiteName: '', revision: 1 });
+    expect((await call('PUT', '/settings/general', { siteName: 'X', expectedRevision: 0 })).status).toBe(409);
+    expect(await cms.settings.siteName()).toBe('Lakeshore Realty');
+    authenticator.session = as('editor');
+    expect((await call('GET', '/settings/general')).status).toBe(403);
+    expect((await call('PUT', '/settings/general', { siteName: 'X', expectedRevision: 1 })).status).toBe(403);
+  });
+
   it('saves where uploads are kept without ever sending the secret key back, for owners only', async () => {
     authenticator.session = as('owner');
     expect((await call('GET', '/settings/storage')).body).toMatchObject({ endpoint: '', hasSecret: false, revision: 0 });

@@ -1,7 +1,7 @@
 import type { AccessControl, Actor } from '../access.js';
 import { ConflictError, ValidationError, type ValidationIssue } from '../errors.js';
 import type { EventBus } from '../events.js';
-import type { BucketAccount, EmailProvider, EmailSettings, MailAccount, StorageSettings } from '../model.js';
+import type { BucketAccount, EmailProvider, EmailSettings, GeneralSettings, MailAccount, SettingFixedBy, StorageSettings } from '../model.js';
 import type { MailRoom, SettingsStore, StorageRoom } from '../ports.js';
 import type { SecretSeal, Sealed } from '../seal.js';
 
@@ -36,6 +36,27 @@ export interface StorageSettingsChanges {
 }
 
 export const MAX_STORAGE_FIELD_LENGTH = 300;
+export const MAX_SITE_NAME_LENGTH = 80;
+
+/** The site's basics, as the editor sends them. */
+export interface GeneralSettingsChanges {
+  /** What the site is called. Empty goes back to the name the site's code gives. */
+  readonly siteName: string;
+  /** The revision the editor loaded. */
+  readonly expectedRevision: number;
+}
+
+/** What the host knows about the site's name. */
+export interface SiteNaming {
+  /** The name the site's code gives, used while nothing is saved. */
+  readonly defaultName: string;
+  /** Who names the site when the editor's settings do not, or `null` when they do. */
+  readonly fixedBy: SettingFixedBy | null;
+}
+
+const GENERAL = 'general';
+const isStoredGeneral = (value: unknown): value is { readonly siteName: string } =>
+  typeof value === 'object' && value !== null && typeof (value as { siteName?: unknown }).siteName === 'string';
 
 const EMAIL = 'email';
 const STORAGE = 'storage';
@@ -101,6 +122,7 @@ const isStoredEmail = (value: unknown): value is StoredEmail =>
 export class SettingsService {
   #mail: MailRoom | null = null;
   #storage: StorageRoom | null = null;
+  #naming: SiteNaming | null = null;
 
   constructor(
     private readonly store: SettingsStore,
@@ -169,6 +191,54 @@ export class SettingsService {
     if (kept === null || !isStoredEmail(kept.value) || kept.value.from === '') return null;
     const apiKey = await this.seal.open(kept.value.key);
     return apiKey === undefined ? null : { provider: kept.value.provider, apiKey, from: kept.value.from };
+  }
+
+  /** Tells the service what the site is called without a setting. A host calls it once it knows. */
+  useSite(naming: SiteNaming): void {
+    this.#naming = naming;
+  }
+
+  /** The site's basics, for the settings screen. Owners only. */
+  async general(actor: Actor): Promise<GeneralSettings> {
+    this.access.require(actor, 'settings:manage');
+    return this.#shownGeneral();
+  }
+
+  /** Saves the site's basics. Owners only. */
+  async saveGeneral(actor: Actor, changes: GeneralSettingsChanges): Promise<GeneralSettings> {
+    this.access.require(actor, 'settings:manage');
+    const kept = await this.store.get(GENERAL);
+    const revision = kept?.revision ?? 0;
+    if (revision !== changes.expectedRevision) throw new ConflictError('The settings were changed by someone else. Reload them and try again.');
+    const siteName = changes.siteName.trim().replace(/\s+/g, ' ');
+    // A name goes into the subject of an email and the title of a page: nothing in it may start a new line.
+    if (siteName.length > MAX_SITE_NAME_LENGTH || /[\p{Cc}<>]/u.test(changes.siteName.trim())) {
+      const message = siteName.length > MAX_SITE_NAME_LENGTH ? `Keep the site's name under ${MAX_SITE_NAME_LENGTH} characters.` : 'Give the site\'s name as plain words on one line.';
+      throw new ValidationError('The site\'s name needs another look.', [{ path: ['siteName'], message }]);
+    }
+    await this.store.save(GENERAL, { siteName }, revision + 1, kept === null ? null : revision);
+    await this.events.emit('settings.saved', { area: 'general', actor });
+    return this.#shownGeneral();
+  }
+
+  /**
+   * What an owner called the site, or `null` when nothing is saved and the site's own name
+   * stands. No permission is asked: a site's name is on its every page.
+   */
+  async siteName(): Promise<string | null> {
+    const kept = await this.store.get(GENERAL);
+    return kept !== null && isStoredGeneral(kept.value) && kept.value.siteName !== '' ? kept.value.siteName : null;
+  }
+
+  async #shownGeneral(): Promise<GeneralSettings> {
+    const kept = await this.store.get(GENERAL);
+    const fixedBy = this.#naming?.fixedBy ?? null;
+    return {
+      siteName: kept !== null && isStoredGeneral(kept.value) ? kept.value.siteName : '',
+      defaultSiteName: this.#naming?.defaultName ?? '',
+      ...(fixedBy !== null && { fixedBy }),
+      revision: kept?.revision ?? 0,
+    };
   }
 
   /** Tells the service how uploads are kept on this site. A host calls it once it knows. */

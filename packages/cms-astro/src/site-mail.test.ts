@@ -94,3 +94,18 @@ it('tells the owner what to look at when a test is refused, and nothing of what 
   await down.cms.settings.saveEmail(owner, { from: 'cms@lakeshore.example', apiKey: 're_editor', expectedRevision: 0 });
   await expect(down.mail.sendTest(test)).rejects.toThrow(/could not be reached/);
 });
+
+it('calls the site what an owner called it, in every email, and by its own name until then', async () => {
+  const { cms, sent } = site();
+  const mail = new SiteMail({ settings: cms.settings, fallback: new MemoryMailer(), env: {}, siteName: () => cms.settings.siteName(), fetch: async (_input, init) => {
+    sent.push({ key: '', ...(JSON.parse(String(init?.body)) as { from: string; to: string[]; subject: string; text: string }) });
+    return new Response('{}');
+  } });
+  await cms.settings.saveEmail(owner, { from: 'cms@lakeshore.example', apiKey: 're_editor', expectedRevision: 0 });
+  await mail.sendSignInLink(signIn);
+  await cms.settings.saveGeneral(owner, { siteName: 'Oakhaven Homes', expectedRevision: 0 });
+  await mail.sendSignInLink(signIn);
+  await mail.sendSubmissionNotice(notice);
+  await mail.sendTest(test);
+  expect(sent.map((one) => one.subject)).toEqual(['Your sign-in link for Lakeshore', 'Your sign-in link for Oakhaven Homes', 'New message: Contact on Oakhaven Homes', 'Email works for Oakhaven Homes']);
+});

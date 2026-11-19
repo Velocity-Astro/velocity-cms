@@ -25,6 +25,8 @@ import {
   type Pipeline,
   type EmailSettings,
   type EmailSettingsChanges,
+  type GeneralSettings,
+  type GeneralSettingsChanges,
   type StorageSettings,
   type StorageSettingsChanges,
   type SettingFixedBy,
@@ -88,6 +90,8 @@ export interface MemoryAdminClientOptions {
   readonly showUploads?: boolean;
   /** Who decides how email is sent, when the editor's settings do not. Leave out for the editor's settings to decide. */
   readonly emailFixedBy?: MailFixedBy;
+  /** Who names the site, when the editor's settings do not. */
+  readonly siteNameFixedBy?: SettingFixedBy;
   /** Who decides where uploads are kept, when the editor's settings do not. Leave out for the editor's settings to decide. */
   readonly storageFixedBy?: SettingFixedBy;
   /** How long each signed-in request takes, in milliseconds, to see what a screen shows while it waits. Defaults to none. */
@@ -163,6 +167,7 @@ export class MemoryAdminClient implements AdminClient {
     this.storage = new MemoryStorageRoom(cms.settings, options.uploads !== false);
     this.storage.fixed = options.storageFixedBy ?? null;
     cms.settings.useStorage(this.storage);
+    cms.settings.useSite({ defaultName: 'Lakeshore Realty', fixedBy: options.siteNameFixedBy ?? null });
     cms.media.include(new InMemoryImageLibrary(options.images));
     this.#ready = (async () => {
       for (const type of options.contentTypes ?? []) await types.save(type);
@@ -444,6 +449,14 @@ export class MemoryAdminClient implements AdminClient {
 
   sendTestEmail(): Promise<void> {
     return this.#request((actor) => this.#cms.settings.testEmail(actor));
+  }
+
+  getGeneralSettings(): Promise<GeneralSettings> {
+    return this.#request((actor) => this.#cms.settings.general(actor));
+  }
+
+  saveGeneralSettings(changes: GeneralSettingsChanges): Promise<GeneralSettings> {
+    return this.#request((actor) => this.#cms.settings.saveGeneral(actor, changes));
   }
 
   getStorageSettings(): Promise<StorageSettings> {
