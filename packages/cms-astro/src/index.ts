@@ -39,6 +39,7 @@ export {
 } from './form-post.js';
 export { FORM_SCRIPT, siteForm, siteFormPosts, type FormChoice, type SiteForm, type SiteFormOptions } from './site-forms.js';
 export { menuLinks, type MenuColumn, type MenuLink, type MenuOptions } from './menu.js';
+export { single } from './single.js';
 export type { PageHead } from '@velocity-astro/cms-core';
 export { cmsLoader, type CmsLoaderOptions } from './loader.js';
 export {
