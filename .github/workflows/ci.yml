@@ -28,6 +28,8 @@ jobs:
       - run: pnpm validate
       # The starter, from an empty database: seeded, built, started and asked for every page.
       - run: pnpm --filter velocity-cms-starter check
+      # Two sites from that one copy: each reads only its own database, and an unknown host has no site.
+      - run: pnpm --filter velocity-cms-starter check:hosted
 
   stories:
     name: Design system stories (accessibility)

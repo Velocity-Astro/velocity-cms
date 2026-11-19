@@ -2,6 +2,10 @@
 
 Every package is released together under one version. While versions are `0.x`, a release may change the plugin API or the way a site describes its content. Each such change is listed here under "Changed", with how to move.
 
+## Unreleased
+
+- **Many sites from one copy.** A host that runs many sites names a `SiteRegistry` in `velocityCms({ sites })`. Each request is for the site its host name belongs to, with that site's own database, secret, address and uploads; a host name the registry does not know has no site, and nothing is read from the `VELOCITY_CMS_*` settings of one site. A site of its own changes nothing.
+
 ## 0.1.0-beta.2
 
 No change to the CMS itself.

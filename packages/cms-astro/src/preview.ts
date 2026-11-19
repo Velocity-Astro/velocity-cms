@@ -84,13 +84,14 @@ export function addEditorScript(html: string): string {
   return end === -1 ? html + tag : html.slice(0, end) + tag + html.slice(end);
 }
 
-let links: PreviewLinks | null | undefined;
+/** A signer per secret, so a preview link made for one site is no link at all on another. */
+const links = new Map<string, PreviewLinks>();
 function previewLinks(): PreviewLinks | null {
-  if (links === undefined) {
-    const secret = siteSecret();
-    links = secret ? new PreviewLinks(secret) : null;
-  }
-  return links;
+  const secret = siteSecret();
+  if (!secret) return null;
+  let signer = links.get(secret);
+  if (!signer) links.set(secret, (signer = new PreviewLinks(secret)));
+  return signer;
 }
 
 /**

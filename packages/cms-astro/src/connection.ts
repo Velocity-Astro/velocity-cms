@@ -4,6 +4,7 @@ import path from 'node:path';
 import { createCms, type Actor, type Cms, type NameLookup, type SearchIndex } from '@velocity-astro/cms-core';
 import { AuthTeam } from '@velocity-astro/cms-auth/team';
 import { openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqliteDealRepository, SqlitePipelineStore, SqliteCustomFieldsStore, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Db } from '@velocity-astro/cms-db';
+import { currentSite } from './hosted.js';
 import { mediaStoreFromEnv } from './media-store.js';
 import { siteSecret } from './secret.js';
 import { allPlugins } from './site-plugins.js';
@@ -21,8 +22,9 @@ export interface ConnectionOptions {
 /** The site reads content as itself, with read access only. */
 export const SITE: Actor = { kind: 'cli', id: 'astro-site', role: 'author' };
 
+/** Where the database is. On a server that runs many sites it is the site's own, whatever was asked for. */
 export const resolveUrl = (options: ConnectionOptions): string =>
-  options.url ?? process.env.VELOCITY_CMS_DATABASE_URL ?? 'file:./cms/data.db';
+  currentSite()?.database.url ?? options.url ?? process.env.VELOCITY_CMS_DATABASE_URL ?? 'file:./cms/data.db';
 
 export interface Connection {
   readonly cms: Cms;
@@ -36,13 +38,15 @@ export interface Connection {
 const lookUp: NameLookup = async (host) => (await lookup(host, { all: true })).map((found) => found.address);
 
 export async function connect(options: ConnectionOptions): Promise<Connection> {
-  const authToken = options.authToken ?? (process.env.VELOCITY_CMS_DATABASE_TOKEN || undefined);
+  const site = currentSite();
+  const authToken = site ? site.database.authToken : (options.authToken ?? (process.env.VELOCITY_CMS_DATABASE_TOKEN || undefined));
   const url = resolveUrl(options);
   // A database that is a file is made on first use, and so is the folder it sits in.
   const file = /^file:(?!:memory:)([^?]+)/.exec(url)?.[1];
   if (file !== undefined) mkdirSync(path.dirname(path.resolve(file.replace(/^\/\/(?=\/)/, ''))), { recursive: true });
   const database = await openDatabase({ url, ...(authToken !== undefined && { authToken }) });
-  const store = mediaStoreFromEnv(url);
+  // A hosted site keeps uploads where its host says, and nowhere a setting of the server names.
+  const store = site ? site.media : mediaStoreFromEnv(url);
   const secret = siteSecret();
   const cms = createCms({
     entries: new SqliteEntryRepository(database.db),

@@ -9,6 +9,7 @@ const OPTIONS = 'virtual:velocity-cms/options';
 const MAILER = 'virtual:velocity-cms/mailer';
 const PLUGINS = 'virtual:velocity-cms/plugins';
 const IMAGES = 'virtual:velocity-cms/images';
+const SITES = 'virtual:velocity-cms/sites';
 const IMAGE_FILES = '*.{jpg,jpeg,png,webp,avif,gif}';
 const ADMIN_PATH = '/admin';
 const route = (file: string) => fileURLToPath(new URL(`../routes/${file}`, import.meta.url));
@@ -40,6 +41,14 @@ export interface VelocityCmsOptions {
    * images, which otherwise know only the pages the site has files for.
    */
   readonly entryPages?: readonly string[];
+  /**
+   * For a host that runs many sites from this one copy. The file whose default export is a
+   * `SiteRegistry`, from the project's root: `'./src/cms-sites.ts'`. It says which site a host
+   * name belongs to, with that site's own database, secret, address and uploads. A host name it
+   * does not know gets no site, and nothing is read from the `VELOCITY_CMS_*` settings of one
+   * site. A site of its own leaves this out.
+   */
+  readonly sites?: string;
 }
 
 /**
@@ -85,6 +94,8 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
         root = fileURLToPath(config.root);
         // The secret a person put in .env must reach the server that runs here, not only the site's code.
         loadCmsEnv(root, command === 'dev' ? 'development' : 'production');
+        // The site a request is for is chosen before anything else looks at it.
+        if (options.sites) addMiddleware({ entrypoint: route('sites.ts'), order: 'pre' });
         addMiddleware({ entrypoint: `${PACKAGE}/middleware`, order: 'pre' });
         // Entries set to go out at a time are looked for as pages are asked for.
         addMiddleware({ entrypoint: route('due.ts'), order: 'pre' });
@@ -114,7 +125,7 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
             plugins: [
               {
                 name: 'velocity-cms:options',
-                resolveId: (id: string) => (id === OPTIONS || id === MAILER || id === IMAGES || id === PLUGINS ? `\0${id}` : undefined),
+                resolveId: (id: string) => (id === OPTIONS || id === MAILER || id === IMAGES || id === PLUGINS || id === SITES ? `\0${id}` : undefined),
                 load: (id: string) => {
                   if (id === `\0${OPTIONS}`) {
                     const editor = { site, siteName: options.siteName ?? 'Velocity CMS', adminPath: ADMIN_PATH };
@@ -124,6 +135,9 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
                     return options.mailer
                       ? `export { default } from ${JSON.stringify(path.resolve(root, options.mailer))};`
                       : 'export default undefined;';
+                  }
+                  if (id === `\0${SITES}`) {
+                    return `export { default } from ${JSON.stringify(path.resolve(root, options.sites ?? ''))};`;
                   }
                   if (id === `\0${PLUGINS}`) {
                     // A path is the project's own file; anything else is a package the site installed.

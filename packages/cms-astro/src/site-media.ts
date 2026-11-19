@@ -1,5 +1,6 @@
 import { NotFoundError, type SiteImage } from '@velocity-astro/cms-core';
 import { sharedConnection, SITE } from './connection.js';
+import { siteKey } from './hosted.js';
 
 /**
  * The answer to a request for an uploaded file. A file never changes once it is kept and its
@@ -25,7 +26,8 @@ export async function uploadedFile(key: string): Promise<Response> {
   }
 }
 
-let latest: ReadonlyMap<string, SiteImage> = new Map();
+/** The uploaded images of each site this server draws pages for. */
+const latest = new Map<string, ReadonlyMap<string, SiteImage>>();
 
 /**
  * Reads the uploaded images again. The site's middleware does this before each page is
@@ -34,11 +36,11 @@ let latest: ReadonlyMap<string, SiteImage> = new Map();
  */
 export async function refreshUploadedImages(): Promise<void> {
   const { cms } = await sharedConnection({});
-  latest = new Map((await cms.media.uploads(SITE)).map((image) => [image.name, image]));
+  latest.set(siteKey(), new Map((await cms.media.uploads(SITE)).map((image) => [image.name, image])));
 }
 
 /**
  * The uploaded image with this name, as it was when the page began to render: its address on
  * this site and its size. `undefined` when no upload has the name.
  */
-export const uploadedImage = (name: string): SiteImage | undefined => latest.get(name);
+export const uploadedImage = (name: string): SiteImage | undefined => latest.get(siteKey())?.get(name);
