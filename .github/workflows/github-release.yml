@@ -11,7 +11,7 @@ on:
         required: true
         type: string
       commit:
-        description: The commit that version was released from. Left empty, the head of main.
+        description: The commit that version was released from, when its tag is not there yet. Left empty, the head of main.
         required: false
         type: string
 
@@ -40,6 +40,10 @@ jobs:
           case "$VERSION" in *-*) pre=--prerelease ;; *) pre= ;; esac
           # The tag is pushed with git and the Release made for it: asked to tag a commit itself,
           # GitHub refuses a workflow's own token.
-          git tag "v$VERSION" "$COMMIT"
-          git push origin "refs/tags/v$VERSION"
+          # Nor may a workflow tag a commit whose workflow files differ from main's: for an earlier
+          # commit, a person pushes the tag first (git tag v<version> <commit>, git push origin v<version>).
+          if ! git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" > /dev/null; then
+            git tag "v$VERSION" "$COMMIT"
+            git push origin "refs/tags/v$VERSION"
+          fi
           gh release create "v$VERSION" --verify-tag --title "$VERSION" --notes-file "$RUNNER_TEMP/notes.md" $pre
