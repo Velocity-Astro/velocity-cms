@@ -1,4 +1,4 @@
-import type { EmailSettings, EmailSettingsChanges, ContactImportReport, ContactImportRow, CustomFields, CustomFieldsChanges, Contact, ContactChanges, Deal, DealChanges, DealSubject, Forecast, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginTask, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Revision, Role, SiteImage } from '@velocity-astro/cms-core';
+import type { EmailSettings, EmailSettingsChanges, StorageSettings, StorageSettingsChanges, ContactImportReport, ContactImportRow, CustomFields, CustomFieldsChanges, Contact, ContactChanges, Deal, DealChanges, DealSubject, Forecast, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginTask, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Revision, Role, SiteImage } from '@velocity-astro/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
@@ -248,6 +248,12 @@ export interface AdminClient {
   saveEmailSettings(changes: EmailSettingsChanges): Promise<EmailSettings>;
   /** Sends a test email to whoever is signed in, the way the site's email is sent now. */
   sendTestEmail(): Promise<void>;
+  /** Where the site's uploads are kept. The bucket's secret key is never part of it. Owners only. */
+  getStorageSettings(): Promise<StorageSettings>;
+  /** Saves the bucket uploads are kept in. A secret key left out stays as it is; `null` takes it away. */
+  saveStorageSettings(changes: StorageSettingsChanges): Promise<StorageSettings>;
+  /** Tries the saved bucket: keeps a small file there, reads it back and removes it. */
+  testStorage(): Promise<void>;
   /** The stages a contact moves through, in order. */
   getPipeline(): Promise<Pipeline>;
   /** Replaces the stages. Contacts in a stage that is removed move to the first. */

@@ -63,8 +63,9 @@ it('puts what the server says on the field it is about, keeps what was typed, an
 
 it('replaces a saved key, and stops sending only after asking', async () => {
   const user = userEvent.setup();
-  const { client } = renderApp('/settings', site());
+  const { client } = renderApp('/', site());
   await client.saveEmailSettings({ from: 'hello@lakeshore.example', apiKey: 're_old', expectedRevision: 0 });
+  await user.click(await screen.findByRole('link', { name: 'Settings' }));
   const email = await card();
   await user.click(await email.findByRole('button', { name: 'Replace the key' }));
   await user.click(email.getByRole('button', { name: 'Keep the saved key' }));
@@ -99,4 +100,54 @@ it('is for owners: an editor is shown no way there, and is refused at the addres
   renderApp('/settings/email', site({ user: { ...sampleUser, role: 'editor' } }));
   expect(await screen.findByText(/does not allow "settings:manage"/)).toBeTruthy();
   expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
+});
+
+it('names a bucket for uploads under Storage, tests it, and never shows the secret key again', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/settings', site());
+  await user.click(await screen.findByRole('tab', { name: 'Storage' }));
+  const uploads = within(await screen.findByRole('region', { name: 'Uploads' }));
+  expect(uploads.getByText("Kept on the server's disk")).toBeTruthy();
+  expect(uploads.getByRole('button', { name: 'Test the bucket' })).toHaveProperty('disabled', true);
+
+  await user.type(uploads.getByRole('textbox', { name: /^Service address/ }), 'http://localhost');
+  await user.type(uploads.getByRole('textbox', { name: /^Bucket name/ }), 'photos');
+  await user.type(uploads.getByRole('textbox', { name: /^Access key ID/ }), 'AKIA123');
+  await user.type(uploads.getByLabelText(/^Secret access key/), 'shh-secret');
+  await user.click(uploads.getByRole('button', { name: 'Save storage settings' }));
+  expect(await uploads.findByText(/Give the storage service's address, starting with https/)).toBeTruthy();
+  expect(uploads.getByLabelText(/^Secret access key/)).toHaveProperty('value', 'shh-secret');
+
+  await user.clear(uploads.getByRole('textbox', { name: /^Service address/ }));
+  await user.type(uploads.getByRole('textbox', { name: /^Service address/ }), 'https://acct.r2.example.com');
+  await user.click(uploads.getByRole('button', { name: 'Save storage settings' }));
+  expect(await uploads.findByText('Kept in your bucket')).toBeTruthy();
+  expect(uploads.queryByLabelText(/^Secret access key/)).toBeNull();
+  expect(document.body.innerHTML).not.toContain('shh-secret');
+
+  await user.click(uploads.getByRole('button', { name: 'Test the bucket' }));
+  expect(await screen.findByText('The bucket works')).toBeTruthy();
+  expect(client.storage.tests).toBe(1);
+  client.storage.refuseWith = 'The storage service refused the keys (403).';
+  await user.click(uploads.getByRole('button', { name: 'Test the bucket' }));
+  expect(await screen.findByText('The bucket could not be used')).toBeTruthy();
+
+  await user.click(uploads.getByRole('button', { name: 'Stop using this bucket' }));
+  const ask = within(await screen.findByRole('alertdialog', { name: 'Stop using this bucket?' }));
+  await user.click(ask.getByRole('button', { name: 'Remove the secret key' }));
+  expect(await uploads.findByText("Kept on the server's disk")).toBeTruthy();
+  expect(await client.getStorageSettings()).toMatchObject({ bucket: 'photos', hasSecret: false });
+});
+
+it('says who keeps uploads when the server or a host decides, and when the site takes none', async () => {
+  const hosted = renderApp('/settings/storage', site({ storageFixedBy: 'host' }));
+  const fixed = within(await screen.findByRole('region', { name: 'Uploads' }));
+  expect(fixed.getByText('Handled by your host')).toBeTruthy();
+  expect(fixed.queryByRole('textbox', { name: /^Bucket name/ })).toBeNull();
+  hosted.unmount();
+
+  renderApp('/settings/storage', site({ uploads: false }));
+  const none = within(await screen.findByRole('region', { name: 'Uploads' }));
+  expect(none.getByText('No uploads yet')).toBeTruthy();
+  expect(none.getByText(/nowhere to keep uploads/)).toBeTruthy();
 });

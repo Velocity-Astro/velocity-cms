@@ -10,7 +10,7 @@ import {
 } from '@velocity-astro/cms-core/in-memory';
 import type { SessionUser } from '../client/admin-client.js';
 import { HttpAdminClient } from '../client/http-client.js';
-import { MemoryMailRoom } from './memory-mail.js';
+import { MemoryMailRoom, MemoryStorageRoom } from './memory-mail.js';
 import { MemoryPeople } from './memory-people.js';
 import { seedForms } from './memory-client.js';
 import type { AdminClientSeed } from './admin-client-contract.js';
@@ -33,6 +33,7 @@ export async function createHttpServer(seed: AdminClientSeed, user: SessionUser)
   const cms = createCms({ types, entries, team: people, previews: { secret: 'http-test-server-preview-secret-0' }, ...(seed.uploads !== false && { media: { storage } }) });
   cms.media.include(new InMemoryImageLibrary(seed.images));
   cms.settings.useMail(new MemoryMailRoom(cms.settings));
+  cms.settings.useStorage(new MemoryStorageRoom(cms.settings, seed.uploads !== false));
   await seedForms(cms, seed.forms, seed.submissions);
   await cms.plugins.load(seed.plugins ?? []);
   const passkeys: { id: string; name: string }[] = [];

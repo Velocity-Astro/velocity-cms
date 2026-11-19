@@ -4,6 +4,7 @@ export { EditorHost, LogMailer, type EditorHostOptions } from './editor.js';
 export { default, type VelocityCmsOptions } from './integration.js';
 export { ResendMailer, MailRefusedError, englishMailWords, mailerFromEnv, type MailWords, type ResendMailerOptions, type TestMail } from './resend-mailer.js';
 export { SiteMail, type SiteMailOptions } from './site-mail.js';
+export { SiteMediaStore, type SiteMediaStoreOptions } from './site-storage.js';
 // What a site's own plugin file needs, so it imports from the one package the site installed.
 export { definePlugin, type PluginContext, type PluginDefinition } from '@velocity-astro/cms-core';
 export { registerSitePlugins } from './site-plugins.js';
@@ -54,7 +55,7 @@ export {
   type StaticPath,
 } from './live-pages.js';
 export { SharpImageOptimizer, type SharpImageOptimizerOptions } from './image-optimizer.js';
-export { FolderMediaStore, S3MediaStore, mediaStoreFromEnv, type S3MediaStoreOptions } from './media-store.js';
+export { FolderMediaStore, S3MediaStore, StorageRefusedError, bucketFromEnv, folderFromEnv, mediaStoreFromEnv, type S3MediaStoreOptions } from './media-store.js';
 export { hasSiteSecret } from './secret.js';
 export { refreshUploadedImages, uploadedFile, uploadedImage } from './site-media.js';
 export { folderImages, type ImageFile } from './site-images.js';

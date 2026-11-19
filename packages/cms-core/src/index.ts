@@ -86,6 +86,10 @@ export {
   type EmailSettings,
   type MailAccount,
   type MailFixedBy,
+  type SettingFixedBy,
+  type StorageKeeping,
+  type StorageSettings,
+  type BucketAccount,
   type StageKind,
   type TeamMember,
   type ContactSource,
@@ -117,6 +121,7 @@ export type {
   PipelineStore,
   SettingsStore,
   MailRoom,
+  StorageRoom,
   CustomFieldsStore,
   DealRepository,
   DealQuery,
@@ -187,7 +192,7 @@ export { FormService, MAX_FORM_FIELDS, MAX_RETENTION_DAYS, type FormChanges, typ
 export { SubmissionService, MAX_ANSWER_LENGTH, type SenderBook, type SubmissionSource } from './services/submission-service.js';
 export { DealService, MAX_DEAL_TITLE_LENGTH, MAX_DEAL_VALUE, type DealChanges, type DealSubjects, type NewDeal } from './services/deal-service.js';
 export { CustomFieldsService, CUSTOM_FIELDS_OF, MAX_CUSTOM_FIELDS, type CustomFieldInput, type CustomFieldsChanges, type CustomFieldsOf } from './services/custom-fields-service.js';
-export { SettingsService, EMAIL_PROVIDERS, MAX_EMAIL_FROM_LENGTH, MAX_EMAIL_KEY_LENGTH, senderFrom, type EmailSettingsChanges } from './services/settings-service.js';
+export { SettingsService, EMAIL_PROVIDERS, MAX_EMAIL_FROM_LENGTH, MAX_EMAIL_KEY_LENGTH, senderFrom, storageEndpointFrom, MAX_STORAGE_FIELD_LENGTH, type EmailSettingsChanges, type StorageSettingsChanges } from './services/settings-service.js';
 export { SecretSeal, type Sealed } from './seal.js';
 export { PipelineService, DEFAULT_CURRENCY, chanceOf, DEFAULT_STAGES, MAX_STAGES, MAX_STAGE_LABEL_LENGTH, type PipelineChanges, type StageInput } from './services/pipeline-service.js';
 export { ContactService, MAX_CONTACT_NAME_LENGTH, MAX_IMPORT_ROWS, MAX_NOTE_LENGTH, type ContactChanges, type ContactImportReport, type ContactImportRow, type NewContact } from './services/contact-service.js';

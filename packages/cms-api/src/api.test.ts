@@ -628,6 +628,27 @@ describe('forms and what they were sent', () => {
     expect((await call('POST', '/settings/email/test')).status).toBe(403);
   });
 
+  it('saves where uploads are kept without ever sending the secret key back, for owners only', async () => {
+    authenticator.session = as('owner');
+    expect((await call('GET', '/settings/storage')).body).toMatchObject({ endpoint: '', hasSecret: false, revision: 0 });
+    const bucket = { endpoint: 'https://acct.r2.example.com', bucket: 'photos', accessKeyId: 'AKIA123', secretAccessKey: 'shh-secret', expectedRevision: 0 };
+    expect((await call('PUT', '/settings/storage', { ...bucket, endpoint: 'http://10.0.0.1' })).status).toBe(422);
+    expect((await call('PUT', '/settings/storage', { ...bucket, prefix: 'x' })).status).toBe(400);
+    expect((await call('POST', '/settings/storage/test')).status).toBe(409);
+    const saved = await call('PUT', '/settings/storage', bucket);
+    expect(saved).toMatchObject({ status: 200, body: { endpoint: 'https://acct.r2.example.com', bucket: 'photos', region: '', accessKeyId: 'AKIA123', hasSecret: true, revision: 1 } });
+    expect(JSON.stringify(saved.body)).not.toContain('shh-secret');
+    expect((await call('PUT', '/settings/storage', bucket)).status).toBe(409);
+    const tried: string[] = [];
+    cms.settings.useStorage({ fixedBy: () => null, keeping: async () => 'bucket', test: async () => void tried.push('test') });
+    expect(await call('POST', '/settings/storage/test')).toEqual({ status: 200, body: {} });
+    expect(tried).toEqual(['test']);
+    authenticator.session = as('editor');
+    expect((await call('GET', '/settings/storage')).status).toBe(403);
+    expect((await call('PUT', '/settings/storage', { ...bucket, expectedRevision: 1 })).status).toBe(403);
+    expect((await call('POST', '/settings/storage/test')).status).toBe(403);
+  });
+
   it('reads and changes the pipeline, and places a contact in it with an owner and a day to follow up', async () => {
     expect((await call('GET', '/pipeline')).body).toMatchObject({ revision: 0, stages: [{ id: 'new' }, { id: 'contacted' }, { id: 'qualified' }, { id: 'won' }, { id: 'lost' }] });
     expect((await call('GET', '/team')).body).toEqual({ items: [{ id: 'u1', name: 'Dana', role: 'owner' }] });

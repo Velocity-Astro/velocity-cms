@@ -1,5 +1,5 @@
 import { MutationCache, QueryCache, QueryClient, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { EmailSettingsChanges, ContactImportReport, ContactImportRow, ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, DealChanges, NewDeal, Page, PipelineChanges, CustomFieldsChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity-astro/cms-core';
+import type { EmailSettingsChanges, StorageSettingsChanges, ContactImportReport, ContactImportRow, ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, DealChanges, NewDeal, Page, PipelineChanges, CustomFieldsChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity-astro/cms-core';
 import type { ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, ImageList, NewEntry, NewPerson, NewType, NewTypeField, SubmissionListQuery } from './admin-client.js';
 import { AdminRequestError } from './errors.js';
 import { useClient } from './client-context.js';
@@ -44,6 +44,7 @@ const keys = {
   forecast: ['contacts', 'deals', 'forecast'] as const,
   team: ['team'] as const,
   emailSettings: ['settings', 'email'] as const,
+  storageSettings: ['settings', 'storage'] as const,
 };
 
 /**
@@ -527,6 +528,30 @@ export function useSaveEmailSettings() {
 export function useSendTestEmail() {
   const client = useClient();
   return useMutation({ mutationFn: () => client.sendTestEmail() });
+}
+
+/** Where the site's uploads are kept. Owners only. */
+export function useStorageSettings() {
+  const client = useClient();
+  return useQuery({ queryKey: keys.storageSettings, queryFn: () => client.getStorageSettings() });
+}
+
+export function useSaveStorageSettings() {
+  const client = useClient();
+  const cache = useQueryClient();
+  return useMutation({
+    mutationFn: (changes: StorageSettingsChanges) => client.saveStorageSettings(changes),
+    onSuccess: (saved) => {
+      cache.setQueryData(keys.storageSettings, saved);
+      // Whether the site takes uploads may have changed with it.
+      void cache.invalidateQueries({ queryKey: keys.images });
+    },
+  });
+}
+
+export function useTestStorage() {
+  const client = useClient();
+  return useMutation({ mutationFn: () => client.testStorage() });
 }
 
 /** The stages a contact moves through. */

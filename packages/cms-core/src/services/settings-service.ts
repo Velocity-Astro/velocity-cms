@@ -1,8 +1,8 @@
 import type { AccessControl, Actor } from '../access.js';
 import { ConflictError, ValidationError, type ValidationIssue } from '../errors.js';
 import type { EventBus } from '../events.js';
-import type { EmailProvider, EmailSettings, MailAccount } from '../model.js';
-import type { MailRoom, SettingsStore } from '../ports.js';
+import type { BucketAccount, EmailProvider, EmailSettings, MailAccount, StorageSettings } from '../model.js';
+import type { MailRoom, SettingsStore, StorageRoom } from '../ports.js';
 import type { SecretSeal, Sealed } from '../seal.js';
 
 /** How email is sent, as the editor sends it. */
@@ -21,7 +21,54 @@ export const EMAIL_PROVIDERS: readonly EmailProvider[] = ['resend'];
 export const MAX_EMAIL_FROM_LENGTH = 200;
 export const MAX_EMAIL_KEY_LENGTH = 500;
 
+/** Where uploads are kept, as the editor sends it. */
+export interface StorageSettingsChanges {
+  /** The storage service's address, over https. */
+  readonly endpoint: string;
+  readonly bucket: string;
+  /** Left out or empty for `auto`. */
+  readonly region?: string;
+  readonly accessKeyId: string;
+  /** The bucket's secret key. Left out, the one that is saved stays; `null` takes it away. */
+  readonly secretAccessKey?: string | null;
+  /** The revision the editor loaded. */
+  readonly expectedRevision: number;
+}
+
+export const MAX_STORAGE_FIELD_LENGTH = 300;
+
 const EMAIL = 'email';
+const STORAGE = 'storage';
+const BUCKET = /^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/;
+const REGION = /^[a-z0-9-]{1,40}$/;
+
+/**
+ * A storage service's address as it is kept: `https`, a host by name and nothing after it but a
+ * path. `null` for anything else. A number instead of a name, this machine and an address that
+ * carries a name and password are refused: what an owner types must not be a way to reach a
+ * machine beside the site.
+ */
+export function storageEndpointFrom(typed: string): string | null {
+  const text = typed.trim();
+  if (text.length > MAX_STORAGE_FIELD_LENGTH || !URL.canParse(text)) return null;
+  const url = new URL(text);
+  const host = url.hostname.toLowerCase();
+  if (url.protocol !== 'https:' || url.username !== '' || url.password !== '' || url.search !== '' || url.hash !== '' || url.port !== '') return null;
+  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(host) || /^[0-9.]+$/.test(host) || host.endsWith('.local') || host.endsWith('.internal') || host.endsWith('.localhost')) return null;
+  return `https://${host}${url.pathname.replace(/\/+$/, '')}`;
+}
+
+/** The storage part as it is stored. The secret key is sealed. */
+interface StoredStorage {
+  readonly endpoint: string;
+  readonly bucket: string;
+  readonly region: string;
+  readonly accessKeyId: string;
+  readonly secret?: Sealed;
+}
+
+const isStoredStorage = (value: unknown): value is StoredStorage =>
+  typeof value === 'object' && value !== null && (['endpoint', 'bucket', 'region', 'accessKeyId'] as const).every((key) => typeof (value as Record<string, unknown>)[key] === 'string');
 const ADDRESS = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/;
 const NAMED = /^([^<>"\r\n]{1,100})<([^<>]+)>$/;
 
@@ -53,6 +100,7 @@ const isStoredEmail = (value: unknown): value is StoredEmail =>
  */
 export class SettingsService {
   #mail: MailRoom | null = null;
+  #storage: StorageRoom | null = null;
 
   constructor(
     private readonly store: SettingsStore,
@@ -121,6 +169,86 @@ export class SettingsService {
     if (kept === null || !isStoredEmail(kept.value) || kept.value.from === '') return null;
     const apiKey = await this.seal.open(kept.value.key);
     return apiKey === undefined ? null : { provider: kept.value.provider, apiKey, from: kept.value.from };
+  }
+
+  /** Tells the service how uploads are kept on this site. A host calls it once it knows. */
+  useStorage(room: StorageRoom): void {
+    this.#storage = room;
+  }
+
+  /** Where uploads are kept, for the settings screen. Owners only. */
+  async storage(actor: Actor): Promise<StorageSettings> {
+    this.access.require(actor, 'settings:manage');
+    return this.#shownStorage();
+  }
+
+  /** Saves the bucket uploads are kept in. Owners only. */
+  async saveStorage(actor: Actor, changes: StorageSettingsChanges): Promise<StorageSettings> {
+    this.access.require(actor, 'settings:manage');
+    const kept = await this.store.get(STORAGE);
+    const current = kept !== null && isStoredStorage(kept.value) ? kept.value : null;
+    const revision = kept?.revision ?? 0;
+    if (revision !== changes.expectedRevision) throw new ConflictError('The storage settings were changed by someone else. Reload them and try again.');
+
+    const issues: ValidationIssue[] = [];
+    const endpoint = storageEndpointFrom(changes.endpoint);
+    if (endpoint === null) issues.push({ path: ['endpoint'], message: 'Give the storage service\'s address, starting with https://, as the service shows it.' });
+    const bucket = changes.bucket.trim();
+    if (!BUCKET.test(bucket)) issues.push({ path: ['bucket'], message: 'Give the bucket\'s name as the storage service shows it: lowercase letters, digits, dots and hyphens.' });
+    const region = (changes.region ?? '').trim().toLowerCase();
+    if (region !== '' && !REGION.test(region)) issues.push({ path: ['region'], message: 'Give the region as the storage service writes it, such as eu-west-1, or leave this empty.' });
+    const accessKeyId = changes.accessKeyId.trim();
+    if (accessKeyId === '' || accessKeyId.length > MAX_STORAGE_FIELD_LENGTH || /\s/.test(accessKeyId)) issues.push({ path: ['accessKeyId'], message: 'Paste the access key ID.' });
+    const typedSecret = typeof changes.secretAccessKey === 'string' ? changes.secretAccessKey.trim() : undefined;
+    if (typedSecret !== undefined && (typedSecret === '' || typedSecret.length > MAX_STORAGE_FIELD_LENGTH || /\s/.test(typedSecret))) {
+      issues.push({ path: ['secretAccessKey'], message: typedSecret === '' ? 'Paste the secret access key.' : 'This does not look like a secret access key. Paste it as the storage service shows it.' });
+    }
+    if (issues.length > 0 || endpoint === null) throw new ValidationError(issues.length === 1 ? 'One thing about the storage settings needs another look.' : `${issues.length} things about the storage settings need another look.`, issues);
+
+    const secret = changes.secretAccessKey === null ? undefined : typedSecret !== undefined ? await this.seal.seal(typedSecret) : current?.secret;
+    const next: StoredStorage = { endpoint, bucket, region, accessKeyId, ...(secret !== undefined && { secret }) };
+    await this.store.save(STORAGE, next, revision + 1, kept === null ? null : revision);
+    await this.events.emit('settings.saved', { area: 'storage', actor });
+    return this.#shownStorage();
+  }
+
+  /** Tries the bucket the settings name: keeps a small file there, reads it back and removes it. Owners only. */
+  async testStorage(actor: Actor): Promise<void> {
+    this.access.require(actor, 'settings:manage');
+    if (this.#storage === null || (await this.bucketAccount()) === null) {
+      throw new ConflictError('There is no bucket to try yet. Save its address, name and both keys first.');
+    }
+    await this.#storage.test();
+  }
+
+  /**
+   * The bucket the editor's settings name, for the site's own server, or `null` when they are
+   * not complete. No permission is asked, and nothing else may call it: this is the one place
+   * the saved secret key is opened.
+   */
+  async bucketAccount(): Promise<BucketAccount | null> {
+    const kept = await this.store.get(STORAGE);
+    if (kept === null || !isStoredStorage(kept.value)) return null;
+    const { endpoint, bucket, region, accessKeyId, secret } = kept.value;
+    const secretAccessKey = await this.seal.open(secret);
+    return secretAccessKey === undefined ? null : { endpoint, bucket, accessKeyId, secretAccessKey, ...(region !== '' && { region }) };
+  }
+
+  async #shownStorage(): Promise<StorageSettings> {
+    const kept = await this.store.get(STORAGE);
+    const current = kept !== null && isStoredStorage(kept.value) ? kept.value : null;
+    const hasSecret = current?.secret !== undefined && (await this.seal.open(current.secret)) !== undefined;
+    const fixedBy = this.#storage?.fixedBy() ?? null;
+    return {
+      endpoint: current?.endpoint ?? '',
+      bucket: current?.bucket ?? '',
+      region: current?.region ?? '',
+      accessKeyId: current?.accessKeyId ?? '',
+      hasSecret,
+      ...(fixedBy !== null && { fixedBy }),
+      keeping: (await this.#storage?.keeping()) ?? (hasSecret ? 'bucket' : 'none'),
+      revision: kept?.revision ?? 0,
+    };
   }
 
   async #shown(): Promise<EmailSettings> {

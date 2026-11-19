@@ -300,6 +300,17 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       expect(await client.saveEmailSettings({ from: 'hello@example.com', apiKey: null, expectedRevision: 1 })).toMatchObject({ from: 'hello@example.com', hasKey: false, sending: false, canTest: false, revision: 2 });
     });
 
+    it('saves the bucket uploads are kept in without ever sending the secret key back, and tries it once it can', async () => {
+      expect(await client.getStorageSettings()).toEqual({ endpoint: '', bucket: '', region: '', accessKeyId: '', hasSecret: false, keeping: 'folder', revision: 0 });
+      await expect(client.testStorage()).rejects.toMatchObject({ code: 'conflict' });
+      const bucket = { endpoint: 'https://acct.r2.example.com', bucket: 'photos', accessKeyId: 'AKIA123', secretAccessKey: 'shh-secret', expectedRevision: 0 };
+      await expect(client.saveStorageSettings({ ...bucket, endpoint: 'http://localhost' })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['endpoint'] }] });
+      expect(await client.saveStorageSettings(bucket)).toEqual({ endpoint: 'https://acct.r2.example.com', bucket: 'photos', region: '', accessKeyId: 'AKIA123', hasSecret: true, keeping: 'bucket', revision: 1 });
+      expect(await client.testStorage()).toBeUndefined();
+      await expect(client.saveStorageSettings(bucket)).rejects.toMatchObject({ code: 'conflict' });
+      expect(await client.saveStorageSettings({ ...bucket, secretAccessKey: null, expectedRevision: 1 })).toMatchObject({ hasSecret: false, keeping: 'folder', revision: 2 });
+    });
+
     it('keeps a pipeline of stages, and places a contact in it with someone to look after it and a day to follow up', async () => {
       const pipeline = await client.getPipeline();
       expect(pipeline.stages.map((stage) => stage.id)).toEqual(['new', 'contacted', 'qualified', 'won', 'lost']);

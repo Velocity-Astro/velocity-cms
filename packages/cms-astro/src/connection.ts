@@ -6,7 +6,8 @@ import { AuthTeam } from '@velocity-astro/cms-auth/team';
 import { openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqliteDealRepository, SqlitePipelineStore, SqliteSettingsStore, SqliteCustomFieldsStore, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Db } from '@velocity-astro/cms-db';
 import { currentSite } from './hosted.js';
 import { SharpImageOptimizer } from './image-optimizer.js';
-import { mediaStoreFromEnv } from './media-store.js';
+import { bucketFromEnv, folderFromEnv } from './media-store.js';
+import { SiteMediaStore } from './site-storage.js';
 import { siteSecret } from './secret.js';
 import { allPlugins } from './site-plugins.js';
 
@@ -50,9 +51,17 @@ export async function connect(options: ConnectionOptions): Promise<Connection> {
   if (file !== undefined) mkdirSync(path.dirname(path.resolve(file.replace(/^\/\/(?=\/)/, ''))), { recursive: true });
   const database = await openDatabase({ url, ...(authToken !== undefined && { authToken }) });
   // A hosted site keeps uploads where its host says, and nowhere a setting of the server names.
-  const store = site ? site.media : mediaStoreFromEnv(url);
+  // A site of its own keeps them where the server's settings say, then in the bucket an owner
+  // named in the editor, then in a folder beside a database that is a file.
+  const store: SiteMediaStore = new SiteMediaStore({
+    account: () => cms.settings.bucketAccount(),
+    fixed: site ? site.media : bucketFromEnv(),
+    hosted: site !== undefined,
+    folder: site ? undefined : folderFromEnv(url),
+    lookup: lookUp,
+  });
   const secret = siteSecret();
-  const cms = createCms({
+  const cms: Cms = createCms({
     entries: new SqliteEntryRepository(database.db),
     types: new SqliteSchemaRepository(database.db),
     forms: new SqliteFormRepository(database.db),
@@ -65,18 +74,17 @@ export async function connect(options: ConnectionOptions): Promise<Connection> {
     team: new AuthTeam(database.db),
     // A secret too short to sign with is the editor's to report, not a reason to read no content.
     ...(secret !== undefined && secret.length >= 32 && { previews: { secret } }),
-    ...(store && {
-      media: {
-        storage: { files: new SqliteMediaRepository(database.db), store },
-        optimizer,
-        // The image is never logged, only that one could not be handled: the upload is kept as it arrived.
-        onOptimizerFault: (error) => console.warn('[velocity-cms] An image could not be made lighter, so it is kept as it is.', error),
-      },
-    }),
+    media: {
+      storage: { files: new SqliteMediaRepository(database.db), store },
+      optimizer,
+      // The image is never logged, only that one could not be handled: the upload is kept as it arrived.
+      onOptimizerFault: (error) => console.warn('[velocity-cms] An image could not be made lighter, so it is kept as it is.', error),
+    },
     pluginStore: new SqlitePluginStore(database.db),
     lookup: lookUp,
     onPluginFault: (plugin, error) => console.error(`[velocity-cms] The plugin "${plugin}" failed.`, error),
   });
+  cms.settings.useStorage(store.room());
   return { cms, search: new SqliteSearchIndex(database.db), db: database.db, close: () => database.close() };
 }
 

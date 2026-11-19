@@ -1,4 +1,4 @@
-import type { Cms, EmailSettingsChanges, ContactChanges, ContactImportRow, DealChanges, NewDeal, PipelineChanges, CustomFieldsChanges, ContentTypeChanges, FieldArrangement, FieldChanges, FieldSection, FormChanges, NewContact, NewField, NewForm, Role } from '@velocity-astro/cms-core';
+import type { Cms, EmailSettingsChanges, StorageSettingsChanges, ContactChanges, ContactImportRow, DealChanges, NewDeal, PipelineChanges, CustomFieldsChanges, ContentTypeChanges, FieldArrangement, FieldChanges, FieldSection, FormChanges, NewContact, NewField, NewForm, Role } from '@velocity-astro/cms-core';
 import { z } from 'zod';
 import type { ApiSession, Authenticator } from './authenticator.js';
 import { ApiError, errorResponse, isFault, json } from './http.js';
@@ -174,6 +174,14 @@ const emailSettingsChanges = z.strictObject({
   apiKey: z.string().max(2000).nullable().optional(),
   expectedRevision: z.number().int().min(0),
 });
+const storageSettingsChanges = z.strictObject({
+  endpoint: z.string().max(1000),
+  bucket: z.string().max(1000),
+  region: z.string().max(1000).optional(),
+  accessKeyId: z.string().max(1000),
+  secretAccessKey: z.string().max(2000).nullable().optional(),
+  expectedRevision: z.number().int().min(0),
+});
 const pipelineChanges = z.strictObject({
   stages: z.array(z.strictObject({ id: z.string().optional(), label: z.string().optional(), kind: z.enum(['open', 'won', 'lost']), chance: z.number().optional() })).max(50),
   currency: z.string().max(10).optional(),
@@ -306,7 +314,7 @@ export class CmsApi {
       })
       .add('GET', '/images', async (call) => {
         const items = await media.images(actor(call));
-        return json({ items, upload: media.takesUploads ? { maxBytes: media.maxUploadBytes } : null });
+        return json({ items, upload: (await media.takesUploads()) ? { maxBytes: media.maxUploadBytes } : null });
       })
       .add('POST', '/images', this.#upload)
       .add('DELETE', '/images/:name', async (call) => {
@@ -407,6 +415,16 @@ export class CmsApi {
       })
       .add('POST', '/settings/email/test', async (call) => {
         await settings.testEmail(actor(call));
+        return json({});
+      })
+      .add('GET', '/settings/storage', async (call) => json(await settings.storage(actor(call))))
+      .add('PUT', '/settings/storage', async (call) => {
+        const who = actor(call);
+        const body = parse(storageSettingsChanges, await this.#body(call.request));
+        return json(await settings.saveStorage(who, deep<StorageSettingsChanges>(body)));
+      })
+      .add('POST', '/settings/storage/test', async (call) => {
+        await settings.testStorage(actor(call));
         return json({});
       })
       .add('GET', '/pipeline', async (call) => json(await pipeline.get(actor(call))))

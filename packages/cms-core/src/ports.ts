@@ -3,7 +3,7 @@
  * an adapter package implements each one and proves it with the contract tests in `./testing`.
  */
 import type { Actor } from './access.js';
-import type { ContentTypeDef, Entry, EntryStatus, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus, Timestamp, Contact, ContactNote, Deal, DealSubject, Pipeline, TeamMember, CustomFields, MailFixedBy } from './model.js';
+import type { ContentTypeDef, Entry, EntryStatus, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus, Timestamp, Contact, ContactNote, Deal, DealSubject, Pipeline, TeamMember, CustomFields, MailFixedBy, SettingFixedBy, StorageKeeping } from './model.js';
 
 export interface EntryQuery {
   readonly typeId?: string;
@@ -239,6 +239,19 @@ export interface MailRoom {
   sendTest(actor: Actor): Promise<void>;
 }
 
+/** How the site's uploads are kept, which only its host knows. The host hands one over with `settings.useStorage`. */
+export interface StorageRoom {
+  /** Who decides where uploads are kept when the editor's settings do not, or `null` when they do. */
+  fixedBy(): SettingFixedBy | null;
+  /** Where an upload would be kept right now. */
+  keeping(): Promise<StorageKeeping>;
+  /**
+   * Keeps a small file in the bucket the editor's settings name, reads it back and removes it.
+   * A bucket that cannot be used is thrown with words for the person who asked.
+   */
+  test(): Promise<void>;
+}
+
 /** The current time. Passed in so tests can fix it. */
 export interface Clock {
   now(): Timestamp;
@@ -371,4 +384,9 @@ export interface MediaStore {
   get(key: string): Promise<StoredFile | null>;
   /** Removes a file. A key nothing is kept under is ignored. */
   remove(key: string): Promise<void>;
+  /**
+   * Whether there is somewhere to keep a file right now, for a store whose place an owner sets
+   * up later. A store without this always has a place.
+   */
+  ready?(): Promise<boolean>;
 }

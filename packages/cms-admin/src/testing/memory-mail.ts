@@ -1,4 +1,4 @@
-import { ConflictError, type Actor, type Cms, type MailFixedBy, type MailRoom } from '@velocity-astro/cms-core';
+import { ConflictError, type Actor, type Cms, type MailFixedBy, type MailRoom, type SettingFixedBy, type StorageKeeping, type StorageRoom } from '@velocity-astro/cms-core';
 
 /**
  * How email leaves a site that has no server: nothing is sent, and each test asked for is kept
@@ -25,5 +25,38 @@ export class MemoryMailRoom implements MailRoom {
   async sendTest(actor: Actor): Promise<void> {
     if (this.refuseWith !== null) throw new ConflictError(this.refuseWith);
     this.tests.push(actor.id);
+  }
+}
+
+/**
+ * How uploads are kept on a site that has no server: no bucket is ever reached, and each test
+ * of one is counted in `tests`. Uploads go to "the disk" until the settings name a bucket.
+ */
+export class MemoryStorageRoom implements StorageRoom {
+  /** How many times a test of the bucket was asked for. */
+  tests = 0;
+  /** Set to have something other than the editor's settings decide where uploads are kept. */
+  fixed: SettingFixedBy | null = null;
+  /** Set to have the storage service refuse the next tests with these words. */
+  refuseWith: string | null = null;
+
+  constructor(
+    private readonly settings: Cms['settings'],
+    /** Whether the site has a disk to keep uploads on. */
+    private readonly hasDisk: boolean,
+  ) {}
+
+  fixedBy(): SettingFixedBy | null {
+    return this.fixed;
+  }
+
+  async keeping(): Promise<StorageKeeping> {
+    if (this.fixed !== null) return 'bucket';
+    return (await this.settings.bucketAccount()) !== null ? 'bucket' : this.hasDisk ? 'folder' : 'none';
+  }
+
+  async test(): Promise<void> {
+    if (this.refuseWith !== null) throw new ConflictError(this.refuseWith);
+    this.tests += 1;
   }
 }

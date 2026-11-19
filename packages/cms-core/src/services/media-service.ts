@@ -88,9 +88,10 @@ export class MediaService {
     this.#libraries.add(library);
   }
 
-  /** Whether this site can take an upload. */
-  get takesUploads(): boolean {
-    return this.options.storage !== undefined;
+  /** Whether this site can take an upload right now. An owner may set storage up later, so this is asked each time. */
+  async takesUploads(): Promise<boolean> {
+    const store = this.options.storage?.store;
+    return store !== undefined && ((await store.ready?.()) ?? true);
   }
 
   /** The largest upload accepted, in bytes. */
@@ -122,8 +123,8 @@ export class MediaService {
   async upload(actor: Actor, upload: NewUpload): Promise<SiteImage> {
     this.access.require(actor, 'entry:write');
     const storage = this.options.storage;
-    if (!storage) {
-      throw new ConflictError("This site has nowhere to keep uploads yet. Set up storage for them, or add the image to the site's image folder.");
+    if (!storage || !(await this.takesUploads())) {
+      throw new ConflictError("This site has nowhere to keep uploads yet. An owner can set storage up under Settings, Storage, or add the image to the site's image folder.");
     }
 
     const { bytes } = upload;

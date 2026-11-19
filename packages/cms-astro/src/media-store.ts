@@ -68,6 +68,16 @@ async function hmac(key: ArrayBuffer | Uint8Array, text: string): Promise<ArrayB
   return crypto.subtle.sign('HMAC', imported, encoder.encode(text));
 }
 
+/** The bucket answered and refused. `status` is its answer; the message holds its own words, for the server's log. */
+export class StorageRefusedError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
 /**
  * Keeps uploads in a bucket that speaks the S3 protocol: Cloudflare R2, Amazon S3, Backblaze B2,
  * MinIO and others. For a site on a host with no disk of its own. The bucket stays private: the
@@ -149,7 +159,7 @@ export class S3MediaStore implements MediaStore {
   /** What went wrong, in the storage service's words. It goes to the server's log, not to the person. */
   async #failure(doing: string, key: string, response: Response): Promise<Error> {
     const said = (await response.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 300);
-    return new Error(`The storage bucket "${this.#options.bucket}" refused to ${doing} "${key}" (${response.status}). ${said}`.trim());
+    return new StorageRefusedError(response.status, `The storage bucket "${this.#options.bucket}" refused to ${doing} "${key}" (${response.status}). ${said}`.trim());
   }
 }
 
@@ -164,6 +174,11 @@ export class S3MediaStore implements MediaStore {
  * - Neither, with a hosted database: nowhere, and the site takes no uploads.
  */
 export function mediaStoreFromEnv(databaseUrl: string, env: Readonly<Record<string, string | undefined>> = process.env): MediaStore | undefined {
+  return bucketFromEnv(env) ?? folderFromEnv(databaseUrl, env);
+}
+
+/** The bucket the server's own settings name, or none. Settings that name only part of one are refused. */
+export function bucketFromEnv(env: Readonly<Record<string, string | undefined>> = process.env): S3MediaStore | undefined {
   const s3 = {
     bucket: env.VELOCITY_CMS_S3_BUCKET,
     endpoint: env.VELOCITY_CMS_S3_ENDPOINT,
@@ -179,6 +194,11 @@ export function mediaStoreFromEnv(databaseUrl: string, env: Readonly<Record<stri
       'Uploads are set up only in part. A bucket needs all four of VELOCITY_CMS_S3_BUCKET, VELOCITY_CMS_S3_ENDPOINT, VELOCITY_CMS_S3_ACCESS_KEY_ID and VELOCITY_CMS_S3_SECRET_ACCESS_KEY.',
     );
   }
+  return undefined;
+}
+
+/** The folder on the server's disk uploads are kept in: the one its settings name, or `media` beside a database that is a file. */
+export function folderFromEnv(databaseUrl: string, env: Readonly<Record<string, string | undefined>> = process.env): FolderMediaStore | undefined {
   if (env.VELOCITY_CMS_MEDIA_DIR) return new FolderMediaStore(path.resolve(env.VELOCITY_CMS_MEDIA_DIR));
   if (databaseUrl.startsWith('file:')) return new FolderMediaStore(path.join(path.dirname(path.resolve(databaseUrl.slice('file:'.length))), 'media'));
   return undefined;

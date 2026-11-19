@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ConflictError, ForbiddenError, ValidationError, createCms, senderFrom, type Actor } from './index.js';
+import { ConflictError, ForbiddenError, ValidationError, createCms, senderFrom, storageEndpointFrom, type Actor } from './index.js';
 import { InMemoryEntryRepository, InMemorySchemaRepository, InMemorySettingsStore } from './testing/index.js';
 
 const owner: Actor = { kind: 'user', id: 'u1', role: 'owner' };
@@ -75,5 +75,45 @@ describe('SettingsService: email', () => {
     fixed = null;
     expect(await cms.settings.email(owner)).toMatchObject({ sending: false });
     expect(await cms.settings.email(owner)).not.toHaveProperty('fixedBy');
+  });
+});
+
+describe('SettingsService: storage', () => {
+  const bucket = { endpoint: 'https://acct.r2.example.com/', bucket: 'photos', region: 'EU-West-1', accessKeyId: 'AKIA123', secretAccessKey: 'shh-secret', expectedRevision: 0 };
+
+  it('takes a storage service\'s address only over https, by name, with nothing that could lead elsewhere', () => {
+    expect(storageEndpointFrom(' https://ACCT.r2.example.com/ ')).toBe('https://acct.r2.example.com');
+    expect(storageEndpointFrom('https://s3.eu-west-1.amazonaws.com')).toBe('https://s3.eu-west-1.amazonaws.com');
+    for (const wrong of ['', 'acct.r2.example.com', 'http://acct.r2.example.com', 'https://127.0.0.1', 'https://[::1]', 'https://localhost', 'https://storage', 'https://minio.internal', 'https://printer.local', 'https://user:pass@acct.example.com', 'https://acct.example.com:9000', 'https://acct.example.com/?x=1', 'https://2130706433']) {
+      expect(storageEndpointFrom(wrong), wrong).toBeNull();
+    }
+  });
+
+  it('seals the secret key, shows the rest, and hands the whole only to the site itself', async () => {
+    const store = new InMemorySettingsStore();
+    const cms = site(SECRET, store);
+    expect(await cms.settings.storage(owner)).toEqual({ endpoint: '', bucket: '', region: '', accessKeyId: '', hasSecret: false, keeping: 'none', revision: 0 });
+    expect(await cms.settings.saveStorage(owner, bucket)).toEqual({ endpoint: 'https://acct.r2.example.com', bucket: 'photos', region: 'eu-west-1', accessKeyId: 'AKIA123', hasSecret: true, keeping: 'bucket', revision: 1 });
+    expect(JSON.stringify(await store.get('storage'))).not.toContain('shh-secret');
+    expect(await cms.settings.bucketAccount()).toEqual({ endpoint: 'https://acct.r2.example.com', bucket: 'photos', region: 'eu-west-1', accessKeyId: 'AKIA123', secretAccessKey: 'shh-secret' });
+    expect(await cms.settings.saveStorage(owner, { endpoint: bucket.endpoint, bucket: bucket.bucket, region: '', accessKeyId: bucket.accessKeyId, expectedRevision: 1 })).toMatchObject({ region: '', hasSecret: true, revision: 2 });
+    expect(await cms.settings.bucketAccount()).not.toHaveProperty('region');
+    expect(await site('t'.repeat(32), store).settings.bucketAccount()).toBeNull();
+    expect(await cms.settings.saveStorage(owner, { ...bucket, secretAccessKey: null, expectedRevision: 2 })).toMatchObject({ hasSecret: false, keeping: 'none' });
+    expect(await cms.settings.bucketAccount()).toBeNull();
+    // Email is another part: it knows nothing of this.
+    expect((await cms.settings.email(owner)).revision).toBe(0);
+  });
+
+  it('refuses what it cannot use, naming each field, and is for owners', async () => {
+    const cms = site();
+    await expect(cms.settings.saveStorage(owner, { endpoint: 'http://x', bucket: 'My Bucket', region: 'eu west', accessKeyId: ' ', secretAccessKey: ' ', expectedRevision: 0 })).rejects.toMatchObject({
+      issues: [{ path: ['endpoint'] }, { path: ['bucket'] }, { path: ['region'] }, { path: ['accessKeyId'] }, { path: ['secretAccessKey'] }],
+    });
+    await expect(cms.settings.saveStorage(owner, { ...bucket, expectedRevision: 2 })).rejects.toBeInstanceOf(ConflictError);
+    await expect(cms.settings.storage(editor)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(cms.settings.saveStorage(editor, bucket)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(cms.settings.testStorage(editor)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(cms.settings.testStorage(owner)).rejects.toBeInstanceOf(ConflictError);
   });
 });
