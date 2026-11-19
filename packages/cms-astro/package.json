@@ -41,6 +41,9 @@
     "@velocity-astro/cms-db": "workspace:*",
     "@velocity-astro/cms-plugins": "workspace:*"
   },
+  "optionalDependencies": {
+    "sharp": "^0.35.4"
+  },
   "peerDependencies": {
     "astro": "^7.0.0"
   },

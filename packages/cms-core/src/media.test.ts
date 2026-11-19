@@ -3,9 +3,10 @@ import { AccessControl, type Actor } from './access.js';
 import { ConflictError, NotFoundError, ValidationError } from './errors.js';
 import { EventBus } from './events.js';
 import { readImage } from './image-file.js';
+import type { ImageOptimizer } from './ports.js';
 import { MediaService } from './services/media-service.js';
 import { mediaRepositoryContract, mediaStoreContract } from './testing/contracts.js';
-import { FakeClock, InMemoryImageLibrary, InMemoryMediaRepository, InMemoryMediaStore, tinyJpeg, tinyPng } from './testing/in-memory.js';
+import { FakeClock, InMemoryImageLibrary, InMemoryMediaRepository, InMemoryMediaStore, tinyJpeg, tinyPng, tinyWebp } from './testing/in-memory.js';
 
 mediaRepositoryContract('InMemoryMediaRepository', async () => new InMemoryMediaRepository());
 mediaStoreContract('InMemoryMediaStore', async () => new InMemoryMediaStore());
@@ -103,5 +104,96 @@ describe('MediaService', () => {
     await expect(closed.upload(owner, { fileName: 'a.png', bytes: tinyPng() })).rejects.toBeInstanceOf(ConflictError);
     await expect(closed.file('a.png')).rejects.toBeInstanceOf(NotFoundError);
     expect(await closed.images(owner)).toEqual([]);
+  });
+
+  describe('with an optimizer', () => {
+    const faults: unknown[] = [];
+    /** Stands in for a real one: what it answers with is set by each case. */
+    const optimizer: ImageOptimizer & { made: Uint8Array | null; fails: boolean } = {
+      made: null,
+      fails: false,
+      async optimize(): Promise<Uint8Array | null> {
+        if (this.fails) throw new Error('could not read it');
+        return this.made;
+      },
+      async resize(_bytes: Uint8Array, width: number): Promise<Uint8Array | null> {
+        if (this.fails) throw new Error('could not read it');
+        return tinyWebp(width, 3);
+      },
+    };
+    const padded = (image: Uint8Array, size: number): Uint8Array => {
+      const bytes = new Uint8Array(size);
+      bytes.set(image);
+      return bytes;
+    };
+
+    beforeEach(() => {
+      faults.length = 0;
+      optimizer.made = null;
+      optimizer.fails = false;
+      media = new MediaService(new AccessControl(), events, new FakeClock(), {
+        storage: { files, store },
+        maxBytes: 1000,
+        optimizer,
+        onOptimizerFault: (error) => void faults.push(error),
+      });
+    });
+
+    it('keeps the lighter copy, and records what the copy is', async () => {
+      optimizer.made = tinyWebp(2560, 1440, 200);
+      const image = await media.upload(owner, { fileName: 'Kitchen.JPG', bytes: padded(tinyJpeg(4000, 2250), 900) });
+      expect(image).toMatchObject({ name: 'kitchen', url: '/media/kitchen.webp', width: 2560, height: 1440, size: 200, thumbnail: '/media/kitchen.webp?w=640' });
+      expect(await files.get('kitchen')).toMatchObject({ key: 'kitchen.webp', contentType: 'image/webp', size: 200 });
+      expect(await media.file('kitchen.webp')).toMatchObject({ contentType: 'image/webp', bytes: optimizer.made });
+      // The file that arrived is kept nowhere.
+      expect(await store.get('kitchen.jpg')).toBeNull();
+    });
+
+    it('keeps a copy that was turned, even when it is no lighter', async () => {
+      optimizer.made = tinyWebp(3, 4, 500);
+      expect(await media.upload(owner, { fileName: 'a.jpg', bytes: padded(tinyJpeg(4, 3), 400) })).toMatchObject({ url: '/media/a.webp', width: 3, height: 4 });
+    });
+
+    it('keeps the file as it arrived when the copy is no better, is not an image, or is larger', async () => {
+      const bytes = padded(tinyJpeg(40, 30), 400);
+      for (const made of [null, tinyWebp(40, 30, 400), new TextEncoder().encode('<html>'), tinyWebp(80, 60, 100), tinyWebp(40, 30, 2000)]) {
+        optimizer.made = made;
+        const image = await media.upload(owner, { fileName: 'b.jpg', bytes });
+        expect(image).toMatchObject({ width: 40, height: 30, size: 400 });
+        expect(image.url.endsWith('.jpg')).toBe(true);
+      }
+      expect(faults).toEqual([]);
+    });
+
+    it('never loses an upload over an optimizer that fails', async () => {
+      optimizer.fails = true;
+      const bytes = tinyPng(1600, 900);
+      expect(await media.upload(owner, { fileName: 'c.png', bytes })).toMatchObject({ url: '/media/c.png', size: bytes.length });
+      expect(faults).toHaveLength(1);
+      // Nor a page over a small copy that cannot be made: it gets the image itself.
+      expect((await media.file('c.png', 640)).bytes).toEqual(bytes);
+      expect(faults).toHaveLength(2);
+    });
+
+    it('makes a small copy at the widths it offers and at no other', async () => {
+      optimizer.made = tinyWebp(2560, 1440, 200);
+      await media.upload(owner, { fileName: 'wide.jpg', bytes: padded(tinyJpeg(4000, 2250), 900) });
+      const small = await media.file('wide.webp', 640);
+      expect(readImage(small.bytes)).toMatchObject({ contentType: 'image/webp', width: 640 });
+      await expect(media.file('wide.webp', 641)).rejects.toBeInstanceOf(NotFoundError);
+      await expect(media.file('nothing.webp', 640)).rejects.toBeInstanceOf(NotFoundError);
+    });
+
+    it('answers with the image itself when it is already that narrow, and offers no thumbnail', async () => {
+      const image = await media.upload(owner, { fileName: 'logo.png', bytes: tinyPng(320, 80) });
+      expect(image.thumbnail).toBeUndefined();
+      expect((await media.file('logo.png', 640)).contentType).toBe('image/png');
+    });
+  });
+
+  it('offers no small copies without an optimizer', async () => {
+    const image = await media.upload(owner, { fileName: 'wide.png', bytes: tinyPng(1600, 900) });
+    expect(image.thumbnail).toBeUndefined();
+    await expect(media.file('wide.png', 640)).rejects.toBeInstanceOf(NotFoundError);
   });
 });

@@ -333,6 +333,14 @@ export const tinyPng = (width = 4, height = 3): Uint8Array<ArrayBuffer> =>
 export const tinyJpeg = (width = 4, height = 3): Uint8Array<ArrayBuffer> =>
   bytesOf([0xff, 0xd8, 0xff, 0xe0], be(16, 2), 'JFIF', new Array<number>(10).fill(0), [0xff, 0xc0], be(17, 2), [8], be(height, 2), be(width, 2), new Array<number>(12).fill(0));
 
+/** The start of a WebP of the given size, padded to weigh `size` bytes. For tests. */
+export const tinyWebp = (width = 4, height = 3, size = 30): Uint8Array<ArrayBuffer> => {
+  const le = (value: number): number[] => [value & 0xff, (value >> 8) & 0xff, (value >> 16) & 0xff];
+  const bytes = new Uint8Array(Math.max(30, size));
+  bytes.set(bytesOf('RIFF', [0, 0, 0, 0], 'WEBP', 'VP8X', [10, 0, 0, 0], [0, 0, 0, 0], le(width - 1), le(height - 1)));
+  return bytes;
+};
+
 export class InMemoryPluginStore implements PluginStore {
   readonly #values = new Map<string, string>();
 

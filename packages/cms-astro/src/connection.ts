@@ -5,6 +5,7 @@ import { createCms, type Actor, type Cms, type NameLookup, type SearchIndex } fr
 import { AuthTeam } from '@velocity-astro/cms-auth/team';
 import { openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqliteDealRepository, SqlitePipelineStore, SqliteCustomFieldsStore, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Db } from '@velocity-astro/cms-db';
 import { currentSite } from './hosted.js';
+import { SharpImageOptimizer } from './image-optimizer.js';
 import { mediaStoreFromEnv } from './media-store.js';
 import { siteSecret } from './secret.js';
 import { allPlugins } from './site-plugins.js';
@@ -37,6 +38,9 @@ export interface Connection {
 /** Every address a host's name leads to, so a plugin can refuse a name that leads to a private machine. */
 const lookUp: NameLookup = async (host) => (await lookup(host, { all: true })).map((found) => found.address);
 
+/** One for the whole server: it holds a library and nothing of any site. */
+const optimizer = new SharpImageOptimizer();
+
 export async function connect(options: ConnectionOptions): Promise<Connection> {
   const site = currentSite();
   const authToken = site ? site.database.authToken : (options.authToken ?? (process.env.VELOCITY_CMS_DATABASE_TOKEN || undefined));
@@ -60,7 +64,14 @@ export async function connect(options: ConnectionOptions): Promise<Connection> {
     team: new AuthTeam(database.db),
     // A secret too short to sign with is the editor's to report, not a reason to read no content.
     ...(secret !== undefined && secret.length >= 32 && { previews: { secret } }),
-    ...(store && { media: { storage: { files: new SqliteMediaRepository(database.db), store } } }),
+    ...(store && {
+      media: {
+        storage: { files: new SqliteMediaRepository(database.db), store },
+        optimizer,
+        // The image is never logged, only that one could not be handled: the upload is kept as it arrived.
+        onOptimizerFault: (error) => console.warn('[velocity-cms] An image could not be made lighter, so it is kept as it is.', error),
+      },
+    }),
     pluginStore: new SqlitePluginStore(database.db),
     lookup: lookUp,
     onPluginFault: (plugin, error) => console.error(`[velocity-cms] The plugin "${plugin}" failed.`, error),

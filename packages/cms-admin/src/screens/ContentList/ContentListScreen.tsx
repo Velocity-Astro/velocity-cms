@@ -24,6 +24,7 @@ import { useContentTypes, useEntries, useImages } from '../../client/queries.js'
 import { FieldSummary, useControlFor } from '../../fields/index.js';
 import { entryAddress, entryImage, entryState, entryTitle, fieldAt, groupTranslations, localized, type EntryState } from '../../lib/content.js';
 import { relativeTime } from '../../lib/relative-time.js';
+import { smallOf } from '../../lib/small-image.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 
 /** How each state is coloured. The words come from the messages. */
@@ -97,7 +98,7 @@ export function ContentListScreen() {
     return at ? [{ id: `field-${index}`, path, field: at.field }] : [];
   });
   const hasPictures = type.list?.imagePath !== undefined;
-  const pictures = new Map((images.data ?? []).map((image) => [image.name, image.url]));
+  const pictures = new Map((images.data ?? []).map((image) => [image.name, smallOf(image)]));
 
   const columns: TableColumn[] = [
     { id: 'title', label: messages.contentList.columnTitle },

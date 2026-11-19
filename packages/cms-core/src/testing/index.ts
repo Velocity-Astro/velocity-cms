@@ -30,4 +30,5 @@ export {
   SequentialIds,
   tinyJpeg,
   tinyPng,
+  tinyWebp,
 } from './in-memory.js';

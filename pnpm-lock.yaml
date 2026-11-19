@@ -134,6 +134,10 @@ importers:
       astro:
         specifier: 7.4.5
         version: 7.4.5(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
+    optionalDependencies:
+      sharp:
+        specifier: ^0.35.4
+        version: 0.35.5(@types/node@22.20.5)
 
   packages/cms-auth:
     dependencies:

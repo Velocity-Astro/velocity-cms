@@ -4,6 +4,7 @@ import { Copy, Trash2 } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
 import { useContentTypes, useEntries, useForms, useImages, useUploadImage, useUploadRules } from '../client/queries.js';
 import { prepareImage } from '../lib/prepare-image.js';
+import { smallOf } from '../lib/small-image.js';
 import { entryTitle, groupTranslations, localized, sameData, withValue } from '../lib/content.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
 import { createFieldControlRegistry, type FieldControlProps, type FieldControls, type FieldSummaryProps } from './field-control.js';
@@ -237,7 +238,7 @@ function ImageControl({ field, label, help, isLabelHidden = false, value, onChan
       label={label}
       isLabelHidden={isLabelHidden}
       value={current}
-      images={images.data ?? []}
+      images={(images.data ?? []).map((image) => ({ ...image, url: smallOf(image) }))}
       onChange={onChange}
       isRequired={field.required}
       chooseLabel={messages.editor.imageChoose}

@@ -6,6 +6,7 @@ import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { useImages, useRemoveImage, useSession, useUploadImage, useUploadRules } from '../../client/queries.js';
 import { prepareImage } from '../../lib/prepare-image.js';
 import { relativeTime } from '../../lib/relative-time.js';
+import { smallOf } from '../../lib/small-image.js';
 import { useClosing, useLast } from '../../lib/use-closing.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 
@@ -70,7 +71,7 @@ export function MediaScreen() {
               label={messages.media.grid}
               items={shown.map((image) => {
                 const note = noteOf(image);
-                return { id: image.name, name: image.name, url: image.url, ...(note !== undefined && { note }) };
+                return { id: image.name, name: image.name, url: smallOf(image), ...(note !== undefined && { note }) };
               })}
               onAction={setOpenName}
               emptyText={messages.media.noMatches}

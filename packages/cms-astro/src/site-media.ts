@@ -5,11 +5,17 @@ import { siteKey } from './hosted.js';
 /**
  * The answer to a request for an uploaded file. A file never changes once it is kept and its
  * name is never given to another, so browsers and the CDN may keep it for good.
+ *
+ * With a width (`/media/kitchen.webp?w=640`, one of `IMAGE_WIDTHS`) the answer is a copy no
+ * wider than that. It is made when asked for and kept by the browser and the CDN like the
+ * image itself, so a width is made once.
  */
-export async function uploadedFile(key: string): Promise<Response> {
+export async function uploadedFile(key: string, width?: string | null): Promise<Response> {
   const { cms } = await sharedConnection({});
   try {
-    const file = await cms.media.file(key);
+    // `?w=640` asks for a small copy. Anything that is not a whole number is no width at all.
+    if (width != null && !/^[1-9]\d{2,3}$/.test(width)) throw new NotFoundError('Image', key);
+    const file = await cms.media.file(key, width == null ? undefined : Number(width));
     return new Response(file.bytes, {
       headers: {
         'content-type': file.contentType,
