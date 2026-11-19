@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+## 0.1.0-beta.3
+
 - **Settings a template reads.** `single(Astro, 'settings')` answers with what a single page of the CMS holds, by field key, so a template can keep its name, logo and contact details where people edit them.
 - **Many sites from one copy.** A host that runs many sites names a `SiteRegistry` in `velocityCms({ sites })`. Each request is for the site its host name belongs to, with that site's own database, secret, address and uploads; a host name the registry does not know has no site, and nothing is read from the `VELOCITY_CMS_*` settings of one site. Such a copy builds no page ahead of time: a page built for no site would be served to all of them, so every page is drawn for the site that asked. A site of its own changes nothing.
 - **Uploads are kept lighter.** An uploaded image is kept as WebP, no larger than 2560 pixels on its longest side, turned the way it was taken and with nothing the camera noted (where it was taken, for one) left in it. A PNG drawing stays exact and see-through. The file that arrived is not kept. `/media/<file>?w=640` answers with a smaller copy (320, 640, 960, 1280 or 1920 wide), which the editor's lists of images now load. It uses `sharp`, which Astro installs; where it cannot be loaded, uploads are kept as before. Images uploaded earlier stay as they are.
