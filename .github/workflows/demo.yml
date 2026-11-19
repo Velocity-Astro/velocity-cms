@@ -2,15 +2,30 @@ name: Demo
 
 # Deploys the real estate template, running on the CMS, to its own Vercel project.
 # The template's public demo is another project and is not touched.
+#
+# Anyone may sign in to this demo as an editor (the "Try the editor" link in its bar), so every
+# night it is put back as it was: everything but its owners goes, and the sample content is
+# brought in again. It sends no email and takes no uploads, because an editor chooses who a form
+# tells and what is uploaded, and neither should be open to the whole internet.
 on:
   workflow_dispatch:
+    inputs:
+      reset:
+        description: Erase the demo first (everything but its owners) and bring the sample content back
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths: ['packages/**', '.github/workflows/demo.yml']
+  schedule:
+    # Every night, a little after 3 AM US Central.
+    - cron: '23 8 * * *'
 
+# One at a time and never cut short: a run stopped between the reset and the import would leave
+# the demo empty.
 concurrency:
   group: demo
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -29,16 +44,9 @@ jobs:
       VELOCITY_CMS_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
       VELOCITY_CMS_DATABASE_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
       VELOCITY_CMS_SECRET: ${{ secrets.VELOCITY_CMS_SECRET }}
-      # Where uploaded photos are kept: a private Cloudflare R2 bucket. Optional; without all
-      # four the demo deploys as before and the editor offers no upload.
-      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-      R2_BUCKET: ${{ secrets.R2_BUCKET }}
-      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-      # Sends invitations and sign-in links by email through Resend. Optional; without both,
-      # the site prints them to its log and the "Demo sign-in link" workflow is the way in.
-      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-      CMS_EMAIL_FROM: ${{ secrets.CMS_EMAIL_FROM }}
+      # The person every visitor is signed in as, an editor. No email is ever sent to it.
+      CMS_DEMO_VISITOR: ${{ vars.CMS_DEMO_VISITOR || 'editor@demo.invalid' }}
+      RESET: ${{ github.event_name == 'schedule' || inputs.reset == true }}
     steps:
       - name: Check that every secret is there
         run: |
@@ -52,19 +60,6 @@ jobs:
           fi
           if [ "${#VELOCITY_CMS_SECRET}" -lt 32 ]; then
             echo "::error::VELOCITY_CMS_SECRET must be at least 32 characters."
-            exit 1
-          fi
-          given=0
-          for name in R2_ACCOUNT_ID R2_BUCKET R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY; do
-            [ -z "${!name}" ] || given=$((given + 1))
-          done
-          if [ "$given" = 4 ]; then
-            echo "UPLOADS=on" >> "$GITHUB_ENV"
-          elif [ "$given" = 0 ]; then
-            echo "UPLOADS=off" >> "$GITHUB_ENV"
-            echo "::notice::No R2 secrets, so the editor will offer no photo upload."
-          else
-            echo "::error::Photo uploads need all four of R2_ACCOUNT_ID, R2_BUCKET, R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY. $given of them are set."
             exit 1
           fi
 
@@ -88,28 +83,6 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           pnpm build
-
-      - name: Check the bucket of uploads takes a file and gives it back
-        if: env.UPLOADS == 'on'
-        working-directory: cms
-        run: |
-          node --input-type=module -e "
-          import { S3MediaStore } from './packages/cms-astro/dist/media-store.js';
-          const store = new S3MediaStore({
-            endpoint: 'https://' + process.env.R2_ACCOUNT_ID + '.r2.cloudflarestorage.com',
-            bucket: process.env.R2_BUCKET,
-            accessKeyId: process.env.R2_ACCESS_KEY_ID,
-            secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-          });
-          const key = 'deploy-check-' + process.env.GITHUB_RUN_ID + '.png';
-          const bytes = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]);
-          await store.put(key, { bytes, contentType: 'image/png' });
-          const back = await store.get(key);
-          await store.remove(key);
-          if (!back || back.bytes.length !== bytes.length || back.contentType !== 'image/png') throw new Error('The bucket did not give the file back as it was kept.');
-          if ((await store.get(key)) !== null) throw new Error('The bucket still has a file that was removed.');
-          console.log('The bucket kept a file, gave it back and removed it.');
-          "
 
       - name: Assemble the template
         working-directory: templates
@@ -147,35 +120,32 @@ jobs:
               | curl -fsS -o /dev/null -X POST -H "$auth" -H 'Content-Type: application/json' -d @- \
                 "$api/v10/projects/$project/env?slug=$team&upsert=true"
           done
-          if [ "$UPLOADS" = on ]; then
-            export VELOCITY_CMS_S3_ENDPOINT="https://$R2_ACCOUNT_ID.r2.cloudflarestorage.com"
-            export VELOCITY_CMS_S3_BUCKET="$R2_BUCKET"
-            export VELOCITY_CMS_S3_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
-            export VELOCITY_CMS_S3_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
-            for name in VELOCITY_CMS_S3_ENDPOINT VELOCITY_CMS_S3_BUCKET VELOCITY_CMS_S3_ACCESS_KEY_ID VELOCITY_CMS_S3_SECRET_ACCESS_KEY; do
-              jq -n --arg key "$name" --arg value "${!name}" '{key: $key, value: $value, type: "encrypted", target: ["production"]}' \
-                | curl -fsS -o /dev/null -X POST -H "$auth" -H 'Content-Type: application/json' -d @- \
-                  "$api/v10/projects/$project/env?slug=$team&upsert=true"
-            done
-          fi
-          if [ -n "$RESEND_API_KEY" ] && [ -n "$CMS_EMAIL_FROM" ]; then
-            export VELOCITY_CMS_RESEND_API_KEY="$RESEND_API_KEY"
-            export VELOCITY_CMS_EMAIL_FROM="$CMS_EMAIL_FROM"
-            for name in VELOCITY_CMS_RESEND_API_KEY VELOCITY_CMS_EMAIL_FROM; do
-              jq -n --arg key "$name" --arg value "${!name}" '{key: $key, value: $value, type: "encrypted", target: ["production"]}' \
-                | curl -fsS -o /dev/null -X POST -H "$auth" -H 'Content-Type: application/json' -d @- \
-                  "$api/v10/projects/$project/env?slug=$team&upsert=true"
-            done
-            echo "EMAIL: on (Resend)"
-          else
-            echo "EMAIL: off (links are printed to the site's log)"
-          fi
+          # The host calls /api/cms/schedule once a day with this, to publish what is due.
+          export CRON_SECRET="$VELOCITY_CMS_SECRET"
+          for name in CRON_SECRET CMS_DEMO_VISITOR; do
+            jq -n --arg key "$name" --arg value "${!name}" '{key: $key, value: $value, type: "encrypted", target: ["production"]}' \
+              | curl -fsS -o /dev/null -X POST -H "$auth" -H 'Content-Type: application/json' -d @- \
+                "$api/v10/projects/$project/env?slug=$team&upsert=true"
+          done
+          # No email and no uploads on a demo anyone can edit: what an earlier deploy set is removed.
+          curl -fsS -H "$auth" "$api/v9/projects/$project/env?slug=$team" \
+            | jq -r '.envs[] | select(.key | test("^VELOCITY_CMS_(S3_|RESEND_API_KEY$|EMAIL_FROM$)")) | .id' \
+            | while read -r id; do
+                curl -fsS -o /dev/null -X DELETE -H "$auth" "$api/v9/projects/$project/env/$id?slug=$team"
+              done
           # The project's own address, which sign-in links and passkeys are made for.
           site="${{ vars.CMS_DEMO_URL }}"
           [ -n "$site" ] || site="https://$VERCEL_PROJECT.vercel.app"
           echo "SITE_URL=$site" >> "$GITHUB_ENV"
           echo "VERCEL_ORG_ID=$org" >> "$GITHUB_ENV"
           echo "VERCEL_PROJECT_ID=$project" >> "$GITHUB_ENV"
+
+      - name: Put the demo back as it was
+        if: env.RESET == 'true'
+        working-directory: templates
+        env:
+          VELOCITY_CMS_DIR: ${{ github.workspace }}/cms
+        run: node cms/real-estate/reset.mjs --yes
 
       - name: Import the content and convert the pages
         working-directory: templates/build/real-estate
@@ -201,21 +171,20 @@ jobs:
           echo "::error::$SITE_URL/api/cms/session did not answer. If the project has another address, set the CMS_DEMO_URL variable to it and run again."
           exit 1
 
-      - name: Check the site can read the bucket of uploads
-        if: env.UPLOADS == 'on'
+      - name: Check a visitor is let in as the shared editor
+        if: env.RESET == 'true'
         run: |
-          # A photo that does not exist: 404 means the bucket was asked and said so. Anything
-          # else means the site could not read the bucket (a wrong key, name or account id).
-          status=$(curl -sS -o body.txt -w '%{http_code}' "$SITE_URL/media/not-uploaded-$GITHUB_RUN_ID.jpg" || echo 000)
-          if [ "$status" != "404" ]; then
-            echo "::error::$SITE_URL could not read the R2 bucket (answered $status). Check the four R2 secrets, and that the token may read and write objects in that bucket."
+          # The link itself is never printed: it signs someone in.
+          curl -sS -o /dev/null -D headers.txt -X POST -H "Origin: $SITE_URL" "$SITE_URL/demo/sign-in"
+          if ! grep -i -q '^location: .*/api/cms/auth/' headers.txt; then
+            echo "::error::$SITE_URL/demo/sign-in did not send a visitor on to sign in (answered: $(head -1 headers.txt))."
             exit 1
           fi
 
       - name: Check the public pages answer
         run: |
           failed=0
-          for path in / /es/ /homes-for-sale/ /listings/lakeshore-farmhouse/ /agents/ /why-list-with-us/; do
+          for path in / /demo/ /es/ /homes-for-sale/ /listings/lakeshore-farmhouse/ /agents/ /why-list-with-us/; do
             status=$(curl -sS -o body.html -D headers.txt -w '%{http_code}' "$SITE_URL$path" || echo 000)
             echo "$path -> $status ($(wc -c < body.html) bytes)"
             if [ "$status" != "200" ]; then
