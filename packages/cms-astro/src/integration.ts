@@ -46,7 +46,8 @@ export interface VelocityCmsOptions {
    * `SiteRegistry`, from the project's root: `'./src/cms-sites.ts'`. It says which site a host
    * name belongs to, with that site's own database, secret, address and uploads. A host name it
    * does not know gets no site, and nothing is read from the `VELOCITY_CMS_*` settings of one
-   * site. A site of its own leaves this out.
+   * site. Such a copy builds no page ahead of time: every page is drawn for the site that asked.
+   * A site of its own leaves this out.
    */
   readonly sites?: string;
 }
@@ -162,6 +163,12 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
             ],
           },
         });
+      },
+      // A copy that runs many sites builds no page ahead of time. Such a page is built for no
+      // site and served to all of them, so one site's name, menu or post would be every site's.
+      // Every page is drawn when it is asked for, for the site whose host name asked.
+      'astro:route:setup': ({ route: page }) => {
+        if (options.sites) page.prerender = false;
       },
       'astro:config:done': ({ config }) => {
         clientDir = fileURLToPath(config.adapter ? config.build.client : config.outDir);

@@ -6,6 +6,7 @@ import { PreviewLinks, type Actor } from '@velocity-astro/cms-core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { sharedConnection } from './connection.js';
 import { NoSiteError, currentSite, hostedRequest, inSite, readInSite, siteAt, siteCacheTag, useSiteRegistry, type HostedSite } from './hosted.js';
+import velocityCms from './integration.js';
 import { cmsLiveLoader } from './live-loader.js';
 import { FolderMediaStore } from './media-store.js';
 import { onRequest as previewRequest } from './preview.js';
@@ -179,6 +180,26 @@ describe('a server that runs many sites', () => {
     };
     expect(await preview(harbor, 'harbor.example')).toEqual({ kept: false, robots: 'noindex' });
     expect(await preview(orchard, 'orchard.example')).toEqual({ kept: true, robots: null });
+  });
+
+  it('builds no page ahead of time, since such a page would be every site\'s', () => {
+    const setUp = (options: Parameters<typeof velocityCms>[0]) => {
+      const page = { component: 'src/pages/blog.astro', prerender: true };
+      const hook = velocityCms(options).hooks['astro:route:setup'] as unknown as (given: { route: typeof page }) => void;
+      hook({ route: page });
+      return page.prerender;
+    };
+    expect(setUp({ sites: './src/cms-sites.ts' })).toBe(false);
+    // A site of its own builds what it chooses to.
+    expect(setUp({})).toBe(true);
+  });
+
+  it('lets a page built ahead of time through, though it is built for no site', async () => {
+    const { context } = asked('https://the-template.example/blog/');
+    Object.assign(context, { isPrerendered: true });
+    const drawn = async () => new Response('page');
+    const response = (await hostedRequest(context, () => previewRequest(context, drawn) as Promise<Response>)) as Response;
+    expect(await response.text()).toBe('page');
   });
 
   it('keeps and serves each site\'s uploads apart', async () => {
