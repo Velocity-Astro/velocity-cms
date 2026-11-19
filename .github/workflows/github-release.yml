@@ -1,0 +1,38 @@
+name: GitHub Release
+
+# Makes the GitHub Release (and its tag, v<version>) for a version that is already in
+# CHANGELOG.md, with that section as its notes. The Release workflow does this by itself for a
+# new version; this is for one that was released before that, or whose Release was removed.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The version, as CHANGELOG.md names it, such as 0.1.0-beta.2
+        required: true
+        type: string
+      commit:
+        description: The commit that version was released from. Left empty, the head of main.
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Make the GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          COMMIT: ${{ inputs.commit || github.sha }}
+        run: |
+          node scripts/next-release.mjs --notes "$VERSION" > "$RUNNER_TEMP/notes.md"
+          case "$VERSION" in *-*) pre=--prerelease ;; *) pre= ;; esac
+          gh release create "v$VERSION" --target "$COMMIT" --title "$VERSION" --notes-file "$RUNNER_TEMP/notes.md" $pre

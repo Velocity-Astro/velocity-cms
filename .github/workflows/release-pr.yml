@@ -1,0 +1,61 @@
+name: Release pull request
+
+# Keeps one pull request open, "Release <version>", whenever main holds changes that are not
+# released yet (anything listed under "Unreleased" in CHANGELOG.md). It gives every package the
+# next version and files those changes under it, so what a release would hold can be read in one
+# place. Merging it starts the Release workflow, which stages that version on npm.
+#
+# Needs "Allow GitHub Actions to create and approve pull requests" (Settings, Actions, General).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release-pr
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  propose:
+    name: Open or update the release pull request
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Propose the next release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node scripts/next-release.mjs --next)
+          if [ -z "$version" ]; then
+            echo "Nothing is waiting under \"Unreleased\": no release to propose." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          node scripts/next-release.mjs
+          {
+            echo "Merging this releases **$version**: every package is staged on npm at that version, and a GitHub Release is made with these notes. The version is public on npm once an owner approves it on npmjs.com, under Staged Packages."
+            echo
+            echo "This pull request is kept up to date by a workflow each time main changes. Do not edit it by hand: change \`CHANGELOG.md\` on main instead."
+            echo
+            echo "## What is in it"
+            echo
+            node scripts/next-release.mjs --notes "$version"
+          } > "$RUNNER_TEMP/body.md"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B release/next
+          git commit --all --message "Release $version"
+          git push --force origin release/next
+          if [ -n "$(gh pr list --head release/next --state open --json number --jq '.[0].number')" ]; then
+            gh pr edit release/next --title "Release $version" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh pr create --base main --head release/next --title "Release $version" --body-file "$RUNNER_TEMP/body.md"
+          fi
+          echo "The pull request \"Release $version\" is up to date." >> "$GITHUB_STEP_SUMMARY"
