@@ -11,7 +11,7 @@ on:
         required: true
         type: string
       commit:
-        description: The commit that version was released from. Left empty, the head of main.
+        description: The commit that version was released from, when its tag is not there yet. Left empty, the head of main.
         required: false
         type: string
 
@@ -25,6 +25,9 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Every commit, so an earlier one can be tagged.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -35,4 +38,12 @@ jobs:
         run: |
           node scripts/next-release.mjs --notes "$VERSION" > "$RUNNER_TEMP/notes.md"
           case "$VERSION" in *-*) pre=--prerelease ;; *) pre= ;; esac
-          gh release create "v$VERSION" --target "$COMMIT" --title "$VERSION" --notes-file "$RUNNER_TEMP/notes.md" $pre
+          # The tag is pushed with git and the Release made for it: asked to tag a commit itself,
+          # GitHub refuses a workflow's own token.
+          # Nor may a workflow tag a commit whose workflow files differ from main's: for an earlier
+          # commit, a person pushes the tag first (git tag v<version> <commit>, git push origin v<version>).
+          if ! git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" > /dev/null; then
+            git tag "v$VERSION" "$COMMIT"
+            git push origin "refs/tags/v$VERSION"
+          fi
+          gh release create "v$VERSION" --verify-tag --title "$VERSION" --notes-file "$RUNNER_TEMP/notes.md" $pre
