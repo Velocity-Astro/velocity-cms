@@ -1,8 +1,8 @@
 import type { ContentTypeDef, Entry, EntryData, FieldDef } from '@velocity-astro/cms-core';
 import { HOME_SLUG, SLUG_PATH, isSlug, isSlugPath, liveFields, takesSlugPath } from '@velocity-astro/cms-core';
 import { Box, Button, Card, ConfirmDialog, Form, IconButton, Menu, SaveBar, Segmented, Split, Stack, Tag, Text, TextField, Workbench, toast } from '@velocity-astro/cms-ui';
-import { CalendarClock, Copy, Ellipsis, EyeOff, History, PanelLeftClose, PanelLeftOpen, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { CalendarClock, Copy, Ellipsis, EyeOff, History, PanelLeftClose, PanelLeftOpen, Redo2, Trash2, Undo2 } from 'lucide-react';
+import { useCallback, useState } from 'react';
 import { paths } from '../../app/paths.js';
 import { AdminRequestError } from '../../client/errors.js';
 import { useCreateEntry, useDuplicateEntry, useSession, usePreviewEntry, usePublishEntry, useTrashEntry, useUnpublishEntry, useUpdateEntry } from '../../client/queries.js';
@@ -13,7 +13,9 @@ import { entryState, entryTitle, languageName, localized, sameData, withValue, t
 import { openPreviewTab } from '../../lib/preview-tab.js';
 import { relativeTime } from '../../lib/relative-time.js';
 import { slugify } from '../../lib/slug.js';
+import { useHistory } from '../../lib/use-history.js';
 import { useLeaveGuard } from '../../lib/use-leave-guard.js';
+import { useUndoKeys } from '../../lib/use-undo-keys.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 import { PluginBoundary } from '../../plugins/PluginBoundary.js';
 import { usePluginExtensions } from '../../plugins/plugin-editor.js';
@@ -63,7 +65,9 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   const previewLink = usePreviewEntry();
   const session = useSession();
 
-  const [data, setData] = useState<EntryData>(entry?.data ?? {});
+  // What the form holds, with the steps that led to it, so a change can be taken back.
+  const history = useHistory<EntryData>(entry?.data ?? {}, sameData);
+  const data = history.value;
   // The slug as typed. Until someone types one, a new entry's slug follows its title.
   const [typedSlug, setTypedSlug] = useState<string | null>(null);
   const [slugProblem, setSlugProblem] = useState<string | null>(null);
@@ -128,7 +132,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
     try {
       current = await saved();
       // The server's copy is now the starting point, so the form shows no changes.
-      setData(current.data);
+      history.settle(current.data);
       setTypedSlug(null);
     } catch (error) {
       report(messages.editor.notSaved, error);
@@ -160,7 +164,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
     setProblems(NO_PROBLEMS);
     try {
       const current = await saved();
-      setData(current.data);
+      history.settle(current.data);
       setTypedSlug(null);
       try {
         tab.show((await previewLink.mutateAsync(current.id)).path);
@@ -215,6 +219,17 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   }
 
   const isBusy = running !== null;
+  // A step back or forward changes what the form holds, so what the server said of it no longer applies.
+  const { undo: stepBack, redo: stepForward } = history;
+  const undo = useCallback(() => {
+    stepBack();
+    setProblems(NO_PROBLEMS);
+  }, [stepBack]);
+  const redo = useCallback(() => {
+    stepForward();
+    setProblems(NO_PROBLEMS);
+  }, [stepForward]);
+  useUndoKeys(undo, redo);
   // What fewer people come for sits behind one button, so the bar keeps to the main steps.
   const more = [
     ...(entry?.status === 'published' ? [{ id: 'unpublish', label: messages.editor.unpublish, icon: EyeOff }] : []),
@@ -238,7 +253,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   const hasPage = type.urlPattern !== undefined || Object.keys(type.localizedUrlPatterns ?? {}).length > 0;
 
   const changeField = (field: FieldDef, value: unknown) => {
-    setData((current) => withValue(current, field.id, value));
+    history.set((current) => withValue(current, field.id, value), field.id);
     // A problem is about what was sent. Once the field changes, it no longer applies.
     setProblems((current) => new Map([...current].filter(([path]) => path !== field.key && !path.startsWith(`${field.key}.`))));
   };
@@ -317,6 +332,8 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
           }))}
         />
       )}
+      <IconButton label={messages.editor.undo} icon={Undo2} isDisabled={isBusy || !history.canUndo} onPress={undo} />
+      <IconButton label={messages.editor.redo} icon={Redo2} isDisabled={isBusy || !history.canRedo} onPress={redo} />
       {more.length > 0 && (
         <Menu
           trigger={<IconButton label={messages.editor.more} icon={Ellipsis} isDisabled={isBusy} />}
@@ -392,6 +409,8 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
                       setVisual(true);
                     }}
                     onFormWanted={() => setFormAway(false)}
+                    onUndo={undo}
+                    onRedo={redo}
                   />
                 }
               >
@@ -467,7 +486,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
           hasChanges={hasChanges}
           onReverted={(reverted) => {
             // The form starts again from what was brought back.
-            setData(reverted.data);
+            history.restart(reverted.data);
             setProblems(NO_PROBLEMS);
           }}
           onClose={() => setShowingHistory(false)}

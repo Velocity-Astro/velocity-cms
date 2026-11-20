@@ -259,6 +259,8 @@ export const en = {
     publishChanges: 'Publish changes',
     unpublish: 'Unpublish',
     more: 'More actions',
+    undo: 'Undo',
+    redo: 'Redo',
     trash: 'Move to trash',
     trashTitle: 'Move this to the trash?',
     trashDescription: 'It leaves the lists and can be restored from the trash whenever you need it. Changes you have not saved are not kept.',

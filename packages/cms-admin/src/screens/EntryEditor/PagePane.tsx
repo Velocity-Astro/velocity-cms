@@ -45,13 +45,16 @@ export interface PagePaneProps {
   readonly onWhole: () => void;
   /** Called when something pressed on the page is edited in the form and nowhere else, so the form is wanted. */
   readonly onFormWanted: () => void;
+  /** Called when the keys that take a change back, or make it again, are pressed on the page. */
+  readonly onUndo?: () => void;
+  readonly onRedo?: () => void;
 }
 
 /**
  * The entry's page beside its form, drawn by the site from what the form holds now. Nothing is
  * saved to show it: the draft goes with the request for the page and is kept nowhere.
  */
-export function PagePane({ entry, data, title, width, onWidthChange, isWhole, onWhole, onFormWanted }: PagePaneProps) {
+export function PagePane({ entry, data, title, width, onWidthChange, isWhole, onWhole, onFormWanted, onUndo, onRedo }: PagePaneProps) {
   const messages = useMessages();
   const focus = usePageFocus();
   const link = usePagePreview(entry?.id, entry?.revision);
@@ -89,6 +92,8 @@ export function PagePane({ entry, data, title, width, onWidthChange, isWhole, on
           toolbar: <PageWidths width={width} onChange={onWidthChange} />,
         })}
         emptyText={emptyText}
+        {...(onUndo && { onUndo })}
+        {...(onRedo && { onRedo })}
         {...(focus && {
           onSectionPress: (id: string, field?: string, inForm?: boolean) => {
             focus.press(id, field);

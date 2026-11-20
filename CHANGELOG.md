@@ -4,6 +4,7 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **Undo and redo.** An entry's bar has Undo and Redo buttons, and Ctrl or Command with Z (with Shift, or Ctrl with Y, to redo) works in the form, in the visual editor and on the page itself. A step is whatever was last changed: words typed in a field, a section moved, added or removed, a picture or a link changed. Steps are kept while the entry is open, across saves.
 - **Write formatted text on the page.** In the visual editor and beside the form, text with paragraphs, bold and links is written right where the page shows it. Choosing words there shows a small bar with bold, italic and link. What is pasted goes in as plain words, and only what the format keeps is saved.
 - **Move, duplicate and remove a card from the page.** In the visual editor and beside the form, an item of a list in a section (a card, a row of a menu, a line of a checklist) shows a small bar while the pointer is in it: earlier, later, duplicate, remove. A copy can be typed over right there. A template needs no change.
 - **Edit a link or a button from the page.** In the visual editor and beside the form, a button or a link of a section shows an "Edit link" button while the pointer is over it. It opens a window with the link's own field: a page of the site chosen by name, or an address. A template needs no change, as long as its blocks ask `linkTo` where a link leads.

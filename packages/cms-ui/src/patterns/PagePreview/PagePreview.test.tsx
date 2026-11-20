@@ -147,3 +147,20 @@ it('has no accessibility violations', async () => {
   const { container } = render(example({ note: 'Shows the form as it is now.' }));
   await expectAccessible(container);
 });
+
+it('says when the keys for undo or redo were pressed on the page, and draws what the form then holds', () => {
+  vi.useFakeTimers();
+  const onUndo = vi.fn();
+  const onRedo = vi.fn();
+  const { rerender } = render(example({ onUndo, onRedo }));
+  // Words were typed on the page a moment ago, and the step back takes them away again.
+  say({ source: 'velocity-cms', type: 'words', id: 's1', field: 'title', words: 'Typed here' });
+  rerender(example({ onUndo, onRedo, draft: 'typed on the page' }));
+  say({ source: 'velocity-cms', type: 'undo' });
+  expect(onUndo).toHaveBeenCalledTimes(1);
+  rerender(example({ onUndo, onRedo, draft: 'as it was' }));
+  act(() => void vi.advanceTimersByTime(600));
+  expect(submit).toHaveBeenCalledTimes(2);
+  say({ source: 'velocity-cms', type: 'redo' });
+  expect(onRedo).toHaveBeenCalledTimes(1);
+});

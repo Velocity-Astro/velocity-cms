@@ -739,3 +739,41 @@ it('offers bold, italic and a link on words chosen in text being written, and as
   choose(text, 1, 1);
   expect(bar().style.display).toBe('none');
 });
+
+const keys = (target: Element | Document, key: string, held: { ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean } = { metaKey: true }) => {
+  const event = new page.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...held });
+  target.dispatchEvent(event);
+  return event;
+};
+const asked = () => (said as [{ type: string }, string][]).map(([message]) => message.type).filter((type) => type === 'undo' || type === 'redo');
+
+it('says when the keys for undo and redo are pressed, and takes nothing back itself', () => {
+  expect(keys(page.document.body, 'z').defaultPrevented).toBe(true);
+  keys(page.document.body, 'z', { metaKey: true, shiftKey: true });
+  keys(page.document.body, 'y', { ctrlKey: true });
+  keys(page.document.body, 'z', { ctrlKey: true });
+  expect(asked()).toEqual(['undo', 'redo', 'redo', 'undo']);
+  // Other keys, and Z by itself, are the page's own.
+  expect(keys(page.document.body, 'z', {}).defaultPrevented).toBe(false);
+  keys(page.document.body, 'a');
+  expect(asked()).toHaveLength(4);
+});
+
+it('leaves undo to the browser in a field of the page\'s own form and in text being written', () => {
+  open('<main><div data-cms-section="s1"><form><input id="name"></form></div></main>');
+  expect(keys($('#name'), 'z').defaultPrevented).toBe(false);
+  writingPage();
+  down('#body strong');
+  expect(keys($('#body'), 'z').defaultPrevented).toBe(false);
+  expect(asked()).toEqual([]);
+});
+
+it('ends the typing of plain words when undo is asked for, so the page is drawn as the form holds it', () => {
+  typingPage();
+  down('#h');
+  run('#h').nodeValue = 'Changed ';
+  typed('#h');
+  expect(keys($('#h'), 'z').defaultPrevented).toBe(true);
+  expect(asked()).toEqual(['undo']);
+  expect($('#h').hasAttribute('contenteditable')).toBe(false);
+});
