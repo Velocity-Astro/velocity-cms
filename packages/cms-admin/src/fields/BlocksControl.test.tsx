@@ -1,6 +1,6 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import type { BlockValue } from '@velocity-astro/cms-core';
+import type { BlockDef, BlockValue } from '@velocity-astro/cms-core';
 import { dismissToasts } from '@velocity-astro/cms-ui';
 import { afterEach, expect, it } from 'vitest';
 import type { MemoryAdminClient } from '../testing/memory-client.js';
@@ -63,6 +63,20 @@ it('adds a section from the kinds the template has today, grouped, and opens it'
   expect(body).toHaveLength(4);
   expect(body[3]).toMatchObject({ block: 'b-cta', data: { 'bf-cta-title': 'Ready when you are' } });
   expect(body[3]?.id).not.toBe('');
+});
+
+it('shows a picture of each kind of section that has one', async () => {
+  const user = userEvent.setup();
+  const body = samplePagesType.fields.map((field) =>
+    field.id === 'f-body'
+      ? { ...field, options: { ...field.options, blocks: (field.options['blocks'] as BlockDef[]).map((block) => (block.id === 'b-text' ? { ...block, thumbnail: '/cms/blocks/text.webp' } : block)) } }
+      : field,
+  );
+  renderApp('/content/pages/p1', { user: sampleUser, contentTypes: [{ ...samplePagesType, fields: body }], entries: [samplePage()] });
+  await user.click((await sections()).getByRole('button', { name: 'Add section' }));
+  const picker = within(await screen.findByRole('dialog', { name: 'Add a section' }));
+  expect(picker.getByRole('option', { name: /^Text/ }).querySelector('img')?.getAttribute('src')).toBe('/cms/blocks/text.webp');
+  expect(picker.getByRole('option', { name: /^Call to action/ }).querySelector('img')).toBeNull();
 });
 
 it('moves, duplicates and hides a section', async () => {

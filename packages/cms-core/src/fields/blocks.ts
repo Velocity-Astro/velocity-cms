@@ -15,6 +15,11 @@ export interface NewBlock {
   readonly icon?: string;
   /** What the picker files it under, such as `Content`. */
   readonly group?: string;
+  /**
+   * A picture of the block for the picker, as a path on the site: a file the template keeps in
+   * `public/`, such as `/cms/blocks/call-to-action.webp`. Wide, 16 by 9, and small.
+   */
+  readonly thumbnail?: string;
   readonly fields?: readonly NewField[];
 }
 
@@ -145,6 +150,7 @@ export class BlocksField extends FieldType<BlockValue[], BlocksOptions> {
         ...(input.description !== undefined && { description: input.description }),
         ...(input.icon !== undefined && { icon: input.icon }),
         ...(input.group !== undefined && { group: input.group }),
+        ...(input.thumbnail !== undefined && { thumbnail: sitePath(input.key, input.thumbnail) }),
         fields,
         // A retired block sent back with the rest is stored state, not a description: it stays retired.
         ...(typeof input.retiredAt === 'string' && { retiredAt: input.retiredAt }),
@@ -154,6 +160,17 @@ export class BlocksField extends FieldType<BlockValue[], BlocksOptions> {
     const retired = before.filter((block) => !kept.has(block.id)).map((block) => (block.retiredAt === undefined ? { ...block, retiredAt: context.now } : block));
     return { ...described, blocks: [...blocks, ...retired] };
   }
+}
+
+/**
+ * A block's picture is loaded by the editor, so it may only be a file of the site itself: a path
+ * from its top, never another site's address.
+ */
+function sitePath(key: string, value: unknown): string {
+  if (typeof value === 'string' && /^\/[^/\\\s][^\\\s]*$/.test(value)) return value;
+  throw new ValidationError(`The picture of the block "${key}" must be a path on the site, such as "/cms/blocks/${key}.webp". Put the file in the site's public folder and give its path.`, [
+    { path: ['blocks', key, 'thumbnail'], message: 'A path on the site is needed' },
+  ]);
 }
 
 /** A section without the properties that were sent as `undefined`, so what is stored compares equal to what was sent. */

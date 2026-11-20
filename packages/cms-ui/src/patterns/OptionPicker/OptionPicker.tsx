@@ -1,16 +1,17 @@
 import type { LucideIcon } from 'lucide-react';
 import { Header, ListBox, ListBoxItem, ListBoxSection } from 'react-aria-components';
 import { Dialog } from '../../components/Dialog/index.js';
+import { Thumbnail } from '../../components/Thumbnail/index.js';
 import {
   optionPickerDescriptionClass,
   optionPickerEmptyClass,
-  optionPickerGroupClass,
   optionPickerGroupLabelClass,
-  optionPickerIconClass,
+  optionPickerGroupVariants,
   optionPickerIconSize,
+  optionPickerIconVariants,
   optionPickerLabelClass,
   optionPickerListClass,
-  optionPickerOptionClass,
+  optionPickerOptionVariants,
   optionPickerTextClass,
 } from './OptionPicker.variants.js';
 
@@ -20,6 +21,8 @@ export interface PickerOption {
   /** A line on what choosing it gives. */
   readonly description?: string;
   readonly icon?: LucideIcon;
+  /** Where a picture of what it gives loads from. When any option has one, every option is a card. */
+  readonly image?: string;
 }
 
 export interface PickerGroup {
@@ -47,8 +50,10 @@ export interface OptionPickerProps {
 /** A window to choose one thing from a set of named kinds, in groups. Choosing closes it. */
 export function OptionPicker({ isOpen, onOpenChange, onClosed, title, closeLabel, groups, onChoose, emptyText }: OptionPickerProps) {
   const filled = groups.filter((group) => group.options.length > 0);
+  // One layout for the whole window: a list of rows, or cards once anything has a picture to show.
+  const layout = filled.some((group) => group.options.some((option) => option.image !== undefined)) ? 'cards' : 'rows';
   return (
-    <Dialog isOpen={isOpen} onOpenChange={onOpenChange} {...(onClosed !== undefined && { onClosed })} title={title} closeLabel={closeLabel} size="md">
+    <Dialog isOpen={isOpen} onOpenChange={onOpenChange} {...(onClosed !== undefined && { onClosed })} title={title} closeLabel={closeLabel} size={layout === 'cards' ? 'lg' : 'md'}>
       {filled.length === 0 ? (
         <p className={optionPickerEmptyClass}>{emptyText}</p>
       ) : (
@@ -56,6 +61,7 @@ export function OptionPicker({ isOpen, onOpenChange, onClosed, title, closeLabel
           aria-label={title}
           autoFocus="first"
           selectionMode="none"
+          layout={layout === 'cards' ? 'grid' : 'stack'}
           className={optionPickerListClass}
           onAction={(key) => {
             onChoose(String(key));
@@ -63,14 +69,17 @@ export function OptionPicker({ isOpen, onOpenChange, onClosed, title, closeLabel
           }}
         >
           {filled.map((group) => (
-            <ListBoxSection key={group.id} id={`group:${group.id}`} className={optionPickerGroupClass}>
+            <ListBoxSection key={group.id} id={`group:${group.id}`} className={optionPickerGroupVariants({ layout })}>
               <Header className={optionPickerGroupLabelClass}>{group.label}</Header>
-              {group.options.map(({ id, label, description, icon: Icon }) => (
-                <ListBoxItem key={id} id={id} textValue={description === undefined ? label : `${label} ${description}`} className={optionPickerOptionClass}>
-                  {Icon && (
-                    <span className={optionPickerIconClass}>
-                      <Icon aria-hidden size={optionPickerIconSize} />
-                    </span>
+              {group.options.map(({ id, label, description, icon: Icon, image }) => (
+                <ListBoxItem key={id} id={id} textValue={description === undefined ? label : `${label} ${description}`} className={optionPickerOptionVariants({ layout })}>
+                  {image !== undefined ? (
+                    <Thumbnail src={image} size="full" />
+                  ) : (
+                    // In cards an option with no picture keeps a frame of the same size, so the rows of cards stay even.
+                    (Icon || layout === 'cards') && (
+                      <span className={optionPickerIconVariants({ layout })}>{Icon && <Icon aria-hidden size={optionPickerIconSize} />}</span>
+                    )
                   )}
                   <span className={optionPickerTextClass}>
                     {/* Both lines are the option's name, so what is read out is what is seen. */}
