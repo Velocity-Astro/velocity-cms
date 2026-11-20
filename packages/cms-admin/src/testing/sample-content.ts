@@ -169,6 +169,41 @@ export function sampleNavigation(now: Date = new Date()): Entry {
   };
 }
 
+/**
+ * A single page a template keeps in the settings, with the field that names the site. Kept apart
+ * like the pages above.
+ */
+export const sampleBusinessType: ContentTypeDef = {
+  id: 'type-business',
+  key: 'business',
+  kind: 'single',
+  label: { en: 'Business details' },
+  inSettings: true,
+  siteNamePath: ['f-business-name'],
+  fields: [
+    field('f-business-name', 'name', 'text', 'Business name', { required: true, translated: false }),
+    field('f-business-phone', 'phone', 'text', 'Phone', { translated: false }),
+    field('f-business-email', 'email', 'text', 'Email', { translated: false }),
+  ],
+};
+
+export function sampleBusiness(now: Date = new Date()): Entry {
+  const data = { 'f-business-name': 'Lakeshore Realty', 'f-business-phone': '512 555 0142', 'f-business-email': 'hello@lakeshore.example' };
+  return {
+    id: 'b1',
+    typeId: 'type-business',
+    locale: 'en',
+    translationGroup: 'b1',
+    slug: 'business',
+    status: 'published',
+    data,
+    revision: 2,
+    published: { slug: 'business', data, revision: 2, at: new Date(now.getTime() - 60 * 60 * 1000).toISOString() },
+    createdAt: new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(now.getTime() - 60 * 60 * 1000).toISOString(),
+  };
+}
+
 const hoursAgo = (hours: number, now: Date) => new Date(now.getTime() - hours * 60 * 60 * 1000).toISOString();
 
 /** Listings in each state the list can show. Times are relative to `now`, so the list always reads the same. */

@@ -16,7 +16,7 @@ import publishLogEditor from './publish-log-editor.js';
 // Read from its source, so the preview needs no build of it.
 import { seo } from '../../cms-plugins/src/index.js';
 import { AdminApp, type PluginEditorModule } from '../src/index.js';
-import { MemoryAdminClient, sampleContentTypes, sampleEntries, sampleNavigation, sampleNavigationType, samplePage, samplePagesType, sampleUser } from '../src/testing/index.js';
+import { MemoryAdminClient, sampleBusiness, sampleBusinessType, sampleContentTypes, sampleEntries, sampleNavigation, sampleNavigationType, samplePage, samplePagesType, sampleUser } from '../src/testing/index.js';
 
 const options = new URLSearchParams(location.search);
 document.documentElement.classList.toggle('dark', options.has('dark'));
@@ -49,8 +49,8 @@ const client = new MemoryAdminClient({
     { name: 'redirects', apiVersion: 1, label: { en: 'Redirects' }, description: { en: 'Send old addresses to new pages.' }, version: '0.1.0', permissions: ['entry:read', 'entry:write'], enabledByDefault: false, setup: () => undefined },
     { name: 'forms', apiVersion: 2, label: { en: 'Forms' }, setup: () => undefined },
   ],
-  contentTypes: [...sampleContentTypes, samplePagesType, sampleNavigationType],
-  entries: [...sampleEntries(), samplePage(), sampleNavigation()],
+  contentTypes: [...sampleContentTypes, samplePagesType, sampleNavigationType, sampleBusinessType],
+  entries: [...sampleEntries(), samplePage(), sampleNavigation(), sampleBusiness()],
   ...(options.has('slow') && { delay: 1500 }),
 });
 

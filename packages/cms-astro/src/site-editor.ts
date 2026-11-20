@@ -4,6 +4,7 @@ import { sharedConnection } from './connection.js';
 import { EditorHost, LogMailer } from './editor.js';
 import { currentSite } from './hosted.js';
 import { SiteMail } from './site-mail.js';
+import { siteNameNow } from './site-name.js';
 import { siteSecret } from './secret.js';
 
 /** What the integration tells the editor's routes about the site. */
@@ -88,7 +89,7 @@ async function createHost(origin: string, settings: SiteEditorSettings): Promise
     const connection = await sharedConnection({});
     const hosted = currentSite();
     // A host names its sites. Otherwise the name an owner saved, then the one the site's code gives.
-    const named = hosted ? undefined : () => connection.cms.settings.siteName();
+    const named = hosted ? undefined : () => siteNameNow(connection.cms);
     const siteName = hosted?.name ?? (await named?.()) ?? settings.siteName;
     // The site's own mailer first, then Resend from the server's settings, then what an owner set up in the editor, then the server's log.
     const mail = new SiteMail({ settings: connection.cms.settings, own: settings.mailer, fallback: new LogMailer(), hosted: hosted !== undefined, ...(named && { siteName: named }) });

@@ -41,6 +41,8 @@ export interface EntryFormProps {
   readonly onSwitch?: (entryId: string) => void;
   /** Called once the entry has gone to the trash, so the screen can move on. */
   readonly onTrashed?: () => void;
+  /** Set when the form is one part of a screen that has its own frame, such as a part of the settings. */
+  readonly embedded?: boolean;
 }
 
 /**
@@ -49,7 +51,7 @@ export interface EntryFormProps {
  * It holds what the person has typed. The server holds what is saved, and what is published.
  * Saving sends the first to the second; publishing is a separate step the person chooses.
  */
-export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onTrashed }: EntryFormProps) {
+export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onTrashed, embedded = false }: EntryFormProps) {
   const messages = useMessages();
   const locale = useLocale();
   const create = useCreateEntry();
@@ -337,7 +339,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
           </>
         }
       />
-      <Box paddingX={12} paddingY={8} grow>
+      <Box paddingX={embedded ? 0 : 12} paddingY={8} grow>
         <Form label={messages.editor.form} gap={5} onSubmit={() => void run('save')}>
           {showsPage ? (
             // The page is beside the form, so everything else is in the form's one column.

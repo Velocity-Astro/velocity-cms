@@ -27,6 +27,8 @@ export const paths = {
   pluginScreen: (plugin: string, screen: string) => `/plugins/${encodeURIComponent(plugin)}/${encodeURIComponent(screen)}`,
   /** The site's settings, at one of their parts. */
   settings: (area: SettingsAreaId = SETTINGS_AREAS[0]) => `/settings/${area}`,
+  /** A single page that is part of the settings, shown as one of their parts. */
+  settingsPage: (typeKey: string) => `/settings/page/${encodeURIComponent(typeKey)}`,
   types: '/types',
   /** A content type's fields, or with `within` (field ids from the top down) the fields a group holds. */
   type: (typeKey: string, within: readonly string[] = []) =>

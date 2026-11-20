@@ -42,6 +42,7 @@ export function createRoutes(siteName: string): RouteObject[] {
             { path: 'plugins/:pluginName/:screenId', element: <PluginScreenScreen /> },
             { path: 'settings', element: <SettingsScreen /> },
             { path: 'settings/:area', element: <SettingsScreen /> },
+            { path: 'settings/page/:typeKey', element: <SettingsScreen /> },
             { path: 'types', element: <ContentTypesScreen /> },
             { path: 'types/:typeKey', element: <ContentTypeScreen /> },
             { path: 'content/:typeKey', element: <ContentListScreen /> },

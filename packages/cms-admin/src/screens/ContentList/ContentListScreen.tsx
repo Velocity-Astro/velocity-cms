@@ -80,6 +80,8 @@ export function ContentListScreen() {
   const manyLanguages = groups.some((group) => group.versions.length > 1) || new Set(groups.map((group) => group.primary.locale)).size > 1;
   // A single page has no list: its address here leads straight to its entry, or to starting it.
   if (type.kind === 'single') {
+    // One that is part of the settings is edited there.
+    if (type.inSettings === true) return <Navigate to={paths.settingsPage(type.key)} replace />;
     if (entries.isPending) return <LoadingState shape="form" />;
     if (entries.isError) return <ErrorState error={entries.error} onRetry={() => void entries.refetch()} />;
     const entry = groups[0]?.primary;

@@ -49,7 +49,9 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
   if (session.isError) return <ErrorState error={session.error} onRetry={() => void session.refetch()} />;
   if (session.data === null) return <Navigate to={paths.signIn} replace />;
 
-  const nav: AppShellNavItem[] = (types.data ?? []).map((type) => {
+  // A page that is part of the settings is reached from there, so the menu has one way to it.
+  const settingsPages = (types.data ?? []).filter((type) => type.inSettings === true);
+  const nav: AppShellNavItem[] = (types.data ?? []).filter((type) => type.inSettings !== true).map((type) => {
     const href = paths.contentList(type.key);
     return {
       id: type.id,
@@ -104,8 +106,11 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
                       isCurrent: location.pathname === paths.types || location.pathname.startsWith(`${paths.types}/`),
                     },
                     { id: 'people', label: messages.app.people, href: paths.people, icon: Users, isCurrent: location.pathname === paths.people },
-                    { id: 'settings', label: messages.app.settings, href: paths.settings(), icon: Settings, isCurrent: location.pathname.startsWith('/settings') },
                   ]
+                : []),
+              // Owners set the site up. Everyone else comes here only for the pages a template keeps in the settings.
+              ...(session.data.role === 'owner' || settingsPages.length > 0
+                ? [{ id: 'settings', label: messages.app.settings, href: '/settings', icon: Settings, isCurrent: location.pathname.startsWith('/settings') }]
                 : []),
               { id: 'trash', label: messages.app.trash, href: paths.trash, icon: Trash2, isCurrent: location.pathname === paths.trash },
             ],
