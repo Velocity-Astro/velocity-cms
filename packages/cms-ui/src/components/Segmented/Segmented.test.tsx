@@ -37,6 +37,23 @@ it('moves between options with the arrow keys', async () => {
   expect(document.activeElement).toBe(screen.getByRole('radio', { name: 'Published' }));
 });
 
+it('shows a sample of a colour beside a choice, and sits in a form with its label and help', async () => {
+  const swatches = [
+    { id: 'default', label: 'White', swatch: '#ffffff' },
+    { id: 'secondary', label: 'Warm stone', swatch: '#f4f1ec' },
+  ];
+  const { container, rerender } = render(<Segmented label="Background" options={swatches} selected="default" onChange={() => undefined} isLabelShown description="From the template." />);
+  expect([...container.querySelectorAll('circle')].map((circle) => circle.getAttribute('fill'))).toEqual(['#ffffff', '#f4f1ec']);
+  // The sample adds nothing to the choice's name.
+  expect(screen.getByRole('radio', { name: 'Warm stone' })).toBeTruthy();
+  expect(screen.getByText('Background')).toBeTruthy();
+  expect(screen.getByText('From the template.')).toBeTruthy();
+  await expectAccessible(container);
+  rerender(<Segmented label="Background" options={swatches} selected="default" onChange={() => undefined} isLabelShown description="From the template." errorMessage="Choose one." />);
+  expect(screen.getByText('Choose one.')).toBeTruthy();
+  expect(screen.queryByText('From the template.')).toBeNull();
+});
+
 it('has no accessibility violations', async () => {
   const { container } = render(<Segmented label="Show" options={options} selected="all" onChange={() => undefined} />);
   await expectAccessible(container);

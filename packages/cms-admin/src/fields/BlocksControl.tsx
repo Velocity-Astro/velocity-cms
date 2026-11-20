@@ -6,7 +6,7 @@ import { localized, withValue } from '../lib/content.js';
 import { useLast } from '../lib/use-closing.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
 import { blockIcon } from './block-icons.js';
-import type { FieldControlProps, LinkPlace, ListPlace, PicturePlace, WordsPlace } from './field-control.js';
+import type { FieldControlProps, LinkPlace, ListPlace, PicturePlace, SwatchPlace, WordsPlace } from './field-control.js';
 import { FieldGrid } from './FieldGrid.js';
 import { useControlFor } from './FieldSummary.js';
 import { usePageFocus } from './page-focus.js';
@@ -114,6 +114,18 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
       })),
     );
   };
+  // Where each section's look is a choice among a few of the site's colours, chosen from its bar on the page.
+  const swatchesOf = (section: BlockValue): readonly SwatchPlace[] => {
+    const block = blockOf(blocks, section);
+    if (!block || block.retiredAt !== undefined) return [];
+    return liveFields(block.fields).flatMap((inner) =>
+      (controlFor(inner.type)?.swatches?.(inner, section.data[inner.id], controlFor) ?? []).map((found) => ({
+        ...found,
+        place: found.place === '' ? inner.key : `${inner.key}.${found.place}`,
+        put: (value: string) => withValue(section.data, inner.id, found.put(value)),
+      })),
+    );
+  };
   const typable = Object.fromEntries(sections.map((section) => [section.id, wordsOf(section).map(({ place }) => place)]));
   const typableSaid = JSON.stringify(typable);
   const setTypable = focus?.setTypable;
@@ -161,7 +173,7 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
       itemRemove: messages.editor.pageItemRemove,
     },
     sections: Object.fromEntries(
-      sections.map((section, at) => [section.id, { name: nameOf(blockOf(blocks, section)), up: at > 0, down: at < sections.length - 1, copy: !isFull, add: !isFull, pictures: picturesOf(section).map(({ place }) => place), links: linksOf(section).map(({ place }) => place), lists: listsOf(section).map(({ place, items, isFull }) => ({ field: place, count: items.length, full: isFull })) },
+      sections.map((section, at) => [section.id, { name: nameOf(blockOf(blocks, section)), up: at > 0, down: at < sections.length - 1, copy: !isFull, add: !isFull, pictures: picturesOf(section).map(({ place }) => place), links: linksOf(section).map(({ place }) => place), lists: listsOf(section).map(({ place, items, isFull }) => ({ field: place, count: items.length, full: isFull })), swatches: swatchesOf(section).map((found) => ({ field: found.place, name: localized(found.field.label, locale), ...(found.chosen !== undefined && { chosen: found.chosen }), choices: found.choices.map((choice) => ({ value: choice.value, name: choice.name(locale), colour: choice.colour })) })) },
       ]),
     ),
   };
@@ -198,9 +210,9 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
     if (moved) next.splice(to, 0, moved);
     change(next);
   };
-  const acting = useRef({ sections, act, move, isFull, listsOf, change });
+  const acting = useRef({ sections, act, move, isFull, listsOf, swatchesOf, change });
   useEffect(() => {
-    acting.current = { sections, act, move, isFull, listsOf, change };
+    acting.current = { sections, act, move, isFull, listsOf, swatchesOf, change };
   });
   const onActed = focus?.onActed;
   const show = focus?.open;
@@ -225,6 +237,21 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
         }
       }),
     [onActed, show],
+  );
+
+  // A swatch pressed on a section's bar chooses what the same swatch chooses in the form.
+  const onSwatched = focus?.onSwatched;
+  useEffect(
+    () =>
+      onSwatched?.((id, field, value) => {
+        const now = acting.current;
+        const section = now.sections.find((candidate) => candidate.id === id);
+        const found = section && now.swatchesOf(section).find((candidate) => candidate.place === field);
+        // Only a choice the field has, whatever the page said.
+        if (!section || !found || found.chosen === value || !found.choices.some((choice) => choice.value === value)) return;
+        now.change(now.sections.map((existing) => (existing.id === id ? { ...existing, data: found.put(value) as BlockValue['data'] } : existing)));
+      }),
+    [onSwatched],
   );
 
   // The button on a picture of the page opens the window that picture is chosen in.

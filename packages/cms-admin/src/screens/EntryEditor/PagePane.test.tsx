@@ -458,3 +458,47 @@ it('takes shaped text written on the page into the form, and asks where a link t
   await user.click(within(await screen.findByRole('dialog', { name: 'Link' })).getByRole('button', { name: 'Close' }));
   expect(answers().at(-1)?.href).toBeNull();
 });
+
+it('shows a section\'s background as swatches, in the form and on its bar on the page', async () => {
+  const user = userEvent.setup();
+  const tone: FieldDef = {
+    id: 'bf-hero-tone',
+    key: 'tone',
+    type: 'select',
+    label: { en: 'Background' },
+    required: false,
+    translated: false,
+    options: { choices: ['default', 'secondary'], labels: { default: { en: 'White' }, secondary: { en: 'Warm stone' } }, swatches: { default: '#ffffff', secondary: '#f4f1ec' } },
+  };
+  const fields = samplePagesType.fields.map((field) =>
+    field.id === 'f-body'
+      ? { ...field, options: { ...field.options, blocks: (field.options['blocks'] as BlockDef[]).map((block) => (block.id === 'b-hero' ? { ...block, fields: [...block.fields, tone] } : block)) } }
+      : field,
+  );
+  renderApp('/content/pages/p1', { user: sampleUser, contentTypes: [...sampleContentTypes, { ...samplePagesType, fields }], entries: [...sampleEntries(), samplePage()] });
+  const shown = await frame();
+  const post = vi.spyOn(shown.contentWindow as Window, 'postMessage').mockImplementation(() => undefined);
+  await say({ source: 'velocity-cms', type: 'ready' });
+  type Told = { type: string; sections?: Record<string, { swatches?: unknown }> };
+  const told = () => post.mock.calls.map(([message]) => message as Told).filter((message) => message.type === 'tools').at(-1);
+  expect(told()?.sections?.['s1']?.swatches).toEqual([
+    { field: 'tone', name: 'Background', choices: [{ value: 'default', name: 'White', colour: '#ffffff' }, { value: 'secondary', name: 'Warm stone', colour: '#f4f1ec' }] },
+  ]);
+  expect(told()?.sections?.['s2']?.swatches).toEqual([]);
+  const held = () => (draft().data['f-body'] as BlockValue[])[0]?.data['bf-hero-tone'];
+
+  // A dot pressed on the page chooses it, and only a choice the field has.
+  await say({ source: 'velocity-cms', type: 'swatch', id: 's1', field: 'tone', value: 'secondary' });
+  expect(held()).toBe('secondary');
+  await say({ source: 'velocity-cms', type: 'swatch', id: 's1', field: 'tone', value: 'purple' });
+  await say({ source: 'velocity-cms', type: 'swatch', id: 's1', field: 'gone', value: 'default' });
+  expect(held()).toBe('secondary');
+  await waitFor(() => expect((told()?.sections?.['s1']?.swatches as { chosen?: string }[])[0]?.chosen).toBe('secondary'));
+
+  // The same choice in the form is a row of swatches, each by its name.
+  await user.click(await screen.findByRole('button', { name: /^Page opening/ }));
+  const background = within(screen.getByRole('radiogroup', { name: 'Background' }));
+  expect(background.getByRole('radio', { name: 'Warm stone' }).getAttribute('aria-checked')).toBe('true');
+  await user.click(background.getByRole('radio', { name: 'White' }));
+  expect(held()).toBe('default');
+});

@@ -4,6 +4,7 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **Section swatches.** A choice among a few of the template's own colours, such as a section's background, is shown as swatches: in the form as a row of named colours, and on the page as dots on the section's bar, where one press changes the section. A template gives a `select` field's choices their sample colours with `swatches`; what is stored is still the choice's name.
 - **Undo and redo.** An entry's bar has Undo and Redo buttons, and Ctrl or Command with Z (with Shift, or Ctrl with Y, to redo) works in the form, in the visual editor and on the page itself. A step is whatever was last changed: words typed in a field, a section moved, added or removed, a picture or a link changed. Steps are kept while the entry is open, across saves.
 - **Write formatted text on the page.** In the visual editor and beside the form, text with paragraphs, bold and links is written right where the page shows it. Choosing words there shows a small bar with bold, italic and link. What is pasted goes in as plain words, and only what the format keeps is saved.
 - **Move, duplicate and remove a card from the page.** In the visual editor and beside the form, an item of a list in a section (a card, a row of a menu, a line of a checklist) shows a small bar while the pointer is in it: earlier, later, duplicate, remove. A copy can be typed over right there. A template needs no change.

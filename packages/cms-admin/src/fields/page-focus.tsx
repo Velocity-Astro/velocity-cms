@@ -45,7 +45,12 @@ export interface PageFocus {
   /** The page says a button on an item of a list was pressed: the section, the list's field as keys, the item's place and what to do. */
   readonly itemActed: ItemListener;
   readonly onItemActed: (listener: ItemListener) => () => void;
+  /** The page says a swatch on a section's bar was pressed: the section, the field as keys and the choice. */
+  readonly swatched: SwatchListener;
+  readonly onSwatched: (listener: SwatchListener) => () => void;
 }
+
+export type SwatchListener = (id: string, field: string, value: string) => void;
 
 export type ItemListener = (id: string, field: string, at: number, action: PageItemAction) => void;
 
@@ -72,6 +77,7 @@ export function PageFocusProvider({ children }: { readonly children: ReactNode }
   const picturing = useRef(new Set<PicturedListener>());
   const linking = useRef(new Set<PicturedListener>());
   const itemActing = useRef(new Set<ItemListener>());
+  const swatching = useRef(new Set<SwatchListener>());
   const focus = useMemo<PageFocus>(
     () => ({
       pressed,
@@ -112,6 +118,11 @@ export function PageFocusProvider({ children }: { readonly children: ReactNode }
       onItemActed: (listener) => {
         itemActing.current.add(listener);
         return () => void itemActing.current.delete(listener);
+      },
+      swatched: (id, field, value) => swatching.current.forEach((listener) => listener(id, field, value)),
+      onSwatched: (listener) => {
+        swatching.current.add(listener);
+        return () => void swatching.current.delete(listener);
       },
     }),
     [pressed, opened, typable, tools],

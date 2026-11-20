@@ -67,6 +67,17 @@ export interface ListPlace {
   readonly put: (items: readonly unknown[]) => unknown;
 }
 
+/** One place in a value where a look is chosen among a few of the site's colours: the choices with a sample of each, and the one chosen. */
+export interface SwatchPlace {
+  readonly place: string;
+  /** The field the choice is a value of, for its name. */
+  readonly field: FieldDef;
+  readonly choices: readonly { readonly value: string; readonly colour: string; readonly name: (locale: string) => string }[];
+  readonly chosen: string | undefined;
+  /** The value with this choice at the place. */
+  readonly put: (value: string) => unknown;
+}
+
 type ControlFor = (type: string) => FieldControl | undefined;
 
 export interface FieldControl {
@@ -117,6 +128,11 @@ export interface FieldControl {
    * removed from the page itself. A list is its own place and asks its items for theirs.
    */
   readonly lists?: (field: FieldDef, value: unknown, controlFor: ControlFor) => readonly ListPlace[];
+  /**
+   * Where a value of this kind is a choice among a few of the site's colours: the places a look
+   * (a section's background) can be chosen from the page itself, as swatches on the section's bar.
+   */
+  readonly swatches?: (field: FieldDef, value: unknown, controlFor: ControlFor) => readonly SwatchPlace[];
   /** `end` when summaries are figures, so a column of them lines up. */
   readonly summaryAlign?: 'start' | 'end';
 }

@@ -1,12 +1,12 @@
-import { fromPlainText, liveFields, type FieldDef, type RichText } from '@velocity-astro/cms-core';
-import { DateField, Fieldset, NumberField, Repeater, SectionList, Select, Skeleton, SkeletonGroup, Stack, Switch, Text, TextArea, TextField } from '@velocity-astro/cms-ui';
+import { fromPlainText, isSwatchColour, liveFields, type FieldDef, type RichText } from '@velocity-astro/cms-core';
+import { DateField, Fieldset, NumberField, Repeater, SectionList, Segmented, Select, Skeleton, SkeletonGroup, Stack, Switch, Text, TextArea, TextField } from '@velocity-astro/cms-ui';
 import { Copy, Trash2 } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
 import { useContentTypes, useEntries, useForms } from '../client/queries.js';
 import { entryTitle, groupTranslations, localized, sameData, withValue } from '../lib/content.js';
 import { richTextFromHtml } from '../lib/rich-from-html.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
-import { createFieldControlRegistry, type FieldControl, type FieldControlProps, type FieldControls, type FieldSummaryProps, type LinkPlace, type ListPlace, type PicturePlace, type WordsPlace } from './field-control.js';
+import { createFieldControlRegistry, type FieldControl, type FieldControlProps, type FieldControls, type FieldSummaryProps, type LinkPlace, type ListPlace, type PicturePlace, type SwatchPlace, type WordsPlace } from './field-control.js';
 import { BlocksControl } from './BlocksControl.js';
 import { FieldEditor } from './FieldEditor.js';
 import { FieldGrid } from './FieldGrid.js';
@@ -111,10 +111,38 @@ function SelectSummary({ field, value }: FieldSummaryProps) {
   return <Text size="sm">{choiceName(field, String(value), locale)}</Text>;
 }
 
+/** The choices of a select field that have a sample colour, where every choice has one: the field is then a row of swatches. */
+function swatchesOf(field: FieldDef): readonly { readonly value: string; readonly colour: string }[] {
+  const choices = Array.isArray(field.options['choices']) ? field.options['choices'].filter((choice) => typeof choice === 'string') : [];
+  const colours = (field.options['swatches'] ?? {}) as Readonly<Record<string, unknown>>;
+  const found = choices.flatMap((value) => (isSwatchColour(colours[value]) ? [{ value, colour: colours[value] }] : []));
+  return found.length === choices.length ? found : [];
+}
+
+const selectSwatches = (field: FieldDef, value: unknown): readonly SwatchPlace[] => {
+  const choices = swatchesOf(field);
+  if (choices.length === 0) return [];
+  return [{ place: '', field, choices: choices.map((choice) => ({ ...choice, name: (locale: string) => choiceName(field, choice.value, locale) })), chosen: typeof value === 'string' ? value : undefined, put: (chosen) => chosen }];
+};
+
 function SelectControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {
   const messages = useMessages();
   const locale = useLocale();
   const choices = Array.isArray(field.options['choices']) ? field.options['choices'].filter((choice) => typeof choice === 'string') : [];
+  const swatches = swatchesOf(field);
+  // A few looks of the site's own are chosen by their colour, all in view.
+  if (swatches.length > 0)
+    return (
+      <Segmented
+        label={label}
+        isLabelShown={!isLabelHidden}
+        {...(help !== undefined && { description: help })}
+        options={swatches.map((choice) => ({ id: choice.value, label: choiceName(field, choice.value, locale), swatch: choice.colour }))}
+        selected={typeof value === 'string' ? value : ''}
+        onChange={onChange}
+        {...(problem !== undefined && { errorMessage: problem })}
+      />
+    );
   return (
     <Select
       label={label}
@@ -506,7 +534,7 @@ export function createFieldControls(): FieldControls {
     .register({ type: 'number-input', Component: NumberControl, width: 'compact', Summary: NumberSummary, summaryAlign: 'end' })
     .register({ type: 'date-picker', Component: DateControl, width: 'compact' })
     .register({ type: 'switch', Component: SwitchControl })
-    .register({ type: 'select', Component: SelectControl, width: 'compact', Summary: SelectSummary })
+    .register({ type: 'select', Component: SelectControl, width: 'compact', Summary: SelectSummary, swatches: selectSwatches })
     .register({ type: 'reference', Component: ReferenceControl, width: 'compact' })
     .register({ type: 'form-picker', Component: FormControl, width: 'compact' })
     .register({ type: 'link', Component: LinkControl, links: linkLinks })
