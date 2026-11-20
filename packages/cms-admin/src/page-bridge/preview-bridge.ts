@@ -547,7 +547,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
   // Tools.
   interface Tools {
     readonly labels: Record<string, unknown>;
-    readonly sections: Record<string, { readonly name?: unknown; readonly up?: unknown; readonly down?: unknown; readonly copy?: unknown; readonly add?: unknown; readonly pictures?: unknown; readonly links?: unknown; readonly lists?: unknown } | undefined>;
+    readonly sections: Record<string, { readonly name?: unknown; readonly up?: unknown; readonly down?: unknown; readonly copy?: unknown; readonly add?: unknown; readonly pictures?: unknown; readonly links?: unknown; readonly lists?: unknown; readonly swatches?: unknown } | undefined>;
   }
   let tools: Tools | null = null;
   // The section the bar is for: the one the pointer was last in, and it stays while the pointer is on the bar itself.
@@ -621,6 +621,55 @@ export function previewBridge(page: Window & typeof globalThis): void {
     return button;
   };
   const buttons = { up: tool('up'), down: tool('down'), duplicate: tool('duplicate'), remove: tool('remove') };
+  // Swatches: a look of the section chosen among a few of the site's colours has a dot for each
+  // choice on the bar. The page changes nothing: it says which was pressed.
+  const dots = doc.createElement('span');
+  dots.setAttribute('data-cms-swatches', '');
+  Object.assign(dots.style, { display: 'none', alignItems: 'center', gap: '7px', padding: '0 6px 0 10px', marginLeft: '4px', borderLeft: '1px solid color-mix(in srgb, currentColor 25%, transparent)' });
+  bar.append(dots);
+  // A colour and nothing else: a sample is never an address to fetch.
+  const COLOUR = /^(?:#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})|(?:oklch|oklab|rgb|hsl)\([0-9.%,/ -]+\))$/i;
+  let dotted = '';
+  const drawDots = (about: { readonly swatches?: unknown }, id: string): void => {
+    const sets = Array.isArray(about.swatches) ? (about.swatches as { field?: unknown; name?: unknown; chosen?: unknown; choices?: unknown }[]) : [];
+    const key = `${id}:${JSON.stringify(sets)}`;
+    if (key === dotted) return;
+    dotted = key;
+    dots.replaceChildren();
+    for (const set of sets) {
+      if (typeof set.field !== 'string' || !Array.isArray(set.choices)) continue;
+      for (const choice of set.choices as { value?: unknown; name?: unknown; colour?: unknown }[]) {
+        if (typeof choice.value !== 'string' || typeof choice.colour !== 'string' || choice.colour.length > 64 || !COLOUR.test(choice.colour)) continue;
+        const { field } = set;
+        const { value } = choice;
+        const dot = doc.createElement('button');
+        dot.type = 'button';
+        dot.tabIndex = -1;
+        dot.setAttribute('data-cms-swatch', `${field}:${value}`);
+        dot.title = [word(set.name), word(choice.name)].filter(Boolean).join(': ');
+        const isChosen = set.chosen === value;
+        if (isChosen) dot.setAttribute('data-cms-chosen', '');
+        Object.assign(dot.style, {
+          boxSizing: 'border-box',
+          width: '18px',
+          height: '18px',
+          padding: '0',
+          borderRadius: '50%',
+          border: '1px solid color-mix(in srgb, currentColor 45%, transparent)',
+          background: choice.colour,
+          outline: isChosen ? `2px solid ${ACCENT}` : 'none',
+          outlineOffset: '1px',
+          cursor: isChosen ? 'default' : 'pointer',
+        });
+        dot.addEventListener('mousedown', (event) => event.preventDefault());
+        dot.addEventListener('click', () => {
+          if (!isChosen) say({ type: 'swatch', id, field, value });
+        });
+        dots.append(dot);
+      }
+    }
+    dots.style.display = dots.childElementCount > 0 ? 'flex' : 'none';
+  };
   const adder = (action: string): HTMLButtonElement => {
     const button = doc.createElement('button');
     button.type = 'button';
@@ -1026,6 +1075,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
     const rect = section.getBoundingClientRect();
     if (rect.bottom <= 0 || rect.top >= page.innerHeight || (rect.width === 0 && rect.height === 0)) return hide();
     named.textContent = word(about.name);
+    drawDots(about, section.dataset['cmsSection'] ?? '');
     const able: Record<keyof typeof buttons, boolean> = { up: about.up === true, down: about.down === true, duplicate: about.copy === true, remove: true };
     for (const action of ['up', 'down', 'duplicate', 'remove'] as const) {
       const button = buttons[action];

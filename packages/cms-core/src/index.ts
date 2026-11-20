@@ -18,6 +18,7 @@ export {
   ListField,
   NumberField,
   SelectField,
+  isSwatchColour,
   ReferenceField,
   RichTextField,
   ImageField,

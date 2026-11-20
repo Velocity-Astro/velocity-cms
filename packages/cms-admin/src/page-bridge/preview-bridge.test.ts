@@ -777,3 +777,34 @@ it('ends the typing of plain words when undo is asked for, so the page is drawn 
   expect(asked()).toEqual(['undo']);
   expect($('#h').hasAttribute('contenteditable')).toBe(false);
 });
+
+const SWATCHED = {
+  labels: TOOLS.labels,
+  sections: {
+    ...TOOLS.sections,
+    s1: {
+      ...TOOLS.sections.s1,
+      swatches: [
+        { field: 'tone', name: 'Background', chosen: 'default', choices: [{ value: 'default', name: 'White', colour: '#ffffff' }, { value: 'secondary', name: 'Warm stone', colour: 'oklch(96% 0.01 80)' }, { value: 'bad', name: 'Bad', colour: 'url(https://elsewhere.example/x.png)' }] },
+      ],
+    },
+  },
+};
+const dot = (name: string) => $(`[data-cms-swatch="${name}"]`) as HTMLButtonElement;
+
+it('shows a dot for each of a section\'s swatches on its bar, and says which was pressed', () => {
+  hear({ source: 'velocity-cms', type: 'tools', ...SWATCHED });
+  pointAt('h1');
+  expect($('[data-cms-swatches]').style.display).toBe('flex');
+  expect(dot('tone:default').title).toBe('Background: White');
+  expect(dot('tone:default').hasAttribute('data-cms-chosen')).toBe(true);
+  expect(dot('tone:secondary').style.background).toContain('oklch');
+  // Something that is not a colour is no swatch.
+  expect(page.document.querySelector('[data-cms-swatch="tone:bad"]')).toBeNull();
+  dot('tone:default').click();
+  dot('tone:secondary').click();
+  expect((said as [{ type: string }, string][]).map(([message]) => message).filter((message) => message.type === 'swatch')).toEqual([{ source: 'velocity-cms', type: 'swatch', id: 's1', field: 'tone', value: 'secondary' }]);
+  // A section with none has none.
+  pointAt('li');
+  expect($('[data-cms-swatches]').style.display).toBe('none');
+});

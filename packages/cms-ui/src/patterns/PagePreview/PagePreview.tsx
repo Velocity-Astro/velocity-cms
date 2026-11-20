@@ -28,6 +28,7 @@ interface Said {
   readonly at?: unknown;
   readonly form?: unknown;
   readonly href?: unknown;
+  readonly value?: unknown;
 }
 
 /** What can be done to a section from the page itself. */
@@ -37,11 +38,19 @@ const ITEM_ACTIONS = ['up', 'down', 'duplicate', 'remove'] as const;
 /** What can be done to one item of a list from the page. */
 export type PageItemAction = (typeof ITEM_ACTIONS)[number];
 
+/** A look of a section chosen among a few of the site's colours: its field, what it is called, each choice with a sample, and the one chosen. */
+export interface PageSectionSwatches {
+  readonly field: string;
+  readonly name: string;
+  readonly chosen?: string;
+  readonly choices: readonly { readonly value: string; readonly name: string; readonly colour: string }[];
+}
+
 export interface PageSectionTools {
   /** What each button is called, shown when the pointer rests on it, and the words on the button that adds a section. */
   readonly labels: { readonly up: string; readonly down: string; readonly duplicate: string; readonly remove: string; readonly add: string; readonly addBefore: string; readonly addAfter: string; readonly picture?: string; readonly link?: string; readonly bold?: string; readonly italic?: string; readonly textLink?: string; readonly itemUp?: string; readonly itemDown?: string; readonly itemDuplicate?: string; readonly itemRemove?: string };
   /** For each section's id: what it is called, and what can be done to it now. */
-  readonly sections: Readonly<Record<string, { readonly name: string; readonly up: boolean; readonly down: boolean; readonly copy: boolean; readonly add: boolean; readonly pictures?: readonly string[]; readonly links?: readonly string[]; readonly lists?: readonly { readonly field: string; readonly count: number; readonly full: boolean }[] }>>;
+  readonly sections: Readonly<Record<string, { readonly name: string; readonly up: boolean; readonly down: boolean; readonly copy: boolean; readonly add: boolean; readonly pictures?: readonly string[]; readonly links?: readonly string[]; readonly lists?: readonly { readonly field: string; readonly count: number; readonly full: boolean }[]; readonly swatches?: readonly PageSectionSwatches[] }>>;
 }
 
 export interface PagePreviewProps extends PagePreviewVariants {
@@ -73,6 +82,8 @@ export interface PagePreviewProps extends PagePreviewVariants {
    * or `null` to leave it as it is. Ask the person, then answer.
    */
   readonly onTextLink?: (href: string, answer: (href: string | null) => void) => void;
+  /** Called when a swatch on a section's bar is pressed: the section, the field and the choice. Whoever holds the sections makes the change. */
+  readonly onSectionSwatch?: (id: string, field: string, value: string) => void;
   /** Called when the keys that take a change back are pressed on the page. The page takes nothing back itself. */
   readonly onUndo?: () => void;
   /** Called when the keys that make a change again are pressed on the page. */
@@ -124,16 +135,16 @@ export interface PagePreviewProps extends PagePreviewVariants {
  * A page of the site as it would look with what is in a form now, in a frame. The page is drawn
  * by the site itself, so it looks exactly as it will; nothing of it is drawn here.
  */
-export function PagePreview({ label, address, draft, note, toolbar, action, emptyText, onSectionPress, shownSectionId, typable, onWords, tools, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onTextLink, onUndo, onRedo, isBare = false, width }: PagePreviewProps) {
+export function PagePreview({ label, address, draft, note, toolbar, action, emptyText, onSectionPress, shownSectionId, typable, onWords, tools, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onSectionSwatch, onTextLink, onUndo, onRedo, isBare = false, width }: PagePreviewProps) {
   const name = `preview-${useId().replaceAll(':', '')}`;
   const form = useRef<HTMLFormElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const hasSent = useRef(false);
   const places = typable === undefined ? undefined : JSON.stringify(typable);
   const offered = tools === undefined ? undefined : JSON.stringify(tools);
-  const latest = useRef({ onSectionPress, shownSectionId, onWords, places, offered, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onTextLink, onUndo, onRedo });
+  const latest = useRef({ onSectionPress, shownSectionId, onWords, places, offered, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onSectionSwatch, onTextLink, onUndo, onRedo });
   useEffect(() => {
-    latest.current = { onSectionPress, shownSectionId, onWords, places, offered, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onTextLink, onUndo, onRedo };
+    latest.current = { onSectionPress, shownSectionId, onWords, places, offered, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onSectionSwatch, onTextLink, onUndo, onRedo };
   });
   // When words were last typed on the page, and whether the page lacks a change made in the form.
   const typedAt = useRef(0);
@@ -200,6 +211,9 @@ export function PagePreview({ label, address, draft, note, toolbar, action, empt
       if (said.type === 'item' && typeof said.id === 'string' && typeof said.field === 'string' && typeof said.at === 'number') {
         const action = ITEM_ACTIONS.find((candidate) => candidate === said.action);
         if (action) latest.current.onSectionItem?.(said.id, said.field, said.at, action);
+      }
+      if (said.type === 'swatch' && typeof said.id === 'string' && typeof said.field === 'string' && typeof said.value === 'string') {
+        latest.current.onSectionSwatch?.(said.id, said.field, said.value);
       }
       if (said.type === 'linkAsk' && typeof said.href === 'string') {
         const page = frame.current?.contentWindow;

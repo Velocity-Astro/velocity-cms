@@ -23,4 +23,17 @@ export const Default: Story = {
     return <Segmented {...args} selected={selected} onChange={setSelected} />;
   },
 };
+export const Swatches: Story = {
+  args: {
+    label: 'Background',
+    isLabelShown: true,
+    description: 'From the template\'s own colours.',
+    selected: 'default',
+    options: [
+      { id: 'default', label: 'White', swatch: '#ffffff' },
+      { id: 'secondary', label: 'Warm stone', swatch: '#f4f1ec' },
+      { id: 'invert', label: 'Slate', swatch: '#1f2933' },
+    ],
+  },
+};
 export const WithOneOff: Story = { args: { options: [...options, { id: 'scheduled', label: 'Scheduled', isDisabled: true }] } };

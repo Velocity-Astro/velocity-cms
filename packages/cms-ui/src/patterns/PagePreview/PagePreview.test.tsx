@@ -164,3 +164,11 @@ it('says when the keys for undo or redo were pressed on the page, and draws what
   say({ source: 'velocity-cms', type: 'redo' });
   expect(onRedo).toHaveBeenCalledTimes(1);
 });
+
+it('says which swatch of a section was pressed on the page', () => {
+  const onSectionSwatch = vi.fn();
+  render(example({ onSectionSwatch }));
+  say({ source: 'velocity-cms', type: 'swatch', id: 's1', field: 'tone', value: 'secondary' });
+  say({ source: 'velocity-cms', type: 'swatch', id: 's1', field: 'tone' });
+  expect(onSectionSwatch.mock.calls).toEqual([['s1', 'tone', 'secondary']]);
+});

@@ -142,8 +142,19 @@ export class PhoneField extends FieldType<string, NoOptions> {
   }
 }
 
+/**
+ * A colour as a swatch may say it: a hex colour, or one of CSS's colour functions holding only
+ * numbers. It is drawn as a sample beside a choice, so it must be a colour and nothing else.
+ */
+const SWATCH_COLOUR = /^(?:#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})|(?:oklch|oklab|rgb|hsl)\([0-9.%,/ -]+\))$/i;
+
+/** Whether a value is a colour a swatch can show. */
+export function isSwatchColour(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= 64 && SWATCH_COLOUR.test(value);
+}
+
 /** One choice from a fixed list. */
-export class SelectField extends FieldType<string, { choices: string[]; labels?: Record<string, Record<string, string>> | undefined }> {
+export class SelectField extends FieldType<string, { choices: string[]; labels?: Record<string, Record<string, string>> | undefined; swatches?: Record<string, string> | undefined }> {
   readonly type = 'select';
   readonly editor = 'select';
   readonly options = z.object({
@@ -151,6 +162,12 @@ export class SelectField extends FieldType<string, { choices: string[]; labels?:
     choices: z.array(z.string()).min(1),
     /** What the editor calls each choice, per language: `{ 'coming-soon': { en: 'Coming soon' } }`. */
     labels: z.record(z.string(), z.record(z.string(), z.string())).optional(),
+    /**
+     * A sample colour for each choice, where the choices are looks of the template's own (a
+     * section's background): `{ secondary: '#f4f1ec' }`. The editor then shows the choices as
+     * swatches. The value stored is still the choice's name, never the colour.
+     */
+    swatches: z.record(z.string(), z.string().refine(isSwatchColour, 'A swatch is a hex colour or a CSS colour function, such as #f4f1ec or oklch(96% 0.01 80).')).optional(),
   });
 
   schema({ choices }: { choices: string[] }) {
