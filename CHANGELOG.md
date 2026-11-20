@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+## 0.1.0-beta.4
+
 - **Settings in the editor, starting with email.** Owners have a Settings screen. Under Email they choose the email service (Resend), paste its API key, say who email comes from, and send themselves a test, with no change to the server. The key is sealed with the site's secret and never sent back to the editor. A site that sets `VELOCITY_CMS_RESEND_API_KEY` and `VELOCITY_CMS_EMAIL_FROM`, or names its own `mailer`, keeps that: it wins, and the screen says so. A change is followed by every running copy at once.
 - **Storage in the editor.** Under Settings, Storage, an owner names the bucket uploads are kept in (Cloudflare R2, Amazon S3 or anything that speaks the S3 protocol) and tests it: a small file is kept there, read back and removed. The secret key is sealed and never sent back. A site on a host with no disk takes uploads as soon as a bucket is named, with no redeploy. `VELOCITY_CMS_S3_*` on the server still wins. Images uploaded to the server's disk before a bucket was named keep showing from there.
 - **The site's name in the editor.** Under Settings, General, an owner says what the site is called. The editor, sign-in links, invitations and notices from forms use it; left empty, the name from `velocityCms({ siteName })` stands. A new passkey's prompt shows it after the server next starts.
