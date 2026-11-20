@@ -170,6 +170,11 @@ export function previewBridge(page: Window & typeof globalThis): void {
   };
 
   // Layer.
+  // The editor's own orange and the ink that goes on it (`--brand-500` and `--brand-ink` in the design
+  // system's tokens), written out because the bridge can import nothing. What the editor draws on a
+  // page looks like the editor, whatever the page's own colours are.
+  const ACCENT = 'oklch(62.5% 0.22 38)';
+  const ACCENT_INK = 'oklch(14% 0 0)';
   const layer = doc.createElement('div');
   layer.setAttribute('data-cms-layer', '');
   layer.setAttribute('aria-hidden', 'true');
@@ -177,7 +182,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
   const outline = (name: string, width: string): HTMLElement => {
     const box = doc.createElement('div');
     box.setAttribute('data-cms-outline', name);
-    Object.assign(box.style, { position: 'absolute', display: 'none', boxSizing: 'border-box', border: `${width} solid Highlight`, borderRadius: '4px' });
+    Object.assign(box.style, { position: 'absolute', display: 'none', boxSizing: 'border-box', border: `${width} solid ${ACCENT}`, borderRadius: '4px' });
     layer.append(box);
     return box;
   };
@@ -400,6 +405,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
     duplicate: ['M8 8h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2z', 'M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2'],
     remove: ['M3 6h18', 'M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6', 'M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2', 'M10 11v6', 'M14 11v6'],
     add: ['M5 12h14', 'M12 5v14'],
+    drag: ['M9 5h.01', 'M9 12h.01', 'M9 19h.01', 'M15 5h.01', 'M15 12h.01', 'M15 19h.01'],
   };
   const drawing = (name: string): SVGElement => {
     const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -428,8 +434,13 @@ export function previewBridge(page: Window & typeof globalThis): void {
     boxShadow: '0 4px 12px rgb(0 0 0 / 0.25)',
     pointerEvents: 'auto',
   });
+  const grip = doc.createElement('span');
+  grip.setAttribute('data-cms-tool', 'drag');
+  Object.assign(grip.style, { display: 'grid', placeItems: 'center', width: '20px', height: '28px', cursor: 'grab' });
+  grip.append(drawing('drag'));
+  bar.append(grip);
   const named = doc.createElement('span');
-  Object.assign(named.style, { padding: '0 8px 0 6px', maxWidth: '12rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+  Object.assign(named.style, { padding: '0 8px 0 2px', cursor: 'grab', maxWidth: '12rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
   bar.append(named);
   const press = (button: HTMLButtonElement, action: string): void => {
     // The pointer going down must not take the caret from the page or start a selection.
@@ -466,9 +477,9 @@ export function previewBridge(page: Window & typeof globalThis): void {
       padding: '0 12px 0 8px',
       border: '0',
       borderRadius: '14px',
-      background: 'Highlight',
-      color: 'HighlightText',
-      font: `500 12px/1 ${FONT}`,
+      background: ACCENT,
+      color: ACCENT_INK,
+      font: `600 12px/1 ${FONT}`,
       boxShadow: '0 4px 12px rgb(0 0 0 / 0.25)',
       transform: 'translate(-50%, -50%)',
       whiteSpace: 'nowrap',
@@ -490,7 +501,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
       adders.addAfter.style.display = 'none';
     };
     // While words are typed, nothing sits over them.
-    const section = typing ? null : tooled?.isConnected ? tooled : null;
+    const section = typing || drag?.moved ? null : tooled?.isConnected ? tooled : null;
     const about = section && tools?.sections[section.dataset['cmsSection'] ?? ''];
     if (!section || !tools || !about) return hide();
     const rect = section.getBoundingClientRect();
@@ -517,6 +528,88 @@ export function previewBridge(page: Window & typeof globalThis): void {
       Object.assign(button.style, { top: `${edge}px`, left: `${rect.left + rect.width / 2}px` });
     }
   };
+
+  // Dragging a section by its bar: a line shows where it would land, and letting go says so to the editor.
+  const line = doc.createElement('div');
+  line.setAttribute('data-cms-drop', '');
+  Object.assign(line.style, { position: 'absolute', display: 'none', left: '0', right: '0', height: '4px', marginTop: '-2px', borderRadius: '2px', background: ACCENT, boxShadow: '0 0 0 1px Canvas' });
+  layer.append(line);
+  interface Drag {
+    readonly id: string;
+    readonly from: number;
+    y: number;
+    /** The section it would land before, or `null` for after the last; `undefined` where it would not move. */
+    before: string | null | undefined;
+    moved: boolean;
+  }
+  let drag: Drag | null = null;
+  const movable = (): HTMLElement[] => [...doc.querySelectorAll<HTMLElement>('[data-cms-section]')].filter((section) => tools?.sections[section.dataset['cmsSection'] ?? ''] !== undefined);
+  const aim = (): void => {
+    if (!drag) return;
+    const sections = movable();
+    const at = sections.findIndex((section) => {
+      const rect = section.getBoundingClientRect();
+      return drag !== null && drag.y < rect.top + rect.height / 2;
+    });
+    const target = at < 0 ? undefined : sections[at];
+    const own = sections.findIndex((section) => section.dataset['cmsSection'] === drag?.id);
+    const to = at < 0 ? sections.length : at;
+    // Before itself, or before the one after it, is where it is already.
+    drag.before = own < 0 || to === own || to === own + 1 ? undefined : (target?.dataset['cmsSection'] ?? null);
+    const last = sections[sections.length - 1];
+    const edge = target ? target.getBoundingClientRect().top : (last?.getBoundingClientRect().bottom ?? 0);
+    Object.assign(line.style, { display: drag.before === undefined ? 'none' : 'block', top: `${Math.min(Math.max(edge, 2), page.innerHeight - 2)}px` });
+  };
+  const endDrag = (drop: boolean): void => {
+    if (!drag) return;
+    const { id, before, moved } = drag;
+    drag = null;
+    line.style.display = 'none';
+    Object.assign(layer.style, { pointerEvents: 'none', cursor: '' });
+    if (drop && moved && before !== undefined) say({ type: 'move', id, before });
+    draw();
+  };
+  // Near the top or the bottom of the page, it scrolls to bring the rest within reach.
+  const creep = (): void => {
+    if (!drag) return;
+    const by = drag.y < 72 ? -14 : drag.y > page.innerHeight - 72 ? 14 : 0;
+    if (by !== 0 && drag.moved) {
+      page.scrollBy(0, by);
+      aim();
+    }
+    page.setTimeout(creep, 16);
+  };
+  for (const handle of [grip, named]) {
+    handle.addEventListener('mousedown', (event) => {
+      const id = tooled?.dataset['cmsSection'];
+      if (event.button !== 0 || !id || movable().length < 2) return;
+      event.preventDefault();
+      drag = { id, from: event.clientY, y: event.clientY, before: undefined, moved: false };
+      // The layer takes the pointer while it drags, so nothing on the page answers to it.
+      Object.assign(layer.style, { pointerEvents: 'auto', cursor: 'grabbing' });
+      page.setTimeout(creep, 16);
+    });
+  }
+  doc.addEventListener(
+    'mousemove',
+    (event) => {
+      if (!drag) return;
+      drag.y = event.clientY;
+      // A few pixels of give, so a press that was only a press moves nothing.
+      if (Math.abs(drag.y - drag.from) > 4) drag.moved = true;
+      if (drag.moved) aim();
+    },
+    true,
+  );
+  doc.addEventListener('mouseup', () => endDrag(true), true);
+  doc.documentElement.addEventListener('mouseleave', () => endDrag(false));
+  doc.addEventListener(
+    'keydown',
+    (event) => {
+      if (drag && event.key === 'Escape') endDrag(false);
+    },
+    true,
+  );
 
   // Events.
   doc.addEventListener('mouseover', (event) => {

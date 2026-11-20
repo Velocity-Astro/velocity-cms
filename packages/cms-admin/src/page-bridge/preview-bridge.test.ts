@@ -427,3 +427,51 @@ it('puts the bar away while words are typed', () => {
   down('#h');
   expect($('[data-cms-tools]').style.display).toBe('none');
 });
+
+/** Three sections, each 100 tall, one under the other. */
+const stacked = () => {
+  open('<main><div data-cms-section="a"><h2>A</h2></div><div data-cms-section="b"><h2>B</h2></div><div data-cms-section="c"><h2>C</h2></div></main>');
+  const tops: Record<string, number> = { a: 0, b: 100, c: 200 };
+  page.Element.prototype.getBoundingClientRect = function (this: HTMLElement) {
+    const top = tops[this.closest<HTMLElement>('[data-cms-section]')?.dataset['cmsSection'] ?? ''] ?? 0;
+    return { top, left: 0, width: 800, height: 100, bottom: top + 100, right: 800, x: 0, y: top, toJSON: () => ({}) };
+  };
+  const about = { name: 'Part', up: true, down: true, copy: true, add: true };
+  hear({ source: 'velocity-cms', type: 'tools', labels: TOOLS.labels, sections: { a: about, b: about, c: about } });
+};
+const mouse = (type: string, target: Element | Document, clientY: number) => target.dispatchEvent(new page.MouseEvent(type, { bubbles: true, cancelable: true, clientY, button: 0 }));
+const moves = () => (said as [{ type: string; id: string; before: string | null }, string][]).map(([message]) => message).filter((message) => message.type === 'move');
+
+it('drags a section by its bar, shows where it would land, and says so when it is let go', () => {
+  stacked();
+  pointAt('[data-cms-section="a"] h2');
+  mouse('mousedown', $('[data-cms-tool="drag"]'), 20);
+  mouse('mousemove', page.document, 260);
+  // Past the middle of the last section: after it.
+  expect($('[data-cms-drop]').style.display).toBe('block');
+  expect($('[data-cms-drop]').style.top).toBe('300px');
+  mouse('mousemove', page.document, 220);
+  expect($('[data-cms-drop]').style.top).toBe('200px');
+  mouse('mouseup', page.document, 220);
+  expect(moves()).toEqual([{ source: 'velocity-cms', type: 'move', id: 'a', before: 'c' }]);
+  expect($('[data-cms-drop]').style.display).toBe('none');
+  // The page itself is as it was: the editor moves the section.
+  expect([...page.document.querySelectorAll<HTMLElement>('[data-cms-section]')].map((section) => section.dataset['cmsSection'])).toEqual(['a', 'b', 'c']);
+});
+
+it('moves nothing for a press that was only a press, a drop where the section already is, or Escape', () => {
+  stacked();
+  pointAt('[data-cms-section="b"] h2');
+  mouse('mousedown', $('[data-cms-tool="drag"]'), 120);
+  mouse('mouseup', page.document, 121);
+  mouse('mousedown', $('[data-cms-tool="drag"]'), 120);
+  mouse('mousemove', page.document, 160);
+  expect($('[data-cms-drop]').style.display).toBe('none');
+  mouse('mouseup', page.document, 160);
+  mouse('mousedown', $('[data-cms-tool="drag"]'), 120);
+  mouse('mousemove', page.document, 10);
+  expect($('[data-cms-drop]').style.display).toBe('block');
+  page.document.dispatchEvent(new page.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  mouse('mouseup', page.document, 10);
+  expect(moves()).toEqual([]);
+});

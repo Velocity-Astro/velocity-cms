@@ -4,6 +4,9 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **What the editor draws on a page is Velocity orange.** The outlines, the "Add section" buttons and the line that shows where a dragged section lands were the browser's blue.
+- **Fixed: the page beside the form could run an old script for an hour after an upgrade.** A browser kept `/cms-preview.js` for an hour, so something new on the page (a section's bar, for one) did not show until then. It is now asked for each time.
+- **Drag a section on the page.** A section's bar on the page has a grip: drag it and a line shows where the section would land, between the others, and the page scrolls when the pointer nears its top or bottom. Letting go moves it, exactly as dragging it in the form's list does. Escape puts it back.
 - **A section's own bar on the page.** In the visual editor and beside the form, the section the pointer is in shows a small bar with its name and four buttons: move up, move down, duplicate and remove. A button at its top and bottom edge adds a section right there, chosen from the same list as in the form. The page changes nothing itself: each button does what the same button in the form does, so a removal still asks first and everything waits for Save or Publish. Nothing is asked of a template.
 - **The Visual editor button is where the note was.** The line "The form as it is now, saved or not" above the page is gone, and the button that opens the visual editor sits in its place.
 

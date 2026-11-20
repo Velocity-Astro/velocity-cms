@@ -176,6 +176,24 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
     [onActed, show],
   );
 
+  // A section dragged on the page lands where the form would put it.
+  const onDragged = focus?.onDragged;
+  useEffect(
+    () =>
+      onDragged?.((id, beforeId) => {
+        const now = acting.current;
+        const from = now.sections.findIndex((section) => section.id === id);
+        const before = beforeId === null ? now.sections.length : now.sections.findIndex((section) => section.id === beforeId);
+        if (from < 0 || before < 0) return;
+        // Taking it out first moves everything after it one place up.
+        const to = before > from ? before - 1 : before;
+        if (to === from) return;
+        now.move(from, to);
+        show?.(id);
+      }),
+    [onDragged, show],
+  );
+
   // The picker offers what the template describes today, under the names it files them by.
   const byGroup = new Map<string, PickerOption[]>();
   for (const block of blocks) {

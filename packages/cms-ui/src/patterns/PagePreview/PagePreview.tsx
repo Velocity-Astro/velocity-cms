@@ -24,6 +24,7 @@ interface Said {
   readonly field?: unknown;
   readonly words?: unknown;
   readonly action?: unknown;
+  readonly before?: unknown;
 }
 
 /** What can be done to a section from the page itself. */
@@ -79,6 +80,11 @@ export interface PagePreviewProps extends PagePreviewVariants {
   readonly tools?: PageSectionTools;
   /** Called when a button of `tools` is pressed on the page. The page changes nothing itself. */
   readonly onSectionAction?: (id: string, action: PageSectionAction) => void;
+  /**
+   * Called when a section is dragged by its bar and let go: with the section it should now come
+   * before, or `null` for after the last.
+   */
+  readonly onSectionMove?: (id: string, beforeId: string | null) => void;
   /** No border of its own, for a place that frames it already, such as a whole window. */
   readonly isBare?: boolean;
 }
@@ -87,16 +93,16 @@ export interface PagePreviewProps extends PagePreviewVariants {
  * A page of the site as it would look with what is in a form now, in a frame. The page is drawn
  * by the site itself, so it looks exactly as it will; nothing of it is drawn here.
  */
-export function PagePreview({ label, address, draft, note, toolbar, action, emptyText, onSectionPress, shownSectionId, typable, onWords, tools, onSectionAction, isBare = false, width }: PagePreviewProps) {
+export function PagePreview({ label, address, draft, note, toolbar, action, emptyText, onSectionPress, shownSectionId, typable, onWords, tools, onSectionAction, onSectionMove, isBare = false, width }: PagePreviewProps) {
   const name = `preview-${useId().replaceAll(':', '')}`;
   const form = useRef<HTMLFormElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const hasSent = useRef(false);
   const places = typable === undefined ? undefined : JSON.stringify(typable);
   const offered = tools === undefined ? undefined : JSON.stringify(tools);
-  const latest = useRef({ onSectionPress, shownSectionId, onWords, places, offered, onSectionAction });
+  const latest = useRef({ onSectionPress, shownSectionId, onWords, places, offered, onSectionAction, onSectionMove });
   useEffect(() => {
-    latest.current = { onSectionPress, shownSectionId, onWords, places, offered, onSectionAction };
+    latest.current = { onSectionPress, shownSectionId, onWords, places, offered, onSectionAction, onSectionMove };
   });
   // When words were last typed on the page, and whether the page lacks a change made in the form.
   const typedAt = useRef(0);
@@ -150,6 +156,9 @@ export function PagePreview({ label, address, draft, note, toolbar, action, empt
       if (said.type === 'act' && typeof said.id === 'string') {
         const action = ACTIONS.find((candidate) => candidate === said.action);
         if (action) latest.current.onSectionAction?.(said.id, action);
+      }
+      if (said.type === 'move' && typeof said.id === 'string' && (typeof said.before === 'string' || said.before === null)) {
+        latest.current.onSectionMove?.(said.id, said.before);
       }
       if (said.type === 'ready') {
         tell(latest.current.places);

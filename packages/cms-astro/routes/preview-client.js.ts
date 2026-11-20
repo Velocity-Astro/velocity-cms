@@ -5,7 +5,9 @@ export const prerender = false;
 
 /**
  * What the page beside the editor's form runs (`src/preview-bridge.ts`). The preview adds it to
- * that page only, and it does nothing unless the page is in a frame of the same site.
+ * that page only, and it does nothing unless the page is in a frame of the same site. A browser
+ * asks for it each time: it is small, only an editor loads it, and a copy kept from before an
+ * upgrade would not know what the editor now says to it.
  */
 export const GET: APIRoute = () =>
-  new Response(PREVIEW_BRIDGE_SCRIPT, { headers: { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
+  new Response(PREVIEW_BRIDGE_SCRIPT, { headers: { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-cache' } });
