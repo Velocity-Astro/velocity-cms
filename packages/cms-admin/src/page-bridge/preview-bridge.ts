@@ -170,6 +170,11 @@ export function previewBridge(page: Window & typeof globalThis): void {
   };
 
   // Layer.
+  // The editor's own orange and the ink that goes on it (`--brand-500` and `--brand-ink` in the design
+  // system's tokens), written out because the bridge can import nothing. What the editor draws on a
+  // page looks like the editor, whatever the page's own colours are.
+  const ACCENT = 'oklch(62.5% 0.22 38)';
+  const ACCENT_INK = 'oklch(14% 0 0)';
   const layer = doc.createElement('div');
   layer.setAttribute('data-cms-layer', '');
   layer.setAttribute('aria-hidden', 'true');
@@ -177,7 +182,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
   const outline = (name: string, width: string): HTMLElement => {
     const box = doc.createElement('div');
     box.setAttribute('data-cms-outline', name);
-    Object.assign(box.style, { position: 'absolute', display: 'none', boxSizing: 'border-box', border: `${width} solid Highlight`, borderRadius: '4px' });
+    Object.assign(box.style, { position: 'absolute', display: 'none', boxSizing: 'border-box', border: `${width} solid ${ACCENT}`, borderRadius: '4px' });
     layer.append(box);
     return box;
   };
@@ -472,9 +477,9 @@ export function previewBridge(page: Window & typeof globalThis): void {
       padding: '0 12px 0 8px',
       border: '0',
       borderRadius: '14px',
-      background: 'Highlight',
-      color: 'HighlightText',
-      font: `500 12px/1 ${FONT}`,
+      background: ACCENT,
+      color: ACCENT_INK,
+      font: `600 12px/1 ${FONT}`,
       boxShadow: '0 4px 12px rgb(0 0 0 / 0.25)',
       transform: 'translate(-50%, -50%)',
       whiteSpace: 'nowrap',
@@ -527,7 +532,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
   // Dragging a section by its bar: a line shows where it would land, and letting go says so to the editor.
   const line = doc.createElement('div');
   line.setAttribute('data-cms-drop', '');
-  Object.assign(line.style, { position: 'absolute', display: 'none', left: '0', right: '0', height: '4px', marginTop: '-2px', borderRadius: '2px', background: 'Highlight', boxShadow: '0 0 0 1px Canvas' });
+  Object.assign(line.style, { position: 'absolute', display: 'none', left: '0', right: '0', height: '4px', marginTop: '-2px', borderRadius: '2px', background: ACCENT, boxShadow: '0 0 0 1px Canvas' });
   layer.append(line);
   interface Drag {
     readonly id: string;
