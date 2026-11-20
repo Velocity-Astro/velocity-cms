@@ -6,7 +6,7 @@ A content management system for [Astro](https://astro.build) sites, built for [V
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/page-builder-dark.webp">
-  <img src="docs/screenshots/page-builder-light.webp" alt="The page builder: a page as a list of sections, with the live page beside the form">
+  <img src="docs/screenshots/page-builder-light.webp" alt="The editor: a page as a list of sections, with the live page beside the form">
 </picture>
 
 > **Beta.** Versions are `0.x`: the plugin API and the template API may still change between releases, each change with a note on how to move. The packages are on npm as `@velocity-astro/cms-*`, with the `velocity-cms` command.
@@ -18,7 +18,7 @@ The demo is a real estate site on the CMS, with one click into its editor. Every
 | | |
 |---|---|
 | **Content** | Content types made in a visual builder or described in code. Drafts and published versions, trash, duplicate, history with restore, scheduled publishing, preview links, several languages. |
-| **Pages** | A page builder of sections, with the live page beside the form. Pages under pages, a home page, menus edited in the CMS. |
+| **Pages** | Pages built from sections, with the live page beside the form. Pages under pages, a home page, menus edited in the CMS. |
 | **Media** | An image library with uploads, kept in a folder or any S3-compatible bucket. Each upload is made lighter and kept as WebP. |
 | **Forms** | A form builder, forms as page sections, spam marking, notices by email, export and erase of what a person sent. |
 | **CRM** | Contacts with a timeline and notes, a pipeline board, owners and follow-up days, deals with a forecast, custom fields, CSV import. |
