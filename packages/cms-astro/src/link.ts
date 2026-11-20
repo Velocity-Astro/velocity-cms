@@ -1,7 +1,7 @@
 import { isSafeLink, pageAddress, type Cms, type ContentTypeDef, type Entry } from '@velocity-astro/cms-core';
 import { sharedConnection, SITE } from './connection.js';
 import type { DrawnPage } from './page-head.js';
-import { isPreview } from './preview.js';
+import { isPreview, noteLinkLeads } from './preview.js';
 
 /** The language of the pages at a type's `urlPattern`. */
 export const DEFAULT_LOCALE = 'en';
@@ -73,7 +73,10 @@ export function linkResolver(cms: Cms, locale: string, preview = false): (link: 
 export async function linkTo(page: DrawnPage, link: unknown): Promise<LinkTarget | undefined> {
   try {
     const { cms } = await sharedConnection({});
-    return await linkResolver(cms, page.currentLocale ?? DEFAULT_LOCALE, isPreview())(link);
+    const target = await linkResolver(cms, page.currentLocale ?? DEFAULT_LOCALE, isPreview())(link);
+    // Beside the editor's form, the page is told where a link to an entry leads, to find its button by.
+    if (target && isRecord(link) && typeof link['type'] === 'string' && typeof link['entry'] === 'string') noteLinkLeads(link['type'], link['entry'], target.href);
+    return target;
   } catch (error) {
     console.error('[velocity-cms] A link could not be worked out, so it is left off the page.', error);
     return undefined;

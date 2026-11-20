@@ -293,3 +293,59 @@ it('changes a picture from the page: the button on it opens the window the image
   await say({ source: 'velocity-cms', type: 'picture', id: 'gone', field: 'photo' });
   expect(screen.queryByRole('dialog', { name: 'Choose an image' })).toBeNull();
 });
+
+it('edits a link from the page: the button on it opens a window that holds the link\'s own field', async () => {
+  const user = userEvent.setup();
+  // The page's opening gains a button, and a list of cards each with a link.
+  const to: FieldDef = { id: 'bf-hero-to', key: 'buttonTo', type: 'link', label: { en: 'Button leads to' }, required: false, translated: false, options: {} };
+  const cardTo: FieldDef = { ...to, id: 'bf-card-to', key: 'to', label: { en: 'Card leads to' } };
+  const cards: FieldDef = { ...to, id: 'bf-hero-cards', key: 'cards', type: 'list', label: { en: 'Cards' }, options: { of: { type: 'group', options: { fields: [cardTo] } } } };
+  const fields = samplePagesType.fields.map((field) =>
+    field.id === 'f-body'
+      ? { ...field, options: { ...field.options, blocks: (field.options['blocks'] as BlockDef[]).map((block) => (block.id === 'b-hero' ? { ...block, fields: [...block.fields, to, cards] } : block)) } }
+      : field,
+  );
+  const page = samplePage();
+  const body = (page.data['f-body'] as BlockValue[]).map((section) =>
+    section.id === 's1' ? { ...section, data: { ...section.data, 'bf-hero-to': { kind: 'address', href: '/menu/' }, 'bf-hero-cards': [{ 'bf-card-to': { kind: 'address', href: '/visit/' } }] } } : section,
+  );
+  renderApp('/content/pages/p1', {
+    user: sampleUser,
+    contentTypes: [...sampleContentTypes, { ...samplePagesType, fields }],
+    entries: [...sampleEntries(), { ...page, data: { ...page.data, 'f-body': body } }],
+  });
+  const shown = await frame();
+  const post = vi.spyOn(shown.contentWindow as Window, 'postMessage').mockImplementation(() => undefined);
+  await say({ source: 'velocity-cms', type: 'ready' });
+  const told = post.mock.calls.map(([message]) => message as { type: string; labels?: { link?: string }; sections?: Record<string, { links?: string[] }> }).find((message) => message.type === 'tools');
+  expect(told?.labels?.link).toBe('Edit link');
+  expect(told?.sections?.['s1']?.links).toEqual(['buttonTo', 'cards.0.to']);
+  expect(told?.sections?.['s2']?.links).toEqual([]);
+  const hero = () => (draft().data['f-body'] as BlockValue[])[0]?.data ?? {};
+
+  await say({ source: 'velocity-cms', type: 'link', id: 's1', field: 'buttonTo' });
+  const window = within(await screen.findByRole('dialog', { name: 'Edit link' }));
+  const address = window.getByRole('textbox', { name: 'Address' });
+  expect((address as HTMLInputElement).value).toBe('/menu/');
+  await user.clear(address);
+  await user.type(address, '/book/');
+  await waitFor(() => expect(hero()['bf-hero-to']).toEqual({ kind: 'address', href: '/book/' }));
+  await user.click(window.getByRole('button', { name: 'Done' }));
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Edit link' })).toBeNull());
+  expect(screen.getByText('Unsaved changes')).toBeTruthy();
+
+  // One inside a list is changed where it is.
+  await say({ source: 'velocity-cms', type: 'link', id: 's1', field: 'cards.0.to' });
+  const again = within(await screen.findByRole('dialog', { name: 'Edit link' }));
+  const inner = again.getByRole('textbox', { name: 'Address' });
+  expect((inner as HTMLInputElement).value).toBe('/visit/');
+  await user.type(inner, 'us/');
+  await waitFor(() => expect(hero()['bf-hero-cards']).toEqual([{ 'bf-card-to': { kind: 'address', href: '/visit/us/' } }]));
+  await user.click(again.getByRole('button', { name: 'Done' }));
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Edit link' })).toBeNull());
+
+  // A place the form does not have opens nothing.
+  await say({ source: 'velocity-cms', type: 'link', id: 's1', field: 'gone' });
+  await say({ source: 'velocity-cms', type: 'link', id: 'gone', field: 'buttonTo' });
+  expect(screen.queryByRole('dialog', { name: 'Edit link' })).toBeNull();
+});

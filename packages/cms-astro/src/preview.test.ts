@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { addEditorScript, asPreview, isEditorPreview, isPreview, keepPreviewInLinks, readPreviewDraft, withPreviewDraft } from './preview.js';
+import { addEditorScript, asPreview, isEditorPreview, isPreview, keepPreviewInLinks, linkLeads, noteLinkLeads, readPreviewDraft, withPreviewDraft } from './preview.js';
 
 const TOKEN = '1790000000000.abc123';
 
@@ -58,4 +58,15 @@ it('shows what was typed for the entry the draft is for, and only inside that pr
 
 it('adds the editor\'s script at the end of the page', () => {
   expect(addEditorScript('<html><body><p>Hi</p></body></html>')).toBe('<html><body><p>Hi</p><script type="module" src="/cms-preview.js"></script></body></html>');
+});
+
+it('notes where links to entries lead only beside the form, and hands the page the list as data', () => {
+  noteLinkLeads('pages', 'g1', '/menu/');
+  expect(linkLeads()).toEqual({});
+  expect(asPreview(() => (noteLinkLeads('pages', 'g1', '/menu/'), linkLeads()))).toEqual({});
+  const leads = asPreview(() => (noteLinkLeads('pages', 'g1', '/menu/'), noteLinkLeads('pages', 'g2', '/a</script>'), linkLeads()), { id: 'p1', data: {} });
+  expect(leads).toEqual({ 'pages:g1': '/menu/', 'pages:g2': '/a</script>' });
+  expect(addEditorScript('<body></body>', leads)).toBe(
+    '<body><script type="application/json" data-cms-links>{"pages:g1":"/menu/","pages:g2":"/a\\u003c/script>"}</script><script type="module" src="/cms-preview.js"></script></body>',
+  );
 });

@@ -1,12 +1,12 @@
 import { liveFields, type BlockDef, type BlockValue, type FieldDef } from '@velocity-astro/cms-core';
-import { ConfirmDialog, OptionPicker, SectionList, Text, type PickerOption } from '@velocity-astro/cms-ui';
+import { Button, ConfirmDialog, Dialog, OptionPicker, SectionList, Text, type PickerOption } from '@velocity-astro/cms-ui';
 import { Copy, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { localized, withValue } from '../lib/content.js';
 import { useLast } from '../lib/use-closing.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
 import { blockIcon } from './block-icons.js';
-import type { FieldControlProps, PicturePlace, WordsPlace } from './field-control.js';
+import type { FieldControlProps, LinkPlace, PicturePlace, WordsPlace } from './field-control.js';
 import { FieldGrid } from './FieldGrid.js';
 import { useControlFor } from './FieldSummary.js';
 import { usePageFocus } from './page-focus.js';
@@ -46,6 +46,8 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
   const [removingId, setRemovingId] = useState<string | null>(null);
   // The picture being changed from the page: its section and its place in it.
   const [picturing, setPicturing] = useState<{ readonly section: string; readonly place: string } | null>(null);
+  // The link being changed from the page, the same way.
+  const [linking, setLinking] = useState<{ readonly section: string; readonly place: string } | null>(null);
   // The field last pressed on the page, until the person turns to something else in the form.
   const [pointed, setPointed] = useState<{ readonly section: string; readonly key: string; readonly at: number } | null>(null);
 
@@ -88,6 +90,18 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
       })),
     );
   };
+  // Where each section holds a link that can be changed from the page.
+  const linksOf = (section: BlockValue): readonly LinkPlace[] => {
+    const block = blockOf(blocks, section);
+    if (!block || block.retiredAt !== undefined) return [];
+    return liveFields(block.fields).flatMap((inner) =>
+      (controlFor(inner.type)?.links?.(inner, section.data[inner.id], controlFor) ?? []).map((found) => ({
+        ...found,
+        place: found.place === '' ? inner.key : `${inner.key}.${found.place}`,
+        put: (link: unknown) => withValue(section.data, inner.id, found.put(link)),
+      })),
+    );
+  };
   const typable = Object.fromEntries(sections.map((section) => [section.id, wordsOf(section).map(({ place }) => place)]));
   const typableSaid = JSON.stringify(typable);
   const setTypable = focus?.setTypable;
@@ -125,9 +139,10 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
       addBefore: messages.editor.pageAddBefore,
       addAfter: messages.editor.pageAddAfter,
       picture: messages.editor.pagePicture,
+      link: messages.editor.pageLink,
     },
     sections: Object.fromEntries(
-      sections.map((section, at) => [section.id, { name: nameOf(blockOf(blocks, section)), up: at > 0, down: at < sections.length - 1, copy: !isFull, add: !isFull, pictures: picturesOf(section).map(({ place }) => place) },
+      sections.map((section, at) => [section.id, { name: nameOf(blockOf(blocks, section)), up: at > 0, down: at < sections.length - 1, copy: !isFull, add: !isFull, pictures: picturesOf(section).map(({ place }) => place), links: linksOf(section).map(({ place }) => place) },
       ]),
     ),
   };
@@ -199,6 +214,13 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
   const pictureAt = useLast(picturing);
   const pictureSection = pictureAt && sections.find((section) => section.id === pictureAt.section);
   const picture = pictureSection && picturesOf(pictureSection).find((candidate) => candidate.place === pictureAt.place);
+
+  // The button on a link of the page opens a window that holds the link's own field.
+  const onLinked = focus?.onLinked;
+  useEffect(() => onLinked?.((id, place) => setLinking({ section: id, place })), [onLinked]);
+  const linkAt = useLast(linking);
+  const linkSection = linkAt && sections.find((section) => section.id === linkAt.section);
+  const link = linkSection && linksOf(linkSection).find((candidate) => candidate.place === linkAt.place);
 
   // A section dragged on the page lands where the form would put it.
   const onDragged = focus?.onDragged;
@@ -338,6 +360,30 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
             },
           }}
         />
+      )}
+      {linkSection && link && (
+        <Dialog
+          isOpen={linking !== null}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) setLinking(null);
+          }}
+          title={messages.editor.pageLink}
+          closeLabel={messages.editor.close}
+          footer={
+            <Button variant="primary" onPress={() => setLinking(null)}>
+              {messages.editor.pageLinkDone}
+            </Button>
+          }
+        >
+          <FieldGrid
+            fields={[link.field]}
+            values={{ [link.field.id]: link.link }}
+            onChange={(_field: FieldDef, next) => change(sections.map((existing) => (existing.id === linkSection.id ? { ...existing, data: link.put(next) as BlockValue['data'] } : existing)))}
+            pathOf={() => `${path}.${sections.indexOf(linkSection)}.${link.place}`}
+            problems={problems}
+            perRow={1}
+          />
+        </Dialog>
       )}
       <ConfirmDialog
         isOpen={removingId !== null}

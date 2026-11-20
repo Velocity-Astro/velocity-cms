@@ -39,6 +39,9 @@ export interface PageFocus {
   /** The page says the button on a picture was pressed: the section, and the picture's field as keys. */
   readonly pictured: (id: string, field: string) => void;
   readonly onPictured: (listener: PicturedListener) => () => void;
+  /** The page says the button on a link was pressed: the section, and the link's field as keys. */
+  readonly linked: (id: string, field: string) => void;
+  readonly onLinked: (listener: PicturedListener) => () => void;
 }
 
 export type PicturedListener = (id: string, field: string) => void;
@@ -62,6 +65,7 @@ export function PageFocusProvider({ children }: { readonly children: ReactNode }
   const acting = useRef(new Set<ActedListener>());
   const dragging = useRef(new Set<DraggedListener>());
   const picturing = useRef(new Set<PicturedListener>());
+  const linking = useRef(new Set<PicturedListener>());
   const focus = useMemo<PageFocus>(
     () => ({
       pressed,
@@ -92,6 +96,11 @@ export function PageFocusProvider({ children }: { readonly children: ReactNode }
       onPictured: (listener) => {
         picturing.current.add(listener);
         return () => void picturing.current.delete(listener);
+      },
+      linked: (id, field) => linking.current.forEach((listener) => listener(id, field)),
+      onLinked: (listener) => {
+        linking.current.add(listener);
+        return () => void linking.current.delete(listener);
       },
     }),
     [pressed, opened, typable, tools],
