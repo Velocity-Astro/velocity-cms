@@ -19,6 +19,9 @@ function shown(data: unknown, path: readonly (string | number)[], into: (readonl
     data.forEach((item, at) => shown(item, [...path, at], into));
     return;
   }
+  // A section inside this one (a column's) says what it holds on its own mark.
+  const inner = data as { id?: unknown; block?: unknown; data?: unknown };
+  if (typeof inner.id === 'string' && typeof inner.block === 'string' && typeof inner.data === 'object' && inner.data !== null) return;
   const html: unknown = (data as { html?: unknown }).html;
   // Text shaped in the editor is one field, found by its words and not its markup.
   if (typeof html === 'string' && path.length > 0) {
@@ -49,6 +52,25 @@ export function sectionMark(id: string, data?: unknown): PageMark {
   const values: (readonly string[])[] = [];
   if (data !== undefined) shown(data, [], values);
   return values.length > 0 ? { 'data-cms-section': id, 'data-cms-values': JSON.stringify(values) } : { 'data-cms-section': id };
+}
+
+/**
+ * Says which place inside a section an element is: one that holds sections of its own, such as a
+ * column of a row. Given the section's id and where the place is in it, as `fieldMark` is:
+ *
+ * ```astro
+ * {columns.map((column, at) => (
+ *   <div {...slotMark(section.id, 'columns', at, 'content')}>
+ *     {column.content.map((inner) => <div {...sectionMark(inner.id, inner.data)}>…</div>)}
+ *   </div>
+ * ))}
+ * ```
+ *
+ * Beside the editor's form, an empty place then has a button that adds its first section, and a
+ * section can be dragged from one place to another. A visitor's page gets no attribute.
+ */
+export function slotMark(sectionId: string, ...path: readonly (string | number)[]): PageMark {
+  return path.length > 0 && isEditorPreview() ? { 'data-cms-slot': `${sectionId}:${path.join('.')}` } : NONE;
 }
 
 /**

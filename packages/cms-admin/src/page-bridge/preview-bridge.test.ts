@@ -111,6 +111,13 @@ it('shows the section, or the field, the editor asks for, and brings it into vie
   expect(box('chosen').style.top).toBe('4000px');
 });
 
+it('outlines a section without bringing it into view when the editor says the page is to stay where it is', () => {
+  page.Element.prototype.getBoundingClientRect = () => rect(4000);
+  hear({ source: 'velocity-cms', type: 'show', id: 's2', still: true });
+  expect(box('chosen').style.display).toBe('block');
+  expect($('[data-cms-section="s2"]').scrollIntoView).not.toHaveBeenCalled();
+});
+
 it('shows the section when the field asked for has no mark on the page', () => {
   hear({ source: 'velocity-cms', type: 'show', id: 's1', field: 'lead' });
   expect(box('chosen').style.display).toBe('block');
@@ -807,4 +814,111 @@ it('shows a dot for each of a section\'s swatches on its bar, and says which was
   // A section with none has none.
   pointAt('li');
   expect($('[data-cms-swatches]').style.display).toBe('none');
+});
+
+// A row whose columns hold sections of their own: one in the first column, none in the second.
+const ROW = `
+  <main>
+    <div data-cms-section="row" data-cms-values='[["title","Two columns"]]'>
+      <h2>Two columns</h2>
+      <div data-cms-slot="row:columns.0.content">
+        <div data-cms-section="in1" data-cms-values='[["words","Inside"]]'><p>Inside</p></div>
+        <div data-cms-section="in2" data-cms-values='[["words","Below"]]'><p>Below</p></div>
+      </div>
+      <div data-cms-slot="row:columns.1.content"></div>
+    </div>
+  </main>`;
+const inner = { name: 'Text', up: true, down: true, copy: true, add: true, list: 'row:columns.0.content', group: 'f1' };
+const ROW_TOOLS = {
+  labels: TOOLS.labels,
+  sections: { row: { name: 'Columns', up: false, down: false, copy: true, add: true, list: '', group: '' }, in1: inner, in2: inner },
+  slots: { 'row:columns.0.content': { group: 'f1', empty: false, full: false }, 'row:columns.1.content': { group: 'f1', empty: true, full: false } },
+};
+const boxes = (tops: Record<string, readonly [top: number, left: number, height: number]>) => {
+  page.Element.prototype.getBoundingClientRect = function (this: Element) {
+    const name = (this as HTMLElement).dataset?.['cmsSection'] ?? (this as HTMLElement).dataset?.['cmsSlot'] ?? '';
+    const [top, left, height] = tops[name] ?? [0, 0, 600];
+    return { top, left, width: 200, height, bottom: top + height, right: left + 200, x: left, y: top, toJSON: () => ({}) };
+  };
+};
+
+it('takes a section inside a section as one of its own: what is pressed in it is its own field', () => {
+  open(ROW);
+  click('[data-cms-section="in1"] p');
+  expect(said.at(-1)).toEqual([{ source: 'velocity-cms', type: 'section', id: 'in1', field: 'words', form: true }, origin]);
+  // The row's own heading is still the row's.
+  click('h2');
+  expect(said.at(-1)).toEqual([{ source: 'velocity-cms', type: 'section', id: 'row', field: 'title', form: true }, origin]);
+  // The bar is for the section the pointer is in, the innermost.
+  hear({ source: 'velocity-cms', type: 'tools', ...ROW_TOOLS });
+  pointAt('[data-cms-section="in1"] p');
+  expect($('[data-cms-tools]').textContent).toBe('Text');
+  pointAt('h2');
+  expect($('[data-cms-tools]').textContent).toBe('Columns');
+});
+
+it('puts a button in an empty place inside a section, and says which place when it is pressed', () => {
+  open(ROW);
+  expect(page.document.querySelector('[data-cms-fill]')).toBeNull();
+  hear({ source: 'velocity-cms', type: 'tools', ...ROW_TOOLS });
+  const fill = $('[data-cms-fill="row:columns.1.content"]');
+  expect(fill.style.display).toBe('flex');
+  expect(fill.textContent).toBe('Add section');
+  expect(page.document.querySelectorAll('[data-cms-fill]')).toHaveLength(1);
+  fill.click();
+  expect(said.at(-1)).toEqual([{ source: 'velocity-cms', type: 'slot', id: 'row', field: 'columns.1.content' }, origin]);
+  // A place that takes no more has no button.
+  hear({ source: 'velocity-cms', type: 'tools', ...ROW_TOOLS, slots: { ...ROW_TOOLS.slots, 'row:columns.1.content': { group: 'f1', empty: true, full: true } } });
+  expect(page.document.querySelector('[data-cms-fill]')).toBeNull();
+});
+
+it('drags a section among those it is with, or into another place that takes the same blocks', () => {
+  open(ROW);
+  boxes({ row: [0, 0, 400], 'row:columns.0.content': [100, 0, 300], in1: [100, 0, 100], in2: [200, 0, 100], 'row:columns.1.content': [100, 300, 300] });
+  hear({ source: 'velocity-cms', type: 'tools', ...ROW_TOOLS });
+  const at = (type: string, target: Element | Document, clientX: number, clientY: number) => target.dispatchEvent(new page.MouseEvent(type, { bubbles: true, cancelable: true, clientX, clientY, button: 0 }));
+  // Within its own column: after the one below it. The row itself is not a place to land.
+  pointAt('[data-cms-section="in1"] p');
+  at('mousedown', $('[data-cms-tool="drag"]'), 50, 110);
+  at('mousemove', page.document, 50, 290);
+  expect($('[data-cms-drop]').style.left).toBe('0px');
+  expect($('[data-cms-drop]').style.width).toBe('200px');
+  at('mouseup', page.document, 50, 290);
+  expect(moves().at(-1)).toEqual({ source: 'velocity-cms', type: 'move', id: 'in1', before: null });
+  // Over the empty column: into it.
+  pointAt('[data-cms-section="in1"] p');
+  at('mousedown', $('[data-cms-tool="drag"]'), 50, 110);
+  at('mousemove', page.document, 350, 200);
+  expect($('[data-cms-drop]').style.display).toBe('block');
+  expect($('[data-cms-drop]').style.left).toBe('300px');
+  at('mouseup', page.document, 350, 200);
+  expect(moves().at(-1)).toEqual({ source: 'velocity-cms', type: 'move', id: 'in1', before: null, into: 'row:columns.1.content' });
+  // A place of another kind, or a full one, is not offered: it stays where it is.
+  hear({ source: 'velocity-cms', type: 'tools', ...ROW_TOOLS, slots: { ...ROW_TOOLS.slots, 'row:columns.1.content': { group: 'f2', empty: true, full: false } } });
+  const before = moves().length;
+  pointAt('[data-cms-section="in1"] p');
+  at('mousedown', $('[data-cms-tool="drag"]'), 50, 110);
+  at('mousemove', page.document, 350, 120);
+  at('mouseup', page.document, 350, 120);
+  expect(moves()).toHaveLength(before);
+});
+
+it('comes back where it was when it is drawn again: by the section that was in the window', () => {
+  open();
+  const store = new Map<string, string>();
+  vi.spyOn(page.Storage.prototype, 'getItem').mockImplementation((name) => store.get(name) ?? null);
+  vi.spyOn(page.Storage.prototype, 'setItem').mockImplementation((name, value) => void store.set(name, value));
+  // The page is 300 down each section; leaving it keeps how far down it was and where the section sat.
+  Object.defineProperty(page, 'scrollY', { value: 900, configurable: true });
+  page.dispatchEvent(new page.Event('pagehide'));
+  const [kept] = [...store.values()];
+  expect(JSON.parse(kept ?? '')).toEqual({ y: 900, id: 's1', top: 300 });
+
+  // Drawn again, with the section 500 down the window now: the page moves by the difference.
+  page.Element.prototype.getBoundingClientRect = () => rect(500);
+  const scrollTo = vi.fn();
+  page.scrollTo = scrollTo as unknown as typeof page.scrollTo;
+  previewBridge(page);
+  expect(scrollTo).toHaveBeenCalledWith({ top: 1100, behavior: 'instant' });
+
 });

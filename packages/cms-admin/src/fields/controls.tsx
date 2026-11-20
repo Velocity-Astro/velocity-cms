@@ -6,8 +6,9 @@ import { useContentTypes, useEntries, useForms } from '../client/queries.js';
 import { entryTitle, groupTranslations, localized, sameData, withValue } from '../lib/content.js';
 import { richTextFromHtml } from '../lib/rich-from-html.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
-import { createFieldControlRegistry, type FieldControl, type FieldControlProps, type FieldControls, type FieldSummaryProps, type LinkPlace, type ListPlace, type PicturePlace, type SwatchPlace, type WordsPlace } from './field-control.js';
-import { BlocksControl } from './BlocksControl.js';
+import { createFieldControlRegistry, type FieldControl, type FieldControlProps, type FieldControls, type FieldSummaryProps, type LinkPlace, type ListPlace, type PicturePlace, type SectionsPlace, type SwatchPlace, type WordsPlace } from './field-control.js';
+import { BlocksControl, copyOf } from './BlocksControl.js';
+import { blocksCarried, groupCarried, listCarried } from './carry.js';
 import { FieldEditor } from './FieldEditor.js';
 import { FieldGrid } from './FieldGrid.js';
 import { useControlFor } from './FieldSummary.js';
@@ -329,7 +330,7 @@ interface AnyPlace {
   readonly put: (held: never) => unknown;
 }
 type Places<Place extends AnyPlace> = (field: FieldDef, value: unknown, controlFor: ControlFor) => readonly Place[];
-type Asked = 'words' | 'pictures' | 'links' | 'lists';
+type Asked = 'words' | 'pictures' | 'links' | 'lists' | 'sections';
 const putAt = (found: AnyPlace, held: unknown): unknown => (found.put as (held: unknown) => unknown)(held);
 
 /**
@@ -385,6 +386,11 @@ const listLists: Places<ListPlace> = (field, value, controlFor) => {
   const own: ListPlace = { place: '', items, isFull: max !== undefined && items.length >= max, put: (next) => (next.length === 0 ? undefined : next) };
   return [own, ...inList<ListPlace>('lists', field, value, controlFor)];
 };
+
+const groupSections: Places<SectionsPlace> = (field, value, controlFor) => inGroup('sections', field, value, controlFor);
+const listSections: Places<SectionsPlace> = (field, value, controlFor) => inList('sections', field, value, controlFor);
+/** A field of sections is its own place. The sections inside its sections are found by whoever asks. */
+const blocksSections: Places<SectionsPlace> = (field, value) => [{ place: '', field, sections: Array.isArray(value) ? value : [], put: (next) => (next.length === 0 ? undefined : next) }];
 
 /** A link field is its own link, chosen or not. */
 const linkLinks = (field: FieldDef, value: unknown): readonly LinkPlace[] => [{ place: '', field, link: value, put: (link) => link }];
@@ -490,7 +496,7 @@ function ListControl({ field, label, help, value, onChange, path, problem, probl
           const row = rows[at];
           if (!row) return;
           if (action === 'remove') change(rows.filter((existing) => existing.id !== id));
-          else if (action === 'duplicate') change([...rows.slice(0, at + 1), { id: crypto.randomUUID(), value: structuredClone(row.value) }, ...rows.slice(at + 1)]);
+          else if (action === 'duplicate') change([...rows.slice(0, at + 1), { id: crypto.randomUUID(), value: copyOf(row.value) }, ...rows.slice(at + 1)]);
         }}
         items={rows.map((row, index) => {
           const prefix = `${path}.${index}`;
@@ -540,7 +546,7 @@ export function createFieldControls(): FieldControls {
     .register({ type: 'link', Component: LinkControl, links: linkLinks })
     .register({ type: 'image', Component: ImageControl, pictures: imagePictures })
     .register({ type: 'rich-text', Component: RichTextControl, words: richWords })
-    .register({ type: 'group', Component: GroupControl, titleOf: groupTitle, words: groupWords, pictures: groupPictures, links: groupLinks, lists: groupLists })
-    .register({ type: 'list', Component: ListControl, words: listWords, pictures: listPictures, links: listLinks, lists: listLists })
-    .register({ type: 'blocks', Component: BlocksControl, showsPage: true });
+    .register({ type: 'group', Component: GroupControl, titleOf: groupTitle, words: groupWords, pictures: groupPictures, links: groupLinks, lists: groupLists, sections: groupSections, carried: groupCarried })
+    .register({ type: 'list', Component: ListControl, words: listWords, pictures: listPictures, links: listLinks, lists: listLists, sections: listSections, carried: listCarried })
+    .register({ type: 'blocks', Component: BlocksControl, showsPage: true, sections: blocksSections, carried: blocksCarried });
 }

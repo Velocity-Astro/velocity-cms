@@ -221,3 +221,56 @@ describe('a page made of sections', () => {
     expect(cms.content.toPublic(slimmer, saved, 'working').data['body']).toEqual([{ id: 's1', block: 'hero', data: { title: 'About us' } }]);
   });
 });
+
+describe('sections inside a section', () => {
+  const text = defineBlock({ key: 'text', label: { en: 'Text' }, fields: [{ key: 'words', type: 'text', label: { en: 'Words' }, required: true }] });
+  const columns = defineBlock({
+    key: 'columns',
+    label: { en: 'Columns' },
+    fields: [
+      { key: 'left', type: 'blocks', label: { en: 'Left' }, options: { blocks: [text], max: 2 } },
+      { key: 'right', type: 'blocks', label: { en: 'Right' }, options: { blocks: [text] } },
+    ],
+  });
+  const inner = (type: ContentTypeDef, side: string) => {
+    const columnsDef = block(type, 'columns');
+    const field = columnsDef.fields.find((candidate) => candidate.key === side);
+    if (!field) throw new Error(`No "${side}"`);
+    const textDef = (field.options['blocks'] as BlockDef[])[0];
+    if (!textDef) throw new Error('No text block');
+    return { columnsDef, field, textDef, words: fieldId(textDef, 'words') };
+  };
+  const page = (type: ContentTypeDef, left: unknown[], right: unknown[] = []) => {
+    const a = inner(type, 'left');
+    const b = inner(type, 'right');
+    return [{ id: 'row', block: a.columnsDef.id, data: { [a.field.id]: left, ...(right.length > 0 && { [b.field.id]: right }) } }];
+  };
+  const create = (type: ContentTypeDef, value: unknown) => cms.content.create(editor, { typeId: type.id, locale: 'en', slug: 'home', data: { [body(type).id]: value } });
+
+  it('gives the blocks of an inner place their own ids, kept when described again', async () => {
+    const first = await describePages([columns]);
+    const again = await describePages([columns]);
+    expect(inner(again, 'left').textDef.id).toBe(inner(first, 'left').textDef.id);
+    expect(inner(again, 'left').words).toBe(inner(first, 'left').words);
+    expect(inner(first, 'left').textDef.id).not.toBe(inner(first, 'right').textDef.id);
+  });
+
+  it('saves inner sections and hands the site each by its block\'s key', async () => {
+    const type = await describePages([columns]);
+    const left = inner(type, 'left');
+    const right = inner(type, 'right');
+    const entry = await create(type, page(type, [{ id: 'a', block: left.textDef.id, data: { [left.words]: 'On the left' } }], [{ id: 'b', block: right.textDef.id, data: { [right.words]: 'On the right' }, hidden: true }]));
+    expect(cms.content.toPublic(type, entry, 'working').data).toEqual({
+      body: [{ id: 'row', block: 'columns', data: { left: [{ id: 'a', block: 'text', data: { words: 'On the left' } }], right: [] } }],
+    });
+  });
+
+  it('checks an inner section as any other: its block, its values and how many its place takes', async () => {
+    const type = await describePages([columns]);
+    const left = inner(type, 'left');
+    const one = (id: string) => ({ id, block: left.textDef.id, data: { [left.words]: 'Words' } });
+    await expect(create(type, page(type, [{ id: 'a', block: 'nothing', data: {} }]))).rejects.toThrow(ValidationError);
+    await expect(create(type, page(type, [{ id: 'a', block: left.textDef.id, data: { [left.words]: 7 } }]))).rejects.toThrow(ValidationError);
+    await expect(create(type, page(type, [one('a'), one('b'), one('c')]))).rejects.toThrow(ValidationError);
+  });
+});

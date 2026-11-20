@@ -53,6 +53,9 @@ export function previewBridge(page: Window & typeof globalThis): void {
   // Every run that shows a field, by section and field, so all of them follow what is typed in one.
   const shownIn = new WeakMap<Element, Map<string, Text[]>>();
   const squeeze = (text: string | null): string => (text ?? '').replace(/\s+/g, '');
+  // What a section holds itself: a section inside it (a column's) answers for its own.
+  const within = (section: HTMLElement, selector: string): HTMLElement[] =>
+    [...section.querySelectorAll<HTMLElement>(selector)].filter((element) => element.closest('[data-cms-section]') === section);
   const guess = (section: HTMLElement): Map<string, HTMLElement> => {
     const known = guesses.get(section);
     if (known) return known;
@@ -80,7 +83,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
       else list.push(element);
       into.set(text, list);
     };
-    for (const element of section.querySelectorAll<HTMLElement>('*')) {
+    for (const element of within(section, '*')) {
       if (element.closest('script, style, template, noscript')) continue;
       if (element.tagName === 'IMG') pictures.push(element as HTMLImageElement);
       add(whole, squeeze(element.textContent), element);
@@ -94,7 +97,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
     for (const value of values) {
       if (!Array.isArray(value) || typeof value[0] !== 'string' || typeof value[1] !== 'string') continue;
       const path: string = value[0];
-      if ([...section.querySelectorAll<HTMLElement>('[data-cms-field]')].some((marked) => marked.dataset['cmsField'] === path)) continue;
+      if (within(section, '[data-cms-field]').some((marked) => marked.dataset['cmsField'] === path)) continue;
       let text: string = value[1];
       if (value[2] === 'html') {
         const holder = doc.createElement('template');
@@ -165,7 +168,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
     const found = [...doc.querySelectorAll<HTMLElement>('[data-cms-section]')].find((candidate) => candidate.dataset['cmsSection'] === section);
     if (!found) return null;
     if (field !== undefined) {
-      const inner = [...found.querySelectorAll<HTMLElement>('[data-cms-field]')].find((candidate) => candidate.dataset['cmsField'] === field) ?? guess(found).get(field);
+      const inner = within(found, '[data-cms-field]').find((candidate) => candidate.dataset['cmsField'] === field) ?? guess(found).get(field);
       if (inner) return { element: inner, section, field };
     }
     return { element: found, section };
@@ -547,7 +550,9 @@ export function previewBridge(page: Window & typeof globalThis): void {
   // Tools.
   interface Tools {
     readonly labels: Record<string, unknown>;
-    readonly sections: Record<string, { readonly name?: unknown; readonly up?: unknown; readonly down?: unknown; readonly copy?: unknown; readonly add?: unknown; readonly pictures?: unknown; readonly links?: unknown; readonly lists?: unknown; readonly swatches?: unknown } | undefined>;
+    readonly sections: Record<string, { readonly name?: unknown; readonly up?: unknown; readonly down?: unknown; readonly copy?: unknown; readonly add?: unknown; readonly pictures?: unknown; readonly links?: unknown; readonly lists?: unknown; readonly swatches?: unknown; readonly list?: unknown; readonly group?: unknown } | undefined>;
+    /** The places inside sections that hold sections of their own, by `<section>:<field>`. */
+    readonly slots?: Record<string, { readonly group?: unknown; readonly empty?: unknown; readonly full?: unknown } | undefined>;
   }
   let tools: Tools | null = null;
   // The section the bar is for: the one the pointer was last in, and it stays while the pointer is on the bar itself.
@@ -670,7 +675,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
     }
     dots.style.display = dots.childElementCount > 0 ? 'flex' : 'none';
   };
-  const adder = (action: string): HTMLButtonElement => {
+  const adder = (action: string, acts = true): HTMLButtonElement => {
     const button = doc.createElement('button');
     button.type = 'button';
     button.tabIndex = -1;
@@ -694,11 +699,45 @@ export function previewBridge(page: Window & typeof globalThis): void {
       pointerEvents: 'auto',
     });
     button.append(drawing('add'), doc.createElement('span'));
-    press(button, action);
+    if (acts) press(button, action);
+    else button.addEventListener('mousedown', (event) => event.preventDefault());
     layer.append(button);
     return button;
   };
   const adders = { addBefore: adder('addBefore'), addAfter: adder('addAfter') };
+  // An empty place inside a section (a column with nothing in it yet) has a button that adds the first.
+  const slotOf = (element: HTMLElement): string => element.dataset['cmsSlot'] ?? '';
+  const fillers = new Map<string, HTMLButtonElement>();
+  const placeFillers = (isShown: boolean): void => {
+    const wanted = new Map<string, DOMRect>();
+    if (isShown && tools?.slots) {
+      for (const slot of doc.querySelectorAll<HTMLElement>('[data-cms-slot]')) {
+        const about = tools.slots[slotOf(slot)];
+        const rect = slot.getBoundingClientRect();
+        if (about?.empty === true && about.full !== true && rect.bottom > 14 && rect.top < page.innerHeight - 14 && rect.width > 0) wanted.set(slotOf(slot), rect);
+      }
+    }
+    for (const [key, button] of fillers) {
+      if (wanted.has(key)) continue;
+      button.remove();
+      fillers.delete(key);
+    }
+    for (const [key, rect] of wanted) {
+      let button = fillers.get(key);
+      if (!button) {
+        button = adder('fill', false);
+        button.setAttribute('data-cms-fill', key);
+        button.addEventListener('click', () => {
+          const at = key.indexOf(':');
+          say({ type: 'slot', id: key.slice(0, at), field: key.slice(at + 1) });
+        });
+        fillers.set(key, button);
+      }
+      if (button.lastElementChild) button.lastElementChild.textContent = word(tools?.labels['add']);
+      const middle = Math.min(Math.max(rect.top + rect.height / 2, 16), page.innerHeight - 16);
+      Object.assign(button.style, { display: 'flex', top: `${middle}px`, left: `${rect.left + rect.width / 2}px` });
+    }
+  };
   layer.append(bar);
   const word = (value: unknown): string => (typeof value === 'string' ? value : '');
   // What the editor can change from the page has a button of its own while the pointer is over it:
@@ -809,7 +848,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
       if (to !== null) wanted.set(to, [...(wanted.get(to) ?? []), path]);
     }
     const going = new Map<string, HTMLElement[]>();
-    for (const anchor of section.querySelectorAll<HTMLElement>('a[href]')) {
+    for (const anchor of within(section, 'a[href]')) {
       const to = leadsTo(anchor.getAttribute('href'));
       if (to !== null && wanted.has(to)) going.set(to, [...(going.get(to) ?? []), anchor]);
     }
@@ -927,7 +966,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
     itemsIn.set(section, { said, found });
     // Every element known to show a field, by the field's place.
     const shown: [string, HTMLElement][] = [...guess(section)];
-    for (const marked of section.querySelectorAll<HTMLElement>('[data-cms-field]')) shown.push([marked.dataset['cmsField'] ?? '', marked]);
+    for (const marked of within(section, '[data-cms-field]')) shown.push([marked.dataset['cmsField'] ?? '', marked]);
     for (const link of linksOf(section, id, links)) shown.push([link.field ?? '', link.element]);
     for (const list of lists) {
       if (typeof list !== 'object' || list === null) continue;
@@ -1063,6 +1102,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
   );
   placeTools = (): void => {
     placeChips();
+    placeFillers(!typing && !writing && !drag?.moved);
     const hide = (): void => {
       bar.style.display = 'none';
       adders.addBefore.style.display = 'none';
@@ -1106,7 +1146,10 @@ export function previewBridge(page: Window & typeof globalThis): void {
   interface Drag {
     readonly id: string;
     readonly from: number;
+    x: number;
     y: number;
+    /** The place inside a section it would land in, where that is not the place it is in. */
+    into: string | undefined;
     /** The section it would land before, or `null` for after the last; `undefined` where it would not move. */
     before: string | null | undefined;
     moved: boolean;
@@ -1115,27 +1158,51 @@ export function previewBridge(page: Window & typeof globalThis): void {
   const movable = (): HTMLElement[] => [...doc.querySelectorAll<HTMLElement>('[data-cms-section]')].filter((section) => tools?.sections[section.dataset['cmsSection'] ?? ''] !== undefined);
   const aim = (): void => {
     if (!drag) return;
-    const sections = movable();
+    const { id, x, y } = drag;
+    const all = movable();
+    const listOf = (section: HTMLElement): string => word(tools?.sections[section.dataset['cmsSection'] ?? '']?.list);
+    const home = word(tools?.sections[id]?.list);
+    const group = word(tools?.sections[id]?.group);
+    const dragged = all.find((section) => section.dataset['cmsSection'] === id);
+    // It lands among the sections it is with, or in another place the pointer is over that takes
+    // the same blocks: the smallest such place, and never one inside the section itself.
+    let into = home;
+    let place: DOMRect | undefined;
+    for (const slot of doc.querySelectorAll<HTMLElement>('[data-cms-slot]')) {
+      const about = tools?.slots?.[slotOf(slot)];
+      if (!about || about.group !== group || dragged?.contains(slot) || (slotOf(slot) !== home && about.full === true)) continue;
+      const rect = slot.getBoundingClientRect();
+      if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) continue;
+      if (place && place.width * place.height <= rect.width * rect.height) continue;
+      into = slotOf(slot);
+      place = rect;
+    }
+    const sections = all.filter((section) => listOf(section) === into);
     const at = sections.findIndex((section) => {
       const rect = section.getBoundingClientRect();
-      return drag !== null && drag.y < rect.top + rect.height / 2;
+      return y < rect.top + rect.height / 2;
     });
     const target = at < 0 ? undefined : sections[at];
-    const own = sections.findIndex((section) => section.dataset['cmsSection'] === drag?.id);
+    const own = sections.findIndex((section) => section.dataset['cmsSection'] === id);
     const to = at < 0 ? sections.length : at;
     // Before itself, or before the one after it, is where it is already.
-    drag.before = own < 0 || to === own || to === own + 1 ? undefined : (target?.dataset['cmsSection'] ?? null);
+    const stays = into === home && (own < 0 || to === own || to === own + 1);
+    drag.before = stays ? undefined : (target?.dataset['cmsSection'] ?? null);
+    drag.into = into === home ? undefined : into;
     const last = sections[sections.length - 1];
-    const edge = target ? target.getBoundingClientRect().top : (last?.getBoundingClientRect().bottom ?? 0);
-    Object.assign(line.style, { display: drag.before === undefined ? 'none' : 'block', top: `${Math.min(Math.max(edge, 2), page.innerHeight - 2)}px` });
+    const beside = target?.getBoundingClientRect() ?? last?.getBoundingClientRect() ?? place;
+    const edge = target ? target.getBoundingClientRect().top : (last?.getBoundingClientRect().bottom ?? (place ? place.top + 2 : 0));
+    // Across the page for the page's own sections, and as wide as its neighbours inside a section.
+    const across = into === '' || !beside ? { left: '0', right: '0', width: 'auto' } : { left: `${beside.left}px`, right: 'auto', width: `${beside.width}px` };
+    Object.assign(line.style, { display: stays ? 'none' : 'block', top: `${Math.min(Math.max(edge, 2), page.innerHeight - 2)}px`, ...across });
   };
   const endDrag = (drop: boolean): void => {
     if (!drag) return;
-    const { id, before, moved } = drag;
+    const { id, before, into, moved } = drag;
     drag = null;
     line.style.display = 'none';
     Object.assign(layer.style, { pointerEvents: 'none', cursor: '' });
-    if (drop && moved && before !== undefined) say({ type: 'move', id, before });
+    if (drop && moved && before !== undefined) say({ type: 'move', id, before, ...(into !== undefined && { into }) });
     draw();
   };
   // Near the top or the bottom of the page, it scrolls to bring the rest within reach.
@@ -1153,7 +1220,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
       const id = tooled?.dataset['cmsSection'];
       if (event.button !== 0 || !id || movable().length < 2) return;
       event.preventDefault();
-      drag = { id, from: event.clientY, y: event.clientY, before: undefined, moved: false };
+      drag = { id, from: event.clientY, x: event.clientX, y: event.clientY, into: undefined, before: undefined, moved: false };
       // The layer takes the pointer while it drags, so nothing on the page answers to it.
       Object.assign(layer.style, { pointerEvents: 'auto', cursor: 'grabbing' });
       page.setTimeout(creep, 16);
@@ -1163,6 +1230,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
     'mousemove',
     (event) => {
       if (!drag) return;
+      drag.x = event.clientX;
       drag.y = event.clientY;
       // A few pixels of give, so a press that was only a press moves nothing.
       if (Math.abs(drag.y - drag.from) > 4) drag.moved = true;
@@ -1216,6 +1284,8 @@ export function previewBridge(page: Window & typeof globalThis): void {
   );
   doc.addEventListener('submit', (event) => event.preventDefault(), true);
 
+  // True once the page is where it should be: the person scrolled it, or the editor asked for a part of it.
+  let settled = false;
   page.addEventListener('message', (event: MessageEvent<{ source?: unknown; type?: unknown; id?: unknown; field?: unknown } | null>) => {
     if (event.origin !== origin || event.source !== page.parent || event.data?.source !== SOURCE) return;
     if (event.data.type === 'typable') {
@@ -1230,7 +1300,8 @@ export function previewBridge(page: Window & typeof globalThis): void {
     if (event.data.type === 'tools') {
       const said = event.data as { labels?: unknown; sections?: unknown };
       const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
-      tools = isRecord(said.labels) && isRecord(said.sections) ? { labels: said.labels, sections: said.sections as Tools['sections'] } : null;
+      const slots = (said as { slots?: unknown }).slots;
+      tools = isRecord(said.labels) && isRecord(said.sections) ? { labels: said.labels, sections: said.sections as Tools['sections'], ...(isRecord(slots) && { slots: slots as NonNullable<Tools['slots']> }) } : null;
       draw();
       return;
     }
@@ -1241,23 +1312,70 @@ export function previewBridge(page: Window & typeof globalThis): void {
     if (!mark) return;
     marks.chosen = mark;
     const rect = mark.element.getBoundingClientRect();
-    // What is already in view stays where it is: the page does not jump while someone types.
-    if (rect.bottom <= 0 || rect.top >= page.innerHeight) {
+    // What is already in view stays where it is: the page does not jump while someone types. Nor
+    // does a page drawn again, which is where the person left it: the editor says so (`still`).
+    if ((event.data as { still?: unknown }).still !== true && (rect.bottom <= 0 || rect.top >= page.innerHeight)) {
       // Room for a header that stays at the top of the page.
       mark.element.style.scrollMarginTop = '6rem';
+      settled = true;
       mark.element.scrollIntoView({ block: 'start' });
     }
     draw();
   });
 
   // Scroll.
+  // A page drawn again is where it was: by the section that was in the window and where in it, so
+  // it stays put even when something above is taller or shorter now, and else by how far down it was.
   const key = `velocity-cms:scroll:${page.location.pathname}`;
   try {
-    const kept = Number(page.sessionStorage.getItem(key));
-    if (kept > 0) page.scrollTo({ top: kept, behavior: 'instant' });
-    page.addEventListener('pagehide', () => page.sessionStorage.setItem(key, String(page.scrollY)));
+    let kept: { readonly y?: unknown; readonly id?: unknown; readonly top?: unknown } = {};
+    try {
+      const read: unknown = JSON.parse(page.sessionStorage.getItem(key) ?? 'null');
+      kept = typeof read === 'number' ? { y: read } : typeof read === 'object' && read !== null ? read : {};
+    } catch {
+      // What was kept another way is as good as nothing kept.
+    }
+    const back = (): void => {
+      if (typeof kept.y !== 'number' || !(kept.y > 0)) return;
+      const section = [...doc.querySelectorAll<HTMLElement>('[data-cms-section]')].find((candidate) => candidate.dataset['cmsSection'] === kept.id);
+      const to = section && typeof kept.top === 'number' ? page.scrollY + section.getBoundingClientRect().top - kept.top : kept.y;
+      if (Math.abs(page.scrollY - to) > 1) page.scrollTo({ top: Math.max(to, 0), behavior: 'instant' });
+    };
+    back();
+    // A page that is not as tall yet as it will be (photos, fonts) is put back again as it settles,
+    // until the person scrolls it or the editor asks for another part of it.
+    for (const sign of ['wheel', 'touchmove', 'keydown', 'mousedown']) page.addEventListener(sign, () => (settled = true), { once: true, capture: true, passive: true });
+    let tries = 0;
+    const settle = (): void => {
+      if (settled) return;
+      back();
+      if (++tries < 20) page.setTimeout(settle, 100);
+    };
+    page.setTimeout(settle, 100);
+    page.addEventListener('load', () => {
+      if (!settled) back();
+    });
+    page.addEventListener('pagehide', () => {
+      // The section being worked on, or else the first one in the window.
+      const inView = (section: HTMLElement | null | undefined): section is HTMLElement => {
+        const rect = section?.isConnected ? section.getBoundingClientRect() : null;
+        return rect !== null && rect.bottom > 0 && rect.top < page.innerHeight;
+      };
+      const section = inView(tooled) ? tooled : [...doc.querySelectorAll<HTMLElement>('[data-cms-section]')].find(inView);
+      page.sessionStorage.setItem(key, JSON.stringify({ y: page.scrollY, ...(section && { id: section.dataset['cmsSection'], top: section.getBoundingClientRect().top }) }));
+    });
   } catch {
     // A page that may not keep anything starts at the top.
+  }
+  // The page is drawn again in place: a template's fade from one page to the next is for visitors.
+  // The turn itself is kept, since it holds the page as it was on screen until this one is ready,
+  // and is made to take no time. The rule is the bridge's own sheet, not a change to the page's.
+  try {
+    const sheet = new page.CSSStyleSheet();
+    sheet.replaceSync('::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }');
+    doc.adoptedStyleSheets = [...doc.adoptedStyleSheets, sheet];
+  } catch {
+    // A browser without such sheets shows the template's own turn.
   }
 
   say({ type: 'ready' });

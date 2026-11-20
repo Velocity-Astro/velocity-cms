@@ -159,3 +159,24 @@ it('starts a new page with no sections and says how to begin', async () => {
   renderApp('/content/pages/new', { user: sampleUser, contentTypes: [samplePagesType], entries: [] });
   expect(await (await sections()).findByText('No sections yet. Add the first one to start the page.')).toBeTruthy();
 });
+
+it('fills a place inside a section with sections of its own, from the blocks that place takes', async () => {
+  const user = userEvent.setup();
+  const words = { id: 'bf-note-words', key: 'words', type: 'text', label: { en: 'Note' }, required: false, translated: false, options: {} };
+  const note: BlockDef = { id: 'b-note', key: 'note', label: { en: 'Note' }, fields: [words] };
+  const row: BlockDef = { id: 'b-row', key: 'row', label: { en: 'Row' }, fields: [{ ...words, id: 'bf-row-left', key: 'left', type: 'blocks', label: { en: 'Left column' }, options: { blocks: [note] } }] };
+  const type = { ...samplePagesType, fields: samplePagesType.fields.map((field) => (field.id === 'f-body' ? { ...field, options: { ...field.options, blocks: [...(field.options['blocks'] as BlockDef[]), row] } } : field)) };
+  const entry = samplePage();
+  const { client } = renderApp('/content/pages/p1', { user: sampleUser, contentTypes: [type], entries: [{ ...entry, data: { ...entry.data, 'f-body': [{ id: 'r1', block: 'b-row', data: {} }] } }] });
+  const list = await sections();
+  await user.click(list.getByRole('button', { name: /^Row/ }));
+  const left = within(await screen.findByRole('group', { name: 'Left column' }));
+  await user.click(left.getByRole('button', { name: 'Add section' }));
+  // Only what the column takes is offered: not the page's own blocks.
+  expect(screen.queryByRole('option', { name: /^Text/ })).toBeNull();
+  await user.click(await screen.findByRole('option', { name: /^Note/ }));
+  await user.type(await left.findByRole('textbox', { name: 'Note' }), 'In the left column');
+  await save(user);
+  const [saved] = await stored(client);
+  expect(saved?.data['bf-row-left']).toMatchObject([{ block: 'b-note', data: { 'bf-note-words': 'In the left column' } }]);
+});

@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { MiddlewareHandler } from 'astro';
+import { PREVIEW_BRIDGE_SCRIPT } from '@velocity-astro/cms-admin/page-bridge';
 import { PREVIEW_PARAMETER, PreviewLinks, type EntryData } from '@velocity-astro/cms-core';
 import { siteSecret } from './secret.js';
 import { refreshUploadedImages } from './site-media.js';
@@ -111,17 +112,43 @@ export async function readPreviewDraft(request: Request, site: URL): Promise<Pre
 /** The address of the script the page beside the editor's form runs. */
 export const EDITOR_PREVIEW_SCRIPT = '/cms-preview.js';
 
+/** A few letters that change whenever the script does. */
+function mark(text: string): string {
+  let sum = 5381;
+  for (let at = 0; at < text.length; at++) sum = (Math.imul(sum, 33) ^ text.charCodeAt(at)) >>> 0;
+  return sum.toString(36);
+}
+
+/**
+ * Which script this version of the CMS sends, as a mark in its address. A page is drawn again
+ * with every change in the form, and a browser that kept the script runs it before the page is
+ * seen, so the page comes back where it was with no jump. The mark changes with the script, so
+ * a copy from before an upgrade is never run.
+ */
+export const EDITOR_PREVIEW_VERSION = mark(PREVIEW_BRIDGE_SCRIPT);
+
 /**
  * Adds the script that lets a click on the page find its section in the form. It comes from the
  * site itself, so the page's own rules allow it. Where the page's links to entries lead goes
  * with it as data, which no browser runs.
+ *
+ * The page is drawn again with every change in the form, and must be seen only once it is back
+ * where it was. So the script is the last thing in the page and runs as soon as it is read, and
+ * the head asks the browser to show nothing before that (`rel="expect"`, which a browser that
+ * does not know it passes over).
  */
 export function addEditorScript(html: string, leads: Readonly<Record<string, string>> = {}): string {
   const said = Object.keys(leads).length > 0 ? `<script type="application/json" data-cms-links>${JSON.stringify(leads).replace(/</g, '\\u003c')}</script>` : '';
-  const tag = `${said}<script type="module" src="${EDITOR_PREVIEW_SCRIPT}"></script>`;
+  const tag = `${said}<script id="${EDITOR_SCRIPT_ID}" src="${EDITOR_PREVIEW_SCRIPT}?v=${EDITOR_PREVIEW_VERSION}"></script>`;
   const end = html.lastIndexOf('</body>');
-  return end === -1 ? html + tag : html.slice(0, end) + tag + html.slice(end);
+  const whole = end === -1 ? html + tag : html.slice(0, end) + tag + html.slice(end);
+  const head = /<head(\s[^>]*)?>/i.exec(whole);
+  if (!head) return whole;
+  const at = head.index + head[0].length;
+  return `${whole.slice(0, at)}<link rel="expect" href="#${EDITOR_SCRIPT_ID}" blocking="render">${whole.slice(at)}`;
 }
+
+const EDITOR_SCRIPT_ID = 'cms-preview-script';
 
 /** A signer per secret, so a preview link made for one site is no link at all on another. */
 const links = new Map<string, PreviewLinks>();

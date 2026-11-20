@@ -6,10 +6,11 @@ import { localized, withValue } from '../lib/content.js';
 import { useLast } from '../lib/use-closing.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
 import { blockIcon } from './block-icons.js';
-import type { FieldControlProps, LinkPlace, ListPlace, PicturePlace, SwatchPlace, WordsPlace } from './field-control.js';
+import { carriedSection } from './carry.js';
+import type { FieldControl, FieldControlProps, LinkPlace, ListPlace, PicturePlace, SwatchPlace, WordsPlace } from './field-control.js';
 import { FieldGrid } from './FieldGrid.js';
 import { useControlFor } from './FieldSummary.js';
-import { usePageFocus } from './page-focus.js';
+import { PageFocusInside, usePageFocus } from './page-focus.js';
 import { SiteImagePicker } from './SiteImagePicker.js';
 
 const isSection = (value: unknown): value is BlockValue =>
@@ -27,22 +28,114 @@ function summaryOf(block: BlockDef, section: BlockValue, isWords: (field: FieldD
   return undefined;
 }
 
+/** The sections one field holds: the page's own, or those of a place inside one of its sections. */
+interface Held {
+  /** Nothing for the page's own sections. For a place inside a section, the section and the place: `id:columns.0.content`. */
+  readonly key: string;
+  /** Lists that take each other's sections: those that take the same blocks, by their keys. */
+  readonly group: string;
+  readonly blocks: readonly BlockDef[];
+  readonly sections: readonly BlockValue[];
+  readonly max: number | undefined;
+  /** Where the list is in the entry, as field keys. */
+  readonly path: string;
+  /** The sections this list is inside, outermost first. */
+  readonly inside: readonly string[];
+  /** The page's sections with these in this list. */
+  readonly to: (next: readonly BlockValue[]) => readonly BlockValue[];
+}
+
+type ControlFor = (type: string) => FieldControl | undefined;
+
+const blocksOf = (field: FieldDef): readonly BlockDef[] => (Array.isArray(field.options['blocks']) ? (field.options['blocks'] as BlockDef[]) : []);
+const maxOf = (field: FieldDef): number | undefined => (typeof field.options['max'] === 'number' ? field.options['max'] : undefined);
+const isFull = (list: Held): boolean => list.max !== undefined && list.sections.length >= list.max;
+const withData = (list: Held, id: string, data: unknown): readonly BlockValue[] =>
+  list.to(list.sections.map((existing) => (existing.id === id ? { ...existing, data: data as BlockValue['data'] } : existing)));
+
+/** A list and every list inside its sections, outermost first. */
+function gather(list: Held, controlFor: ControlFor): Held[] {
+  const inner = list.sections.flatMap((section, index) => {
+    const block = blockOf(list.blocks, section);
+    if (!block || block.retiredAt !== undefined) return [];
+    return liveFields(block.fields).flatMap((field) =>
+      (controlFor(field.type)?.sections?.(field, section.data[field.id], controlFor) ?? []).flatMap((found) => {
+        const place = found.place === '' ? field.key : `${field.key}.${found.place}`;
+        return gather(
+          {
+            key: `${section.id}:${place}`,
+            group: blocksOf(found.field).filter((block) => block.retiredAt === undefined).map((block) => block.key).sort().join('|'),
+            blocks: blocksOf(found.field),
+            sections: found.sections.filter(isSection),
+            max: maxOf(found.field),
+            path: `${list.path}.${index}.${place}`,
+            inside: [...list.inside, section.id],
+            to: (next) => withData(list, section.id, withValue(section.data, field.id, found.put(next))),
+          },
+          controlFor,
+        );
+      }),
+    );
+  });
+  return [list, ...inner];
+}
+
+function locate(lists: readonly Held[], id: string): { readonly list: Held; readonly at: number; readonly section: BlockValue } | undefined {
+  for (const list of lists) {
+    const at = list.sections.findIndex((section) => section.id === id);
+    const section = list.sections[at];
+    if (section) return { list, at, section };
+  }
+  return undefined;
+}
+
+/** A copy of a section with an id of its own, and one for every section inside it. */
+export function copyOf<Value>(value: Value): Value {
+  if (Array.isArray(value)) return value.map((item: unknown) => copyOf(item)) as Value;
+  if (typeof value !== 'object' || value === null) return value;
+  const copied = Object.fromEntries(Object.entries(value).map(([key, inner]) => [key, copyOf(inner)]));
+  return (isSection(value) ? { ...copied, id: crypto.randomUUID() } : copied) as Value;
+}
+
+/** The places of one kind (words, pictures, links) a section holds, by the keys the page knows its fields by. */
+function placesIn<Kept, Place extends { readonly place: string; readonly put: (held: Kept) => unknown }>(
+  list: { readonly blocks: readonly BlockDef[] },
+  section: BlockValue,
+  ask: (control: FieldControl, field: FieldDef, value: unknown) => readonly Place[] | undefined,
+  controlFor: ControlFor,
+): readonly Place[] {
+  const block = blockOf(list.blocks, section);
+  if (!block || block.retiredAt !== undefined) return [];
+  return liveFields(block.fields).flatMap((inner) => {
+    const control = controlFor(inner.type);
+    return ((control && ask(control, inner, section.data[inner.id])) ?? []).map((found) => ({
+      ...found,
+      place: found.place === '' ? inner.key : `${inner.key}.${found.place}`,
+      put: (held: Kept) => withValue(section.data, inner.id, found.put(held)),
+    }));
+  });
+}
+
 /**
  * The sections of a page. Each is one of the blocks the field allows and opens to that block's
  * own fields, drawn by their own controls. What a section looks like on the site is the
  * template's business: here it is only data.
+ *
+ * A block may hold sections of its own (the columns of a row). In the form those are drawn by
+ * the control of the field that holds them, which is this one again. To the page, the field that
+ * holds the whole page answers for every section in it, however deep.
  */
 export function BlocksControl({ field, label, help, value, onChange, path, problem, problems }: FieldControlProps) {
   const messages = useMessages();
   const locale = useLocale();
-  const blocks: readonly BlockDef[] = Array.isArray(field.options['blocks']) ? (field.options['blocks'] as BlockDef[]) : [];
+  const blocks = blocksOf(field);
   const sections: readonly BlockValue[] = Array.isArray(value) ? value.filter(isSection) : [];
-  const max = typeof field.options['max'] === 'number' ? field.options['max'] : undefined;
+  const max = maxOf(field);
 
   const [openIds, setOpenIds] = useState<readonly string[]>([]);
   const [isPicking, setPicking] = useState(false);
-  // Where the section being picked goes: a place among the sections, or the end.
-  const [pickAt, setPickAt] = useState<number | null>(null);
+  // Where the section being picked goes: the list, and a place among its sections or the end.
+  const [pick, setPick] = useState<{ readonly key: string; readonly at: number | null }>({ key: '', at: null });
   const [removingId, setRemovingId] = useState<string | null>(null);
   // The picture being changed from the page: its section and its place in it.
   const [picturing, setPicturing] = useState<{ readonly section: string; readonly place: string } | null>(null);
@@ -54,148 +147,136 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
   const controlFor = useControlFor();
   const focus = usePageFocus();
   const pressed = focus?.pressed;
+  const opened = focus?.opened;
   const change = (next: readonly BlockValue[]) => onChange(next.length === 0 ? undefined : next);
+  const listsOf = (all: readonly BlockValue[]) => gather({ key: '', group: '', blocks, sections: all, max, path, inside: [], to: (next) => next }, controlFor);
+  const lists = listsOf(sections);
+  const own = lists[0];
+
+  const wordsOf = (list: Held, section: BlockValue) => placesIn<string, WordsPlace>(list, section, (control, inner, held) => control.words?.(inner, held, controlFor), controlFor);
+  const picturesOf = (list: Held, section: BlockValue) => placesIn<string, PicturePlace>(list, section, (control, inner, held) => control.pictures?.(inner, held, controlFor), controlFor);
+  const linksOf = (list: Held, section: BlockValue) => placesIn<unknown, LinkPlace>(list, section, (control, inner, held) => control.links?.(inner, held, controlFor), controlFor);
+  const itemsOf = (list: Held, section: BlockValue) => placesIn<readonly unknown[], ListPlace>(list, section, (control, inner, held) => control.lists?.(inner, held, controlFor), controlFor);
+  const swatchesOf = (list: Held, section: BlockValue) => placesIn<string, SwatchPlace>(list, section, (control, inner, held) => control.swatches?.(inner, held, controlFor), controlFor);
+
+  // What the handlers below work from: what the form holds now, whenever the page speaks.
+  const held = useRef({ sections, lists, listsOf, change, wordsOf, itemsOf, swatchesOf });
+  useEffect(() => {
+    held.current = { sections, lists, listsOf, change, wordsOf, itemsOf, swatchesOf };
+  });
+
   const open = (id: string) => {
     setOpenIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
     focus?.open(id);
   };
+  // A section opens with every section it is inside.
+  const reveal = (id: string) => {
+    const wanted = [...(locate(held.current.lists, id)?.list.inside ?? []), id];
+    setOpenIds((ids) => (wanted.every((one) => ids.includes(one)) ? ids : [...new Set([...ids, ...wanted])]));
+  };
   // A section pressed on the page beside the form opens here.
   useEffect(() => {
     if (!pressed) return;
-    setOpenIds((ids) => (ids.includes(pressed.id) ? ids : [...ids, pressed.id]));
+    reveal(pressed.id);
     // A field inside a list is pointed at by the list it is in.
     const [key] = pressed.field?.split('.') ?? [];
     setPointed(key === undefined ? null : { section: pressed.id, key, at: pressed.at });
   }, [pressed]);
-  // Where each section holds plain words, by the keys the page knows its fields by.
-  const wordsOf = (section: BlockValue): readonly WordsPlace[] => {
-    const block = blockOf(blocks, section);
-    if (!block || block.retiredAt !== undefined) return [];
-    return liveFields(block.fields).flatMap((inner) =>
-      (controlFor(inner.type)?.words?.(inner, section.data[inner.id], controlFor) ?? []).map(({ place, put }) => ({
-        place: place === '' ? inner.key : `${inner.key}.${place}`,
-        put: (words: string) => withValue(section.data, inner.id, put(words)),
-      })),
-    );
-  };
-  // Where each section holds a picture that can be changed from the page.
-  const picturesOf = (section: BlockValue): readonly PicturePlace[] => {
-    const block = blockOf(blocks, section);
-    if (!block || block.retiredAt !== undefined) return [];
-    return liveFields(block.fields).flatMap((inner) =>
-      (controlFor(inner.type)?.pictures?.(inner, section.data[inner.id], controlFor) ?? []).map((found) => ({
-        ...found,
-        place: found.place === '' ? inner.key : `${inner.key}.${found.place}`,
-        put: (name: string) => withValue(section.data, inner.id, found.put(name)),
-      })),
-    );
-  };
-  // Where each section holds a link that can be changed from the page.
-  const linksOf = (section: BlockValue): readonly LinkPlace[] => {
-    const block = blockOf(blocks, section);
-    if (!block || block.retiredAt !== undefined) return [];
-    return liveFields(block.fields).flatMap((inner) =>
-      (controlFor(inner.type)?.links?.(inner, section.data[inner.id], controlFor) ?? []).map((found) => ({
-        ...found,
-        place: found.place === '' ? inner.key : `${inner.key}.${found.place}`,
-        put: (link: unknown) => withValue(section.data, inner.id, found.put(link)),
-      })),
-    );
-  };
-  // Where each section holds a list whose items can be moved, copied and removed from the page.
-  const listsOf = (section: BlockValue): readonly ListPlace[] => {
-    const block = blockOf(blocks, section);
-    if (!block || block.retiredAt !== undefined) return [];
-    return liveFields(block.fields).flatMap((inner) =>
-      (controlFor(inner.type)?.lists?.(inner, section.data[inner.id], controlFor) ?? []).map((found) => ({
-        ...found,
-        place: found.place === '' ? inner.key : `${inner.key}.${found.place}`,
-        put: (items: readonly unknown[]) => withValue(section.data, inner.id, found.put(items)),
-      })),
-    );
-  };
-  // Where each section's look is a choice among a few of the site's colours, chosen from its bar on the page.
-  const swatchesOf = (section: BlockValue): readonly SwatchPlace[] => {
-    const block = blockOf(blocks, section);
-    if (!block || block.retiredAt !== undefined) return [];
-    return liveFields(block.fields).flatMap((inner) =>
-      (controlFor(inner.type)?.swatches?.(inner, section.data[inner.id], controlFor) ?? []).map((found) => ({
-        ...found,
-        place: found.place === '' ? inner.key : `${inner.key}.${found.place}`,
-        put: (value: string) => withValue(section.data, inner.id, found.put(value)),
-      })),
-    );
-  };
-  const typable = Object.fromEntries(sections.map((section) => [section.id, wordsOf(section).map(({ place }) => place)]));
+  // So does one opened from somewhere else: a section added inside another from the page.
+  useEffect(() => {
+    if (opened !== undefined) reveal(opened);
+  }, [opened]);
+
+  const isInside = focus?.isInside === true;
+  const typable = isInside ? {} : Object.fromEntries(lists.flatMap((list) => list.sections.map((section) => [section.id, wordsOf(list, section).map(({ place }) => place)])));
   const typableSaid = JSON.stringify(typable);
   const setTypable = focus?.setTypable;
   useEffect(() => setTypable?.(JSON.parse(typableSaid) as Record<string, string[]>), [setTypable, typableSaid]);
   // Words typed on the page go into the form as they are typed. Several may arrive before the
   // form is drawn again, so each builds on the one before.
-  const held = useRef({ sections, wordsOf, change });
-  useEffect(() => {
-    held.current = { sections, wordsOf, change };
-  });
   const onTyped = focus?.onTyped;
   useEffect(
     () =>
-      onTyped?.((id, field, words) => {
+      onTyped?.((id, place, words) => {
         const now = held.current;
-        const section = now.sections.find((candidate) => candidate.id === id);
-        const place = section && now.wordsOf(section).find((candidate) => candidate.place === field);
-        if (!section || !place) return;
-        const next = now.sections.map((existing) => (existing.id === id ? { ...existing, data: place.put(words) as BlockValue['data'] } : existing));
-        held.current = { ...now, sections: next };
+        const found = locate(now.lists, id);
+        const at = found && now.wordsOf(found.list, found.section).find((candidate) => candidate.place === place);
+        if (!found || !at) return;
+        const next = withData(found.list, id, at.put(words));
+        held.current = { ...now, sections: next, lists: now.listsOf(next) };
         now.change(next);
       }),
     [onTyped],
   );
   const nameOf = (block: BlockDef | undefined) => (block ? localized(block.label, locale) : messages.editor.sectionUnknown);
   // What the page may offer on each section it shows. Hidden and retired sections are not on the page.
-  const isFull = max !== undefined && sections.length >= max;
-  const offered = {
-    labels: {
-      up: messages.editor.pageMoveUp,
-      down: messages.editor.pageMoveDown,
-      duplicate: messages.editor.pageDuplicate,
-      remove: messages.editor.pageRemove,
-      add: messages.editor.pageAdd,
-      addBefore: messages.editor.pageAddBefore,
-      addAfter: messages.editor.pageAddAfter,
-      picture: messages.editor.pagePicture,
-      link: messages.editor.pageLink,
-      bold: messages.editor.richText.bold,
-      italic: messages.editor.richText.italic,
-      textLink: messages.editor.richText.link,
-      itemUp: messages.editor.pageItemUp,
-      itemDown: messages.editor.pageItemDown,
-      itemDuplicate: messages.editor.pageItemDuplicate,
-      itemRemove: messages.editor.pageItemRemove,
-    },
-    sections: Object.fromEntries(
-      sections.map((section, at) => [section.id, { name: nameOf(blockOf(blocks, section)), up: at > 0, down: at < sections.length - 1, copy: !isFull, add: !isFull, pictures: picturesOf(section).map(({ place }) => place), links: linksOf(section).map(({ place }) => place), lists: listsOf(section).map(({ place, items, isFull }) => ({ field: place, count: items.length, full: isFull })), swatches: swatchesOf(section).map((found) => ({ field: found.place, name: localized(found.field.label, locale), ...(found.chosen !== undefined && { chosen: found.chosen }), choices: found.choices.map((choice) => ({ value: choice.value, name: choice.name(locale), colour: choice.colour })) })) },
-      ]),
-    ),
-  };
+  const offered = isInside
+    ? undefined
+    : {
+        labels: {
+          up: messages.editor.pageMoveUp,
+          down: messages.editor.pageMoveDown,
+          duplicate: messages.editor.pageDuplicate,
+          remove: messages.editor.pageRemove,
+          add: messages.editor.pageAdd,
+          addBefore: messages.editor.pageAddBefore,
+          addAfter: messages.editor.pageAddAfter,
+          picture: messages.editor.pagePicture,
+          link: messages.editor.pageLink,
+          bold: messages.editor.richText.bold,
+          italic: messages.editor.richText.italic,
+          textLink: messages.editor.richText.link,
+          itemUp: messages.editor.pageItemUp,
+          itemDown: messages.editor.pageItemDown,
+          itemDuplicate: messages.editor.pageItemDuplicate,
+          itemRemove: messages.editor.pageItemRemove,
+        },
+        sections: Object.fromEntries(
+          lists.flatMap((list) =>
+            list.sections.map((section, at) => [
+              section.id,
+              {
+                name: nameOf(blockOf(list.blocks, section)),
+                up: at > 0,
+                down: at < list.sections.length - 1,
+                copy: !isFull(list),
+                add: !isFull(list),
+                pictures: picturesOf(list, section).map(({ place }) => place),
+                links: linksOf(list, section).map(({ place }) => place),
+                lists: itemsOf(list, section).map((found) => ({ field: found.place, count: found.items.length, full: found.isFull })),
+                swatches: swatchesOf(list, section).map((found) => ({ field: found.place, name: localized(found.field.label, locale), ...(found.chosen !== undefined && { chosen: found.chosen }), choices: found.choices.map((choice) => ({ value: choice.value, name: choice.name(locale), colour: choice.colour })) })),
+                list: list.key,
+                group: list.group,
+              },
+            ]),
+          ),
+        ),
+        slots: Object.fromEntries(lists.slice(1).map((list) => [list.key, { group: list.group, empty: list.sections.length === 0, full: isFull(list) }])),
+      };
   const offeredSaid = JSON.stringify(offered);
   const setTools = focus?.setTools;
-  useEffect(() => setTools?.(JSON.parse(offeredSaid) as typeof offered), [setTools, offeredSaid]);
+  useEffect(() => {
+    if (offeredSaid !== undefined) setTools?.(JSON.parse(offeredSaid) as NonNullable<typeof offered>);
+  }, [setTools, offeredSaid]);
+
   const remove = (id: string) => {
-    change(sections.filter((section) => section.id !== id));
+    const found = locate(lists, id);
+    if (found) change(found.list.to(found.list.sections.filter((section) => section.id !== id)));
     setOpenIds((ids) => ids.filter((candidate) => candidate !== id));
   };
   const act = (id: string, action: string) => {
-    const at = sections.findIndex((section) => section.id === id);
-    const section = sections[at];
-    if (!section) return;
+    const found = locate(held.current.lists, id);
+    if (!found) return;
+    const { list, at, section } = found;
     if (action === 'duplicate') {
-      const copy: BlockValue = { ...section, id: crypto.randomUUID(), data: structuredClone(section.data) };
-      change([...sections.slice(0, at + 1), copy, ...sections.slice(at + 1)]);
+      if (isFull(list)) return;
+      const copy = copyOf(section);
+      change(list.to([...list.sections.slice(0, at + 1), copy, ...list.sections.slice(at + 1)]));
       open(copy.id);
     } else if (action === 'hide') {
-      change(sections.map((existing) => (existing.id === id ? { ...existing, hidden: true as const } : existing)));
+      change(list.to(list.sections.map((existing) => (existing.id === id ? { ...existing, hidden: true as const } : existing))));
     } else if (action === 'show') {
-      change(sections.map((existing) => (existing.id === id ? { id: existing.id, block: existing.block, data: existing.data } : existing)));
+      change(list.to(list.sections.map((existing) => (existing.id === id ? { id: existing.id, block: existing.block, data: existing.data } : existing))));
     } else if (action === 'remove') {
       // An empty section is removed at once: there is nothing to lose.
       if (Object.keys(section.data).length === 0) remove(id);
@@ -203,53 +284,66 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
     }
   };
 
-  // A button pressed on a section on the page does what the same button does here.
-  const move = (from: number, to: number) => {
-    const next = [...sections];
+  const moveIn = (list: Held, from: number, to: number) => {
+    const next = [...list.sections];
     const [moved] = next.splice(from, 1);
     if (moved) next.splice(to, 0, moved);
-    change(next);
+    change(list.to(next));
   };
-  const acting = useRef({ sections, act, move, isFull, listsOf, swatchesOf, change });
+  const acting = useRef({ act, moveIn });
   useEffect(() => {
-    acting.current = { sections, act, move, isFull, listsOf, swatchesOf, change };
+    acting.current = { act, moveIn };
   });
+  // A button pressed on a section on the page does what the same button does here.
   const onActed = focus?.onActed;
   const show = focus?.open;
   useEffect(
     () =>
       onActed?.((id, action) => {
-        const now = acting.current;
-        const at = now.sections.findIndex((section) => section.id === id);
-        if (at < 0) return;
+        const found = locate(held.current.lists, id);
+        if (!found) return;
+        const { list, at } = found;
         if (action === 'up' || action === 'down') {
           const to = action === 'up' ? at - 1 : at + 1;
-          if (to < 0 || to >= now.sections.length) return;
-          now.move(at, to);
+          if (to < 0 || to >= list.sections.length) return;
+          acting.current.moveIn(list, at, to);
           // The page is drawn again with the section in its new place, and brings it into view.
           show?.(id);
         } else if (action === 'addBefore' || action === 'addAfter') {
-          if (now.isFull) return;
-          setPickAt(action === 'addBefore' ? at : at + 1);
+          if (isFull(list)) return;
+          setPick({ key: list.key, at: action === 'addBefore' ? at : at + 1 });
           setPicking(true);
-        } else if (action !== 'duplicate' || !now.isFull) {
-          now.act(id, action);
+        } else {
+          acting.current.act(id, action);
         }
       }),
     [onActed, show],
+  );
+
+  // The button of an empty place inside a section offers what can be added there.
+  const onSlotted = focus?.onSlotted;
+  useEffect(
+    () =>
+      onSlotted?.((id, place) => {
+        const list = held.current.lists.find((candidate) => candidate.key === `${id}:${place}`);
+        if (!list || isFull(list)) return;
+        setPick({ key: list.key, at: null });
+        setPicking(true);
+      }),
+    [onSlotted],
   );
 
   // A swatch pressed on a section's bar chooses what the same swatch chooses in the form.
   const onSwatched = focus?.onSwatched;
   useEffect(
     () =>
-      onSwatched?.((id, field, value) => {
-        const now = acting.current;
-        const section = now.sections.find((candidate) => candidate.id === id);
-        const found = section && now.swatchesOf(section).find((candidate) => candidate.place === field);
+      onSwatched?.((id, place, chosen) => {
+        const now = held.current;
+        const found = locate(now.lists, id);
+        const swatch = found && now.swatchesOf(found.list, found.section).find((candidate) => candidate.place === place);
         // Only a choice the field has, whatever the page said.
-        if (!section || !found || found.chosen === value || !found.choices.some((choice) => choice.value === value)) return;
-        now.change(now.sections.map((existing) => (existing.id === id ? { ...existing, data: found.put(value) as BlockValue['data'] } : existing)));
+        if (!found || !swatch || swatch.chosen === chosen || !swatch.choices.some((choice) => choice.value === chosen)) return;
+        now.change(withData(found.list, id, swatch.put(chosen)));
       }),
     [onSwatched],
   );
@@ -258,32 +352,32 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
   const onPictured = focus?.onPictured;
   useEffect(() => onPictured?.((id, place) => setPicturing({ section: id, place })), [onPictured]);
   const pictureAt = useLast(picturing);
-  const pictureSection = pictureAt && sections.find((section) => section.id === pictureAt.section);
-  const picture = pictureSection && picturesOf(pictureSection).find((candidate) => candidate.place === pictureAt.place);
+  const pictureIn = pictureAt ? locate(lists, pictureAt.section) : undefined;
+  const picture = pictureIn && picturesOf(pictureIn.list, pictureIn.section).find((candidate) => candidate.place === pictureAt?.place);
 
   // A button on an item of a list on the page does what the list's own row does in the form.
   const onItemActed = focus?.onItemActed;
   useEffect(
     () =>
-      onItemActed?.((id, field, at, action) => {
-        const now = acting.current;
-        const section = now.sections.find((candidate) => candidate.id === id);
-        const list = section && now.listsOf(section).find((candidate) => candidate.place === field);
+      onItemActed?.((id, place, at, action) => {
+        const now = held.current;
+        const found = locate(now.lists, id);
+        const list = found && now.itemsOf(found.list, found.section).find((candidate) => candidate.place === place);
         const item = list?.items[at];
-        if (!section || !list || at < 0 || at >= list.items.length) return;
+        if (!found || !list || at < 0 || at >= list.items.length) return;
         const next = [...list.items];
         if (action === 'remove') {
           next.splice(at, 1);
         } else if (action === 'duplicate') {
           if (list.isFull) return;
-          next.splice(at + 1, 0, structuredClone(item));
+          next.splice(at + 1, 0, copyOf(item));
         } else {
           const to = action === 'up' ? at - 1 : at + 1;
           if (to < 0 || to >= next.length) return;
           next.splice(at, 1);
           next.splice(to, 0, item);
         }
-        now.change(now.sections.map((existing) => (existing.id === id ? { ...existing, data: list.put(next) as BlockValue['data'] } : existing)));
+        now.change(withData(found.list, id, list.put(next)));
       }),
     [onItemActed],
   );
@@ -292,30 +386,50 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
   const onLinked = focus?.onLinked;
   useEffect(() => onLinked?.((id, place) => setLinking({ section: id, place })), [onLinked]);
   const linkAt = useLast(linking);
-  const linkSection = linkAt && sections.find((section) => section.id === linkAt.section);
-  const link = linkSection && linksOf(linkSection).find((candidate) => candidate.place === linkAt.place);
+  const linkIn = linkAt ? locate(lists, linkAt.section) : undefined;
+  const link = linkIn && linksOf(linkIn.list, linkIn.section).find((candidate) => candidate.place === linkAt?.place);
 
-  // A section dragged on the page lands where the form would put it.
+  // A section dragged on the page lands where the form would put it: among the sections it was
+  // with, or in another place that takes the same blocks.
   const onDragged = focus?.onDragged;
   useEffect(
     () =>
-      onDragged?.((id, beforeId) => {
-        const now = acting.current;
-        const from = now.sections.findIndex((section) => section.id === id);
-        const before = beforeId === null ? now.sections.length : now.sections.findIndex((section) => section.id === beforeId);
-        if (from < 0 || before < 0) return;
-        // Taking it out first moves everything after it one place up.
-        const to = before > from ? before - 1 : before;
-        if (to === from) return;
-        now.move(from, to);
+      onDragged?.((id, beforeId, into) => {
+        const now = held.current;
+        const found = locate(now.lists, id);
+        if (!found) return;
+        const from = found.list;
+        if (into === undefined || into === from.key) {
+          const before = beforeId === null ? from.sections.length : from.sections.findIndex((section) => section.id === beforeId);
+          if (before < 0) return;
+          // Taking it out first moves everything after it one place up.
+          const to = before > found.at ? before - 1 : before;
+          if (to === found.at) return;
+          acting.current.moveIn(from, found.at, to);
+        } else {
+          const target = now.lists.find((candidate) => candidate.key === into);
+          // Only into a place that holds the same blocks, has room, and is not inside the section itself.
+          if (!target || target.group !== from.group || isFull(target) || target.inside.includes(id)) return;
+          const without = from.to(from.sections.filter((section) => section.id !== id));
+          const there = now.listsOf(without).find((candidate) => candidate.key === into);
+          if (!there) return;
+          const before = beforeId === null ? there.sections.length : there.sections.findIndex((section) => section.id === beforeId);
+          if (before < 0) return;
+          // The same block there may go by other ids: the section is held as that place holds it.
+          const carried = carriedSection(from.blocks, there.blocks, found.section, controlFor);
+          if (!carried) return;
+          now.change(there.to([...there.sections.slice(0, before), carried, ...there.sections.slice(before)]));
+        }
         show?.(id);
       }),
     [onDragged, show],
   );
 
-  // The picker offers what the template describes today, under the names it files them by.
+  // The picker offers what the place being added to takes.
+  const picking = lists.find((list) => list.key === pick.key) ?? own;
+  // It offers what the template describes today, under the names it files them by.
   const byGroup = new Map<string, PickerOption[]>();
-  for (const block of blocks) {
+  for (const block of picking?.blocks ?? []) {
     if (block.retiredAt !== undefined) continue;
     const name = block.group ?? messages.editor.sectionOtherGroup;
     const options = byGroup.get(name) ?? [];
@@ -330,7 +444,8 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
   }
   const groups = [...byGroup].map(([name, options]) => ({ id: name, label: name, options }));
 
-  const removing = useLast(removingId === null ? null : (sections.find((section) => section.id === removingId) ?? null));
+  const removingIn = removingId === null ? undefined : locate(lists, removingId);
+  const removingName = useLast(removingIn ? nameOf(blockOf(removingIn.list.blocks, removingIn.section)) : null);
 
   return (
     <>
@@ -341,10 +456,10 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
         emptyText={messages.editor.sectionsEmpty}
         addLabel={messages.editor.sectionAdd}
         onAdd={() => {
-          setPickAt(null);
+          setPick({ key: '', at: null });
           setPicking(true);
         }}
-        isFull={isFull}
+        isFull={own !== undefined && isFull(own)}
         openIds={openIds}
         revealId={pressed?.id}
         onOpenChange={(id, isOpen) => {
@@ -352,7 +467,9 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
           if (isOpen) open(id);
           else setOpenIds((ids) => ids.filter((candidate) => candidate !== id));
         }}
-        onMove={move}
+        onMove={(from, to) => {
+          if (own) moveIn(own, from, to);
+        }}
         onAction={act}
         moveUpLabel={(position) => messages.editor.sectionMoveUp(nameOf(blockOf(blocks, sections[position - 1])), position)}
         moveDownLabel={(position) => messages.editor.sectionMoveDown(nameOf(blockOf(blocks, sections[position - 1])), position)}
@@ -393,16 +510,18 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
                 {messages.editor.sectionNoFields}
               </Text>
             ) : (
-              <FieldGrid
-                fields={inner}
-                values={section.data}
-                onChange={(child: FieldDef, next) =>
-                  change(sections.map((existing) => (existing.id === section.id ? { ...existing, data: withValue(existing.data, child.id, next) } : existing)))
-                }
-                pathOf={(child) => `${prefix}${child.key}`}
-                problems={problems}
-                spotlight={pointed?.section === section.id ? pointed : {}}
-              />
+              <PageFocusInside>
+                <FieldGrid
+                  fields={inner}
+                  values={section.data}
+                  onChange={(child: FieldDef, next) =>
+                    change(sections.map((existing) => (existing.id === section.id ? { ...existing, data: withValue(existing.data, child.id, next) } : existing)))
+                  }
+                  pathOf={(child) => `${prefix}${child.key}`}
+                  problems={problems}
+                  spotlight={pointed?.section === section.id ? pointed : {}}
+                />
+              </PageFocusInside>
             ),
           };
         })}
@@ -416,16 +535,17 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
         groups={groups}
         onChoose={(blockId) => {
           const added: BlockValue = { id: crypto.randomUUID(), block: blockId, data: {} };
-          const at = pickAt ?? sections.length;
-          change([...sections.slice(0, at), added, ...sections.slice(at)]);
+          if (!picking) return;
+          const at = pick.at ?? picking.sections.length;
+          change(picking.to([...picking.sections.slice(0, at), added, ...picking.sections.slice(at)]));
           open(added.id);
         }}
       />
-      {pictureSection && picture && (
+      {pictureIn && picture && (
         <SiteImagePicker
           label={messages.editor.pagePicture}
           value={picture.name}
-          onChange={(name) => change(sections.map((existing) => (existing.id === pictureSection.id ? { ...existing, data: picture.put(name) as BlockValue['data'] } : existing)))}
+          onChange={(name) => change(withData(pictureIn.list, pictureIn.section.id, picture.put(name)))}
           window={{
             isOpen: picturing !== null,
             onOpenChange: (isOpen) => {
@@ -434,7 +554,7 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
           }}
         />
       )}
-      {linkSection && link && (
+      {linkIn && link && (
         <Dialog
           isOpen={linking !== null}
           onOpenChange={(isOpen) => {
@@ -451,8 +571,8 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
           <FieldGrid
             fields={[link.field]}
             values={{ [link.field.id]: link.link }}
-            onChange={(_field: FieldDef, next) => change(sections.map((existing) => (existing.id === linkSection.id ? { ...existing, data: link.put(next) as BlockValue['data'] } : existing)))}
-            pathOf={() => `${path}.${sections.indexOf(linkSection)}.${link.place}`}
+            onChange={(_field: FieldDef, next) => change(withData(linkIn.list, linkIn.section.id, link.put(next)))}
+            pathOf={() => `${linkIn.list.path}.${linkIn.at}.${link.place}`}
             problems={problems}
             perRow={1}
           />
@@ -463,7 +583,7 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
         onOpenChange={(isOpen) => {
           if (!isOpen) setRemovingId(null);
         }}
-        title={messages.editor.sectionRemoveTitle(nameOf(blockOf(blocks, removing ?? undefined)))}
+        title={messages.editor.sectionRemoveTitle(removingName ?? messages.editor.sectionUnknown)}
         confirmLabel={messages.editor.sectionRemoveConfirm}
         cancelLabel={messages.editor.cancel}
         tone="danger"

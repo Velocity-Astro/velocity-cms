@@ -34,7 +34,7 @@ export interface PageFocus {
   readonly acted: (id: string, action: PageSectionAction) => void;
   readonly onActed: (listener: ActedListener) => () => void;
   /** The page says a section was dragged to before another, or to the end (`null`). */
-  readonly dragged: (id: string, beforeId: string | null) => void;
+  readonly dragged: DraggedListener;
   readonly onDragged: (listener: DraggedListener) => () => void;
   /** The page says the button on a picture was pressed: the section, and the picture's field as keys. */
   readonly pictured: (id: string, field: string) => void;
@@ -48,6 +48,11 @@ export interface PageFocus {
   /** The page says a swatch on a section's bar was pressed: the section, the field as keys and the choice. */
   readonly swatched: SwatchListener;
   readonly onSwatched: (listener: SwatchListener) => () => void;
+  /** The page says the button of an empty place inside a section was pressed: the section, and the place's field as keys. */
+  readonly slotted: PicturedListener;
+  readonly onSlotted: (listener: PicturedListener) => () => void;
+  /** True for sections inside a section, which the field that holds the page answers for. */
+  readonly isInside?: boolean;
 }
 
 export type SwatchListener = (id: string, field: string, value: string) => void;
@@ -56,7 +61,8 @@ export type ItemListener = (id: string, field: string, at: number, action: PageI
 
 export type PicturedListener = (id: string, field: string) => void;
 
-export type DraggedListener = (id: string, beforeId: string | null) => void;
+/** `into` names the place inside a section it was let go in, where that is not the place it was in. */
+export type DraggedListener = (id: string, beforeId: string | null, into?: string) => void;
 
 export type ActedListener = (id: string, action: PageSectionAction) => void;
 
@@ -78,6 +84,7 @@ export function PageFocusProvider({ children }: { readonly children: ReactNode }
   const linking = useRef(new Set<PicturedListener>());
   const itemActing = useRef(new Set<ItemListener>());
   const swatching = useRef(new Set<SwatchListener>());
+  const slotting = useRef(new Set<PicturedListener>());
   const focus = useMemo<PageFocus>(
     () => ({
       pressed,
@@ -99,7 +106,7 @@ export function PageFocusProvider({ children }: { readonly children: ReactNode }
         acting.current.add(listener);
         return () => void acting.current.delete(listener);
       },
-      dragged: (id, beforeId) => dragging.current.forEach((listener) => listener(id, beforeId)),
+      dragged: (id, beforeId, into) => dragging.current.forEach((listener) => listener(id, beforeId, into)),
       onDragged: (listener) => {
         dragging.current.add(listener);
         return () => void dragging.current.delete(listener);
@@ -124,6 +131,11 @@ export function PageFocusProvider({ children }: { readonly children: ReactNode }
         swatching.current.add(listener);
         return () => void swatching.current.delete(listener);
       },
+      slotted: (id, field) => slotting.current.forEach((listener) => listener(id, field)),
+      onSlotted: (listener) => {
+        slotting.current.add(listener);
+        return () => void slotting.current.delete(listener);
+      },
     }),
     [pressed, opened, typable, tools],
   );
@@ -133,4 +145,34 @@ export function PageFocusProvider({ children }: { readonly children: ReactNode }
 /** The focus shared with the page beside the form, or nothing when no page is shown. */
 export function usePageFocus(): PageFocus | null {
   return useContext(PageFocusContext);
+}
+
+const unheard = () => () => undefined;
+
+/**
+ * The focus as the sections inside a section see it. They open what is pressed on the page and
+ * say what was opened, and nothing more: the field that holds the whole page answers for every
+ * section in it, however deep, so nothing is done twice.
+ */
+export function PageFocusInside({ children }: { readonly children: ReactNode }) {
+  const focus = useContext(PageFocusContext);
+  const inside = useMemo<PageFocus | null>(
+    () =>
+      focus && {
+        ...focus,
+        setTypable: () => undefined,
+        setTools: () => undefined,
+        onTyped: unheard,
+        onActed: unheard,
+        onDragged: unheard,
+        onPictured: unheard,
+        onLinked: unheard,
+        onItemActed: unheard,
+        onSwatched: unheard,
+        onSlotted: unheard,
+        isInside: true,
+      },
+    [focus],
+  );
+  return <PageFocusContext value={inside}>{children}</PageFocusContext>;
 }

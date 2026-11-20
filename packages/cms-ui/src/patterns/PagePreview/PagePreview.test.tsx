@@ -88,6 +88,32 @@ it('asks the page to show a section, when it is chosen and when the page has bee
   expect(post).toHaveBeenCalledTimes(2);
 });
 
+it('leaves a page drawn again where the person left it, unless the change that drew it asked for a section', () => {
+  vi.useFakeTimers();
+  const { rerender } = render(example({ shownSectionId: 's1' }));
+  const post = vi.spyOn(frame().contentWindow as Window, 'postMessage').mockImplementation(() => undefined);
+  const shows = () => post.mock.calls.map(([message]) => message as { type: string; id?: string; still?: boolean }).filter((message) => message.type === 'show');
+  // The first page brings the section into view.
+  say({ source: 'velocity-cms', type: 'ready' });
+  expect(shows().at(-1)).toEqual({ source: 'velocity-cms', type: 'show', id: 's1' });
+  // Much later something else on the page changes (a swatch far down it): the page stays put.
+  vi.advanceTimersByTime(5000);
+  rerender(example({ shownSectionId: 's1', draft: '{"id":"p1","data":{"tone":"invert"}}' }));
+  vi.advanceTimersByTime(1000);
+  say({ source: 'velocity-cms', type: 'ready' });
+  expect(shows().at(-1)).toEqual({ source: 'velocity-cms', type: 'show', id: 's1', still: true });
+  // A section moved or added is asked for with the change itself, and is brought into view.
+  rerender(example({ shownSectionId: 's4', draft: '{"id":"p1","data":{"moved":true}}' }));
+  vi.advanceTimersByTime(1000);
+  say({ source: 'velocity-cms', type: 'ready' });
+  expect(shows().at(-1)).toEqual({ source: 'velocity-cms', type: 'show', id: 's4' });
+  // And the next change is quiet again.
+  rerender(example({ shownSectionId: 's4', draft: '{"id":"p1","data":{}}' }));
+  vi.advanceTimersByTime(1000);
+  say({ source: 'velocity-cms', type: 'ready' });
+  expect(shows().at(-1)).toEqual({ source: 'velocity-cms', type: 'show', id: 's4', still: true });
+});
+
 it('says what is typed on the page, and does not draw the page again for it', () => {
   vi.useFakeTimers();
   const onWords = vi.fn();
