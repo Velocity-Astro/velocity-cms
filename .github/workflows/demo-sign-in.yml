@@ -35,7 +35,6 @@ jobs:
       - name: Find the demo's address, database and secret
         env:
           DEMO: ${{ inputs.demo }}
-          CMS_DEMO_URL: ${{ vars.CMS_DEMO_URL }}
           FIXED_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
           FIXED_DATABASE_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
           BASE_SECRET: ${{ secrets.VELOCITY_CMS_SECRET }}

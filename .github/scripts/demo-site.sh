@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Says which demo a workflow is working on: its Vercel project, its address, its database and
-# its secret, written to the job's environment for the steps that follow. This is the one list
+# its secret, written to the job's environment for the steps that follow. The address is the
+# demo's own domain, which is added to its project in Vercel by hand (Settings, Domains): sign-in
+# links and passkeys are made for it, so the project must answer there. This is the one list
 # of demos; the Demo and Demo sign-in link workflows both read it.
 #
 #   DEMO=<real-estate|restaurant> [DEMO_MAKE_DATABASE=true] bash .github/scripts/demo-site.sh
@@ -22,20 +24,19 @@ case "${DEMO:-}" in
   real-estate)
     project=velocity-cms-real-estate-demo
     database=
-    site="${CMS_DEMO_URL:-}"
+    site=https://realestate.deployvelocity.com
     pages="/ /demo/ /es/ /homes-for-sale/ /listings/lakeshore-farmhouse/ /agents/ /why-list-with-us/"
     ;;
   restaurant)
     project=velocity-cms-restaurant-demo
     database=velocity-cms-restaurant-demo
-    site=
+    site=https://restaurant.deployvelocity.com
     pages="/ /demo/ /es/ /menu/ /evenings/barolo-dinner/ /reserve/ /private-dining/ /gift-cards/"
     ;;
   *)
     fail "There is no demo called \"${DEMO:-}\". The demos are real-estate and restaurant."
     ;;
 esac
-[ -n "$site" ] || site="https://$project.vercel.app"
 
 [ -n "${BASE_SECRET:-}" ] || fail "Missing: VELOCITY_CMS_SECRET. Add it under Settings, Secrets and variables, Actions."
 [ "${#BASE_SECRET}" -ge 32 ] || fail "VELOCITY_CMS_SECRET must be at least 32 characters."

@@ -2,7 +2,7 @@
 
 A content management system for [Astro](https://astro.build) sites, built for [Velocity](https://github.com/southwellmedia/velocity). People edit at `/admin`, the content lives in a small SQLite database beside the site, and a change is on the site about a second after it is published, with no rebuild.
 
-**[Try the demo](https://velocity-cms-real-estate-demo.vercel.app/demo/)** · **[Read the docs](https://docs.deployvelocity.com/cms/)** · **[Add it to a site](#add-it-to-a-site)**
+**[Try the demo](https://realestate.deployvelocity.com/demo/)** · **[Read the docs](https://docs.deployvelocity.com/cms/)** · **[Add it to a site](#add-it-to-a-site)**
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/page-builder-dark.webp">
