@@ -502,3 +502,55 @@ it('shows a section\'s background as swatches, in the form and on its bar on the
   await user.click(background.getByRole('radio', { name: 'White' }));
   expect(held()).toBe('default');
 });
+
+it('tries the site\'s theme on the page from the visual editor, and publishes it to the settings', async () => {
+  const user = userEvent.setup();
+  const brand: FieldDef = {
+    id: 'f-set-brand',
+    key: 'brand',
+    type: 'select',
+    label: { en: 'Brand color' },
+    required: false,
+    translated: false,
+    options: { choices: ['harbor', 'clay'], labels: { harbor: { en: 'Harbor' }, clay: { en: 'Clay' } }, swatches: { harbor: '#1f3a5f', clay: '#8a5a3c' } },
+  };
+  const name: FieldDef = { ...brand, id: 'f-set-name', key: 'name', type: 'text', label: { en: 'Name' }, options: {} };
+  const settings = { id: 'type-settings', key: 'settings', kind: 'single' as const, label: { en: 'Business details' }, inSettings: true as const, fields: [name, brand] };
+  const kept = { ...samplePage(), id: 'set1', typeId: 'type-settings', translationGroup: 'set1', slug: 'settings', data: { 'f-set-name': 'Oakhaven', 'f-set-brand': 'harbor' } };
+  const { client } = renderApp('/content/pages/p1', { user: sampleUser, contentTypes: [...sampleContentTypes, samplePagesType, settings], entries: [...sampleEntries(), samplePage(), kept] });
+  await frame();
+  await user.click(await screen.findByRole('button', { name: 'Visual editor' }));
+  await user.click(await screen.findByRole('button', { name: 'Theme' }));
+
+  const card = within(await screen.findByRole('region', { name: 'Site theme' }));
+  const colours = within(card.getByRole('radiogroup', { name: 'Brand color' }));
+  expect(colours.getByRole('radio', { name: 'Harbor' }).getAttribute('aria-checked')).toBe('true');
+  // Only the looks are here: the rest of the settings stays in Settings.
+  expect(card.queryByRole('textbox', { name: 'Name' })).toBeNull();
+  expect(card.getByRole('button', { name: 'Publish theme' })).toHaveProperty('disabled', true);
+  expect((draft() as { with?: unknown }).with).toBeUndefined();
+
+  // Chosen, it goes to the page with the page's own draft, and nothing is saved.
+  await user.click(colours.getByRole('radio', { name: 'Clay' }));
+  expect((draft() as { with?: unknown }).with).toEqual([{ id: 'set1', data: { 'f-set-name': 'Oakhaven', 'f-set-brand': 'clay' } }]);
+  expect((await client.getEntry('set1')).data['f-set-brand']).toBe('harbor');
+  await user.click(card.getByRole('button', { name: 'Discard' }));
+  expect((draft() as { with?: unknown }).with).toBeUndefined();
+
+  await user.click(colours.getByRole('radio', { name: 'Clay' }));
+  await user.click(card.getByRole('button', { name: 'Publish theme' }));
+  expect(await screen.findByText('Theme published')).toBeTruthy();
+  const stored = await client.getEntry('set1');
+  expect(stored.data).toEqual({ 'f-set-name': 'Oakhaven', 'f-set-brand': 'clay' });
+  expect(stored.published?.data['f-set-brand']).toBe('clay');
+  await waitFor(() => expect((draft() as { with?: unknown }).with).toBeUndefined());
+  expect(within(screen.getByRole('radiogroup', { name: 'Brand color' })).getByRole('radio', { name: 'Clay' }).getAttribute('aria-checked')).toBe('true');
+});
+
+it('offers no theme where the settings have no looks to choose', async () => {
+  const user = userEvent.setup();
+  renderApp('/content/pages/p1', site());
+  await frame();
+  await user.click(await screen.findByRole('button', { name: 'Visual editor' }));
+  expect(screen.queryByRole('button', { name: 'Theme' })).toBeNull();
+});

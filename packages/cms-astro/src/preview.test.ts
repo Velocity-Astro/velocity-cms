@@ -70,3 +70,21 @@ it('notes where links to entries lead only beside the form, and hands the page t
     '<body><script type="application/json" data-cms-links>{"pages:g1":"/menu/","pages:g2":"/a\\u003c/script>"}</script><script type="module" src="/cms-preview.js"></script></body>',
   );
 });
+
+it('reads other entries tried along with the draft, and shows each in place of the saved one', async () => {
+  const sent = { id: 'p1', data: { title: 'Typed' }, with: [{ id: 'settings', data: { brand: 'clay' } }] };
+  expect(await readPreviewDraft(post(sent), SITE)).toEqual(sent);
+  // Not shaped like entries, or more of them than a draft may bring: nothing is read.
+  expect(await readPreviewDraft(post({ id: 'p1', data: {}, with: 'settings' }), SITE)).toBeNull();
+  expect(await readPreviewDraft(post({ id: 'p1', data: {}, with: [{ id: 'settings' }] }), SITE)).toBeNull();
+  expect(await readPreviewDraft(post({ id: 'p1', data: {}, with: Array.from({ length: 5 }, (_, at) => ({ id: `s${at}`, data: {} })) }), SITE)).toBeNull();
+
+  const settings = { id: 'settings', data: { brand: 'harbor' } };
+  const other = { id: 'p2', data: { title: 'Other' } };
+  asPreview(() => {
+    expect(withPreviewDraft(settings)).toEqual({ id: 'settings', data: { brand: 'clay' } });
+    expect(withPreviewDraft({ id: 'p1', data: { title: 'Saved' } })).toEqual({ id: 'p1', data: { title: 'Typed' } });
+    expect(withPreviewDraft(other)).toBe(other);
+  }, sent);
+  expect(withPreviewDraft(settings)).toBe(settings);
+});
