@@ -123,6 +123,8 @@ export interface BlockDef {
   readonly icon?: string;
   /** What the picker files it under, such as `Content`. */
   readonly group?: string;
+  /** A picture of the block for the picker: a path on the site, such as `/cms/blocks/text.webp`. */
+  readonly thumbnail?: string;
   readonly fields: readonly FieldDef[];
   /**
    * Set when the template stopped describing the block. Sections made from it are kept in every

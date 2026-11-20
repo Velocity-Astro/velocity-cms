@@ -76,3 +76,26 @@ it('has no accessibility violations', async () => {
   render(example());
   await expectAccessible(document.body);
 });
+
+it('shows each option as a card with its picture once any option has one', async () => {
+  const onChoose = vi.fn();
+  const pictured = [
+    {
+      id: 'content',
+      label: 'Content',
+      options: [
+        { id: 'text', label: 'Text', description: 'Paragraphs and lists.', image: '/cms/blocks/text.webp' },
+        { id: 'image', label: 'Picture' },
+      ],
+    },
+  ];
+  const { baseElement } = render(example({ groups: pictured, onChoose }));
+  // The picture is decoration: the option is still named by its words alone.
+  const option = screen.getByRole('option', { name: /^Text ?Paragraphs and lists\.$/ });
+  expect(option.querySelector('img')?.getAttribute('src')).toBe('/cms/blocks/text.webp');
+  expect(option.querySelector('img')?.getAttribute('alt')).toBe('');
+  expect(screen.getByRole('option', { name: 'Picture' }).querySelector('img')).toBeNull();
+  await userEvent.click(option);
+  expect(onChoose).toHaveBeenCalledWith('text');
+  await expectAccessible(baseElement);
+});

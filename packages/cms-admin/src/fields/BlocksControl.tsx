@@ -205,6 +205,7 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
       label: localized(block.label, locale),
       icon: blockIcon(block.icon),
       ...(block.description !== undefined && { description: localized(block.description, locale) }),
+      ...(block.thumbnail !== undefined && { image: block.thumbnail }),
     });
     byGroup.set(name, options);
   }

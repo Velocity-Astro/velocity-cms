@@ -121,6 +121,16 @@ describe('describing blocks', () => {
     await expect(describePages([hero, hero])).rejects.toThrow(/Two blocks have the key "hero"/);
     await expect(describePages([{ key: 'plain', label: {} }])).rejects.toThrow(/Give the block "plain" a name/);
   });
+
+  it('keeps a block\'s picture when it is a path on the site, and refuses any other address', async () => {
+    const pictured = await describePages([{ ...hero, thumbnail: '/cms/blocks/hero.webp' }, faq]);
+    expect([block(pictured, 'hero').thumbnail, block(pictured, 'faq').thumbnail]).toEqual(['/cms/blocks/hero.webp', undefined]);
+    // A description without the picture takes it away again.
+    expect(block(await describePages([hero, faq]), 'hero').thumbnail).toBeUndefined();
+    for (const thumbnail of ['https://elsewhere.example/hero.webp', '//elsewhere.example/hero.webp', 'hero.webp', '/\\elsewhere.example', '/a b.webp', '']) {
+      await expect(describePages([{ ...hero, thumbnail }])).rejects.toThrow(/The picture of the block "hero" must be a path on the site/);
+    }
+  });
 });
 
 describe('a page made of sections', () => {

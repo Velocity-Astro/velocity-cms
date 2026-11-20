@@ -1,8 +1,8 @@
 # OptionPicker
 
 A window to choose one thing from a set of named kinds, in groups: the kind of section to add to
-a page. Each option has a name, a line on what it gives and an icon. Choosing one closes the
-window.
+a page. Each option has a name, a line on what it gives and an icon, or a picture of what it
+gives. Choosing one closes the window.
 
 ## Use it for
 
@@ -19,6 +19,9 @@ window.
 
 - The title says what is being chosen: "Add a section".
 - An option's description says what it puts on the page, in one line.
+- `image` is a picture of what the option gives, as wide as it is on the page and cut to 16 by 9.
+  Once any option has one, every option is a card and the window is wider; an option with none
+  shows its icon in a frame of the same size. The picture is decoration: the words name the option.
 
 ## Behaviour
 

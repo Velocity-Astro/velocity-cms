@@ -60,4 +60,32 @@ type Story = StoryObj<typeof meta>;
 
 export const Closed: Story = {};
 export const Open: Story = { tags: ['!autodocs', 'overlay'], args: { isOpen: true } };
+/** A picture of a section, drawn here so the story asks nothing of the network. */
+const picture = (tone: string) =>
+  `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 90"><rect width="160" height="90" fill="${tone}"/><rect x="16" y="20" width="80" height="10" rx="2" fill="#fff"/><rect x="16" y="38" width="120" height="5" rx="2" fill="#fff" opacity=".7"/><rect x="16" y="58" width="36" height="12" rx="3" fill="#fff"/></svg>`)}`;
+
+/** Once any option has a picture, every option is a card. One with no picture shows its icon in the frame. */
+export const WithPictures: Story = {
+  tags: ['!autodocs', 'overlay'],
+  args: {
+    isOpen: true,
+    groups: [
+      {
+        id: 'opening',
+        label: 'Opening',
+        options: [{ id: 'page-hero', label: 'Page opening', description: 'A large heading, a line under it and a button.', image: picture('#334155') }],
+      },
+      {
+        id: 'content',
+        label: 'Content',
+        options: [
+          { id: 'text', label: 'Text', description: 'Paragraphs, headings and lists.', image: picture('#475569') },
+          { id: 'image', label: 'Picture', description: 'One picture across the page.', image: picture('#0f766e') },
+          { id: 'feature-grid', label: 'Feature grid', description: 'Three or more points side by side.', icon: LayoutGrid },
+          { id: 'questions', label: 'Questions', description: 'Each opens to its answer.', image: picture('#7c2d12') },
+        ],
+      },
+    ],
+  },
+};
 export const NothingToChoose: Story = { tags: ['!autodocs', 'overlay'], args: { isOpen: true, groups: [] } };

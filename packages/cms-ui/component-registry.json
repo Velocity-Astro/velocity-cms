@@ -215,10 +215,10 @@
       "name": "OptionPicker",
       "layer": "pattern",
       "group": "Overlays",
-      "description": "A window to choose one thing from a set of named kinds, in groups, each with a line on what it gives. Choosing closes it.",
+      "description": "A window to choose one thing from a set of named kinds, in groups, each with a line on what it gives and, when it has one, a picture. Choosing closes it.",
       "example": "<OptionPicker isOpen={isOpen} onOpenChange={setOpen} title=\"Add a section\" closeLabel=\"Close\" groups={groups} onChoose={add} emptyText=\"No kinds of section yet\" />",
       "useInstead": "Menu for a handful of actions; Select to choose a field's value; ImagePicker to choose a picture.",
-      "uses": ["Dialog"]
+      "uses": ["Dialog", "Thumbnail"]
     },
     {
       "name": "Workbench",
