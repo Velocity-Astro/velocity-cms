@@ -57,6 +57,16 @@ export interface LinkPlace {
   readonly put: (link: unknown) => unknown;
 }
 
+/** One place in a value where a list is held: its items now, whether it takes more, and how the value reads with other items. */
+export interface ListPlace {
+  readonly place: string;
+  readonly items: readonly unknown[];
+  /** True when the list holds as many items as it may. */
+  readonly isFull: boolean;
+  /** The value with these items at the place, or `undefined` when that leaves the field empty. */
+  readonly put: (items: readonly unknown[]) => unknown;
+}
+
 type ControlFor = (type: string) => FieldControl | undefined;
 
 export interface FieldControl {
@@ -102,6 +112,11 @@ export interface FieldControl {
    * other fields asks theirs. Without it, the field is changed only in the form.
    */
   readonly links?: (field: FieldDef, value: unknown, controlFor: ControlFor) => readonly LinkPlace[];
+  /**
+   * Where a value of this kind holds a list: the places whose items can be moved, copied and
+   * removed from the page itself. A list is its own place and asks its items for theirs.
+   */
+  readonly lists?: (field: FieldDef, value: unknown, controlFor: ControlFor) => readonly ListPlace[];
   /** `end` when summaries are figures, so a column of them lines up. */
   readonly summaryAlign?: 'start' | 'end';
 }

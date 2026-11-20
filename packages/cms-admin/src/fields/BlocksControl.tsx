@@ -6,7 +6,7 @@ import { localized, withValue } from '../lib/content.js';
 import { useLast } from '../lib/use-closing.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
 import { blockIcon } from './block-icons.js';
-import type { FieldControlProps, LinkPlace, PicturePlace, WordsPlace } from './field-control.js';
+import type { FieldControlProps, LinkPlace, ListPlace, PicturePlace, WordsPlace } from './field-control.js';
 import { FieldGrid } from './FieldGrid.js';
 import { useControlFor } from './FieldSummary.js';
 import { usePageFocus } from './page-focus.js';
@@ -102,6 +102,18 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
       })),
     );
   };
+  // Where each section holds a list whose items can be moved, copied and removed from the page.
+  const listsOf = (section: BlockValue): readonly ListPlace[] => {
+    const block = blockOf(blocks, section);
+    if (!block || block.retiredAt !== undefined) return [];
+    return liveFields(block.fields).flatMap((inner) =>
+      (controlFor(inner.type)?.lists?.(inner, section.data[inner.id], controlFor) ?? []).map((found) => ({
+        ...found,
+        place: found.place === '' ? inner.key : `${inner.key}.${found.place}`,
+        put: (items: readonly unknown[]) => withValue(section.data, inner.id, found.put(items)),
+      })),
+    );
+  };
   const typable = Object.fromEntries(sections.map((section) => [section.id, wordsOf(section).map(({ place }) => place)]));
   const typableSaid = JSON.stringify(typable);
   const setTypable = focus?.setTypable;
@@ -140,9 +152,13 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
       addAfter: messages.editor.pageAddAfter,
       picture: messages.editor.pagePicture,
       link: messages.editor.pageLink,
+      itemUp: messages.editor.pageItemUp,
+      itemDown: messages.editor.pageItemDown,
+      itemDuplicate: messages.editor.pageItemDuplicate,
+      itemRemove: messages.editor.pageItemRemove,
     },
     sections: Object.fromEntries(
-      sections.map((section, at) => [section.id, { name: nameOf(blockOf(blocks, section)), up: at > 0, down: at < sections.length - 1, copy: !isFull, add: !isFull, pictures: picturesOf(section).map(({ place }) => place), links: linksOf(section).map(({ place }) => place) },
+      sections.map((section, at) => [section.id, { name: nameOf(blockOf(blocks, section)), up: at > 0, down: at < sections.length - 1, copy: !isFull, add: !isFull, pictures: picturesOf(section).map(({ place }) => place), links: linksOf(section).map(({ place }) => place), lists: listsOf(section).map(({ place, items, isFull }) => ({ field: place, count: items.length, full: isFull })) },
       ]),
     ),
   };
@@ -179,9 +195,9 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
     if (moved) next.splice(to, 0, moved);
     change(next);
   };
-  const acting = useRef({ sections, act, move, isFull });
+  const acting = useRef({ sections, act, move, isFull, listsOf, change });
   useEffect(() => {
-    acting.current = { sections, act, move, isFull };
+    acting.current = { sections, act, move, isFull, listsOf, change };
   });
   const onActed = focus?.onActed;
   const show = focus?.open;
@@ -214,6 +230,33 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
   const pictureAt = useLast(picturing);
   const pictureSection = pictureAt && sections.find((section) => section.id === pictureAt.section);
   const picture = pictureSection && picturesOf(pictureSection).find((candidate) => candidate.place === pictureAt.place);
+
+  // A button on an item of a list on the page does what the list's own row does in the form.
+  const onItemActed = focus?.onItemActed;
+  useEffect(
+    () =>
+      onItemActed?.((id, field, at, action) => {
+        const now = acting.current;
+        const section = now.sections.find((candidate) => candidate.id === id);
+        const list = section && now.listsOf(section).find((candidate) => candidate.place === field);
+        const item = list?.items[at];
+        if (!section || !list || at < 0 || at >= list.items.length) return;
+        const next = [...list.items];
+        if (action === 'remove') {
+          next.splice(at, 1);
+        } else if (action === 'duplicate') {
+          if (list.isFull) return;
+          next.splice(at + 1, 0, structuredClone(item));
+        } else {
+          const to = action === 'up' ? at - 1 : at + 1;
+          if (to < 0 || to >= next.length) return;
+          next.splice(at, 1);
+          next.splice(to, 0, item);
+        }
+        now.change(now.sections.map((existing) => (existing.id === id ? { ...existing, data: list.put(next) as BlockValue['data'] } : existing)));
+      }),
+    [onItemActed],
+  );
 
   // The button on a link of the page opens a window that holds the link's own field.
   const onLinked = focus?.onLinked;

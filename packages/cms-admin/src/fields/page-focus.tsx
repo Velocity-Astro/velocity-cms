@@ -1,4 +1,4 @@
-import type { PageSectionAction, PageSectionTools } from '@velocity-astro/cms-ui';
+import type { PageItemAction, PageSectionAction, PageSectionTools } from '@velocity-astro/cms-ui';
 import { createContext, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
 
 /**
@@ -42,7 +42,12 @@ export interface PageFocus {
   /** The page says the button on a link was pressed: the section, and the link's field as keys. */
   readonly linked: (id: string, field: string) => void;
   readonly onLinked: (listener: PicturedListener) => () => void;
+  /** The page says a button on an item of a list was pressed: the section, the list's field as keys, the item's place and what to do. */
+  readonly itemActed: ItemListener;
+  readonly onItemActed: (listener: ItemListener) => () => void;
 }
+
+export type ItemListener = (id: string, field: string, at: number, action: PageItemAction) => void;
 
 export type PicturedListener = (id: string, field: string) => void;
 
@@ -66,6 +71,7 @@ export function PageFocusProvider({ children }: { readonly children: ReactNode }
   const dragging = useRef(new Set<DraggedListener>());
   const picturing = useRef(new Set<PicturedListener>());
   const linking = useRef(new Set<PicturedListener>());
+  const itemActing = useRef(new Set<ItemListener>());
   const focus = useMemo<PageFocus>(
     () => ({
       pressed,
@@ -101,6 +107,11 @@ export function PageFocusProvider({ children }: { readonly children: ReactNode }
       onLinked: (listener) => {
         linking.current.add(listener);
         return () => void linking.current.delete(listener);
+      },
+      itemActed: (id, field, at, action) => itemActing.current.forEach((listener) => listener(id, field, at, action)),
+      onItemActed: (listener) => {
+        itemActing.current.add(listener);
+        return () => void itemActing.current.delete(listener);
       },
     }),
     [pressed, opened, typable, tools],
