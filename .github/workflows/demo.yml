@@ -1,22 +1,36 @@
 name: Demo
 
-# Deploys the real estate template, running on the CMS, to its own Vercel project.
-# The template's public demo is another project and is not touched.
+# Deploys each Premium template that has a demo on the CMS (real estate, restaurant) to its own
+# Vercel project. A template's public demo is another project and is not touched.
 #
-# Anyone may sign in to this demo as an editor (the "Try the editor" link in its bar), so every
-# night it is put back as it was: everything but its owners goes, and the sample content is
+# The demos are listed in .github/scripts/demo-site.sh, with the project and database of each.
+# Real estate has its database in two secrets. A newer demo needs none of its own: the workflow
+# finds its database on Turso by name, makes it the first time, and makes a token for each run,
+# all with one secret, TURSO_API_TOKEN (and the variables TURSO_ORGANIZATION and TURSO_GROUP,
+# which default to "velocity" and "default").
+#
+# Anyone may sign in to a demo as an editor (the "Try the editor" link in its bar), so every
+# night each is put back as it was: everything but its owners goes, and the sample content is
 # brought in again. It sends no email and takes no uploads, because an editor chooses who a form
 # tells and what is uploaded, and neither should be open to the whole internet.
 on:
   workflow_dispatch:
     inputs:
+      demo:
+        description: Which demo to deploy
+        type: choice
+        options: [all, real-estate, restaurant]
+        default: all
       reset:
         description: Erase the demo first (everything but its owners) and bring the sample content back
         type: boolean
         default: false
+      templates_ref:
+        description: Branch of velocity-templates to build from (to try a change before it is merged)
+        default: main
   push:
     branches: [main]
-    paths: ['packages/**', '.github/workflows/demo.yml']
+    paths: ['packages/**', '.github/workflows/demo.yml', '.github/scripts/demo-site.sh']
   schedule:
     # Every night, a little after 3 AM US Central.
     - cron: '23 8 * * *'
@@ -31,35 +45,34 @@ permissions:
   contents: read
 
 jobs:
-  real-estate:
-    name: Real estate on the CMS
+  demo:
+    name: ${{ matrix.demo }} on the CMS
+    # One demo that cannot be deployed never holds back another.
+    strategy:
+      fail-fast: false
+      matrix:
+        # Every demo, or the one a run by hand asked for.
+        demo: ${{ fromJSON((github.event_name != 'workflow_dispatch' || inputs.demo == 'all') && '["real-estate", "restaurant"]' || format('["{0}"]', inputs.demo)) }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
       VELOCITY_REF: v2.7.3
-      VERCEL_PROJECT: velocity-cms-real-estate-demo
+      DEMO: ${{ matrix.demo }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_SCOPE: ${{ vars.VERCEL_SCOPE }}
       TEMPLATES_REPO_TOKEN: ${{ secrets.TEMPLATES_REPO_TOKEN }}
-      VELOCITY_CMS_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
-      VELOCITY_CMS_DATABASE_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
-      VELOCITY_CMS_SECRET: ${{ secrets.VELOCITY_CMS_SECRET }}
       # The person every visitor is signed in as, an editor. No email is ever sent to it.
       CMS_DEMO_VISITOR: ${{ vars.CMS_DEMO_VISITOR || 'editor@demo.invalid' }}
-      RESET: ${{ github.event_name == 'schedule' || inputs.reset == true }}
+      ASKED_TO_RESET: ${{ github.event_name == 'schedule' || inputs.reset == true }}
     steps:
       - name: Check that every secret is there
         run: |
           missing=""
-          for name in VERCEL_TOKEN TEMPLATES_REPO_TOKEN VELOCITY_CMS_DATABASE_URL VELOCITY_CMS_DATABASE_TOKEN VELOCITY_CMS_SECRET; do
+          for name in VERCEL_TOKEN TEMPLATES_REPO_TOKEN; do
             [ -n "${!name}" ] || missing="$missing $name"
           done
           if [ -n "$missing" ]; then
             echo "::error::Missing:$missing. Add the matching secrets under Settings, Secrets and variables, Actions."
-            exit 1
-          fi
-          if [ "${#VELOCITY_CMS_SECRET}" -lt 32 ]; then
-            echo "::error::VELOCITY_CMS_SECRET must be at least 32 characters."
             exit 1
           fi
 
@@ -70,7 +83,25 @@ jobs:
         with:
           repository: velocity-astro/velocity-templates
           token: ${{ secrets.TEMPLATES_REPO_TOKEN }}
+          ref: ${{ inputs.templates_ref || 'main' }}
           path: templates
+
+      - name: Find the demo's project, database and secret
+        env:
+          DEMO_MAKE_DATABASE: 'true'
+          CMS_DEMO_URL: ${{ vars.CMS_DEMO_URL }}
+          FIXED_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          FIXED_DATABASE_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          BASE_SECRET: ${{ secrets.VELOCITY_CMS_SECRET }}
+          TURSO_API_TOKEN: ${{ secrets.TURSO_API_TOKEN }}
+          TURSO_ORGANIZATION: ${{ vars.TURSO_ORGANIZATION }}
+          TURSO_GROUP: ${{ vars.TURSO_GROUP }}
+        run: |
+          bash cms/.github/scripts/demo-site.sh
+          # A database made just now has nobody in it: the reset makes the person visitors share.
+          if [ "$ASKED_TO_RESET" = "true" ] || [ "$(grep '^DATABASE_MADE=' "$GITHUB_ENV" | tail -1)" = "DATABASE_MADE=true" ]; then
+            echo "RESET=true" >> "$GITHUB_ENV"
+          fi
       - uses: pnpm/action-setup@v4
         with:
           package_json_file: cms/package.json
@@ -90,8 +121,8 @@ jobs:
           mkdir velocity
           curl -fsSL "https://github.com/southwellmedia/velocity/archive/refs/tags/$VELOCITY_REF.tar.gz" \
             | tar xz --strip-components=1 -C velocity
-          node scripts/assemble.mjs real-estate --velocity=velocity --ref="$VELOCITY_REF" --demo
-          cd build/real-estate && pnpm install --no-frozen-lockfile
+          node scripts/assemble.mjs "$DEMO" --velocity=velocity --ref="$VELOCITY_REF" --demo
+          cd "build/$DEMO" && pnpm install --no-frozen-lockfile
 
       - name: Find or create the Vercel project
         run: |
@@ -133,10 +164,6 @@ jobs:
             | while read -r id; do
                 curl -fsS -o /dev/null -X DELETE -H "$auth" "$api/v9/projects/$project/env/$id?slug=$team"
               done
-          # The project's own address, which sign-in links and passkeys are made for.
-          site="${{ vars.CMS_DEMO_URL }}"
-          [ -n "$site" ] || site="https://$VERCEL_PROJECT.vercel.app"
-          echo "SITE_URL=$site" >> "$GITHUB_ENV"
           echo "VERCEL_ORG_ID=$org" >> "$GITHUB_ENV"
           echo "VERCEL_PROJECT_ID=$project" >> "$GITHUB_ENV"
 
@@ -145,17 +172,17 @@ jobs:
         working-directory: templates
         env:
           VELOCITY_CMS_DIR: ${{ github.workspace }}/cms
-        run: node cms/real-estate/reset.mjs --yes
+        run: node "cms/$DEMO/reset.mjs" --yes
 
       - name: Import the content and convert the pages
-        working-directory: templates/build/real-estate
+        working-directory: templates/build/${{ matrix.demo }}
         # The template's wiring to the CMS is kept with the template, in the private repository.
         env:
           VELOCITY_CMS_DIR: ${{ github.workspace }}/cms
-        run: node "$GITHUB_WORKSPACE/templates/cms/real-estate/prepare.mjs" .
+        run: node "$GITHUB_WORKSPACE/templates/cms/$DEMO/prepare.mjs" .
 
       - name: Deploy to Vercel
-        working-directory: templates/build/real-estate
+        working-directory: templates/build/${{ matrix.demo }}
         run: |
           npx --yes vercel@latest pull --yes --environment=production --token="$VERCEL_TOKEN"
           npx --yes vercel@latest build --prod --token="$VERCEL_TOKEN"
@@ -168,7 +195,7 @@ jobs:
             if curl -fsS "$SITE_URL/api/cms/session" | jq -e 'has("user")' > /dev/null; then exit 0; fi
             sleep 10
           done
-          echo "::error::$SITE_URL/api/cms/session did not answer. If the project has another address, set the CMS_DEMO_URL variable to it and run again."
+          echo "::error::$SITE_URL/api/cms/session did not answer. If the real estate project has another address, set the CMS_DEMO_URL variable to it and run again."
           exit 1
 
       - name: Check a visitor is let in as the shared editor
@@ -194,7 +221,7 @@ jobs:
       - name: Check the public pages answer
         run: |
           failed=0
-          for path in / /demo/ /es/ /homes-for-sale/ /listings/lakeshore-farmhouse/ /agents/ /why-list-with-us/; do
+          for path in $DEMO_PAGES; do
             status=$(curl -sS -o body.html -D headers.txt -w '%{http_code}' "$SITE_URL$path" || echo 000)
             echo "$path -> $status ($(wc -c < body.html) bytes)"
             if [ "$status" != "200" ]; then
