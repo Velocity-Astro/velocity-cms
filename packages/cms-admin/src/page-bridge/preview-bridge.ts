@@ -13,7 +13,10 @@
  *
  * A template says what is what with two attributes: `data-cms-section` holds a section's id, and
  * `data-cms-field` inside it holds a field's place in the section, as keys (`title`,
- * `items.0.text`). A page with no field marks still works: a click chooses the section.
+ * `items.0.text`). A page with no field marks still works: a section that says what it holds
+ * (`data-cms-values`, a list of place and words) has its fields found by what they show, so a
+ * template whose blocks hand their words to components of its own needs no mark on each. A mark
+ * the template wrote always comes first, and a click that finds no field chooses the section.
  *
  * The layer's look is set from script, which a page's content rules allow where a style written
  * into the page would not be.
@@ -34,21 +37,106 @@ export function previewBridge(page: Window & typeof globalThis): void {
     readonly field?: string;
   }
   const isElement = (target: unknown): target is Element => typeof target === 'object' && target !== null && (target as Node).nodeType === 1;
+  // What a section's fields were found to be by what they show: nothing is written on the page.
+  const guessed = new WeakMap<Element, string>();
+  const guesses = new WeakMap<Element, Map<string, HTMLElement>>();
+  const squeeze = (text: string | null): string => (text ?? '').replace(/\s+/g, '');
+  const guess = (section: HTMLElement): Map<string, HTMLElement> => {
+    const known = guesses.get(section);
+    if (known) return known;
+    const first = new Map<string, HTMLElement>();
+    guesses.set(section, first);
+    let values: unknown;
+    try {
+      values = JSON.parse(section.dataset['cmsValues'] ?? '[]');
+    } catch {
+      return first;
+    }
+    if (!Array.isArray(values)) return first;
+    // Each element by all it says (the innermost of those that say the same), and by each run of words in it.
+    const whole = new Map<string, HTMLElement[]>();
+    const runs = new Map<string, HTMLElement[]>();
+    const pictures: HTMLImageElement[] = [];
+    const add = (into: Map<string, HTMLElement[]>, text: string, element: HTMLElement): void => {
+      if (text === '') return;
+      const list = into.get(text) ?? [];
+      const last = list[list.length - 1];
+      if (last === element) return;
+      if (last?.contains(element)) list[list.length - 1] = element;
+      else list.push(element);
+      into.set(text, list);
+    };
+    for (const element of section.querySelectorAll<HTMLElement>('*')) {
+      if (element.closest('script, style, template, noscript')) continue;
+      if (element.tagName === 'IMG') pictures.push(element as HTMLImageElement);
+      add(whole, squeeze(element.textContent), element);
+      for (const node of element.childNodes) if (node.nodeType === 3) add(runs, squeeze(node.nodeValue), element);
+    }
+    // Fields that say the same words share the elements that show them, in order.
+    const wanted = new Map<string, string[]>();
+    const sources: [string, string][] = [];
+    for (const value of values) {
+      if (!Array.isArray(value) || typeof value[0] !== 'string' || typeof value[1] !== 'string') continue;
+      const path: string = value[0];
+      if ([...section.querySelectorAll<HTMLElement>('[data-cms-field]')].some((marked) => marked.dataset['cmsField'] === path)) continue;
+      let text: string = value[1];
+      if (value[2] === 'html') {
+        const holder = doc.createElement('template');
+        holder.innerHTML = text;
+        text = holder.content.textContent ?? '';
+      } else if (text.length > 1 && !/\s/.test(text)) {
+        sources.push([path, text]);
+      }
+      const words = squeeze(text);
+      if (words !== '') wanted.set(words, [...(wanted.get(words) ?? []), path]);
+    }
+    const claim = (element: HTMLElement, path: string): void => {
+      if (!guessed.has(element)) guessed.set(element, path);
+      if (!first.has(path)) first.set(path, element);
+    };
+    for (const [words, paths] of wanted) {
+      const elements = whole.get(words) ?? runs.get(words) ?? [];
+      elements.forEach((element, at) => claim(element, paths[Math.min(paths.length - 1, Math.floor((at * paths.length) / elements.length))] ?? ''));
+    }
+    // A picture is found by its name in its address: a whole part of it, not letters inside a longer name.
+    const names = (address: string): string => {
+      try {
+        return decodeURIComponent(address);
+      } catch {
+        return address;
+      }
+    };
+    for (const [path, name] of sources) {
+      if (first.has(path)) continue;
+      for (const picture of pictures) {
+        const address = names(picture.getAttribute('src') ?? '');
+        const at = address.indexOf(name);
+        if (at < 0) continue;
+        const before = name.startsWith('/') || at === 0 ? '/' : (address[at - 1] ?? '');
+        const after = address[at + name.length] ?? '';
+        if ((before === '/' || before === '=') && (after === '' || './?&'.includes(after))) claim(picture, path);
+      }
+    }
+    return first;
+  };
   const markOf = (target: unknown): Mark | null => {
     if (!isElement(target)) return null;
     const section = target.closest<HTMLElement>('[data-cms-section]');
     const id = section?.dataset['cmsSection'];
     if (!section || !id) return null;
-    const field = target.closest<HTMLElement>('[data-cms-field]');
-    const path = field?.dataset['cmsField'];
-    // A field counts only inside the section the pointer is in.
-    return field && path && section.contains(field) ? { element: field, section: id, field: path } : { element: section, section: id };
+    guess(section);
+    // A field counts only inside the section the pointer is in, and the nearest one is meant.
+    for (let element: Element | null = target; element && element !== section; element = element.parentElement) {
+      const path = (element as HTMLElement).dataset?.['cmsField'] ?? guessed.get(element);
+      if (path) return { element: element as HTMLElement, section: id, field: path };
+    }
+    return { element: section, section: id };
   };
   const find = (section: string, field?: string): Mark | null => {
     const found = [...doc.querySelectorAll<HTMLElement>('[data-cms-section]')].find((candidate) => candidate.dataset['cmsSection'] === section);
     if (!found) return null;
     if (field !== undefined) {
-      const inner = [...found.querySelectorAll<HTMLElement>('[data-cms-field]')].find((candidate) => candidate.dataset['cmsField'] === field);
+      const inner = [...found.querySelectorAll<HTMLElement>('[data-cms-field]')].find((candidate) => candidate.dataset['cmsField'] === field) ?? guess(found).get(field);
       if (inner) return { element: inner, section, field };
     }
     return { element: found, section };
