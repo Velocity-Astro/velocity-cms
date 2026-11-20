@@ -25,6 +25,7 @@ of the page is drawn by the editor.
   outline a section and bring it into view, again each time the page is drawn.
 - `typable` says where words may be typed on the page itself (for each section, its fields by key), and is told to the page each time it is drawn. What is typed there comes to `onWords` as it is typed. The page shows those words already, so the change of `draft` that follows them asks for no new page; a change made in the form still does.
 - `width` tries the page at a phone's, a tablet's or the pane's own width.
+- `isBare` leaves out its border, for a place that frames it already, such as a whole window.
 - With no `address` there is no page yet, and `emptyText` says so.
 - It fills the height it is given, so put it in something with a height, such as `Workbench`.
 

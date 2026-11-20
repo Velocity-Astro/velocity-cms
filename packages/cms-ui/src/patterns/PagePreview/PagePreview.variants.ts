@@ -1,6 +1,10 @@
 import { cva, type VariantProps } from 'class-variance-authority';
 
-export const pagePreviewClass = 'flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-background-secondary';
+/** In a card of its own, or bare where what holds it is the frame already. */
+export const pagePreviewVariants = cva('flex h-full min-h-0 flex-col overflow-hidden bg-background-secondary', {
+  variants: { isBare: { true: '', false: 'rounded-lg border border-border' } },
+  defaultVariants: { isBare: false },
+});
 export const pagePreviewBarClass = 'flex flex-wrap items-center justify-between gap-3 border-b border-border bg-background px-3 py-2';
 export const pagePreviewNoteClass = 'min-w-0 truncate text-sm text-foreground-muted';
 export const pagePreviewStageClass = 'flex min-h-0 flex-1 justify-center';

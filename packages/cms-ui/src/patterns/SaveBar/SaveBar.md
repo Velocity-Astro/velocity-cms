@@ -13,6 +13,12 @@ the same place, so saving never has to be looked for, however long the form is.
 - Screens where each change takes effect at once. They have nothing to save.
 - More than three buttons. Put the rest in a `Menu`.
 
+## Across a window
+
+`across="window"` is the bar as the top edge of a view that has the whole window, such as a page
+edited in a `Workbench` with `view="whole"`. There the way back usually closes the view: give
+`back` an `onPress` in place of an `href`, and it is a button.
+
 ## Accessibility
 
 The bar is a named region, so it can be jumped to. Its status is announced when it changes, so a
