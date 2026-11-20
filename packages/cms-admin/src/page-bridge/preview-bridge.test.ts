@@ -116,6 +116,84 @@ it('shows the section when the field asked for has no mark on the page', () => {
   expect(box('chosen').style.display).toBe('block');
 });
 
+/** A section as a template draws it with `sectionMark(id, data)`: it says what it holds, and its elements carry no mark. */
+const held = (id: string, values: unknown, inner: string) => {
+  const holder = document.createElement('div');
+  holder.dataset['cmsSection'] = id;
+  holder.dataset['cmsValues'] = JSON.stringify(values);
+  holder.innerHTML = inner;
+  return holder.outerHTML;
+};
+const saidLast = () => (said.at(-1) as [{ field?: string }, string])[0].field;
+
+it('finds a field by the words it shows where the section says what it holds', () => {
+  open(
+    held(
+      's1',
+      [['title', 'Find your  place'], ['titleAccent', 'in Austin'], ['lead', 'Homes for sale'], ['body', '<p>One <strong>bold</strong> thing.</p><p>Two.</p>', 'html'], ['tone', 'dark']],
+      '<h1 id="h">Find your place <em>in Austin</em></h1><p id="lead"><span>Homes for sale</span></p><div id="body"><p>One <strong>bold</strong> thing.</p>\n<p>Two.</p></div><p id="other">Our own words</p>',
+    ),
+  );
+  click('#h');
+  expect(saidLast()).toBe('title');
+  click('em');
+  expect(saidLast()).toBe('titleAccent');
+  click('#lead span');
+  expect(saidLast()).toBe('lead');
+  click('strong');
+  expect(saidLast()).toBe('body');
+  click('#other');
+  expect(saidLast()).toBeUndefined();
+  // Nothing was written on the page to do it.
+  expect(page.document.querySelector('[data-cms-field]')).toBeNull();
+  hear({ source: 'velocity-cms', type: 'show', id: 's1', field: 'lead' });
+  page.Element.prototype.getBoundingClientRect = function (this: Element) {
+    return rect(this.tagName === 'SPAN' ? 700 : 300);
+  };
+  page.dispatchEvent(new page.Event('resize'));
+  expect(box('chosen').style.top).toBe('700px');
+});
+
+it('gives fields that say the same words the elements that show them in order, and a field shown twice both', () => {
+  open(
+    held(
+      's1',
+      [['items.0.title', 'Buy'], ['items.0.link', 'More'], ['items.1.title', 'Sell'], ['items.1.link', 'More']],
+      '<ul><li><b id="a">Buy</b><i id="a2">Buy</i><a id="m1">More</a></li><li><b id="b">Sell</b><a id="m2">More</a></li></ul>',
+    ),
+  );
+  click('#a');
+  expect(saidLast()).toBe('items.0.title');
+  click('#a2');
+  expect(saidLast()).toBe('items.0.title');
+  click('#m1');
+  expect(saidLast()).toBe('items.0.link');
+  click('#m2');
+  expect(saidLast()).toBe('items.1.link');
+});
+
+it('finds a picture by its name, and puts a mark the template wrote before what it finds', () => {
+  open(
+    held(
+      's1',
+      [['photo', 'wine'], ['icon', 'home'], ['title', 'Welcome']],
+      '<img id="i" src="/_image?href=%2F_astro%2Fwine.abc.jpg&amp;w=800" alt=""><img id="o" src="/_astro/homestead.abc.jpg" alt=""><h2 data-cms-field="heading" id="t">Welcome</h2>',
+    ),
+  );
+  click('#i');
+  expect(saidLast()).toBe('photo');
+  click('#o');
+  expect(saidLast()).toBeUndefined();
+  click('#t');
+  expect(saidLast()).toBe('heading');
+});
+
+it('takes a section that says nonsense about what it holds as one that says nothing', () => {
+  open('<div data-cms-section="s1" data-cms-values="{oops"><h1>Welcome</h1></div>');
+  click('h1');
+  expect(said.at(-1)).toEqual([{ source: 'velocity-cms', type: 'section', id: 's1' }, origin]);
+});
+
 it('listens to nothing but the editor of this site', () => {
   hear({ source: 'velocity-cms', type: 'show', id: 's1' }, { origin: 'https://elsewhere.example' });
   hear({ source: 'velocity-cms', type: 'show', id: 's1' }, { source: page });

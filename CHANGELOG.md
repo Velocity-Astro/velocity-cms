@@ -4,6 +4,7 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **A click on the page finds the field with no mark on it.** `sectionMark(section.id, section.data)` now tells the page beside the form what the section holds, and each field is found by the words or the picture it shows, so a template whose blocks hand their words to components of its own needs only that one line. `fieldMark` is for what cannot be found that way (a value the block changes before it shows it), and a mark a template wrote always comes first. Nothing is added to a visitor's page.
 - **A click on the page finds the field, not only the section.** Beside the form, the page now outlines what the pointer is over and what is chosen, in a layer above the page that changes nothing of the template's own markup. A template that marks its fields (`fieldMark('title')`, beside `sectionMark(section.id)`, both from `@velocity-astro/cms-astro`) has a click on a heading, a paragraph or a card open its section and point at that field in the form. A template with no field marks works as before. The section open in the form is outlined on the page, and the page no longer jumps to it when it is already in view.
 
 ## 0.1.0-beta.4

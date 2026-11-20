@@ -20,7 +20,7 @@ const known = sections.flatMap((section) => {
 
 {
   known.map(({ Block, section }) => {
-    const mark = sectionMark(section.id);
+    const mark = sectionMark(section.id, section.data);
     return 'data-cms-section' in mark ? <div {...mark}><Block {...section.data} /></div> : <Block {...section.data} />;
   })
 }
