@@ -199,6 +199,24 @@ it('does on the form what a section\'s bar on the page asks for', async () => {
   expect(screen.getByText('Unsaved changes')).toBeTruthy();
 });
 
+it('puts a section dragged on the page where it was let go', async () => {
+  renderApp('/content/pages/p1', site());
+  await frame();
+  const order = () => (draft().data['f-body'] as { id: string }[]).map((section) => section.id);
+  const [first, second, ...rest] = order();
+  // To the end.
+  await say({ source: 'velocity-cms', type: 'move', id: first, before: null });
+  expect(order()).toEqual([second, ...rest, first]);
+  // Back before the one that is now first.
+  await say({ source: 'velocity-cms', type: 'move', id: first, before: second });
+  expect(order()).toEqual([first, second, ...rest]);
+  // Where it already is, and sections the form does not have, change nothing.
+  await say({ source: 'velocity-cms', type: 'move', id: first, before: second });
+  await say({ source: 'velocity-cms', type: 'move', id: 'gone', before: null });
+  await say({ source: 'velocity-cms', type: 'move', id: first, before: 'gone' });
+  expect(order()).toEqual([first, second, ...rest]);
+});
+
 it('offers the whole window only once there is a page to show', async () => {
   renderApp('/content/pages/new', site());
   const pane = within(await screen.findByRole('region', { name: 'The page' }));
