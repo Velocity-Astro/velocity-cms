@@ -475,3 +475,36 @@ it('moves nothing for a press that was only a press, a drop where the section al
   mouse('mouseup', page.document, 10);
   expect(moves()).toEqual([]);
 });
+
+const PICTURES = `
+  <main>
+    <div data-cms-section="s1"><img data-cms-field="photo" src="/photos/porch.webp" alt=""><div class="shade">Over the photo</div></div>
+    <div data-cms-section="s2"><p data-cms-field="text">Words</p></div>
+  </main>`;
+const moveTo = (selector: string, x: number, y: number) => {
+  pointAt(selector);
+  $(selector).dispatchEvent(new page.MouseEvent('mousemove', { bubbles: true, clientX: x, clientY: y }));
+};
+const pictureTools = { labels: { ...TOOLS.labels, picture: 'Change photo' }, sections: { s1: { ...TOOLS.sections.s1, pictures: ['photo'] }, s2: TOOLS.sections.s2 } };
+
+it('offers to change a picture the pointer is over, even under something the template lays on it, and says which when pressed', () => {
+  open(PICTURES);
+  moveTo('.shade', 50, 310);
+  expect(toolOf('picture').style.display).toBe('none');
+  hear({ source: 'velocity-cms', type: 'tools', ...pictureTools });
+  moveTo('.shade', 50, 310);
+  expect(toolOf('picture').style.display).toBe('flex');
+  expect(toolOf('picture').textContent).toBe('Change photo');
+  // The button is the layer's: the pointer on it keeps it.
+  toolOf('picture').dispatchEvent(new page.MouseEvent('mousemove', { bubbles: true, clientX: 30, clientY: 310 }));
+  toolOf('picture').click();
+  expect((said as [{ type: string }, string][]).map(([message]) => message).filter((message) => message.type === 'picture')).toEqual([
+    { source: 'velocity-cms', type: 'picture', id: 's1', field: 'photo' },
+  ]);
+  expect($('img').getAttribute('src')).toBe('/photos/porch.webp');
+  // Away from the picture, and in a section with none, there is no button.
+  moveTo('.shade', 500, 500);
+  expect(toolOf('picture').style.display).toBe('none');
+  moveTo('p', 50, 310);
+  expect(toolOf('picture').style.display).toBe('none');
+});

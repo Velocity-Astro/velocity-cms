@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **Change a picture from the page.** In the visual editor and beside the form, a picture of a section shows a "Change image" button while the pointer is over it. It opens the same window the field in the form does, to choose one of the site's images or upload a new one, and the page shows it at once. Pictures inside a list (a team, a row of cards) work the same way. Nothing is asked of a template.
+
 ## 0.1.0-beta.6
 
 - **A picture of each kind of section.** A block can name a picture of itself (`defineBlock({ thumbnail: '/cms/blocks/text.webp' })`, a file in the site's `public` folder), and "Add a section" then shows its kinds as cards with their pictures in place of a list of names. A block with no picture shows its icon in the same frame, and a site whose blocks have none keeps the list.

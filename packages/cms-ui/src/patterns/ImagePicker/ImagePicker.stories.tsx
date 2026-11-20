@@ -70,3 +70,8 @@ export const Choosing: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Change' }));
   },
 };
+/** Only the window, opened by something else: a button on the page the image is shown on. */
+export const WindowOnly: Story = {
+  tags: ['!autodocs', 'overlay'],
+  args: { window: { isOpen: true, onOpenChange: () => undefined } },
+};

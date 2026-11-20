@@ -1,18 +1,17 @@
 import { fromPlainText, liveFields, type FieldDef, type RichText } from '@velocity-astro/cms-core';
-import { DateField, Fieldset, ImagePicker, NumberField, Repeater, SectionList, Select, Skeleton, SkeletonGroup, Stack, Switch, Text, TextArea, TextField, toast } from '@velocity-astro/cms-ui';
+import { DateField, Fieldset, NumberField, Repeater, SectionList, Select, Skeleton, SkeletonGroup, Stack, Switch, Text, TextArea, TextField } from '@velocity-astro/cms-ui';
 import { Copy, Trash2 } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
-import { useContentTypes, useEntries, useForms, useImages, useUploadImage, useUploadRules } from '../client/queries.js';
-import { prepareImage } from '../lib/prepare-image.js';
-import { smallOf } from '../lib/small-image.js';
+import { useContentTypes, useEntries, useForms } from '../client/queries.js';
 import { entryTitle, groupTranslations, localized, sameData, withValue } from '../lib/content.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
-import { createFieldControlRegistry, type FieldControl, type FieldControlProps, type FieldControls, type FieldSummaryProps, type WordsPlace } from './field-control.js';
+import { createFieldControlRegistry, type FieldControl, type FieldControlProps, type FieldControls, type FieldSummaryProps, type PicturePlace, type WordsPlace } from './field-control.js';
 import { BlocksControl } from './BlocksControl.js';
 import { FieldEditor } from './FieldEditor.js';
 import { FieldGrid } from './FieldGrid.js';
 import { useControlFor } from './FieldSummary.js';
 import { LinkControl } from './LinkControl.js';
+import { SiteImagePicker } from './SiteImagePicker.js';
 
 /** A field setting, when it is a number. Settings are checked by the server, not here. */
 function numberOption(field: FieldDef, name: string): number | undefined {
@@ -205,56 +204,17 @@ function FormControl({ field, label, help, isLabelHidden = false, value, onChang
   );
 }
 
-const megabytes = (bytes: number): string => String(Math.round(bytes / 100_000) / 10);
-
-/**
- * One of the site's images, shown as a picture and chosen from the site's images. What is stored
- * is the image's name. A name with no image is still shown, so opening and saving never drops it.
- */
+/** One of the site's images, shown as a picture and chosen from the site's images. */
 function ImageControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {
-  const messages = useMessages();
-  const images = useImages();
-  const rules = useUploadRules().data ?? null;
-  const uploading = useUploadImage();
-  const [notRead, setNotRead] = useState(false);
-  const upload = async (file: File) => {
-    setNotRead(false);
-    uploading.reset();
-    const prepared = await prepareImage(file, rules?.maxBytes ?? 0).catch(() => null);
-    if (!prepared) {
-      setNotRead(true);
-      throw new Error(messages.editor.imageNotRead);
-    }
-    const image = await uploading.mutateAsync(prepared);
-    onChange(image.name);
-    toast({ title: messages.editor.imageUploaded, description: messages.editor.imageUploadedDescription, tone: 'success' });
-  };
-  const uploadError = notRead ? messages.editor.imageNotRead : uploading.error?.message;
-  const current = typeof value === 'string' && value !== '' ? value : null;
-  const missing = current !== null && images.isSuccess && !images.data.some((image) => image.name === current);
-  const wrong = problem ?? (images.isError ? messages.editor.imagesNotLoaded : missing ? messages.editor.imageMissing : undefined);
   return (
-    <ImagePicker
+    <SiteImagePicker
       label={label}
       isLabelHidden={isLabelHidden}
-      value={current}
-      images={(images.data ?? []).map((image) => ({ ...image, url: smallOf(image) }))}
+      value={value}
       onChange={onChange}
       isRequired={field.required}
-      chooseLabel={messages.editor.imageChoose}
-      changeLabel={messages.editor.imageChange}
-      noneText={messages.editor.imageNone}
-      dialogTitle={messages.editor.imageChoose}
-      closeLabel={messages.editor.close}
-      emptyText={images.isPending ? messages.editor.imagesLoading : messages.editor.imagesEmpty}
-      {...(rules && {
-        onUpload: upload,
-        uploadLabel: messages.editor.imageUpload,
-        uploadHint: messages.editor.imageUploadHint(megabytes(rules.maxBytes)),
-      })}
-      {...(uploadError !== undefined && { uploadError })}
-      {...(help !== undefined && { description: help })}
-      {...(wrong !== undefined && { errorMessage: wrong })}
+      {...(help !== undefined && { help })}
+      {...(problem !== undefined && { problem })}
     />
   );
 }
@@ -334,34 +294,47 @@ const under = (key: string, place: string) => (place === '' ? key : `${key}.${pl
 const textWords = (_field: FieldDef, value: unknown): readonly WordsPlace[] =>
   value === undefined || value === null || typeof value === 'string' ? [{ place: '', put: (words) => (words === '' ? undefined : words) }] : [];
 
-/** A group holds the words of its fields, each under the field's key. */
-function groupWords(field: FieldDef, value: unknown, controlFor: ControlFor): readonly WordsPlace[] {
+type Places<Place extends WordsPlace> = (field: FieldDef, value: unknown, controlFor: ControlFor) => readonly Place[];
+type Asked = 'words' | 'pictures';
+
+/** A group holds the places of its fields, each under the field's key. */
+function inGroup<Place extends WordsPlace>(asked: Asked, field: FieldDef, value: unknown, controlFor: ControlFor): readonly Place[] {
   const inner = Array.isArray(field.options['fields']) ? liveFields(field.options['fields'] as FieldDef[]) : [];
   const values = typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
   return inner.flatMap((child) =>
-    (controlFor(child.type)?.words?.(child, values[child.id], controlFor) ?? []).map(({ place, put }) => ({
-      place: under(child.key, place),
+    ((controlFor(child.type)?.[asked] as Places<Place> | undefined)?.(child, values[child.id], controlFor) ?? []).map((found) => ({
+      ...found,
+      place: under(child.key, found.place),
       put: (words: string) => {
-        const changed = withValue(values, child.id, put(words));
+        const changed = withValue(values, child.id, found.put(words));
         return Object.keys(changed).length === 0 ? undefined : changed;
       },
     })),
   );
 }
 
-/** A list holds the words of its items, each under the item's place. An item emptied on the page keeps its place. */
-function listWords(field: FieldDef, value: unknown, controlFor: ControlFor): readonly WordsPlace[] {
+/** A list holds the places of its items, each under the item's place. An item emptied on the page keeps its place. */
+function inList<Place extends WordsPlace>(asked: Asked, field: FieldDef, value: unknown, controlFor: ControlFor): readonly Place[] {
   const items: readonly unknown[] = Array.isArray(value) ? value : [];
   const of = (field.options['of'] ?? { type: 'text' }) as { readonly type: string; readonly options?: Readonly<Record<string, unknown>> };
-  const words = controlFor(of.type)?.words;
-  if (!words) return [];
+  const places = controlFor(of.type)?.[asked] as Places<Place> | undefined;
+  if (!places) return [];
   return items.flatMap((item, index) =>
-    words({ ...field, id: `${field.id}.${index}`, key: String(index), type: of.type, required: false, options: of.options ?? {} }, item, controlFor).map(({ place, put }) => ({
-      place: under(String(index), place),
-      put: (typed: string) => items.map((existing, at) => (at === index ? (put(typed) ?? (typeof existing === 'string' ? '' : {})) : existing)),
+    places({ ...field, id: `${field.id}.${index}`, key: String(index), type: of.type, required: false, options: of.options ?? {} }, item, controlFor).map((found) => ({
+      ...found,
+      place: under(String(index), found.place),
+      put: (typed: string) => items.map((existing, at) => (at === index ? (found.put(typed) ?? (typeof existing === 'string' ? '' : {})) : existing)),
     })),
   );
 }
+
+const groupWords: Places<WordsPlace> = (field, value, controlFor) => inGroup('words', field, value, controlFor);
+const listWords: Places<WordsPlace> = (field, value, controlFor) => inList('words', field, value, controlFor);
+const groupPictures: Places<PicturePlace> = (field, value, controlFor) => inGroup('pictures', field, value, controlFor);
+const listPictures: Places<PicturePlace> = (field, value, controlFor) => inList('pictures', field, value, controlFor);
+
+/** An image field is its own picture, chosen or not. */
+const imagePictures = (_field: FieldDef, value: unknown): readonly PicturePlace[] => [{ place: '', name: typeof value === 'string' && value !== '' ? value : null, put: (name) => name }];
 
 /** One item of a list on screen. Its id stays with it while it is moved, so an open row stays open. */
 interface Row {
@@ -509,9 +482,9 @@ export function createFieldControls(): FieldControls {
     .register({ type: 'reference', Component: ReferenceControl, width: 'compact' })
     .register({ type: 'form-picker', Component: FormControl, width: 'compact' })
     .register({ type: 'link', Component: LinkControl })
-    .register({ type: 'image', Component: ImageControl })
+    .register({ type: 'image', Component: ImageControl, pictures: imagePictures })
     .register({ type: 'rich-text', Component: RichTextControl })
-    .register({ type: 'group', Component: GroupControl, titleOf: groupTitle, words: groupWords })
-    .register({ type: 'list', Component: ListControl, words: listWords })
+    .register({ type: 'group', Component: GroupControl, titleOf: groupTitle, words: groupWords, pictures: groupPictures })
+    .register({ type: 'list', Component: ListControl, words: listWords, pictures: listPictures })
     .register({ type: 'blocks', Component: BlocksControl, showsPage: true });
 }

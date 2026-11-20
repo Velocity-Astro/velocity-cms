@@ -20,6 +20,7 @@ Shows the image a field holds and lets a person choose another from the site's i
 - With `onUpload`, the window has an upload button that opens the computer's file chooser. While the file is on its way the button shows a spinner. When `onUpload` resolves the window closes; when it rejects the window stays open and `uploadError` says why.
 - A name that matches no image (the file was removed) is still shown, with an empty frame, so it is never dropped silently.
 - Pictures are decoration here: the name beside each one is what is read out.
+- With `window` (`{ isOpen, onOpenChange }`) only the window is drawn, and whoever gave it opens and closes it. Use it to choose an image from somewhere other than the field, such as a button on the page the image is shown on.
 
 ## Example
 

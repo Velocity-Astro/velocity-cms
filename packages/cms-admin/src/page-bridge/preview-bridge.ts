@@ -393,7 +393,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
   // Tools.
   interface Tools {
     readonly labels: Record<string, unknown>;
-    readonly sections: Record<string, { readonly name?: unknown; readonly up?: unknown; readonly down?: unknown; readonly copy?: unknown; readonly add?: unknown } | undefined>;
+    readonly sections: Record<string, { readonly name?: unknown; readonly up?: unknown; readonly down?: unknown; readonly copy?: unknown; readonly add?: unknown; readonly pictures?: unknown } | undefined>;
   }
   let tools: Tools | null = null;
   // The section the bar is for: the one the pointer was last in, and it stays while the pointer is on the bar itself.
@@ -405,6 +405,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
     duplicate: ['M8 8h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2z', 'M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2'],
     remove: ['M3 6h18', 'M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6', 'M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2', 'M10 11v6', 'M14 11v6'],
     add: ['M5 12h14', 'M12 5v14'],
+    picture: ['M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z', 'M11 9a2 2 0 1 1-4 0 2 2 0 0 1 4 0z', 'm21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'],
     drag: ['M9 5h.01', 'M9 12h.01', 'M9 19h.01', 'M15 5h.01', 'M15 12h.01', 'M15 19h.01'],
   };
   const drawing = (name: string): SVGElement => {
@@ -494,7 +495,78 @@ export function previewBridge(page: Window & typeof globalThis): void {
   const adders = { addBefore: adder('addBefore'), addAfter: adder('addAfter') };
   layer.append(bar);
   const word = (value: unknown): string => (typeof value === 'string' ? value : '');
+  // A picture the editor can change has a button of its own while the pointer is over it. The
+  // pointer may be on something the template lays over the picture, so it is found by where it is.
+  let pictured: Mark | null = null;
+  const changer = doc.createElement('button');
+  changer.type = 'button';
+  changer.tabIndex = -1;
+  changer.setAttribute('data-cms-tool', 'picture');
+  Object.assign(changer.style, {
+    position: 'absolute',
+    display: 'none',
+    alignItems: 'center',
+    gap: '6px',
+    height: '28px',
+    padding: '0 12px 0 8px',
+    border: '0',
+    borderRadius: '14px',
+    background: ACCENT,
+    color: ACCENT_INK,
+    font: `600 12px/1 ${FONT}`,
+    boxShadow: '0 4px 12px rgb(0 0 0 / 0.25)',
+    whiteSpace: 'nowrap',
+    cursor: 'pointer',
+    pointerEvents: 'auto',
+  });
+  changer.append(drawing('picture'), doc.createElement('span'));
+  changer.addEventListener('mousedown', (event) => event.preventDefault());
+  changer.addEventListener('click', () => {
+    if (pictured?.field !== undefined) say({ type: 'picture', id: pictured.section, field: pictured.field });
+  });
+  layer.append(changer);
+  const pictureAt = (x: number, y: number): Mark | null => {
+    const id = tooled?.dataset['cmsSection'] ?? '';
+    const paths = tools?.sections[id]?.pictures;
+    if (!tooled || !Array.isArray(paths)) return null;
+    let found: Mark | null = null;
+    let least = Infinity;
+    for (const path of paths) {
+      const mark = typeof path === 'string' ? find(id, path) : null;
+      if (mark?.field === undefined) continue;
+      const rect = mark.element.getBoundingClientRect();
+      if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) continue;
+      // Of pictures that lie over one another, the smallest is the one meant.
+      const size = rect.width * rect.height;
+      if (size < least) [found, least] = [mark, size];
+    }
+    return found;
+  };
+  const placeChanger = (): void => {
+    const rect = !typing && !drag?.moved && pictured?.element.isConnected ? pictured.element.getBoundingClientRect() : null;
+    if (!rect || !tools || rect.bottom <= 0 || rect.top >= page.innerHeight || (rect.width === 0 && rect.height === 0)) {
+      changer.style.display = 'none';
+      return;
+    }
+    if (changer.lastElementChild) changer.lastElementChild.textContent = word(tools.labels['picture']);
+    // At the picture's lower corner, and at the foot of the page while the picture's own is below it:
+    // the top of a section is where a page's header and the section's bar are.
+    Object.assign(changer.style, { display: 'flex', top: `${Math.max(Math.min(rect.bottom, page.innerHeight) - 36, Math.max(rect.top, 0))}px`, left: `${Math.max(rect.left, 0) + 8}px` });
+  };
+  doc.addEventListener(
+    'mousemove',
+    (event) => {
+      // On the layer's own buttons, the picture they are for stays as it was.
+      if (isElement(event.target) && layer.contains(event.target)) return;
+      const next = pictureAt(event.clientX, event.clientY);
+      if (next?.element === pictured?.element) return;
+      pictured = next;
+      placeChanger();
+    },
+    true,
+  );
   placeTools = (): void => {
+    placeChanger();
     const hide = (): void => {
       bar.style.display = 'none';
       adders.addBefore.style.display = 'none';
@@ -623,6 +695,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
   doc.documentElement.addEventListener('mouseleave', () => {
     marks.over = null;
     tooled = null;
+    pictured = null;
     draw();
   });
   // Nothing on the page goes anywhere: a click chooses what it is on.

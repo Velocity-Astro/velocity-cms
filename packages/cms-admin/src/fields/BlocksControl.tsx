@@ -6,10 +6,11 @@ import { localized, withValue } from '../lib/content.js';
 import { useLast } from '../lib/use-closing.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
 import { blockIcon } from './block-icons.js';
-import type { FieldControlProps, WordsPlace } from './field-control.js';
+import type { FieldControlProps, PicturePlace, WordsPlace } from './field-control.js';
 import { FieldGrid } from './FieldGrid.js';
 import { useControlFor } from './FieldSummary.js';
 import { usePageFocus } from './page-focus.js';
+import { SiteImagePicker } from './SiteImagePicker.js';
 
 const isSection = (value: unknown): value is BlockValue =>
   typeof value === 'object' && value !== null && typeof (value as BlockValue).id === 'string' && typeof (value as BlockValue).block === 'string';
@@ -43,6 +44,8 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
   // Where the section being picked goes: a place among the sections, or the end.
   const [pickAt, setPickAt] = useState<number | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  // The picture being changed from the page: its section and its place in it.
+  const [picturing, setPicturing] = useState<{ readonly section: string; readonly place: string } | null>(null);
   // The field last pressed on the page, until the person turns to something else in the form.
   const [pointed, setPointed] = useState<{ readonly section: string; readonly key: string; readonly at: number } | null>(null);
 
@@ -70,6 +73,18 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
       (controlFor(inner.type)?.words?.(inner, section.data[inner.id], controlFor) ?? []).map(({ place, put }) => ({
         place: place === '' ? inner.key : `${inner.key}.${place}`,
         put: (words: string) => withValue(section.data, inner.id, put(words)),
+      })),
+    );
+  };
+  // Where each section holds a picture that can be changed from the page.
+  const picturesOf = (section: BlockValue): readonly PicturePlace[] => {
+    const block = blockOf(blocks, section);
+    if (!block || block.retiredAt !== undefined) return [];
+    return liveFields(block.fields).flatMap((inner) =>
+      (controlFor(inner.type)?.pictures?.(inner, section.data[inner.id], controlFor) ?? []).map((found) => ({
+        ...found,
+        place: found.place === '' ? inner.key : `${inner.key}.${found.place}`,
+        put: (name: string) => withValue(section.data, inner.id, found.put(name)),
       })),
     );
   };
@@ -109,9 +124,11 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
       add: messages.editor.pageAdd,
       addBefore: messages.editor.pageAddBefore,
       addAfter: messages.editor.pageAddAfter,
+      picture: messages.editor.pagePicture,
     },
     sections: Object.fromEntries(
-      sections.map((section, at) => [section.id, { name: nameOf(blockOf(blocks, section)), up: at > 0, down: at < sections.length - 1, copy: !isFull, add: !isFull }]),
+      sections.map((section, at) => [section.id, { name: nameOf(blockOf(blocks, section)), up: at > 0, down: at < sections.length - 1, copy: !isFull, add: !isFull, pictures: picturesOf(section).map(({ place }) => place) },
+      ]),
     ),
   };
   const offeredSaid = JSON.stringify(offered);
@@ -175,6 +192,13 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
       }),
     [onActed, show],
   );
+
+  // The button on a picture of the page opens the window that picture is chosen in.
+  const onPictured = focus?.onPictured;
+  useEffect(() => onPictured?.((id, place) => setPicturing({ section: id, place })), [onPictured]);
+  const pictureAt = useLast(picturing);
+  const pictureSection = pictureAt && sections.find((section) => section.id === pictureAt.section);
+  const picture = pictureSection && picturesOf(pictureSection).find((candidate) => candidate.place === pictureAt.place);
 
   // A section dragged on the page lands where the form would put it.
   const onDragged = focus?.onDragged;
@@ -302,6 +326,19 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
           open(added.id);
         }}
       />
+      {pictureSection && picture && (
+        <SiteImagePicker
+          label={messages.editor.pagePicture}
+          value={picture.name}
+          onChange={(name) => change(sections.map((existing) => (existing.id === pictureSection.id ? { ...existing, data: picture.put(name) as BlockValue['data'] } : existing)))}
+          window={{
+            isOpen: picturing !== null,
+            onOpenChange: (isOpen) => {
+              if (!isOpen) setPicturing(null);
+            },
+          }}
+        />
+      )}
       <ConfirmDialog
         isOpen={removingId !== null}
         onOpenChange={(isOpen) => {
