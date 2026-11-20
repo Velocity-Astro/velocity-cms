@@ -82,7 +82,7 @@ it('tells the page where words may be typed, and puts in the form what is typed 
   const page = await frame();
   const post = vi.spyOn(page.contentWindow as Window, 'postMessage').mockImplementation(() => undefined);
   await say({ source: 'velocity-cms', type: 'ready' });
-  const told = post.mock.calls.map(([message]) => message as { type: string; places?: Record<string, string[]> }).find((message) => message.type === 'typable');
+  const told = post.mock.calls.map(([message]) => message as { type: string; places?: Record<string, string[]> }).filter((message) => message.type === 'typable').at(-1);
   // Plain words can be typed on the page, an empty field of them too; nothing is said of a section's choices.
   expect(told?.places?.['s1']).toEqual(['title', 'text']);
   expect(told?.places?.['s2']).toEqual(['title', 'body']);
@@ -395,4 +395,66 @@ it('moves, copies and removes an item of a list from the page', async () => {
   await item(0, 'remove');
   await waitFor(() => expect(held()).toBeUndefined());
   expect(screen.getByText('Unsaved changes')).toBeTruthy();
+});
+
+it('takes shaped text written on the page into the form, and asks where a link there should lead', async () => {
+  const user = userEvent.setup();
+  const story: FieldDef = { id: 'bf-hero-story', key: 'story', type: 'richtext', label: { en: 'Story' }, required: false, translated: false, options: {} };
+  const fields = samplePagesType.fields.map((field) =>
+    field.id === 'f-body'
+      ? { ...field, options: { ...field.options, blocks: (field.options['blocks'] as BlockDef[]).map((block) => (block.id === 'b-hero' ? { ...block, fields: [...block.fields, story] } : block)) } }
+      : field,
+  );
+  renderApp('/content/pages/p1', { user: sampleUser, contentTypes: [...sampleContentTypes, { ...samplePagesType, fields }], entries: [...sampleEntries(), samplePage()] });
+  const shown = await frame();
+  const post = vi.spyOn(shown.contentWindow as Window, 'postMessage').mockImplementation(() => undefined);
+  await say({ source: 'velocity-cms', type: 'ready' });
+  const told = post.mock.calls.map(([message]) => message as { type: string; places?: Record<string, string[]> }).filter((message) => message.type === 'typable').at(-1);
+  expect(told?.places?.['s1']).toContain('story');
+
+  // What the page says is its markup: only what the format keeps reaches the form.
+  await say({ source: 'velocity-cms', type: 'words', id: 's1', field: 'story', words: '<p>One <b>bold</b> <a href="/visit/">link</a> <a href="javascript:x()">bad</a></p><div onclick="x()">Two</div>' });
+  const hero = () => (draft().data['f-body'] as BlockValue[])[0]?.data ?? {};
+  await waitFor(() =>
+    expect(hero()['bf-hero-story']).toEqual({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: 'One ' },
+            { type: 'text', text: 'bold', marks: [{ type: 'bold' }] },
+            { type: 'text', text: ' ' },
+            { type: 'text', text: 'link', marks: [{ type: 'link', attrs: { href: '/visit/' } }] },
+            { type: 'text', text: ' bad' },
+          ],
+        },
+        { type: 'paragraph', content: [{ type: 'text', text: 'Two' }] },
+      ],
+    }),
+  );
+  await say({ source: 'velocity-cms', type: 'words', id: 's1', field: 'story', words: '<p><br></p>' });
+  await waitFor(() => expect(hero()['bf-hero-story']).toBeUndefined());
+
+  // The page asks where a link leads; the person is asked here and the page is answered.
+  const answers = () => post.mock.calls.map(([message]) => message as { type: string; href?: string | null }).filter((message) => message.type === 'linkAnswer');
+  await say({ source: 'velocity-cms', type: 'linkAsk', id: 's1', field: 'story', href: '' });
+  const asked = within(await screen.findByRole('dialog', { name: 'Link' }));
+  expect(asked.queryByRole('button', { name: 'Remove link' })).toBeNull();
+  await user.type(asked.getByRole('textbox', { name: 'Link address' }), 'javascript:x');
+  expect(asked.getByRole('button', { name: 'Apply' }).hasAttribute('disabled')).toBe(true);
+  await user.clear(asked.getByRole('textbox', { name: 'Link address' }));
+  await user.type(asked.getByRole('textbox', { name: 'Link address' }), '/contact/');
+  await user.click(asked.getByRole('button', { name: 'Apply' }));
+  expect(answers()).toEqual([{ source: 'velocity-cms', type: 'linkAnswer', href: '/contact/' }]);
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Link' })).toBeNull());
+
+  // A link that is there can be taken away, and closing the window leaves it.
+  await say({ source: 'velocity-cms', type: 'linkAsk', id: 's1', field: 'story', href: '/contact/' });
+  await user.click(within(await screen.findByRole('dialog', { name: 'Link' })).getByRole('button', { name: 'Remove link' }));
+  expect(answers().at(-1)?.href).toBe('');
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Link' })).toBeNull());
+  await say({ source: 'velocity-cms', type: 'linkAsk', id: 's1', field: 'story', href: '/contact/' });
+  await user.click(within(await screen.findByRole('dialog', { name: 'Link' })).getByRole('button', { name: 'Close' }));
+  expect(answers().at(-1)?.href).toBeNull();
 });

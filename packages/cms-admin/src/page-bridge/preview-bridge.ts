@@ -151,6 +151,8 @@ export function previewBridge(page: Window & typeof globalThis): void {
     const section = target.closest<HTMLElement>('[data-cms-section]');
     const id = section?.dataset['cmsSection'];
     if (!section || !id) return null;
+    // Everything inside text being written is that text, whatever was written into it since.
+    if (writing?.mark.element.contains(target)) return writing.mark;
     guess(section);
     // A field counts only inside the section the pointer is in, and the nearest one is meant.
     for (let element: Element | null = target; element && element !== section; element = element.parentElement) {
@@ -266,6 +268,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
   const startTyping = (mark: Mark, run: Text): void => {
     if (typing?.mark.element === mark.element) return;
     stopTyping();
+    stopWriting();
     const text = run.nodeValue ?? '';
     const lead = /^[ \t\n\r]*/.exec(text)?.[0].length ?? 0;
     const trail = lead === text.length ? 0 : (/[ \t\n\r]*$/.exec(text)?.[0].length ?? 0);
@@ -390,6 +393,136 @@ export function previewBridge(page: Window & typeof globalThis): void {
     true,
   );
 
+  // Writing: text shaped in the editor (paragraphs, bold, links) is written where the page shows
+  // it exactly as it is held. The browser does the writing in that one element, the page says
+  // what it now holds, and the editor keeps of it only what the format keeps.
+  interface Writing {
+    readonly mark: Mark;
+    readonly before: string;
+    readonly was: string | null;
+    readonly outline: string;
+  }
+  let writing: Writing | null = null;
+  // The words a link's address is being asked for, while the editor asks.
+  let asking: Range | null = null;
+  // A link as the field holds it: without what a preview adds to links that stay on the site.
+  const withoutPreview = (href: string): string =>
+    /^[a-z][a-z0-9+.-]*:/i.test(href) ? href : href.replace(/([?&])preview=[^&#]*(&)?/, (_all, lead: string, more?: string) => (more ? lead : ''));
+  const htmlOf = (element: HTMLElement): string => {
+    const copy = element.cloneNode(true) as HTMLElement;
+    for (const anchor of copy.querySelectorAll('a[href]')) anchor.setAttribute('href', withoutPreview(anchor.getAttribute('href') ?? ''));
+    return copy.innerHTML;
+  };
+  /** The element that shows a field's formatted text exactly as it is held, where the editor lets it be written on the page. */
+  const holderFor = (mark: Mark | null): HTMLElement | null => {
+    if (!mark || mark.field === undefined || mark.element.hasAttribute('data-cms-field')) return null;
+    const places = typable[mark.section];
+    if (!Array.isArray(places) || !places.includes(mark.field)) return null;
+    const section = mark.element.closest<HTMLElement>('[data-cms-section]');
+    if (!section) return null;
+    let held: string | null = null;
+    try {
+      const values: unknown = JSON.parse(section.dataset['cmsValues'] ?? '[]');
+      const value = (Array.isArray(values) ? values : []).find((candidate: unknown) => Array.isArray(candidate) && candidate[0] === mark.field && candidate[2] === 'html') as unknown[] | undefined;
+      if (typeof value?.[1] === 'string') {
+        // Read as a browser reads it, and never drawn: nothing in it runs.
+        const read = doc.createElement('template');
+        read.innerHTML = value[1];
+        held = read.innerHTML;
+      }
+    } catch {
+      return null;
+    }
+    if (held === null) return null;
+    for (let element: HTMLElement | null = mark.element; element && element !== section; element = element.parentElement) {
+      if (htmlOf(element) === held) return element.closest('button, input, textarea, select, [contenteditable="false"]') ? null : element;
+    }
+    return null;
+  };
+  let placeFormat = (): void => undefined;
+  const tellWriting = (now: Writing): void => {
+    say({ type: 'words', id: now.mark.section, field: now.mark.field, words: htmlOf(now.mark.element) });
+    redraw();
+  };
+  const stopWriting = (): void => {
+    if (!writing) return;
+    const { mark, was, outline } = writing;
+    writing = null;
+    asking = null;
+    mark.element.style.outline = outline;
+    if (was === null) mark.element.removeAttribute('contenteditable');
+    else mark.element.setAttribute('contenteditable', was);
+    redraw();
+  };
+  const startWriting = (mark: Mark): void => {
+    if (writing?.mark.element === mark.element) return;
+    stopTyping();
+    stopWriting();
+    writing = { mark, before: mark.element.innerHTML, was: mark.element.getAttribute('contenteditable'), outline: mark.element.style.outline };
+    mark.element.setAttribute('contenteditable', 'true');
+    mark.element.style.outline = 'none';
+    marks.chosen = mark;
+    redraw();
+  };
+  doc.addEventListener(
+    'mousedown',
+    (event) => {
+      if (isElement(event.target) && (layer.contains(event.target) || writing?.mark.element.contains(event.target))) return;
+      const mark = markOf(event.target);
+      const holder = holderFor(mark);
+      if (mark && holder && mark.field !== undefined) startWriting({ element: holder, section: mark.section, field: mark.field });
+      else stopWriting();
+    },
+    true,
+  );
+  doc.addEventListener('focusout', (event) => {
+    // While the editor asks where a link leads, the page is left and come back to.
+    if (writing && !asking && event.target === writing.mark.element) stopWriting();
+  });
+  doc.addEventListener(
+    'beforeinput',
+    (event) => {
+      // Nothing is dragged into the text from elsewhere on the page.
+      if (writing && isElement(event.target) && writing.mark.element.contains(event.target) && event.inputType === 'insertFromDrop') event.preventDefault();
+    },
+    true,
+  );
+  doc.addEventListener(
+    'paste',
+    (event) => {
+      if (!writing || !isElement(event.target) || !writing.mark.element.contains(event.target)) return;
+      // What is pasted goes in as words alone: the markup of wherever it came from stays there.
+      event.preventDefault();
+      const words = event.clipboardData?.getData('text/plain') ?? '';
+      if (words !== '') doc.execCommand('insertText', false, words);
+    },
+    true,
+  );
+  doc.addEventListener(
+    'input',
+    (event) => {
+      if (writing && isElement(event.target) && writing.mark.element.contains(event.target)) tellWriting(writing);
+    },
+    true,
+  );
+  doc.addEventListener(
+    'keydown',
+    (event) => {
+      if (!writing || event.isComposing || event.key !== 'Escape') return;
+      event.preventDefault();
+      const now = writing;
+      // Escape puts back what the field said when the writing began.
+      if (now.mark.element.innerHTML !== now.before) {
+        now.mark.element.innerHTML = now.before;
+        tellWriting(now);
+      }
+      stopWriting();
+      now.mark.element.blur();
+    },
+    true,
+  );
+  doc.addEventListener('selectionchange', () => placeFormat());
+
   // Tools.
   interface Tools {
     readonly labels: Record<string, unknown>;
@@ -407,6 +540,8 @@ export function previewBridge(page: Window & typeof globalThis): void {
     add: ['M5 12h14', 'M12 5v14'],
     picture: ['M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z', 'M11 9a2 2 0 1 1-4 0 2 2 0 0 1 4 0z', 'm21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'],
     link: ['M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71', 'M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'],
+    bold: ['M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8'],
+    italic: ['M19 4h-9', 'M14 20H5', 'M15 4 9 20'],
     drag: ['M9 5h.01', 'M9 12h.01', 'M9 19h.01', 'M15 5h.01', 'M15 12h.01', 'M15 19h.01'],
   };
   const drawing = (name: string): SVGElement => {
@@ -622,6 +757,86 @@ export function previewBridge(page: Window & typeof globalThis): void {
     const paths = tools?.sections[id]?.links;
     return tooled && Array.isArray(paths) ? smallestAt(linksOf(tooled, id, paths), x, y) : null;
   };
+  // Words chosen in text being written have a bar of their own: bold, italic, link. The browser
+  // shapes the words; where a link leads is asked of the editor, which has the words to ask with.
+  const formatBar = doc.createElement('div');
+  formatBar.setAttribute('data-cms-format', '');
+  Object.assign(formatBar.style, {
+    position: 'absolute',
+    display: 'none',
+    alignItems: 'center',
+    gap: '2px',
+    padding: '2px',
+    borderRadius: '8px',
+    background: 'CanvasText',
+    color: 'Canvas',
+    boxShadow: '0 4px 12px rgb(0 0 0 / 0.25)',
+    pointerEvents: 'auto',
+  });
+  const chosenWords = (): Range | null => {
+    const selection = page.getSelection();
+    if (!writing || !selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
+    const range = selection.getRangeAt(0);
+    return writing.mark.element.contains(range.commonAncestorContainer) ? range : null;
+  };
+  const formatTool = (name: string, label: string, press: (now: Writing, range: Range) => void): HTMLButtonElement => {
+    const button = doc.createElement('button');
+    button.type = 'button';
+    button.tabIndex = -1;
+    button.setAttribute('data-cms-format-tool', name);
+    button.setAttribute('data-cms-label', label);
+    Object.assign(button.style, { display: 'grid', placeItems: 'center', width: '28px', height: '28px', padding: '0', border: '0', borderRadius: '6px', background: 'transparent', color: 'inherit', cursor: 'pointer' });
+    button.append(drawing(name));
+    // The pointer going down must not take the chosen words away.
+    button.addEventListener('mousedown', (event) => event.preventDefault());
+    button.addEventListener('click', () => {
+      const range = chosenWords();
+      if (writing && range) press(writing, range);
+    });
+    formatBar.append(button);
+    return button;
+  };
+  const shape = (command: string, value?: string): void => {
+    if (!writing) return;
+    doc.execCommand(command, false, value);
+    tellWriting(writing);
+  };
+  formatTool('bold', 'bold', () => shape('bold'));
+  formatTool('italic', 'italic', () => shape('italic'));
+  formatTool('link', 'textLink', (now, range) => {
+    const start = isElement(range.startContainer) ? range.startContainer : range.startContainer.parentElement;
+    const anchor = start?.closest('a[href]');
+    asking = range.cloneRange();
+    say({ type: 'linkAsk', id: now.mark.section, field: now.mark.field, href: anchor && now.mark.element.contains(anchor) ? withoutPreview(anchor.getAttribute('href') ?? '') : '' });
+    placeFormat();
+  });
+  layer.append(formatBar);
+  /** The editor's answer to where a link leads: an address, nothing to take the link away, or `null` to leave it. */
+  const answerLink = (href: unknown): void => {
+    const range = asking;
+    asking = null;
+    if (!writing || !range) return;
+    writing.mark.element.focus();
+    const selection = page.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    if (href === '') shape('unlink');
+    else if (typeof href === 'string') shape('createLink', href);
+    placeFormat();
+  };
+  placeFormat = (): void => {
+    const range = asking ? null : chosenWords();
+    if (!range) {
+      formatBar.style.display = 'none';
+      return;
+    }
+    for (const button of formatBar.querySelectorAll<HTMLButtonElement>('button')) button.title = word(tools?.labels[button.getAttribute('data-cms-label') ?? '']);
+    const rect = typeof range.getBoundingClientRect === 'function' ? range.getBoundingClientRect() : (writing?.mark.element.getBoundingClientRect() ?? null);
+    if (!rect) return;
+    // Above the chosen words, and under them where the page ends above.
+    Object.assign(formatBar.style, { display: 'flex', top: `${rect.top >= 40 ? rect.top - 36 : rect.bottom + 6}px`, left: `${Math.max(rect.left, 4)}px` });
+  };
+
   // One item of a list (a card, a row of a menu) has a small bar of its own: earlier, later, copy,
   // remove. An item is what holds everything found for its fields and nothing of another item's.
   interface Item extends Mark {
@@ -734,7 +949,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
     Object.assign(itemBar.style, { display: 'flex', top: `${Math.max(top, 0)}px`, left: 'auto', right: `${Math.max(page.innerWidth - rect.right, 0) + (small ? 0 : 6)}px` });
   };
   const shownRect = (mark: Mark | null): DOMRect | null => {
-    const rect = !typing && !drag?.moved && mark?.element.isConnected ? mark.element.getBoundingClientRect() : null;
+    const rect = !typing && !writing && !drag?.moved && mark?.element.isConnected ? mark.element.getBoundingClientRect() : null;
     return !rect || !tools || rect.bottom <= 0 || rect.top >= page.innerHeight || (rect.width === 0 && rect.height === 0) ? null : rect;
   };
   const placeChips = (): void => {
@@ -758,6 +973,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
       linker.style.display = 'none';
     }
     placeItem();
+    placeFormat();
   };
   doc.addEventListener(
     'mousemove',
@@ -783,7 +999,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
       adders.addAfter.style.display = 'none';
     };
     // While words are typed, nothing sits over them.
-    const section = typing || drag?.moved ? null : tooled?.isConnected ? tooled : null;
+    const section = typing || writing || drag?.moved ? null : tooled?.isConnected ? tooled : null;
     const about = section && tools?.sections[section.dataset['cmsSection'] ?? ''];
     if (!section || !tools || !about) return hide();
     const rect = section.getBoundingClientRect();
@@ -921,7 +1137,9 @@ export function previewBridge(page: Window & typeof globalThis): void {
       if (!mark) return;
       marks.chosen = mark;
       draw();
-      say({ type: 'section', id: mark.section, ...(mark.field !== undefined && { field: mark.field }) });
+      // A field that is not being typed into here, where it is, is one for the form.
+      const here = typing?.mark.element === mark.element || writing?.mark.element === mark.element;
+      say({ type: 'section', id: mark.section, ...(mark.field !== undefined && { field: mark.field, ...(!here && { form: true }) }) });
     },
     true,
   );
@@ -934,6 +1152,10 @@ export function previewBridge(page: Window & typeof globalThis): void {
       typable = typeof places === 'object' && places !== null ? (places as Record<string, unknown>) : {};
       return;
     }
+    if (event.data.type === 'linkAnswer') {
+      answerLink((event.data as { href?: unknown }).href);
+      return;
+    }
     if (event.data.type === 'tools') {
       const said = event.data as { labels?: unknown; sections?: unknown };
       const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
@@ -943,7 +1165,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
     }
     if (event.data.type !== 'show' || typeof event.data.id !== 'string') return;
     // While words are typed into a section, the outline stays on the field they go into.
-    if (typing?.mark.section === event.data.id) return;
+    if (typing?.mark.section === event.data.id || writing?.mark.section === event.data.id) return;
     const mark = find(event.data.id, typeof event.data.field === 'string' ? event.data.field : undefined);
     if (!mark) return;
     marks.chosen = mark;

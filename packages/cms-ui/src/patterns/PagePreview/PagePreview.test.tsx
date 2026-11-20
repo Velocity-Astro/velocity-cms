@@ -61,7 +61,9 @@ it('says which field of the section was pressed, where the page marks its fields
   const onSectionPress = vi.fn();
   render(example({ onSectionPress }));
   say({ source: 'velocity-cms', type: 'section', id: 's2', field: 'items.0.text' });
-  expect(onSectionPress).toHaveBeenCalledWith('s2', 'items.0.text');
+  expect(onSectionPress).toHaveBeenCalledWith('s2', 'items.0.text', false);
+  say({ source: 'velocity-cms', type: 'section', id: 's2', field: 'items.0.text', form: true });
+  expect(onSectionPress).toHaveBeenLastCalledWith('s2', 'items.0.text', true);
   say({ source: 'velocity-cms', type: 'section', id: 's2', field: 7 });
   expect(onSectionPress).toHaveBeenLastCalledWith('s2');
 });

@@ -4,6 +4,7 @@ import { Copy, Trash2 } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
 import { useContentTypes, useEntries, useForms } from '../client/queries.js';
 import { entryTitle, groupTranslations, localized, sameData, withValue } from '../lib/content.js';
+import { richTextFromHtml } from '../lib/rich-from-html.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
 import { createFieldControlRegistry, type FieldControl, type FieldControlProps, type FieldControls, type FieldSummaryProps, type LinkPlace, type ListPlace, type PicturePlace, type WordsPlace } from './field-control.js';
 import { BlocksControl } from './BlocksControl.js';
@@ -303,6 +304,12 @@ type Places<Place extends AnyPlace> = (field: FieldDef, value: unknown, controlF
 type Asked = 'words' | 'pictures' | 'links' | 'lists';
 const putAt = (found: AnyPlace, held: unknown): unknown => (found.put as (held: unknown) => unknown)(held);
 
+/**
+ * Formatted text is written on the page where the page shows it as it is held. What the page
+ * sends back is its markup, and only what the format keeps is taken from it.
+ */
+const richWords = (): readonly WordsPlace[] => [{ place: '', put: (html) => richTextFromHtml(html) }];
+
 /** A group holds the places of its fields, each under the field's key. */
 function inGroup<Place extends AnyPlace>(asked: Asked, field: FieldDef, value: unknown, controlFor: ControlFor): readonly Place[] {
   const inner = Array.isArray(field.options['fields']) ? liveFields(field.options['fields'] as FieldDef[]) : [];
@@ -504,7 +511,7 @@ export function createFieldControls(): FieldControls {
     .register({ type: 'form-picker', Component: FormControl, width: 'compact' })
     .register({ type: 'link', Component: LinkControl, links: linkLinks })
     .register({ type: 'image', Component: ImageControl, pictures: imagePictures })
-    .register({ type: 'rich-text', Component: RichTextControl })
+    .register({ type: 'rich-text', Component: RichTextControl, words: richWords })
     .register({ type: 'group', Component: GroupControl, titleOf: groupTitle, words: groupWords, pictures: groupPictures, links: groupLinks, lists: groupLists })
     .register({ type: 'list', Component: ListControl, words: listWords, pictures: listPictures, links: listLinks, lists: listLists })
     .register({ type: 'blocks', Component: BlocksControl, showsPage: true });
