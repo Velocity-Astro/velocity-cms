@@ -47,6 +47,16 @@ export interface PicturePlace extends WordsPlace {
   readonly name: string | null;
 }
 
+/** One place in a value where a link is held: the field it is a value of, the link there now, and how the value reads with another. */
+export interface LinkPlace {
+  readonly place: string;
+  /** The field whose control changes the link: the field itself, or the one a group or a list holds there. */
+  readonly field: FieldDef;
+  readonly link: unknown;
+  /** The value with this link at the place, or `undefined` when that leaves the field empty. */
+  readonly put: (link: unknown) => unknown;
+}
+
 type ControlFor = (type: string) => FieldControl | undefined;
 
 export interface FieldControl {
@@ -86,6 +96,12 @@ export interface FieldControl {
    * changed only in the form.
    */
   readonly pictures?: (field: FieldDef, value: unknown, controlFor: ControlFor) => readonly PicturePlace[];
+  /**
+   * Where a value of this kind holds a link: the places a link or a button can be changed from
+   * the page itself, in a window that holds the control of the field there. A control that holds
+   * other fields asks theirs. Without it, the field is changed only in the form.
+   */
+  readonly links?: (field: FieldDef, value: unknown, controlFor: ControlFor) => readonly LinkPlace[];
   /** `end` when summaries are figures, so a column of them lines up. */
   readonly summaryAlign?: 'start' | 'end';
 }

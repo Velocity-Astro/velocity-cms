@@ -508,3 +508,69 @@ it('offers to change a picture the pointer is over, even under something the tem
   moveTo('p', 50, 310);
   expect(toolOf('picture').style.display).toBe('none');
 });
+
+// A page in a frame here has no address of its own, so every link says its whole address.
+const LINKS = `
+  <main>
+    <div data-cms-section="s1" data-cms-values='${JSON.stringify([
+      ['label', 'See the menu'],
+      ['to.kind', 'entry'],
+      ['to.type', 'pages'],
+      ['to.entry', 'g-menu'],
+      ['more.kind', 'address'],
+      ['more.href', 'https://example.com/book'],
+      ['cards.0.to.kind', 'address'],
+      ['cards.0.to.href', 'https://site.example/visit'],
+      ['cards.1.to.kind', 'address'],
+      ['cards.1.to.href', 'https://site.example/visit'],
+    ])}'>
+      <a class="menu" href="https://site.example/menu/?preview=1.abc">See the menu</a>
+      <a class="book" href="https://example.com/book">Book</a>
+      <a class="visit-1" href="https://site.example/visit/">One</a>
+      <a class="visit-2" href="https://site.example/visit/">Two</a>
+      <a class="other" href="https://site.example/elsewhere">Elsewhere</a>
+    </div>
+    <div data-cms-section="s2"><p data-cms-field="text">Words</p></div>
+    <script type="application/json" data-cms-links>{"pages:g-menu":"https://site.example/menu"}</script>
+  </main>`;
+const linkTools = {
+  labels: { ...TOOLS.labels, link: 'Edit link' },
+  sections: { s1: { ...TOOLS.sections.s1, links: ['to', 'more', 'cards.0.to', 'cards.1.to', 'empty'] }, s2: TOOLS.sections.s2 },
+};
+const links = () => (said as [{ type: string; field?: string }, string][]).map(([message]) => message).filter((message) => message.type === 'link');
+
+it('offers to edit a link the pointer is over, found by where it leads, and says which when pressed', () => {
+  open(LINKS);
+  moveTo('.menu', 50, 310);
+  expect(toolOf('link').style.display).toBe('none');
+  hear({ source: 'velocity-cms', type: 'tools', ...linkTools });
+  // A link to an entry is found by the address the site says the entry has, whatever the preview added.
+  moveTo('.menu', 50, 310);
+  expect(toolOf('link').style.display).toBe('flex');
+  expect(toolOf('link').textContent).toBe('Edit link');
+  toolOf('link').dispatchEvent(new page.MouseEvent('mousemove', { bubbles: true, clientX: 30, clientY: 340 }));
+  toolOf('link').click();
+  expect(links()).toEqual([{ source: 'velocity-cms', type: 'link', id: 's1', field: 'to' }]);
+  // The page is as it was: the link still goes where it went.
+  expect($('.menu').getAttribute('href')).toBe('https://site.example/menu/?preview=1.abc');
+  // Away from every link there is no button, nor in a section with none.
+  moveTo('.menu', 500, 500);
+  expect(toolOf('link').style.display).toBe('none');
+  moveTo('p', 50, 310);
+  expect(toolOf('link').style.display).toBe('none');
+});
+
+it('tells links that lead to one place apart by their order, and leaves alone a link no field holds', () => {
+  open(LINKS);
+  hear({ source: 'velocity-cms', type: 'tools', ...linkTools });
+  // Each link is given a place of its own, so the pointer is over one at a time.
+  const tops: Record<string, number> = { menu: 0, book: 100, 'visit-1': 200, 'visit-2': 300, other: 400 };
+  page.Element.prototype.getBoundingClientRect = function (this: Element) {
+    return rect(tops[this.className] ?? 1000);
+  };
+  for (const [name, top] of Object.entries(tops)) {
+    moveTo(`.${name}`, 50, top + 10);
+    if (toolOf('link').style.display === 'flex') toolOf('link').click();
+  }
+  expect(links().map((message) => message.field)).toEqual(['to', 'more', 'cards.0.to', 'cards.1.to']);
+});

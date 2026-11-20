@@ -4,6 +4,7 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **Edit a link or a button from the page.** In the visual editor and beside the form, a button or a link of a section shows an "Edit link" button while the pointer is over it. It opens a window with the link's own field: a page of the site chosen by name, or an address. A template needs no change, as long as its blocks ask `linkTo` where a link leads.
 - **Change a picture from the page.** In the visual editor and beside the form, a picture of a section shows a "Change image" button while the pointer is over it. It opens the same window the field in the form does, to choose one of the site's images or upload a new one, and the page shows it at once. Pictures inside a list (a team, a row of cards) work the same way. Nothing is asked of a template.
 
 ## 0.1.0-beta.6

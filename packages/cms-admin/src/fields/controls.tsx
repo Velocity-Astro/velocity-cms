@@ -5,7 +5,7 @@ import { lazy, Suspense, useState } from 'react';
 import { useContentTypes, useEntries, useForms } from '../client/queries.js';
 import { entryTitle, groupTranslations, localized, sameData, withValue } from '../lib/content.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
-import { createFieldControlRegistry, type FieldControl, type FieldControlProps, type FieldControls, type FieldSummaryProps, type PicturePlace, type WordsPlace } from './field-control.js';
+import { createFieldControlRegistry, type FieldControl, type FieldControlProps, type FieldControls, type FieldSummaryProps, type LinkPlace, type PicturePlace, type WordsPlace } from './field-control.js';
 import { BlocksControl } from './BlocksControl.js';
 import { FieldEditor } from './FieldEditor.js';
 import { FieldGrid } from './FieldGrid.js';
@@ -294,19 +294,25 @@ const under = (key: string, place: string) => (place === '' ? key : `${key}.${pl
 const textWords = (_field: FieldDef, value: unknown): readonly WordsPlace[] =>
   value === undefined || value === null || typeof value === 'string' ? [{ place: '', put: (words) => (words === '' ? undefined : words) }] : [];
 
-type Places<Place extends WordsPlace> = (field: FieldDef, value: unknown, controlFor: ControlFor) => readonly Place[];
-type Asked = 'words' | 'pictures';
+/** A place of any kind: where it is, and how the value reads with something else there. */
+interface AnyPlace {
+  readonly place: string;
+  readonly put: (held: never) => unknown;
+}
+type Places<Place extends AnyPlace> = (field: FieldDef, value: unknown, controlFor: ControlFor) => readonly Place[];
+type Asked = 'words' | 'pictures' | 'links';
+const putAt = (found: AnyPlace, held: unknown): unknown => (found.put as (held: unknown) => unknown)(held);
 
 /** A group holds the places of its fields, each under the field's key. */
-function inGroup<Place extends WordsPlace>(asked: Asked, field: FieldDef, value: unknown, controlFor: ControlFor): readonly Place[] {
+function inGroup<Place extends AnyPlace>(asked: Asked, field: FieldDef, value: unknown, controlFor: ControlFor): readonly Place[] {
   const inner = Array.isArray(field.options['fields']) ? liveFields(field.options['fields'] as FieldDef[]) : [];
   const values = typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
   return inner.flatMap((child) =>
     ((controlFor(child.type)?.[asked] as Places<Place> | undefined)?.(child, values[child.id], controlFor) ?? []).map((found) => ({
       ...found,
       place: under(child.key, found.place),
-      put: (words: string) => {
-        const changed = withValue(values, child.id, found.put(words));
+      put: (held: unknown) => {
+        const changed = withValue(values, child.id, putAt(found, held));
         return Object.keys(changed).length === 0 ? undefined : changed;
       },
     })),
@@ -314,7 +320,7 @@ function inGroup<Place extends WordsPlace>(asked: Asked, field: FieldDef, value:
 }
 
 /** A list holds the places of its items, each under the item's place. An item emptied on the page keeps its place. */
-function inList<Place extends WordsPlace>(asked: Asked, field: FieldDef, value: unknown, controlFor: ControlFor): readonly Place[] {
+function inList<Place extends AnyPlace>(asked: Asked, field: FieldDef, value: unknown, controlFor: ControlFor): readonly Place[] {
   const items: readonly unknown[] = Array.isArray(value) ? value : [];
   const of = (field.options['of'] ?? { type: 'text' }) as { readonly type: string; readonly options?: Readonly<Record<string, unknown>> };
   const places = controlFor(of.type)?.[asked] as Places<Place> | undefined;
@@ -323,7 +329,7 @@ function inList<Place extends WordsPlace>(asked: Asked, field: FieldDef, value: 
     places({ ...field, id: `${field.id}.${index}`, key: String(index), type: of.type, required: false, options: of.options ?? {} }, item, controlFor).map((found) => ({
       ...found,
       place: under(String(index), found.place),
-      put: (typed: string) => items.map((existing, at) => (at === index ? (found.put(typed) ?? (typeof existing === 'string' ? '' : {})) : existing)),
+      put: (held: unknown) => items.map((existing, at) => (at === index ? (putAt(found, held) ?? (typeof existing === 'string' ? '' : {})) : existing)),
     })),
   );
 }
@@ -332,6 +338,12 @@ const groupWords: Places<WordsPlace> = (field, value, controlFor) => inGroup('wo
 const listWords: Places<WordsPlace> = (field, value, controlFor) => inList('words', field, value, controlFor);
 const groupPictures: Places<PicturePlace> = (field, value, controlFor) => inGroup('pictures', field, value, controlFor);
 const listPictures: Places<PicturePlace> = (field, value, controlFor) => inList('pictures', field, value, controlFor);
+
+const groupLinks: Places<LinkPlace> = (field, value, controlFor) => inGroup('links', field, value, controlFor);
+const listLinks: Places<LinkPlace> = (field, value, controlFor) => inList('links', field, value, controlFor);
+
+/** A link field is its own link, chosen or not. */
+const linkLinks = (field: FieldDef, value: unknown): readonly LinkPlace[] => [{ place: '', field, link: value, put: (link) => link }];
 
 /** An image field is its own picture, chosen or not. */
 const imagePictures = (_field: FieldDef, value: unknown): readonly PicturePlace[] => [{ place: '', name: typeof value === 'string' && value !== '' ? value : null, put: (name) => name }];
@@ -481,10 +493,10 @@ export function createFieldControls(): FieldControls {
     .register({ type: 'select', Component: SelectControl, width: 'compact', Summary: SelectSummary })
     .register({ type: 'reference', Component: ReferenceControl, width: 'compact' })
     .register({ type: 'form-picker', Component: FormControl, width: 'compact' })
-    .register({ type: 'link', Component: LinkControl })
+    .register({ type: 'link', Component: LinkControl, links: linkLinks })
     .register({ type: 'image', Component: ImageControl, pictures: imagePictures })
     .register({ type: 'rich-text', Component: RichTextControl })
-    .register({ type: 'group', Component: GroupControl, titleOf: groupTitle, words: groupWords, pictures: groupPictures })
-    .register({ type: 'list', Component: ListControl, words: listWords, pictures: listPictures })
+    .register({ type: 'group', Component: GroupControl, titleOf: groupTitle, words: groupWords, pictures: groupPictures, links: groupLinks })
+    .register({ type: 'list', Component: ListControl, words: listWords, pictures: listPictures, links: listLinks })
     .register({ type: 'blocks', Component: BlocksControl, showsPage: true });
 }

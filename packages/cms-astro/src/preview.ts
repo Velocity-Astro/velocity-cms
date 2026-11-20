@@ -20,6 +20,8 @@ export interface PreviewDraft {
 
 interface Preview {
   readonly draft?: PreviewDraft;
+  /** Where each link to an entry was found to lead while the page beside the form was drawn. */
+  readonly leads?: Map<string, string>;
 }
 
 const previewing = new AsyncLocalStorage<Preview>();
@@ -40,8 +42,21 @@ export function withPreviewDraft<T extends { readonly id: string; readonly data:
   return draft && draft.id === entry.id ? { ...entry, data: draft.data } : entry;
 }
 
+/**
+ * Notes where a link to an entry leads on the page beside the editor's form, so that page can
+ * find the button that goes there and offer to change it. Nothing is noted for a visitor's page.
+ */
+export function noteLinkLeads(type: string, entry: string, href: string): void {
+  previewing.getStore()?.leads?.set(`${type}:${entry}`, href);
+}
+
+/** What `noteLinkLeads` was told for the page being drawn: the address by `<type>:<entry>`. */
+export const linkLeads = (): Readonly<Record<string, string>> => Object.fromEntries(previewing.getStore()?.leads ?? []);
+
+const started = (draft?: PreviewDraft): Preview => (draft ? { draft, leads: new Map() } : {});
+
 /** Runs `work` as a preview, for tests and for anything that draws a page outside a request. */
-export const asPreview = <T>(work: () => T, draft?: PreviewDraft): T => previewing.run(draft ? { draft } : {}, work);
+export const asPreview = <T>(work: () => T, draft?: PreviewDraft): T => previewing.run(started(draft), work);
 
 /** The most a draft sent with a preview may weigh. A page's sections are text; a megabyte is a very long page. */
 const DRAFT_LIMIT = 1_000_000;
@@ -77,9 +92,14 @@ export async function readPreviewDraft(request: Request, site: URL): Promise<Pre
 /** The address of the script the page beside the editor's form runs. */
 export const EDITOR_PREVIEW_SCRIPT = '/cms-preview.js';
 
-/** Adds the script that lets a click on the page find its section in the form. It comes from the site itself, so the page's own rules allow it. */
-export function addEditorScript(html: string): string {
-  const tag = `<script type="module" src="${EDITOR_PREVIEW_SCRIPT}"></script>`;
+/**
+ * Adds the script that lets a click on the page find its section in the form. It comes from the
+ * site itself, so the page's own rules allow it. Where the page's links to entries lead goes
+ * with it as data, which no browser runs.
+ */
+export function addEditorScript(html: string, leads: Readonly<Record<string, string>> = {}): string {
+  const said = Object.keys(leads).length > 0 ? `<script type="application/json" data-cms-links>${JSON.stringify(leads).replace(/</g, '\\u003c')}</script>` : '';
+  const tag = `${said}<script type="module" src="${EDITOR_PREVIEW_SCRIPT}"></script>`;
   const end = html.lastIndexOf('</body>');
   return end === -1 ? html + tag : html.slice(0, end) + tag + html.slice(end);
 }
@@ -145,7 +165,7 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
     draft = sent;
   }
   // The page is read to the end inside the preview, because Astro renders as the response is read.
-  return previewing.run(draft ? { draft } : {}, async () => {
+  return previewing.run(started(draft), async () => {
     const response = await next();
     const headers = new Headers(response.headers);
     headers.set('Cache-Control', 'private, no-store');
@@ -154,7 +174,7 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
     headers.delete('Content-Length');
     const isHtml = headers.get('Content-Type')?.includes('text/html') === true;
     const page = isHtml ? keepPreviewInLinks(await response.text(), token) : null;
-    const body = page === null ? await response.arrayBuffer() : draft ? addEditorScript(page) : page;
+    const body = page === null ? await response.arrayBuffer() : draft ? addEditorScript(page, linkLeads()) : page;
     return new Response(body, { status: response.status, statusText: response.statusText, headers });
   });
 };

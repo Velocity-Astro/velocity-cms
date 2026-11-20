@@ -185,6 +185,8 @@ export const en = {
     pageAddBefore: 'Add a section above',
     pageAddAfter: 'Add a section below',
     pagePicture: 'Change image',
+    pageLink: 'Edit link',
+    pageLinkDone: 'Done',
     visualOpen: 'Visual editor',
     visualClose: 'Back to the form',
     visualShowForm: 'Show the form',
