@@ -42,6 +42,13 @@ export interface WordsPlace {
   readonly put: (words: string) => unknown;
 }
 
+/** One place in a value where a picture is held: the image's name there now, and how the value reads with another. */
+export interface PicturePlace extends WordsPlace {
+  readonly name: string | null;
+}
+
+type ControlFor = (type: string) => FieldControl | undefined;
+
 export interface FieldControl {
   /** The editor name a field type asks for: `text-input`. */
   readonly type: string;
@@ -73,6 +80,12 @@ export interface FieldControl {
    * theirs (`controlFor`). Without it, the field is edited only in the form.
    */
   readonly words?: (field: FieldDef, value: unknown, controlFor: (type: string) => FieldControl | undefined) => readonly WordsPlace[];
+  /**
+   * Where a value of this kind holds a picture of the site's: the places a picture can be changed
+   * from the page itself. A control that holds other fields asks theirs. Without it, the field is
+   * changed only in the form.
+   */
+  readonly pictures?: (field: FieldDef, value: unknown, controlFor: ControlFor) => readonly PicturePlace[];
   /** `end` when summaries are figures, so a column of them lines up. */
   readonly summaryAlign?: 'start' | 'end';
 }

@@ -133,3 +133,34 @@ it('stays open when an upload fails, and says why', async () => {
   expect(within(dialog).getByRole('alert').textContent).toBe('Upload a JPEG, PNG or WebP.');
   await expectAccessible(document.body);
 });
+
+it('draws only the window when it is given one to open and close, and asks to close once an image is chosen', async () => {
+  const onChange = vi.fn();
+  const onOpenChange = vi.fn();
+  const window = (isOpen: boolean) => (
+    <ImagePicker
+      label="Cover photo"
+      value="porch"
+      images={images}
+      onChange={onChange}
+      chooseLabel="Choose a photo"
+      changeLabel="Change"
+      noneText="No photo chosen"
+      dialogTitle="Choose a photo"
+      closeLabel="Close"
+      emptyText="This site has no photos yet."
+      window={{ isOpen, onOpenChange }}
+    />
+  );
+  const { rerender, baseElement } = render(window(false));
+  // Nothing of the field: no picture, no name, no button.
+  expect(screen.queryByRole('button')).toBeNull();
+  expect(screen.queryByText('porch')).toBeNull();
+  rerender(window(true));
+  const dialog = within(await screen.findByRole('dialog', { name: 'Choose a photo' }));
+  expect(dialog.getByRole('option', { name: 'porch' }).getAttribute('aria-selected')).toBe('true');
+  await expectAccessible(baseElement);
+  await userEvent.click(dialog.getByRole('option', { name: 'kitchen' }));
+  expect(onChange).toHaveBeenCalledWith('kitchen');
+  expect(onOpenChange).toHaveBeenCalledWith(false);
+});

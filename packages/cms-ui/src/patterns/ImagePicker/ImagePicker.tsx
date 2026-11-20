@@ -68,6 +68,11 @@ export interface ImagePickerProps {
   readonly uploadHint?: string;
   /** Why the last upload did not work. */
   readonly uploadError?: string;
+  /**
+   * Given, only the window is drawn, and whoever gave it opens and closes it: for choosing an
+   * image from somewhere other than the field, such as the page the image is shown on.
+   */
+  readonly window?: { readonly isOpen: boolean; readonly onOpenChange: (isOpen: boolean) => void };
 }
 
 /** The kinds of file the file chooser offers. What a file really is, the server decides. */
@@ -93,9 +98,12 @@ export function ImagePicker({
   uploadLabel,
   uploadHint,
   uploadError,
+  window: held,
 }: ImagePickerProps) {
   const labelId = useId();
-  const [isOpen, setOpen] = useState(false);
+  const [isOwnOpen, setOwnOpen] = useState(false);
+  const isOpen = held ? held.isOpen : isOwnOpen;
+  const setOpen = held ? held.onOpenChange : setOwnOpen;
   const [isUploading, setUploading] = useState(false);
   const upload = async (file: File | undefined) => {
     if (!file || !onUpload) return;
@@ -110,6 +118,48 @@ export function ImagePicker({
     }
   };
   const chosen = images.find((image) => image.name === value);
+  const choosing = (
+    <Dialog isOpen={isOpen} onOpenChange={setOpen} title={dialogTitle} closeLabel={closeLabel} size="lg">
+      {onUpload && uploadLabel !== undefined && (
+        <div className={imagePickerUploadClass}>
+          <FileTrigger acceptedFileTypes={IMAGE_FILES} onSelect={(files) => void upload(files?.[0])}>
+            <Button variant="secondary" size="sm" icon={Upload} isPending={isUploading}>
+              {uploadLabel}
+            </Button>
+          </FileTrigger>
+          {uploadError !== undefined ? (
+            <p role="alert" className={imagePickerUploadErrorClass}>
+              {uploadError}
+            </p>
+          ) : (
+            uploadHint !== undefined && <p className={imagePickerUploadHintClass}>{uploadHint}</p>
+          )}
+        </div>
+      )}
+      <ListBox
+        aria-label={dialogTitle}
+        layout="grid"
+        selectionMode="single"
+        autoFocus
+        selectedKeys={value === null ? [] : [value]}
+        onSelectionChange={(keys) => {
+          const [name] = keys === 'all' ? [] : [...keys];
+          if (typeof name === 'string') onChange(name);
+          setOpen(false);
+        }}
+        renderEmptyState={() => <p className={imagePickerEmptyClass}>{emptyText}</p>}
+        className={imagePickerChoicesClass}
+      >
+        {images.map((image) => (
+          <ListBoxItem key={image.name} id={image.name} textValue={image.name} className={imagePickerChoiceClass}>
+            <img src={image.url} alt="" loading="lazy" className={imagePickerChoiceImageClass} />
+            <span className={imagePickerChoiceNameClass}>{image.name}</span>
+          </ListBoxItem>
+        ))}
+      </ListBox>
+    </Dialog>
+  );
+  if (held) return choosing;
 
   return (
     <div role="group" aria-labelledby={labelId} className={imagePickerClass}>
@@ -136,45 +186,7 @@ export function ImagePicker({
       </div>
       {description !== undefined && <p className={imagePickerDescriptionClass}>{description}</p>}
       {errorMessage !== undefined && <p className={imagePickerErrorClass}>{errorMessage}</p>}
-      <Dialog isOpen={isOpen} onOpenChange={setOpen} title={dialogTitle} closeLabel={closeLabel} size="lg">
-        {onUpload && uploadLabel !== undefined && (
-          <div className={imagePickerUploadClass}>
-            <FileTrigger acceptedFileTypes={IMAGE_FILES} onSelect={(files) => void upload(files?.[0])}>
-              <Button variant="secondary" size="sm" icon={Upload} isPending={isUploading}>
-                {uploadLabel}
-              </Button>
-            </FileTrigger>
-            {uploadError !== undefined ? (
-              <p role="alert" className={imagePickerUploadErrorClass}>
-                {uploadError}
-              </p>
-            ) : (
-              uploadHint !== undefined && <p className={imagePickerUploadHintClass}>{uploadHint}</p>
-            )}
-          </div>
-        )}
-        <ListBox
-          aria-label={dialogTitle}
-          layout="grid"
-          selectionMode="single"
-          autoFocus
-          selectedKeys={value === null ? [] : [value]}
-          onSelectionChange={(keys) => {
-            const [name] = keys === 'all' ? [] : [...keys];
-            if (typeof name === 'string') onChange(name);
-            setOpen(false);
-          }}
-          renderEmptyState={() => <p className={imagePickerEmptyClass}>{emptyText}</p>}
-          className={imagePickerChoicesClass}
-        >
-          {images.map((image) => (
-            <ListBoxItem key={image.name} id={image.name} textValue={image.name} className={imagePickerChoiceClass}>
-              <img src={image.url} alt="" loading="lazy" className={imagePickerChoiceImageClass} />
-              <span className={imagePickerChoiceNameClass}>{image.name}</span>
-            </ListBoxItem>
-          ))}
-        </ListBox>
-      </Dialog>
+      {choosing}
     </div>
   );
 }

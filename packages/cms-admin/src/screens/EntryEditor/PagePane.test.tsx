@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { dismissToasts } from '@velocity-astro/cms-ui';
+import type { BlockDef, BlockValue, FieldDef } from '@velocity-astro/cms-core';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { AdminApp } from '../../app/AdminApp.js';
 import { MemoryAdminClient } from '../../testing/memory-client.js';
@@ -242,4 +243,53 @@ it('shows no page beside an entry that is not built from sections', async () => 
   renderApp('/content/listings/e1', site());
   await screen.findByRole('textbox', { name: 'Title' });
   expect(screen.queryByRole('region', { name: 'The page' })).toBeNull();
+});
+
+it('changes a picture from the page: the button on it opens the window the image is chosen in', async () => {
+  const user = userEvent.setup();
+  // The page's opening gains a photo, and a list of people each with a portrait.
+  const photo: FieldDef = { id: 'bf-hero-photo', key: 'photo', type: 'image', label: { en: 'Photo' }, required: false, translated: false, options: {} };
+  const person: FieldDef = { ...photo, id: 'bf-person-portrait', key: 'portrait', label: { en: 'Portrait' } };
+  const people: FieldDef = { ...photo, id: 'bf-hero-people', key: 'people', type: 'list', label: { en: 'People' }, options: { of: { type: 'group', options: { fields: [person] } } } };
+  const fields = samplePagesType.fields.map((field) =>
+    field.id === 'f-body'
+      ? { ...field, options: { ...field.options, blocks: (field.options['blocks'] as BlockDef[]).map((block) => (block.id === 'b-hero' ? { ...block, fields: [...block.fields, photo, people] } : block)) } }
+      : field,
+  );
+  const page = samplePage();
+  const body = (page.data['f-body'] as BlockValue[]).map((section) => (section.id === 's1' ? { ...section, data: { ...section.data, 'bf-hero-people': [{ 'bf-person-portrait': 'porch' }] } } : section));
+  const image = (name: string) => ({ name, url: `/images/${name}.webp`, width: 1200, height: 800 });
+  renderApp('/content/pages/p1', {
+    user: sampleUser,
+    contentTypes: [...sampleContentTypes, { ...samplePagesType, fields }],
+    entries: [...sampleEntries(), { ...page, data: { ...page.data, 'f-body': body } }],
+    images: [image('porch'), image('kitchen')],
+  });
+  const shown = await frame();
+  const post = vi.spyOn(shown.contentWindow as Window, 'postMessage').mockImplementation(() => undefined);
+  await say({ source: 'velocity-cms', type: 'ready' });
+  const told = post.mock.calls.map(([message]) => message as { type: string; labels?: { picture?: string }; sections?: Record<string, { pictures?: string[] }> }).find((message) => message.type === 'tools');
+  expect(told?.labels?.picture).toBe('Change image');
+  expect(told?.sections?.['s1']?.pictures).toEqual(['photo', 'people.0.portrait']);
+  expect(told?.sections?.['s2']?.pictures).toEqual([]);
+  const hero = () => (draft().data['f-body'] as BlockValue[])[0]?.data ?? {};
+
+  await say({ source: 'velocity-cms', type: 'picture', id: 's1', field: 'photo' });
+  await user.click(within(await screen.findByRole('dialog', { name: 'Choose an image' })).getByRole('option', { name: 'kitchen' }));
+  await waitFor(() => expect(hero()['bf-hero-photo']).toBe('kitchen'));
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Choose an image' })).toBeNull());
+
+  // One inside a list is changed where it is, and the one that is chosen now is marked.
+  await say({ source: 'velocity-cms', type: 'picture', id: 's1', field: 'people.0.portrait' });
+  const again = within(await screen.findByRole('dialog', { name: 'Choose an image' }));
+  expect(again.getByRole('option', { name: 'porch' }).getAttribute('aria-selected')).toBe('true');
+  await user.click(again.getByRole('option', { name: 'kitchen' }));
+  await waitFor(() => expect(hero()['bf-hero-people']).toEqual([{ 'bf-person-portrait': 'kitchen' }]));
+  expect(screen.getByText('Unsaved changes')).toBeTruthy();
+
+  // A place the form does not have opens nothing.
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Choose an image' })).toBeNull());
+  await say({ source: 'velocity-cms', type: 'picture', id: 's1', field: 'gone' });
+  await say({ source: 'velocity-cms', type: 'picture', id: 'gone', field: 'photo' });
+  expect(screen.queryByRole('dialog', { name: 'Choose an image' })).toBeNull();
 });

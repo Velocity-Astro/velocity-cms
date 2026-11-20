@@ -87,6 +87,7 @@ export function PagePane({ entry, data, title, width, onWidthChange, isWhole, on
         onWords: focus.typed,
         onSectionAction: focus.acted,
         onSectionMove: focus.dragged,
+        onSectionPicture: focus.pictured,
         ...(focus.tools !== undefined && { tools: focus.tools }),
       })}
       {...(focus?.opened !== undefined && { shownSectionId: focus.opened })}

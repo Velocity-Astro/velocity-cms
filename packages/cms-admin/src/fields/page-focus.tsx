@@ -36,7 +36,12 @@ export interface PageFocus {
   /** The page says a section was dragged to before another, or to the end (`null`). */
   readonly dragged: (id: string, beforeId: string | null) => void;
   readonly onDragged: (listener: DraggedListener) => () => void;
+  /** The page says the button on a picture was pressed: the section, and the picture's field as keys. */
+  readonly pictured: (id: string, field: string) => void;
+  readonly onPictured: (listener: PicturedListener) => () => void;
 }
+
+export type PicturedListener = (id: string, field: string) => void;
 
 export type DraggedListener = (id: string, beforeId: string | null) => void;
 
@@ -56,6 +61,7 @@ export function PageFocusProvider({ children }: { readonly children: ReactNode }
   const [tools, setOffered] = useState<PageSectionTools | undefined>(undefined);
   const acting = useRef(new Set<ActedListener>());
   const dragging = useRef(new Set<DraggedListener>());
+  const picturing = useRef(new Set<PicturedListener>());
   const focus = useMemo<PageFocus>(
     () => ({
       pressed,
@@ -81,6 +87,11 @@ export function PageFocusProvider({ children }: { readonly children: ReactNode }
       onDragged: (listener) => {
         dragging.current.add(listener);
         return () => void dragging.current.delete(listener);
+      },
+      pictured: (id, field) => picturing.current.forEach((listener) => listener(id, field)),
+      onPictured: (listener) => {
+        picturing.current.add(listener);
+        return () => void picturing.current.delete(listener);
       },
     }),
     [pressed, opened, typable, tools],

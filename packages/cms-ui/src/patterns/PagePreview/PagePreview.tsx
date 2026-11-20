@@ -33,9 +33,9 @@ export type PageSectionAction = (typeof ACTIONS)[number];
 
 export interface PageSectionTools {
   /** What each button is called, shown when the pointer rests on it, and the words on the button that adds a section. */
-  readonly labels: { readonly up: string; readonly down: string; readonly duplicate: string; readonly remove: string; readonly add: string; readonly addBefore: string; readonly addAfter: string };
+  readonly labels: { readonly up: string; readonly down: string; readonly duplicate: string; readonly remove: string; readonly add: string; readonly addBefore: string; readonly addAfter: string; readonly picture?: string };
   /** For each section's id: what it is called, and what can be done to it now. */
-  readonly sections: Readonly<Record<string, { readonly name: string; readonly up: boolean; readonly down: boolean; readonly copy: boolean; readonly add: boolean }>>;
+  readonly sections: Readonly<Record<string, { readonly name: string; readonly up: boolean; readonly down: boolean; readonly copy: boolean; readonly add: boolean; readonly pictures?: readonly string[] }>>;
 }
 
 export interface PagePreviewProps extends PagePreviewVariants {
@@ -85,6 +85,11 @@ export interface PagePreviewProps extends PagePreviewVariants {
    * before, or `null` for after the last.
    */
   readonly onSectionMove?: (id: string, beforeId: string | null) => void;
+  /**
+   * Called when the button on one of a section's pictures is pressed on the page, with the
+   * section's id and the picture's field, as keys. Open the window the picture is chosen in.
+   */
+  readonly onSectionPicture?: (id: string, field: string) => void;
   /** No border of its own, for a place that frames it already, such as a whole window. */
   readonly isBare?: boolean;
 }
@@ -93,16 +98,16 @@ export interface PagePreviewProps extends PagePreviewVariants {
  * A page of the site as it would look with what is in a form now, in a frame. The page is drawn
  * by the site itself, so it looks exactly as it will; nothing of it is drawn here.
  */
-export function PagePreview({ label, address, draft, note, toolbar, action, emptyText, onSectionPress, shownSectionId, typable, onWords, tools, onSectionAction, onSectionMove, isBare = false, width }: PagePreviewProps) {
+export function PagePreview({ label, address, draft, note, toolbar, action, emptyText, onSectionPress, shownSectionId, typable, onWords, tools, onSectionAction, onSectionMove, onSectionPicture, isBare = false, width }: PagePreviewProps) {
   const name = `preview-${useId().replaceAll(':', '')}`;
   const form = useRef<HTMLFormElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const hasSent = useRef(false);
   const places = typable === undefined ? undefined : JSON.stringify(typable);
   const offered = tools === undefined ? undefined : JSON.stringify(tools);
-  const latest = useRef({ onSectionPress, shownSectionId, onWords, places, offered, onSectionAction, onSectionMove });
+  const latest = useRef({ onSectionPress, shownSectionId, onWords, places, offered, onSectionAction, onSectionMove, onSectionPicture });
   useEffect(() => {
-    latest.current = { onSectionPress, shownSectionId, onWords, places, offered, onSectionAction, onSectionMove };
+    latest.current = { onSectionPress, shownSectionId, onWords, places, offered, onSectionAction, onSectionMove, onSectionPicture };
   });
   // When words were last typed on the page, and whether the page lacks a change made in the form.
   const typedAt = useRef(0);
@@ -159,6 +164,9 @@ export function PagePreview({ label, address, draft, note, toolbar, action, empt
       }
       if (said.type === 'move' && typeof said.id === 'string' && (typeof said.before === 'string' || said.before === null)) {
         latest.current.onSectionMove?.(said.id, said.before);
+      }
+      if (said.type === 'picture' && typeof said.id === 'string' && typeof said.field === 'string') {
+        latest.current.onSectionPicture?.(said.id, said.field);
       }
       if (said.type === 'ready') {
         tell(latest.current.places);
