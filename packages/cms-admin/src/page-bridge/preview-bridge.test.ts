@@ -389,8 +389,11 @@ it('shows no bar on a section until the editor says what can be done to it', () 
   expect(toolOf('addBefore').style.display).toBe('flex');
   expect(toolOf('addAfter').textContent).toBe('Add section');
   expect(toolOf('remove').title).toBe('Remove');
-  // A page outside every section has no bar.
+  // Over what is no section, the bar stays with the section it was on: the pointer may be on its way to it.
   pointAt('footer a');
+  expect($('[data-cms-tools]').style.display).toBe('flex');
+  // Off the page altogether, it goes.
+  page.document.documentElement.dispatchEvent(new page.MouseEvent('mouseleave'));
   expect($('[data-cms-tools]').style.display).toBe('none');
 });
 
@@ -509,9 +512,12 @@ it('offers to change a picture the pointer is over, even under something the tem
     { source: 'velocity-cms', type: 'picture', id: 's1', field: 'photo' },
   ]);
   expect($('img').getAttribute('src')).toBe('/photos/porch.webp');
-  // Away from the picture, and in a section with none, there is no button.
+  // The button is on the section's bar, and the picture it is about is outlined.
+  expect(toolOf('picture').closest('[data-cms-tools]')).not.toBeNull();
+  expect($('[data-cms-outline="picture"]').style.display).toBe('block');
+  // Off the picture the button stays, so the pointer can go to it; in a section with none, there is no button.
   moveTo('.shade', 500, 500);
-  expect(toolOf('picture').style.display).toBe('none');
+  expect(toolOf('picture').style.display).toBe('flex');
   moveTo('p', 50, 310);
   expect(toolOf('picture').style.display).toBe('none');
 });
@@ -560,14 +566,16 @@ it('offers to edit a link the pointer is over, found by where it leads, and says
   expect(links()).toEqual([{ source: 'velocity-cms', type: 'link', id: 's1', field: 'to' }]);
   // The page is as it was: the link still goes where it went.
   expect($('.menu').getAttribute('href')).toBe('https://site.example/menu/?preview=1.abc');
-  // Away from every link there is no button, nor in a section with none.
+  // Away from every link the button stays for the pointer to reach; in a section with no links there is none.
   moveTo('.menu', 500, 500);
-  expect(toolOf('link').style.display).toBe('none');
+  expect(toolOf('link').style.display).toBe('flex');
   moveTo('p', 50, 310);
   expect(toolOf('link').style.display).toBe('none');
 });
 
-it('tells links that lead to one place apart by their order, and leaves alone a link no field holds', () => {
+const rest = () => new Promise((done) => setTimeout(done, 200));
+
+it('tells links that lead to one place apart by their order, and leaves alone a link no field holds', async () => {
   open(LINKS);
   hear({ source: 'velocity-cms', type: 'tools', ...linkTools });
   // Each link is given a place of its own, so the pointer is over one at a time.
@@ -577,7 +585,8 @@ it('tells links that lead to one place apart by their order, and leaves alone a 
   };
   for (const [name, top] of Object.entries(tops)) {
     moveTo(`.${name}`, 50, top + 10);
-    if (toolOf('link').style.display === 'flex') toolOf('link').click();
+    await rest();
+    if (name !== 'other') toolOf('link').click();
   }
   expect(links().map((message) => message.field)).toEqual(['to', 'more', 'cards.0.to', 'cards.1.to']);
 });
@@ -607,7 +616,7 @@ const itemTool = (action: string) => $(`[data-cms-item-tool="${action}"]`) as HT
 const itemBar = () => $('[data-cms-item-tools]');
 const items = () => (said as [{ type: string }, string][]).map(([message]) => message).filter((message) => message.type === 'item');
 
-it('puts a bar on the item of a list the pointer is in, and says which button of which item was pressed', () => {
+it('puts a bar on the item of a list the pointer is in, and says which button of which item was pressed', async () => {
   open(ITEMS);
   // Each card has a place of its own; everything else is somewhere the pointer is not.
   const tops: Record<string, number> = { 'card-0': 0, 'card-1': 100 };
@@ -637,12 +646,20 @@ it('puts a bar on the item of a list the pointer is in, and says which button of
   ]);
   // The page itself is as it was.
   expect(page.document.querySelectorAll('li')).toHaveLength(2);
+  // Across another item on its way to the bar, the bar stays about the one it was on.
   moveTo('.card-0 h3', 50, 10);
+  expect(itemTool('down').disabled).toBe(true);
+  // Resting there turns it to that one.
+  await rest();
   expect(itemTool('up').disabled).toBe(true);
   expect(itemTool('down').disabled).toBe(false);
-  // Outside every item there is no bar.
+  // Outside every item the bar stays, and it is the section's own bar.
   moveTo('h2', 500, 500);
-  expect(itemBar().style.display).toBe('none');
+  expect(itemBar().style.display).toBe('flex');
+  expect(itemBar().closest('[data-cms-tools]')).not.toBeNull();
+  // A press says at once which item is meant.
+  $('.card-1 p').dispatchEvent(new page.MouseEvent('click', { bubbles: true, clientX: 50, clientY: 110 }));
+  expect(itemTool('down').disabled).toBe(true);
 });
 
 const WRITTEN = '<p>One <strong>bold</strong> thing, <a href="/contact/">here</a>.</p><p>Two.</p>';
@@ -912,7 +929,7 @@ it('comes back where it was when it is drawn again: by the section that was in t
   Object.defineProperty(page, 'scrollY', { value: 900, configurable: true });
   page.dispatchEvent(new page.Event('pagehide'));
   const [kept] = [...store.values()];
-  expect(JSON.parse(kept ?? '')).toEqual({ y: 900, id: 's1', top: 300 });
+  expect(JSON.parse(kept ?? '')).toEqual({ y: 900, id: 's1', top: 300, on: false });
 
   // Drawn again, with the section 500 down the window now: the page moves by the difference.
   page.Element.prototype.getBoundingClientRect = () => rect(500);
