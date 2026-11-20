@@ -20,8 +20,9 @@ of the page is drawn by the editor.
 - The form that posts it is put at the end of the page, so the preview can sit inside a form of the screen's own.
 - `address` must be on this site. The frame listens only to this site's own page, and only in
   this frame.
-- A page that says which of its sections was pressed has it passed to `onSectionPress`.
-  `shownSectionId` asks the page to bring a section into view, again each time the page is drawn.
+- A page that says which of its sections was pressed has it passed to `onSectionPress`, with the
+  field that was pressed where the page marks its fields. `shownSectionId` asks the page to
+  outline a section and bring it into view, again each time the page is drawn.
 - `width` tries the page at a phone's, a tablet's or the pane's own width.
 - With no `address` there is no page yet, and `emptyText` says so.
 - It fills the height it is given, so put it in something with a height, such as `Workbench`.

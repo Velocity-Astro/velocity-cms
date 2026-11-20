@@ -19,6 +19,7 @@ interface Said {
   readonly source?: unknown;
   readonly type?: unknown;
   readonly id?: unknown;
+  readonly field?: unknown;
 }
 
 export interface PagePreviewProps extends PagePreviewVariants {
@@ -37,9 +38,12 @@ export interface PagePreviewProps extends PagePreviewVariants {
   readonly toolbar?: ReactNode;
   /** Shown in place of the page when there is no `address`. */
   readonly emptyText: string;
-  /** Called with a section's id when it is pressed on the page. */
-  readonly onSectionPress?: (id: string) => void;
-  /** The section the page should have in view. */
+  /**
+   * Called with a section's id when it is pressed on the page, and with the field that was
+   * pressed, as keys (`title`, `items.0.text`), where the page marks its fields.
+   */
+  readonly onSectionPress?: (id: string, field?: string) => void;
+  /** The section the page should have in view, and outlined. */
   readonly shownSectionId?: string;
 }
 
@@ -82,7 +86,10 @@ export function PagePreview({ label, address, draft, note, toolbar, emptyText, o
       if (event.origin !== window.location.origin || event.source !== frame.current?.contentWindow) return;
       const said = event.data;
       if (said?.source !== SOURCE) return;
-      if (said.type === 'section' && typeof said.id === 'string') latest.current.onSectionPress?.(said.id);
+      if (said.type === 'section' && typeof said.id === 'string') {
+        if (typeof said.field === 'string') latest.current.onSectionPress?.(said.id, said.field);
+        else latest.current.onSectionPress?.(said.id);
+      }
       if (said.type === 'ready') show(latest.current.shownSectionId);
     };
     window.addEventListener('message', hear);

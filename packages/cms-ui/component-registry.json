@@ -421,6 +421,15 @@
       "uses": []
     },
     {
+      "name": "Spotlight",
+      "layer": "component",
+      "group": "Feedback",
+      "description": "Brings what it holds into view and marks it for a moment, when something elsewhere on the screen pointed at it.",
+      "example": "<Spotlight at={pressed?.at}>\n  <TextField label=\"Title\" />\n</Spotlight>",
+      "useInstead": "SectionList's revealId for a row that opens; Toast for news.",
+      "uses": []
+    },
+    {
       "name": "Fieldset",
       "layer": "component",
       "group": "Forms",

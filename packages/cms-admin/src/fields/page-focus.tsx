@@ -6,9 +6,13 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from 're
  * the page brings it into view. Neither knows the other is there.
  */
 export interface PageFocus {
-  /** The section last pressed on the page. `at` changes with every press, so pressing one twice counts twice. */
-  readonly pressed: { readonly id: string; readonly at: number } | undefined;
-  readonly press: (id: string) => void;
+  /**
+   * The section last pressed on the page, and the field of it that was pressed, as keys
+   * (`title`, `items.0.text`), where the page marks its fields. `at` changes with every press, so
+   * pressing one twice counts twice.
+   */
+  readonly pressed: { readonly id: string; readonly field?: string; readonly at: number } | undefined;
+  readonly press: (id: string, field?: string) => void;
   /** The section last opened in the form. */
   readonly opened: string | undefined;
   readonly open: (id: string) => void;
@@ -20,7 +24,7 @@ export function PageFocusProvider({ children }: { readonly children: ReactNode }
   const [pressed, setPressed] = useState<PageFocus['pressed']>(undefined);
   const [opened, setOpened] = useState<string | undefined>(undefined);
   const focus = useMemo<PageFocus>(
-    () => ({ pressed, press: (id) => setPressed((last) => ({ id, at: (last?.at ?? 0) + 1 })), opened, open: setOpened }),
+    () => ({ pressed, press: (id, field) => setPressed((last) => ({ id, ...(field !== undefined && { field }), at: (last?.at ?? 0) + 1 })), opened, open: setOpened }),
     [pressed, opened],
   );
   return <PageFocusContext value={focus}>{children}</PageFocusContext>;

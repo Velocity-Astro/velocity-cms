@@ -57,6 +57,15 @@ it('says which section was pressed on the page', () => {
   expect(onSectionPress).toHaveBeenCalledWith('s2');
 });
 
+it('says which field of the section was pressed, where the page marks its fields', () => {
+  const onSectionPress = vi.fn();
+  render(example({ onSectionPress }));
+  say({ source: 'velocity-cms', type: 'section', id: 's2', field: 'items.0.text' });
+  expect(onSectionPress).toHaveBeenCalledWith('s2', 'items.0.text');
+  say({ source: 'velocity-cms', type: 'section', id: 's2', field: 7 });
+  expect(onSectionPress).toHaveBeenLastCalledWith('s2');
+});
+
 it('listens to nothing but this site\'s own page in this frame', () => {
   const onSectionPress = vi.fn();
   render(example({ onSectionPress }));
