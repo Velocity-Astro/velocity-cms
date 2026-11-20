@@ -612,3 +612,39 @@ it('shows text saved as plain paragraphs in the rich text editor, and saves it f
     ],
   });
 });
+
+it('takes a change back and makes it again, with the buttons and with the keys', async () => {
+  const user = userEvent.setup();
+  renderApp('/content/listings/e1', signedIn());
+  const undo = await screen.findByRole('button', { name: 'Undo' });
+  const redo = screen.getByRole('button', { name: 'Redo' });
+  expect(undo).toHaveProperty('disabled', true);
+  expect(redo).toHaveProperty('disabled', true);
+
+  await user.type(await field('Title'), ' East');
+  await user.click(screen.getByRole('switch', { name: 'Show on the homepage' }));
+  expect(saveBar().getByText('Unsaved changes')).toBeTruthy();
+
+  await user.click(undo);
+  expect(screen.getByRole('switch', { name: 'Show on the homepage' })).toHaveProperty('checked', false);
+  expect((await field('Title')).value).toBe('6214 Lakeshore Drive East');
+  // The words typed in one go are one step.
+  await user.click(undo);
+  expect((await field('Title')).value).toBe('6214 Lakeshore Drive');
+  expect(saveBar().getByText('Saved 2 hours ago')).toBeTruthy();
+  expect(undo).toHaveProperty('disabled', true);
+
+  await user.click(redo);
+  expect((await field('Title')).value).toBe('6214 Lakeshore Drive East');
+  // With the keys, away from anywhere words are typed.
+  act(() => screen.getByRole('switch', { name: 'Show on the homepage' }).focus());
+  await user.keyboard('{Control>}z{/Control}');
+  expect((await field('Title')).value).toBe('6214 Lakeshore Drive');
+  await user.keyboard('{Control>}{Shift>}z{/Shift}{/Control}');
+  expect((await field('Title')).value).toBe('6214 Lakeshore Drive East');
+  // In a field of words the browser takes back the typing itself.
+  await user.click(await field('Title'));
+  await user.keyboard('{Control>}z{/Control}');
+  expect((await field('Title')).value).toBe('6214 Lakeshore Drive East');
+  expect(undo).toHaveProperty('disabled', false);
+});

@@ -523,6 +523,27 @@ export function previewBridge(page: Window & typeof globalThis): void {
   );
   doc.addEventListener('selectionchange', () => placeFormat());
 
+  // Undo and redo are the form's: the page says the keys were pressed and takes nothing back
+  // itself. Formatted text being written is the browser's to take back, as it is to write.
+  doc.addEventListener(
+    'keydown',
+    (event) => {
+      if (writing || event.isComposing || event.altKey || !(event.metaKey || event.ctrlKey)) return;
+      const key = event.key.toLowerCase();
+      const asked = key === 'z' ? (event.shiftKey ? 'redo' : 'undo') : key === 'y' && event.ctrlKey && !event.shiftKey ? 'redo' : null;
+      if (asked === null) return;
+      // A field of a form on the page is the visitor's, and the browser's to take back.
+      if (!typing && isElement(event.target) && event.target.closest('input, textarea, select, [contenteditable]')) return;
+      event.preventDefault();
+      if (typing) {
+        typing.mark.element.blur();
+        stopTyping();
+      }
+      say({ type: asked });
+    },
+    true,
+  );
+
   // Tools.
   interface Tools {
     readonly labels: Record<string, unknown>;
