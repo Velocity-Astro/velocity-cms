@@ -1,5 +1,5 @@
 import type { FieldDef } from '@velocity-astro/cms-core';
-import { Grid, Stack } from '@velocity-astro/cms-ui';
+import { Grid, Spotlight, Stack } from '@velocity-astro/cms-ui';
 import { useFieldTypes } from '../client/queries.js';
 import { useFieldControls } from './field-control.js';
 import { FieldEditor } from './FieldEditor.js';
@@ -14,6 +14,12 @@ export interface FieldGridProps {
   readonly problems: ReadonlyMap<string, string>;
   /** How many small controls share a row. Three, unless the form is in a narrow column. */
   readonly perRow?: 1 | 3;
+  /**
+   * Given by a form whose fields can be pointed at from elsewhere on the screen, such as the page
+   * beside it: the key of the field pointed at, and `at`, which changes each time. Given even
+   * while nothing is pointed at, so a field is not drawn anew the first time one is.
+   */
+  readonly spotlight?: { readonly key?: string | undefined; readonly at?: number | undefined };
 }
 
 
@@ -22,7 +28,7 @@ export interface FieldGridProps {
  * choices) share a row, and everything else takes a row of its own. The order of the fields is
  * kept, so the form reads the way the content type was set up.
  */
-export function FieldGrid({ fields, values, onChange, pathOf, problems, perRow = 3 }: FieldGridProps) {
+export function FieldGrid({ fields, values, onChange, pathOf, problems, perRow = 3, spotlight }: FieldGridProps) {
   const controls = useFieldControls();
   const fieldTypes = useFieldTypes();
 
@@ -38,7 +44,7 @@ export function FieldGrid({ fields, values, onChange, pathOf, problems, perRow =
     else rows.push([field]);
   }
 
-  const editor = (field: FieldDef) => (
+  const control = (field: FieldDef) => (
     <FieldEditor
       key={field.id}
       field={field}
@@ -48,6 +54,14 @@ export function FieldGrid({ fields, values, onChange, pathOf, problems, perRow =
       problems={problems}
     />
   );
+  const editor = (field: FieldDef) =>
+    spotlight === undefined ? (
+      control(field)
+    ) : (
+      <Spotlight key={field.id} at={spotlight.key === field.key ? spotlight.at : undefined}>
+        {control(field)}
+      </Spotlight>
+    );
   return (
     <Stack gap={5}>
       {rows.map((row) => {

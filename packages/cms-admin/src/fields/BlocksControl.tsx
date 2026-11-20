@@ -41,6 +41,8 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
   const [openIds, setOpenIds] = useState<readonly string[]>([]);
   const [isPicking, setPicking] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  // The field last pressed on the page, until the person turns to something else in the form.
+  const [pointed, setPointed] = useState<{ readonly section: string; readonly key: string; readonly at: number } | null>(null);
 
   const controlFor = useControlFor();
   const focus = usePageFocus();
@@ -52,7 +54,11 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
   };
   // A section pressed on the page beside the form opens here.
   useEffect(() => {
-    if (pressed) setOpenIds((ids) => (ids.includes(pressed.id) ? ids : [...ids, pressed.id]));
+    if (!pressed) return;
+    setOpenIds((ids) => (ids.includes(pressed.id) ? ids : [...ids, pressed.id]));
+    // A field inside a list is pointed at by the list it is in.
+    const [key] = pressed.field?.split('.') ?? [];
+    setPointed(key === undefined ? null : { section: pressed.id, key, at: pressed.at });
   }, [pressed]);
   const remove = (id: string) => {
     change(sections.filter((section) => section.id !== id));
@@ -110,6 +116,7 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
         openIds={openIds}
         revealId={pressed?.id}
         onOpenChange={(id, isOpen) => {
+          setPointed(null);
           if (isOpen) open(id);
           else setOpenIds((ids) => ids.filter((candidate) => candidate !== id));
         }}
@@ -167,6 +174,7 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
                 }
                 pathOf={(child) => `${prefix}${child.key}`}
                 problems={problems}
+                spotlight={pointed?.section === section.id ? pointed : {}}
               />
             ),
           };

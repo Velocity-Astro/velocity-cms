@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **A click on the page finds the field, not only the section.** Beside the form, the page now outlines what the pointer is over and what is chosen, in a layer above the page that changes nothing of the template's own markup. A template that marks its fields (`fieldMark('title')`, beside `sectionMark(section.id)`, both from `@velocity-astro/cms-astro`) has a click on a heading, a paragraph or a card open its section and point at that field in the form. A template with no field marks works as before. The section open in the form is outlined on the page, and the page no longer jumps to it when it is already in view.
+
 ## 0.1.0-beta.4
 
 - **Settings in the editor, starting with email.** Owners have a Settings screen. Under Email they choose the email service (Resend), paste its API key, say who email comes from, and send themselves a test, with no change to the server. The key is sealed with the site's secret and never sent back to the editor. A site that sets `VELOCITY_CMS_RESEND_API_KEY` and `VELOCITY_CMS_EMAIL_FROM`, or names its own `mailer`, keeps that: it wins, and the screen says so. A change is followed by every running copy at once.

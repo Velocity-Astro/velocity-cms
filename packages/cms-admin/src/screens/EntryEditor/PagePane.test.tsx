@@ -61,6 +61,29 @@ it('opens in the form the section pressed on the page', async () => {
   expect((await screen.findByRole<HTMLInputElement>('textbox', { name: 'Heading' })).value).toBe('Sell for more, with less to do');
 });
 
+it('opens the section and points at the field pressed on the page, until the person turns elsewhere', async () => {
+  const user = userEvent.setup();
+  renderApp('/content/pages/p1', site());
+  await frame();
+  await say({ source: 'velocity-cms', type: 'section', id: 's1', field: 'text' });
+  const line = await screen.findByRole('textbox', { name: 'Line under it' });
+  await waitFor(() => expect(line.closest('[data-lit]')).not.toBeNull());
+  expect(screen.getByRole('textbox', { name: 'Heading' }).closest('[data-lit]')).toBeNull();
+  // What was typed stays where it was typed: pointing draws no field anew.
+  await user.type(line, ' Always.');
+  await say({ source: 'velocity-cms', type: 'section', id: 's1', field: 'title' });
+  await waitFor(() => expect(screen.getByRole('textbox', { name: 'Heading' }).closest('[data-lit]')).not.toBeNull());
+  expect(screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Line under it' }).value).toMatch(/Always\.$/);
+});
+
+it('opens the section alone when the field pressed is not one the form has', async () => {
+  renderApp('/content/pages/p1', site());
+  await frame();
+  await say({ source: 'velocity-cms', type: 'section', id: 's2', field: 'nowhere.0.x' });
+  expect(await screen.findByRole('textbox', { name: 'Words' })).toBeTruthy();
+  expect(document.querySelector('[data-lit]')).toBeNull();
+});
+
 it('tries the page at a phone\'s and a tablet\'s width', async () => {
   const user = userEvent.setup();
   renderApp('/content/pages/p1', site());
