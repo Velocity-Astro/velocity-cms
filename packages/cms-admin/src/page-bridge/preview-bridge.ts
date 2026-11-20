@@ -8,6 +8,9 @@
  * - messaging: what the page and the editor say to each other, and to nobody else
  * - marks: which section, and which field of it, an element of the page belongs to
  * - layer: outlines drawn above the page, so nothing of the template's own markup is changed
+ * - tools: a small bar on the section the pointer is in (move, copy, remove) and a button at each
+ *   of its edges that adds a section there, all in the layer and all said to the editor, which
+ *   makes the change
  * - events: what a pointer over the page and a click on it mean
  * - typing: words typed straight into a field on the page, said to the editor as they are typed
  * - scroll: the page stays where it was when it is drawn again
@@ -189,10 +192,12 @@ export function previewBridge(page: Window & typeof globalThis): void {
     }
     Object.assign(box.style, { display: 'block', top: `${rect.top}px`, left: `${rect.left}px`, width: `${rect.width}px`, height: `${rect.height}px` });
   };
+  let placeTools = (): void => undefined;
   const draw = (): void => {
     place(boxes.chosen, marks.chosen);
     // One outline is enough where the pointer is over what is chosen.
     place(boxes.over, marks.over && marks.over.element === marks.chosen?.element ? null : marks.over);
+    placeTools();
   };
   let waiting = false;
   const redraw = (): void => {
@@ -251,6 +256,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
     mark.element.style.outline = outline;
     if (was === null) mark.element.removeAttribute('contenteditable');
     else mark.element.setAttribute('contenteditable', was);
+    redraw();
   };
   const startTyping = (mark: Mark, run: Text): void => {
     if (typing?.mark.element === mark.element) return;
@@ -264,6 +270,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
     if (mark.element.contentEditable !== 'plaintext-only') mark.element.setAttribute('contenteditable', 'true');
     // The layer's outline says where the typing goes: the browser's own would sit under it.
     mark.element.style.outline = 'none';
+    redraw();
   };
   // The element is made ready as the pointer goes down, so the caret lands where it was pressed.
   doc.addEventListener(
@@ -378,14 +385,151 @@ export function previewBridge(page: Window & typeof globalThis): void {
     true,
   );
 
+  // Tools.
+  interface Tools {
+    readonly labels: Record<string, unknown>;
+    readonly sections: Record<string, { readonly name?: unknown; readonly up?: unknown; readonly down?: unknown; readonly copy?: unknown; readonly add?: unknown } | undefined>;
+  }
+  let tools: Tools | null = null;
+  // The section the bar is for: the one the pointer was last in, and it stays while the pointer is on the bar itself.
+  let tooled: HTMLElement | null = null;
+  // Lucide's drawings, as the lines they are made of: the bridge can import nothing.
+  const DRAWN: Record<string, readonly string[]> = {
+    up: ['m5 12 7-7 7 7', 'M12 19V5'],
+    down: ['M12 5v14', 'm19 12-7 7-7-7'],
+    duplicate: ['M8 8h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2z', 'M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2'],
+    remove: ['M3 6h18', 'M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6', 'M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2', 'M10 11v6', 'M14 11v6'],
+    add: ['M5 12h14', 'M12 5v14'],
+  };
+  const drawing = (name: string): SVGElement => {
+    const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    for (const [key, value] of Object.entries({ viewBox: '0 0 24 24', width: '16', height: '16', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }))
+      svg.setAttribute(key, value);
+    for (const line of DRAWN[name] ?? []) {
+      const path = doc.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', line);
+      svg.append(path);
+    }
+    return svg;
+  };
+  const FONT = 'system-ui, sans-serif';
+  const bar = doc.createElement('div');
+  bar.setAttribute('data-cms-tools', '');
+  Object.assign(bar.style, {
+    position: 'absolute',
+    display: 'none',
+    alignItems: 'center',
+    gap: '2px',
+    padding: '4px',
+    borderRadius: '8px',
+    background: 'CanvasText',
+    color: 'Canvas',
+    font: `500 12px/1 ${FONT}`,
+    boxShadow: '0 4px 12px rgb(0 0 0 / 0.25)',
+    pointerEvents: 'auto',
+  });
+  const named = doc.createElement('span');
+  Object.assign(named.style, { padding: '0 8px 0 6px', maxWidth: '12rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+  bar.append(named);
+  const press = (button: HTMLButtonElement, action: string): void => {
+    // The pointer going down must not take the caret from the page or start a selection.
+    button.addEventListener('mousedown', (event) => event.preventDefault());
+    button.addEventListener('click', () => {
+      const id = tooled?.dataset['cmsSection'];
+      if (id && !button.disabled) say({ type: 'act', id, action });
+    });
+  };
+  const tool = (action: string): HTMLButtonElement => {
+    const button = doc.createElement('button');
+    button.type = 'button';
+    // The bar is for a pointer: the same things are in the form for a keyboard and a screen reader.
+    button.tabIndex = -1;
+    button.setAttribute('data-cms-tool', action);
+    Object.assign(button.style, { display: 'grid', placeItems: 'center', width: '28px', height: '28px', padding: '0', border: '0', borderRadius: '6px', background: 'transparent', color: 'inherit', cursor: 'pointer' });
+    button.append(drawing(action));
+    press(button, action);
+    bar.append(button);
+    return button;
+  };
+  const buttons = { up: tool('up'), down: tool('down'), duplicate: tool('duplicate'), remove: tool('remove') };
+  const adder = (action: string): HTMLButtonElement => {
+    const button = doc.createElement('button');
+    button.type = 'button';
+    button.tabIndex = -1;
+    button.setAttribute('data-cms-tool', action);
+    Object.assign(button.style, {
+      position: 'absolute',
+      display: 'none',
+      alignItems: 'center',
+      gap: '4px',
+      height: '28px',
+      padding: '0 12px 0 8px',
+      border: '0',
+      borderRadius: '14px',
+      background: 'Highlight',
+      color: 'HighlightText',
+      font: `500 12px/1 ${FONT}`,
+      boxShadow: '0 4px 12px rgb(0 0 0 / 0.25)',
+      transform: 'translate(-50%, -50%)',
+      whiteSpace: 'nowrap',
+      cursor: 'pointer',
+      pointerEvents: 'auto',
+    });
+    button.append(drawing('add'), doc.createElement('span'));
+    press(button, action);
+    layer.append(button);
+    return button;
+  };
+  const adders = { addBefore: adder('addBefore'), addAfter: adder('addAfter') };
+  layer.append(bar);
+  const word = (value: unknown): string => (typeof value === 'string' ? value : '');
+  placeTools = (): void => {
+    const hide = (): void => {
+      bar.style.display = 'none';
+      adders.addBefore.style.display = 'none';
+      adders.addAfter.style.display = 'none';
+    };
+    // While words are typed, nothing sits over them.
+    const section = typing ? null : tooled?.isConnected ? tooled : null;
+    const about = section && tools?.sections[section.dataset['cmsSection'] ?? ''];
+    if (!section || !tools || !about) return hide();
+    const rect = section.getBoundingClientRect();
+    if (rect.bottom <= 0 || rect.top >= page.innerHeight || (rect.width === 0 && rect.height === 0)) return hide();
+    named.textContent = word(about.name);
+    const able: Record<keyof typeof buttons, boolean> = { up: about.up === true, down: about.down === true, duplicate: about.copy === true, remove: true };
+    for (const action of ['up', 'down', 'duplicate', 'remove'] as const) {
+      const button = buttons[action];
+      button.title = word(tools.labels[action]);
+      button.disabled = !able[action];
+      button.style.opacity = able[action] ? '1' : '0.4';
+      button.style.cursor = able[action] ? 'pointer' : 'default';
+    }
+    // At the section's top corner, and at the top of the page while the section's own top is above it.
+    Object.assign(bar.style, { display: 'flex', top: `${Math.min(Math.max(rect.top, 0) + 12, Math.max(rect.bottom - 44, 0))}px`, left: 'auto', right: `${Math.max(page.innerWidth - rect.right, 0) + 12}px` });
+    for (const [action, edge] of [['addBefore', rect.top], ['addAfter', rect.bottom]] as const) {
+      const button = adders[action];
+      // An edge that is off the page, or a page that takes no more sections, has no button.
+      const shown = about.add === true && edge >= 14 && edge <= page.innerHeight - 14;
+      button.style.display = shown ? 'flex' : 'none';
+      if (!shown) continue;
+      if (button.lastElementChild) button.lastElementChild.textContent = word(tools.labels['add']);
+      button.title = word(tools.labels[action]);
+      Object.assign(button.style, { top: `${edge}px`, left: `${rect.left + rect.width / 2}px` });
+    }
+  };
+
   // Events.
   doc.addEventListener('mouseover', (event) => {
+    // Over the layer's own bar and buttons, what they are for stays as it was.
+    if (isElement(event.target) && layer.contains(event.target)) return;
     marks.over = markOf(event.target);
     if (marks.over) marks.over.element.style.cursor = runFor(marks.over) ? 'text' : 'pointer';
+    tooled = isElement(event.target) ? event.target.closest<HTMLElement>('[data-cms-section]') : null;
     draw();
   });
   doc.documentElement.addEventListener('mouseleave', () => {
     marks.over = null;
+    tooled = null;
     draw();
   });
   // Nothing on the page goes anywhere: a click chooses what it is on.
@@ -393,6 +537,8 @@ export function previewBridge(page: Window & typeof globalThis): void {
     'click',
     (event) => {
       event.preventDefault();
+      // A press on the layer's own bar is that button's business.
+      if (isElement(event.target) && layer.contains(event.target)) return;
       const mark = markOf(event.target);
       if (!mark) return;
       marks.chosen = mark;
@@ -408,6 +554,13 @@ export function previewBridge(page: Window & typeof globalThis): void {
     if (event.data.type === 'typable') {
       const places = (event.data as { places?: unknown }).places;
       typable = typeof places === 'object' && places !== null ? (places as Record<string, unknown>) : {};
+      return;
+    }
+    if (event.data.type === 'tools') {
+      const said = event.data as { labels?: unknown; sections?: unknown };
+      const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+      tools = isRecord(said.labels) && isRecord(said.sections) ? { labels: said.labels, sections: said.sections as Tools['sections'] } : null;
+      draw();
       return;
     }
     if (event.data.type !== 'show' || typeof event.data.id !== 'string') return;

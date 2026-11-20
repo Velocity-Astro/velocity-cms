@@ -40,6 +40,8 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
 
   const [openIds, setOpenIds] = useState<readonly string[]>([]);
   const [isPicking, setPicking] = useState(false);
+  // Where the section being picked goes: a place among the sections, or the end.
+  const [pickAt, setPickAt] = useState<number | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
   // The field last pressed on the page, until the person turns to something else in the form.
   const [pointed, setPointed] = useState<{ readonly section: string; readonly key: string; readonly at: number } | null>(null);
@@ -95,12 +97,30 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
       }),
     [onTyped],
   );
+  const nameOf = (block: BlockDef | undefined) => (block ? localized(block.label, locale) : messages.editor.sectionUnknown);
+  // What the page may offer on each section it shows. Hidden and retired sections are not on the page.
+  const isFull = max !== undefined && sections.length >= max;
+  const offered = {
+    labels: {
+      up: messages.editor.pageMoveUp,
+      down: messages.editor.pageMoveDown,
+      duplicate: messages.editor.pageDuplicate,
+      remove: messages.editor.pageRemove,
+      add: messages.editor.pageAdd,
+      addBefore: messages.editor.pageAddBefore,
+      addAfter: messages.editor.pageAddAfter,
+    },
+    sections: Object.fromEntries(
+      sections.map((section, at) => [section.id, { name: nameOf(blockOf(blocks, section)), up: at > 0, down: at < sections.length - 1, copy: !isFull, add: !isFull }]),
+    ),
+  };
+  const offeredSaid = JSON.stringify(offered);
+  const setTools = focus?.setTools;
+  useEffect(() => setTools?.(JSON.parse(offeredSaid) as typeof offered), [setTools, offeredSaid]);
   const remove = (id: string) => {
     change(sections.filter((section) => section.id !== id));
     setOpenIds((ids) => ids.filter((candidate) => candidate !== id));
   };
-  const nameOf = (block: BlockDef | undefined) => (block ? localized(block.label, locale) : messages.editor.sectionUnknown);
-
   const act = (id: string, action: string) => {
     const at = sections.findIndex((section) => section.id === id);
     const section = sections[at];
@@ -119,6 +139,42 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
       else setRemovingId(id);
     }
   };
+
+  // A button pressed on a section on the page does what the same button does here.
+  const move = (from: number, to: number) => {
+    const next = [...sections];
+    const [moved] = next.splice(from, 1);
+    if (moved) next.splice(to, 0, moved);
+    change(next);
+  };
+  const acting = useRef({ sections, act, move, isFull });
+  useEffect(() => {
+    acting.current = { sections, act, move, isFull };
+  });
+  const onActed = focus?.onActed;
+  const show = focus?.open;
+  useEffect(
+    () =>
+      onActed?.((id, action) => {
+        const now = acting.current;
+        const at = now.sections.findIndex((section) => section.id === id);
+        if (at < 0) return;
+        if (action === 'up' || action === 'down') {
+          const to = action === 'up' ? at - 1 : at + 1;
+          if (to < 0 || to >= now.sections.length) return;
+          now.move(at, to);
+          // The page is drawn again with the section in its new place, and brings it into view.
+          show?.(id);
+        } else if (action === 'addBefore' || action === 'addAfter') {
+          if (now.isFull) return;
+          setPickAt(action === 'addBefore' ? at : at + 1);
+          setPicking(true);
+        } else if (action !== 'duplicate' || !now.isFull) {
+          now.act(id, action);
+        }
+      }),
+    [onActed, show],
+  );
 
   // The picker offers what the template describes today, under the names it files them by.
   const byGroup = new Map<string, PickerOption[]>();
@@ -146,8 +202,11 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
         {...(problem !== undefined && { errorMessage: problem })}
         emptyText={messages.editor.sectionsEmpty}
         addLabel={messages.editor.sectionAdd}
-        onAdd={() => setPicking(true)}
-        isFull={max !== undefined && sections.length >= max}
+        onAdd={() => {
+          setPickAt(null);
+          setPicking(true);
+        }}
+        isFull={isFull}
         openIds={openIds}
         revealId={pressed?.id}
         onOpenChange={(id, isOpen) => {
@@ -155,12 +214,7 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
           if (isOpen) open(id);
           else setOpenIds((ids) => ids.filter((candidate) => candidate !== id));
         }}
-        onMove={(from, to) => {
-          const next = [...sections];
-          const [moved] = next.splice(from, 1);
-          if (moved) next.splice(to, 0, moved);
-          change(next);
-        }}
+        onMove={move}
         onAction={act}
         moveUpLabel={(position) => messages.editor.sectionMoveUp(nameOf(blockOf(blocks, sections[position - 1])), position)}
         moveDownLabel={(position) => messages.editor.sectionMoveDown(nameOf(blockOf(blocks, sections[position - 1])), position)}
@@ -224,7 +278,8 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
         groups={groups}
         onChoose={(blockId) => {
           const added: BlockValue = { id: crypto.randomUUID(), block: blockId, data: {} };
-          change([...sections, added]);
+          const at = pickAt ?? sections.length;
+          change([...sections.slice(0, at), added, ...sections.slice(at)]);
           open(added.id);
         }}
       />

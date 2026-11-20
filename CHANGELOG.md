@@ -4,6 +4,9 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **A section's own bar on the page.** In the visual editor and beside the form, the section the pointer is in shows a small bar with its name and four buttons: move up, move down, duplicate and remove. A button at its top and bottom edge adds a section right there, chosen from the same list as in the form. The page changes nothing itself: each button does what the same button in the form does, so a removal still asks first and everything waits for Save or Publish. Nothing is asked of a template.
+- **The Visual editor button is where the note was.** The line "The form as it is now, saved or not" above the page is gone, and the button that opens the visual editor sits in its place.
+
 ## 0.1.0-beta.5
 
 - **The visual editor: the page in the whole window.** Beside the form, "Visual editor" gives the page the whole window, over the editor's own frame, with one bar across the top: the way back, where the page stands, the widths to try it at, and Save draft and Publish. Words are typed straight on the page as before. A click on a section, a picture or anything else that is edited in the form slides the form in at the side, open at that section, and it slides away again from the bar. Nothing is drawn anew and nothing typed is lost on the way in or out.

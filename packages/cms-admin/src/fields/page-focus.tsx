@@ -1,3 +1,4 @@
+import type { PageSectionAction, PageSectionTools } from '@velocity-astro/cms-ui';
 import { createContext, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
 
 /**
@@ -26,7 +27,15 @@ export interface PageFocus {
   readonly typed: (id: string, field: string, words: string) => void;
   /** Listens to what is typed on the page. Answers with how to stop. */
   readonly onTyped: (listener: TypedListener) => () => void;
+  /** What the page may offer on each section (move, copy, remove, add beside it). The form says so, since it holds the sections. */
+  readonly tools: PageSectionTools | undefined;
+  readonly setTools: (tools: PageSectionTools | undefined) => void;
+  /** The page says a section's button was pressed; whoever listens makes the change. */
+  readonly acted: (id: string, action: PageSectionAction) => void;
+  readonly onActed: (listener: ActedListener) => () => void;
 }
+
+export type ActedListener = (id: string, action: PageSectionAction) => void;
 
 export type TypedListener = (id: string, field: string, words: string) => void;
 
@@ -39,6 +48,8 @@ export function PageFocusProvider({ children }: { readonly children: ReactNode }
   const [opened, setOpened] = useState<string | undefined>(undefined);
   const [typable, setPlaces] = useState(NOWHERE);
   const listeners = useRef(new Set<TypedListener>());
+  const [tools, setOffered] = useState<PageSectionTools | undefined>(undefined);
+  const acting = useRef(new Set<ActedListener>());
   const focus = useMemo<PageFocus>(
     () => ({
       pressed,
@@ -53,8 +64,15 @@ export function PageFocusProvider({ children }: { readonly children: ReactNode }
         listeners.current.add(listener);
         return () => void listeners.current.delete(listener);
       },
+      tools,
+      setTools: (next) => setOffered((last) => (JSON.stringify(last) === JSON.stringify(next) ? last : next)),
+      acted: (id, action) => acting.current.forEach((listener) => listener(id, action)),
+      onActed: (listener) => {
+        acting.current.add(listener);
+        return () => void acting.current.delete(listener);
+      },
     }),
-    [pressed, opened, typable],
+    [pressed, opened, typable, tools],
   );
   return <PageFocusContext value={focus}>{children}</PageFocusContext>;
 }

@@ -30,7 +30,7 @@ it('shows a page beside the form that builds it, asked for at its own address wi
   renderApp('/content/pages/p1', site());
   const pane = within(await screen.findByRole('region', { name: 'The page' }));
   const page = await frame();
-  expect(pane.getByText('The form as it is now, saved or not.')).toBeTruthy();
+  expect(pane.getByRole('button', { name: 'Visual editor' })).toBeTruthy();
   const form = document.querySelector<HTMLFormElement>(`form[target="${page.name}"]`);
   expect(form?.getAttribute('action')).toMatch(/^\/why-list-with-us\/\?preview=\d+\.[0-9a-f]{64}$/);
   expect(submit).toHaveBeenCalledOnce();
@@ -159,6 +159,44 @@ it('gives the page the whole window, and brings the form back for what cannot be
   expect(await screen.findByRole('button', { name: 'Visual editor' })).toBeTruthy();
   expect(await frame()).toBe(page);
   expect((draft().data['f-body'] as { data: Record<string, unknown> }[])[0]?.data['bf-hero-title']).toBe('Typed in the window');
+});
+
+it('does on the form what a section\'s bar on the page asks for', async () => {
+  const user = userEvent.setup();
+  renderApp('/content/pages/p1', site());
+  const page = await frame();
+  const post = vi.spyOn(page.contentWindow as Window, 'postMessage').mockImplementation(() => undefined);
+  await say({ source: 'velocity-cms', type: 'ready' });
+  const told = post.mock.calls.map(([message]) => message as { type: string; sections?: Record<string, { name: string; up: boolean; down: boolean }> }).find((message) => message.type === 'tools');
+  expect(told?.sections?.['s1']).toMatchObject({ up: false, down: true });
+  const order = () => (draft().data['f-body'] as { id: string; block: string }[]).map((section) => section.id);
+  const first = order();
+
+  await say({ source: 'velocity-cms', type: 'act', id: 's1', action: 'down' });
+  expect(order()).toEqual([first[1], first[0], ...first.slice(2)]);
+  await say({ source: 'velocity-cms', type: 'act', id: 's1', action: 'up' });
+  expect(order()).toEqual(first);
+  // The first cannot go further up, whatever the page says.
+  await say({ source: 'velocity-cms', type: 'act', id: 's1', action: 'up' });
+  expect(order()).toEqual(first);
+
+  await say({ source: 'velocity-cms', type: 'act', id: 's1', action: 'duplicate' });
+  expect(order()).toHaveLength(first.length + 1);
+  expect(order()[0]).toBe('s1');
+  expect(order()[2]).toBe(first[1]);
+
+  // A new section goes where the button was: above the first.
+  await say({ source: 'velocity-cms', type: 'act', id: 's1', action: 'addBefore' });
+  await user.click(await screen.findByRole('option', { name: /^Text/ }));
+  await waitFor(() => expect(order()).toHaveLength(first.length + 2));
+  expect(order()[1]).toBe('s1');
+
+  // A section that holds something is removed only after a yes.
+  await say({ source: 'velocity-cms', type: 'act', id: 's1', action: 'remove' });
+  const sure = within(await screen.findByRole('alertdialog'));
+  await user.click(sure.getAllByRole('button').at(-1) as HTMLElement);
+  await waitFor(() => expect(order()).not.toContain('s1'));
+  expect(screen.getByText('Unsaved changes')).toBeTruthy();
 });
 
 it('offers the whole window only once there is a page to show', async () => {
