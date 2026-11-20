@@ -1,7 +1,8 @@
 name: Release
 
 # Publishes every package to npm at the version in its package.json, and makes the GitHub
-# Release for it from that version's section of CHANGELOG.md.
+# Release for it (scripts/github-release.mjs): that version's section of CHANGELOG.md, how to
+# install it and the pull requests merged since the release before.
 #
 # It runs by itself when the packages' version changes on main, which is what merging the
 # "Release <version>" pull request does (release-pr.yml keeps that pull request). A push that
@@ -109,16 +110,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "v$VERSION" > /dev/null 2>&1; then
-            echo "The GitHub Release v$VERSION is already there."
-            exit 0
-          fi
-          node scripts/next-release.mjs --notes "$VERSION" > "$RUNNER_TEMP/notes.md"
-          case "$VERSION" in *-*) pre=--prerelease ;; *) pre= ;; esac
           # The tag is pushed with git and the Release made for it: asked to tag a commit itself,
           # GitHub refuses a workflow's own token.
           if ! git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" > /dev/null; then
             git tag "v$VERSION" "$GITHUB_SHA"
             git push origin "refs/tags/v$VERSION"
           fi
-          gh release create "v$VERSION" --verify-tag --title "$VERSION" --notes-file "$RUNNER_TEMP/notes.md" $pre
+          # The changelog's section, how to install, and the pull requests since the release before.
+          node scripts/github-release.mjs "$VERSION"

@@ -1,0 +1,7 @@
+# How GitHub lists pull requests in a Release's notes (not a workflow: see workflows/release.yml).
+# The "Release <version>" pull request is left out: it changes nothing but the version.
+changelog:
+  exclude:
+    authors:
+      - github-actions[bot]
+      - github-actions

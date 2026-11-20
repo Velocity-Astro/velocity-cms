@@ -1,9 +1,22 @@
 name: GitHub Release
 
-# Makes the GitHub Release (and its tag, v<version>) for a version that is already in
-# CHANGELOG.md, with that section as its notes. The Release workflow does this by itself for a
-# new version; this is for one that was released before that, or whose Release was removed.
+# Makes the GitHub Release for a version tag (v<version>), by itself whenever one is pushed:
+#
+#   git tag v0.1.0-beta.4 && git push origin v0.1.0-beta.4
+#
+# What the Release says is made by scripts/github-release.mjs: that version's section of
+# CHANGELOG.md, how to install it, and the pull requests merged since the release before. A tag
+# with a "-" in its version (a beta, a release candidate) is marked a pre-release.
+#
+# The Release workflow makes the Release itself for a version it stages on npm (a tag pushed by a
+# workflow starts no other workflow), so this is for a tag a person pushes. Pushing a tag
+# publishes nothing to npm: that is the Release workflow's.
+#
+# By hand, it makes the Release of a version whose Release is missing, and its tag when that is
+# missing too.
 on:
+  push:
+    tags: ['v[0-9]*']
   workflow_dispatch:
     inputs:
       version:
@@ -14,6 +27,10 @@ on:
         description: The commit that version was released from, when its tag is not there yet. Left empty, the head of main.
         required: false
         type: string
+
+concurrency:
+  group: github-release-${{ inputs.version || github.ref_name }}
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -26,6 +43,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Main's script and changelog, whichever commit the tag names.
+          ref: ${{ github.event.repository.default_branch }}
           # Every commit, so an earlier one can be tagged.
           fetch-depth: 0
       - uses: actions/setup-node@v4
@@ -33,17 +52,16 @@ jobs:
           node-version: 24
       - env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ inputs.version }}
-          COMMIT: ${{ inputs.commit || github.sha }}
+          VERSION: ${{ inputs.version || github.ref_name }}
+          COMMIT: ${{ inputs.commit }}
         run: |
-          node scripts/next-release.mjs --notes "$VERSION" > "$RUNNER_TEMP/notes.md"
-          case "$VERSION" in *-*) pre=--prerelease ;; *) pre= ;; esac
+          VERSION="${VERSION#v}"
           # The tag is pushed with git and the Release made for it: asked to tag a commit itself,
           # GitHub refuses a workflow's own token.
           # Nor may a workflow tag a commit whose workflow files differ from main's: for an earlier
           # commit, a person pushes the tag first (git tag v<version> <commit>, git push origin v<version>).
           if ! git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" > /dev/null; then
-            git tag "v$VERSION" "$COMMIT"
+            git tag "v$VERSION" "${COMMIT:-HEAD}"
             git push origin "refs/tags/v$VERSION"
           fi
-          gh release create "v$VERSION" --verify-tag --title "$VERSION" --notes-file "$RUNNER_TEMP/notes.md" $pre
+          node scripts/github-release.mjs "$VERSION"
