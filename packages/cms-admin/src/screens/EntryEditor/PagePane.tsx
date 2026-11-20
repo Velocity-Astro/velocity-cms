@@ -48,13 +48,15 @@ export interface PagePaneProps {
   /** Called when the keys that take a change back, or make it again, are pressed on the page. */
   readonly onUndo?: () => void;
   readonly onRedo?: () => void;
+  /** Other entries tried on the page along with this one and not saved: the site's settings, while their colours are chosen. */
+  readonly also?: readonly { readonly id: string; readonly data: EntryData }[];
 }
 
 /**
  * The entry's page beside its form, drawn by the site from what the form holds now. Nothing is
  * saved to show it: the draft goes with the request for the page and is kept nowhere.
  */
-export function PagePane({ entry, data, title, width, onWidthChange, isWhole, onWhole, onFormWanted, onUndo, onRedo }: PagePaneProps) {
+export function PagePane({ entry, data, title, width, onWidthChange, isWhole, onWhole, onFormWanted, onUndo, onRedo, also = [] }: PagePaneProps) {
   const messages = useMessages();
   const focus = usePageFocus();
   const link = usePagePreview(entry?.id, entry?.revision);
@@ -80,7 +82,7 @@ export function PagePane({ entry, data, title, width, onWidthChange, isWhole, on
       <PagePreview
         label={messages.editor.pageFrame(title)}
         {...(entry !== null && link.data && { address: link.data.path })}
-        draft={entry === null ? '' : JSON.stringify({ id: entry.id, data })}
+        draft={entry === null ? '' : JSON.stringify({ id: entry.id, data, ...(also.length > 0 && { with: also }) })}
         width={width}
         isBare={isWhole}
         {...(!isWhole && {

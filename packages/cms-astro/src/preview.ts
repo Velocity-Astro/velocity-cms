@@ -16,6 +16,12 @@ export interface PreviewDraft {
   readonly id: string;
   /** The entry's values as the form holds them, by field id. */
   readonly data: EntryData;
+  /**
+   * Other entries tried along with it and not saved either: the site's settings, when their
+   * colours are being chosen beside the page. Each is shown in place of the saved entry, as the
+   * draft itself is.
+   */
+  readonly with?: readonly { readonly id: string; readonly data: EntryData }[];
 }
 
 interface Preview {
@@ -39,7 +45,10 @@ export const isEditorPreview = (): boolean => previewing.getStore()?.draft !== u
  */
 export function withPreviewDraft<T extends { readonly id: string; readonly data: EntryData }>(entry: T): T {
   const draft = previewing.getStore()?.draft;
-  return draft && draft.id === entry.id ? { ...entry, data: draft.data } : entry;
+  if (!draft) return entry;
+  if (draft.id === entry.id) return { ...entry, data: draft.data };
+  const beside = draft.with?.find((other) => other.id === entry.id);
+  return beside ? { ...entry, data: beside.data } : entry;
 }
 
 /**
@@ -60,6 +69,8 @@ export const asPreview = <T>(work: () => T, draft?: PreviewDraft): T => previewi
 
 /** The most a draft sent with a preview may weigh. A page's sections are text; a megabyte is a very long page. */
 const DRAFT_LIMIT = 1_000_000;
+/** The most other entries a draft may bring with it. */
+const WITH_LIMIT = 4;
 /** The form field the editor sends a draft in. */
 export const DRAFT_FIELD = 'draft';
 
@@ -83,7 +94,15 @@ export async function readPreviewDraft(request: Request, site: URL): Promise<Pre
   try {
     const sent: unknown = JSON.parse(new URLSearchParams(body).get(DRAFT_FIELD) ?? '');
     if (!isRecord(sent) || typeof sent['id'] !== 'string' || sent['id'] === '' || !isRecord(sent['data'])) return null;
-    return { id: sent['id'], data: sent['data'] };
+    const beside = sent['with'];
+    if (beside === undefined) return { id: sent['id'], data: sent['data'] };
+    if (!Array.isArray(beside) || beside.length > WITH_LIMIT) return null;
+    const others: { id: string; data: EntryData }[] = [];
+    for (const other of beside as unknown[]) {
+      if (!isRecord(other) || typeof other['id'] !== 'string' || other['id'] === '' || !isRecord(other['data'])) return null;
+      others.push({ id: other['id'], data: other['data'] });
+    }
+    return { id: sent['id'], data: sent['data'], with: others };
   } catch {
     return null;
   }

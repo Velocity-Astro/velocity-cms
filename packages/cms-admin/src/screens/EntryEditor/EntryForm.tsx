@@ -1,7 +1,7 @@
 import type { ContentTypeDef, Entry, EntryData, FieldDef } from '@velocity-astro/cms-core';
 import { HOME_SLUG, SLUG_PATH, isSlug, isSlugPath, liveFields, takesSlugPath } from '@velocity-astro/cms-core';
 import { Box, Button, Card, ConfirmDialog, Form, IconButton, Menu, SaveBar, Segmented, Split, Stack, Tag, Text, TextField, Workbench, toast } from '@velocity-astro/cms-ui';
-import { CalendarClock, Copy, Ellipsis, EyeOff, History, PanelLeftClose, PanelLeftOpen, Redo2, Trash2, Undo2 } from 'lucide-react';
+import { CalendarClock, Copy, Ellipsis, EyeOff, History, Palette, PanelLeftClose, PanelLeftOpen, Redo2, Trash2, Undo2 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { paths } from '../../app/paths.js';
 import { AdminRequestError } from '../../client/errors.js';
@@ -21,6 +21,7 @@ import { PluginBoundary } from '../../plugins/PluginBoundary.js';
 import { usePluginExtensions } from '../../plugins/plugin-editor.js';
 import { EntryDeals } from './EntryDeals.js';
 import { PagePane, PageWidths, type PageWidth } from './PagePane.js';
+import { ThemeCard, themeTried, useSiteLooks, type ThemeDraft } from './ThemeCard.js';
 
 const STATE_TONE = { draft: 'neutral', scheduled: 'info', published: 'success', unpublishedChanges: 'warning' } as const satisfies Record<
   EntryState,
@@ -81,6 +82,11 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   const [isVisual, setVisual] = useState(false);
   const [isFormAway, setFormAway] = useState(true);
   const [pageWidth, setPageWidth] = useState<PageWidth>('full');
+  // The site's theme, tried on the page beside the form: what is chosen and not published, and whether its card is in view.
+  const [themeDraft, setThemeDraft] = useState<ThemeDraft>({});
+  const [isThemeShown, setThemeShown] = useState(false);
+  const looks = useSiteLooks(entry?.locale);
+  const themed = themeTried(looks, themeDraft);
 
   const typeName = localized(type.label, locale);
   const title = entryTitle(type, data);
@@ -95,7 +101,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   // What would be lost by leaving now. A new entry nobody has typed in holds nothing, and a save
   // under way moves on by itself.
   const hasTyped = entry === null ? typedSlug !== null || Object.keys(data).length > 0 : hasChanges;
-  const guard = useLeaveGuard(hasTyped && running === null);
+  const guard = useLeaveGuard((hasTyped || themed.length > 0) && running === null);
 
   /** Shows why the server refused: on the fields when it named them, and always in a message. */
   function report(what: string, error: unknown) {
@@ -219,6 +225,8 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   }
 
   const isBusy = running !== null;
+  // The theme is the whole site's, so choosing it is for those who may publish.
+  const canTheme = looks.length > 0 && session.data !== null && session.data !== undefined && session.data.role !== 'author';
   // A step back or forward changes what the form holds, so what the server said of it no longer applies.
   const { undo: stepBack, redo: stepForward } = history;
   const undo = useCallback(() => {
@@ -391,6 +399,18 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
                           onPress={() => setFormAway(!isFormAway)}
                         />
                         <PageWidths width={pageWidth} onChange={setPageWidth} />
+                        {canTheme && (
+                          <Button
+                            variant="ghost"
+                            icon={Palette}
+                            onPress={() => {
+                              if (!isThemeShown) setFormAway(false);
+                              setThemeShown(!isThemeShown);
+                            }}
+                          >
+                            {messages.editor.theme}
+                          </Button>
+                        )}
                         {actions}
                       </>
                     }
@@ -409,11 +429,13 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
                       setVisual(true);
                     }}
                     onFormWanted={() => setFormAway(false)}
+                    also={themed}
                     onUndo={undo}
                     onRedo={redo}
                   />
                 }
               >
+                {canTheme && isThemeShown && <ThemeCard looks={looks} draft={themeDraft} onChange={setThemeDraft} />}
                 {sections.filter((section) => !section.aside).map(narrowCard)}
                 {!isSingle && (
                   <Card title={slugPattern !== undefined ? messages.editor.addressSection : messages.editor.identifierSection}>
