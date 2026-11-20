@@ -194,6 +194,151 @@ it('takes a section that says nonsense about what it holds as one that says noth
   expect(said.at(-1)).toEqual([{ source: 'velocity-cms', type: 'section', id: 's1' }, origin]);
 });
 
+/** A page whose first section shows a heading with an accent, a button with an icon, and its title twice. */
+const typingPage = () => {
+  open(
+    held(
+      's1',
+      [['title', 'Find your place'], ['accent', 'in Austin'], ['label', 'See homes'], ['again', 'Twice'], ['body', '<p>Shaped</p>', 'html'], ['kept', 'Kept']],
+      '<h1 id="h">Find your place <em>in Austin</em></h1><a id="a" href="/x/">See homes<svg></svg></a><b id="t1">Twice</b><i id="t2">Twice</i><div id="body"><p>Shaped</p></div><button><span id="inb">Kept</span></button>',
+    ),
+  );
+  hear({ source: 'velocity-cms', type: 'typable', places: { s1: ['title', 'accent', 'label', 'again', 'body', 'kept'] } });
+};
+const down = (selector: string) => $(selector).dispatchEvent(new page.MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+const run = (selector: string) => [...$(selector).childNodes].find((node) => node.nodeType === 3) as Text;
+/** What the browser asks before it changes what is typed: the kind of change and what it would touch. */
+const before = (selector: string, inputType: string, range: [Node, number, Node, number] | null, data?: string) => {
+  const event = new page.InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType, ...(data !== undefined && { data }) });
+  const ranges = range ? [new page.StaticRange({ startContainer: range[0], startOffset: range[1], endContainer: range[2], endOffset: range[3] })] : [];
+  Object.defineProperty(event, 'getTargetRanges', { value: () => ranges });
+  $(selector).dispatchEvent(event);
+  return event;
+};
+const typed = (selector: string) => $(selector).dispatchEvent(new page.InputEvent('input', { bubbles: true }));
+const words = () => (said as [{ type: string; field: string; words: string }, string][]).map(([message]) => message).filter((message) => message.type === 'words');
+
+it('lets words be typed into a field the editor says holds plain words, and says them as they are typed', () => {
+  typingPage();
+  down('#h');
+  // Plain text only where the browser knows that kind, as a real one does.
+  expect($('#h').hasAttribute('contenteditable')).toBe(true);
+  run('#h').nodeValue = 'Find your home ';
+  typed('#h');
+  expect(words().at(-1)).toEqual({ source: 'velocity-cms', type: 'words', id: 's1', field: 'title', words: 'Find your home' });
+  // The words beside it are another field's, and are that field's still.
+  expect($('em').textContent).toBe('in Austin');
+  // Pressing elsewhere ends it, and the element is as the template made it.
+  down('#body');
+  expect($('#h').hasAttribute('contenteditable')).toBe(false);
+});
+
+it('shows what is typed everywhere the section shows that field', () => {
+  typingPage();
+  down('#t1');
+  run('#t1').nodeValue = 'Thrice';
+  typed('#t1');
+  expect($('#t2').textContent).toBe('Thrice');
+});
+
+it('keeps every change inside the run of text that shows the field', () => {
+  typingPage();
+  down('#a');
+  const label = run('#a');
+  // The change is made by the bridge itself, so the browser tidies nothing around the words.
+  expect(before('#a', 'insertText', [label, 3, label, 3], 'x').defaultPrevented).toBe(true);
+  expect(label.nodeValue).toBe('Seex homes');
+  expect(words().at(-1)?.words).toBe('Seex homes');
+  // Reaching past the run (the icon after it), the change is kept to the run.
+  before('#a', 'deleteContentBackward', [label, 4, $('#a'), 2]);
+  expect($('#a').querySelector('svg')).not.toBeNull();
+  expect(label.nodeValue).toBe('Seex');
+  // A browser that says only where the caret is has one letter, or one word, deleted from there.
+  label.nodeValue = 'See all 🏠 homes';
+  for (const [kind, at, left] of [['deleteContentBackward', 10, 'See all  homes'], ['deleteWordBackward', 7, 'See   homes'], ['deleteContentForward', 0, 'ee   homes'], ['deleteWordForward', 2, 'ee'], ['deleteSoftLineBackward', 2, '']] as const) {
+    before('#a', kind, [label, at, label, at]);
+    expect(label.nodeValue).toBe(left);
+  }
+  label.nodeValue = 'Seex';
+  // What is pasted goes in plain, on one line.
+  const pasted = new page.InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'insertFromPaste' });
+  Object.defineProperty(pasted, 'getTargetRanges', { value: () => [new page.StaticRange({ startContainer: label, startOffset: 3, endContainer: label, endOffset: 4 })] });
+  Object.defineProperty(pasted, 'dataTransfer', { value: { getData: () => ' the\n  best' } });
+  $('#a').dispatchEvent(pasted);
+  expect(label.nodeValue).toBe('See the best');
+  expect(before('#a', 'historyUndo', null).defaultPrevented).toBe(true);
+  // The last words deleted leave the run where it is, and the next ones go into it.
+  before('#a', 'deleteContentBackward', [label, 0, label, 12]);
+  expect(label.isConnected).toBe(true);
+  expect(words().at(-1)?.words).toBe('');
+  page.getSelection()?.collapse($('#a'), 0);
+  before('#a', 'insertText', [$('#a'), 0, $('#a'), 0], 'G');
+  expect(label.nodeValue).toBe('G');
+  expect(words().at(-1)?.words).toBe('G');
+  // A new line or a look: nothing happens. A key pressed while the caret is in the next field's words goes to the end of these.
+  down('#h');
+  expect(before('#h', 'insertParagraph', null).defaultPrevented).toBe(true);
+  expect(before('#h', 'formatBold', null).defaultPrevented).toBe(true);
+  expect($('#h').innerHTML).toBe('Find your place <em>in Austin</em>');
+  expect(before('#h', 'insertText', [run('em'), 2, run('em'), 2], 's').defaultPrevented).toBe(true);
+  expect($('#h').innerHTML).toBe('Find your places <em>in Austin</em>');
+});
+
+it('leaves the space a template keeps between a heading\'s words and the next field\'s', () => {
+  typingPage();
+  down('#h');
+  const title = run('#h');
+  // The caret cannot go past the words into that space, and a space typed at their end is one that shows.
+  page.getSelection()?.collapse(title, 16);
+  page.document.dispatchEvent(new page.Event('selectionchange'));
+  expect(page.getSelection()?.anchorOffset).toBe(15);
+  expect(before('#h', 'insertText', [title, 15, title, 15], ' ').defaultPrevented).toBe(true);
+  expect(title.nodeValue).toBe('Find your place\u00a0 ');
+  // Deleting forward from the end of the words takes nothing of it.
+  before('#h', 'deleteContentForward', [title, 16, title, 17]);
+  expect(title.nodeValue).toBe('Find your place\u00a0 ');
+  title.insertData(16, 'now');
+  typed('#h');
+  expect(words().at(-1)?.words).toBe('Find your place now');
+  expect($('#h').textContent).toBe('Find your place\u00a0now in Austin');
+  // An arrow into the next field's words stops at the end of these.
+  page.getSelection()?.collapse(run('em'), 2);
+  page.document.dispatchEvent(new page.Event('selectionchange'));
+  expect(page.getSelection()?.anchorNode).toBe(title);
+  expect(page.getSelection()?.anchorOffset).toBe(19);
+});
+
+it('ends the typing on Enter, and puts back what was there on Escape', () => {
+  typingPage();
+  down('#h');
+  run('#h').nodeValue = 'Changed ';
+  typed('#h');
+  const escape = new page.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+  $('#h').dispatchEvent(escape);
+  expect(escape.defaultPrevented).toBe(true);
+  expect(run('#h').nodeValue).toBe('Find your place ');
+  expect(words().at(-1)?.words).toBe('Find your place');
+  expect($('#h').hasAttribute('contenteditable')).toBe(false);
+
+  down('#h');
+  $('#h').dispatchEvent(new page.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  expect($('#h').hasAttribute('contenteditable')).toBe(false);
+});
+
+it('lets nothing be typed where the editor has not said so, in shaped text, in a button, or where the template marked the field itself', () => {
+  typingPage();
+  for (const selector of ['#body p', '#inb']) {
+    down(selector);
+    expect(page.document.querySelector('[contenteditable]')).toBeNull();
+  }
+  open(held('s1', [['title', 'Welcome'], ['price', '100']], '<h1 id="h">Welcome</h1><p id="p" data-cms-field="price">100</p>'));
+  down('#h');
+  hear({ source: 'velocity-cms', type: 'typable', places: { s1: ['price'] } });
+  down('#h');
+  down('#p');
+  expect(page.document.querySelector('[contenteditable]')).toBeNull();
+});
+
 it('listens to nothing but the editor of this site', () => {
   hear({ source: 'velocity-cms', type: 'show', id: 's1' }, { origin: 'https://elsewhere.example' });
   hear({ source: 'velocity-cms', type: 'show', id: 's1' }, { source: page });

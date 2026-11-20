@@ -1,12 +1,12 @@
 import { liveFields, type BlockDef, type BlockValue, type FieldDef } from '@velocity-astro/cms-core';
 import { ConfirmDialog, OptionPicker, SectionList, Text, type PickerOption } from '@velocity-astro/cms-ui';
 import { Copy, Eye, EyeOff, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { localized, withValue } from '../lib/content.js';
 import { useLast } from '../lib/use-closing.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
 import { blockIcon } from './block-icons.js';
-import type { FieldControlProps } from './field-control.js';
+import type { FieldControlProps, WordsPlace } from './field-control.js';
 import { FieldGrid } from './FieldGrid.js';
 import { useControlFor } from './FieldSummary.js';
 import { usePageFocus } from './page-focus.js';
@@ -60,6 +60,41 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
     const [key] = pressed.field?.split('.') ?? [];
     setPointed(key === undefined ? null : { section: pressed.id, key, at: pressed.at });
   }, [pressed]);
+  // Where each section holds plain words, by the keys the page knows its fields by.
+  const wordsOf = (section: BlockValue): readonly WordsPlace[] => {
+    const block = blockOf(blocks, section);
+    if (!block || block.retiredAt !== undefined) return [];
+    return liveFields(block.fields).flatMap((inner) =>
+      (controlFor(inner.type)?.words?.(inner, section.data[inner.id], controlFor) ?? []).map(({ place, put }) => ({
+        place: place === '' ? inner.key : `${inner.key}.${place}`,
+        put: (words: string) => withValue(section.data, inner.id, put(words)),
+      })),
+    );
+  };
+  const typable = Object.fromEntries(sections.map((section) => [section.id, wordsOf(section).map(({ place }) => place)]));
+  const typableSaid = JSON.stringify(typable);
+  const setTypable = focus?.setTypable;
+  useEffect(() => setTypable?.(JSON.parse(typableSaid) as Record<string, string[]>), [setTypable, typableSaid]);
+  // Words typed on the page go into the form as they are typed. Several may arrive before the
+  // form is drawn again, so each builds on the one before.
+  const held = useRef({ sections, wordsOf, change });
+  useEffect(() => {
+    held.current = { sections, wordsOf, change };
+  });
+  const onTyped = focus?.onTyped;
+  useEffect(
+    () =>
+      onTyped?.((id, field, words) => {
+        const now = held.current;
+        const section = now.sections.find((candidate) => candidate.id === id);
+        const place = section && now.wordsOf(section).find((candidate) => candidate.place === field);
+        if (!section || !place) return;
+        const next = now.sections.map((existing) => (existing.id === id ? { ...existing, data: place.put(words) as BlockValue['data'] } : existing));
+        held.current = { ...now, sections: next };
+        now.change(next);
+      }),
+    [onTyped],
+  );
   const remove = (id: string) => {
     change(sections.filter((section) => section.id !== id));
     setOpenIds((ids) => ids.filter((candidate) => candidate !== id));

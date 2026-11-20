@@ -1,5 +1,5 @@
 ---
-import { fieldMark, linkTo } from '@velocity-astro/cms-astro';
+import { linkTo } from '@velocity-astro/cms-astro';
 import type { Link } from '../blocks';
 
 interface Props {
@@ -14,7 +14,7 @@ const button = await linkTo(Astro, buttonTo);
 
 <section class="band strong">
   <div class="wrap row">
-    <h2 {...fieldMark('title')}>{title}</h2>
-    {button && <a class="button" href={button.href} {...fieldMark('buttonLabel')}>{buttonLabel}</a>}
+    <h2>{title}</h2>
+    {button && <a class="button" href={button.href}>{buttonLabel}</a>}
   </div>
 </section>

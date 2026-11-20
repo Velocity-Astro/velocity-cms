@@ -14,12 +14,15 @@ import {
 const PAUSE = 500;
 /** The name both sides put on what they say to each other, so nothing else is taken for it. */
 const SOURCE = 'velocity-cms';
+/** How long after words were typed on the page a change of the draft is taken to be those words, in milliseconds. */
+const OWN = 250;
 
 interface Said {
   readonly source?: unknown;
   readonly type?: unknown;
   readonly id?: unknown;
   readonly field?: unknown;
+  readonly words?: unknown;
 }
 
 export interface PagePreviewProps extends PagePreviewVariants {
@@ -45,39 +48,61 @@ export interface PagePreviewProps extends PagePreviewVariants {
   readonly onSectionPress?: (id: string, field?: string) => void;
   /** The section the page should have in view, and outlined. */
   readonly shownSectionId?: string;
+  /**
+   * Where words may be typed on the page itself: for each section's id, the fields of it, as keys
+   * (`title`, `items.0.text`). Left out, the page is only looked at and pressed.
+   */
+  readonly typable?: Readonly<Record<string, readonly string[]>>;
+  /**
+   * Called as words are typed into a field on the page, with all the field now says. The page
+   * already shows them, so the change of `draft` that follows asks for no new page.
+   */
+  readonly onWords?: (id: string, field: string, words: string) => void;
 }
 
 /**
  * A page of the site as it would look with what is in a form now, in a frame. The page is drawn
  * by the site itself, so it looks exactly as it will; nothing of it is drawn here.
  */
-export function PagePreview({ label, address, draft, note, toolbar, emptyText, onSectionPress, shownSectionId, width }: PagePreviewProps) {
+export function PagePreview({ label, address, draft, note, toolbar, emptyText, onSectionPress, shownSectionId, typable, onWords, width }: PagePreviewProps) {
   const name = `preview-${useId().replaceAll(':', '')}`;
   const form = useRef<HTMLFormElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const hasSent = useRef(false);
-  const latest = useRef({ onSectionPress, shownSectionId });
+  const places = typable === undefined ? undefined : JSON.stringify(typable);
+  const latest = useRef({ onSectionPress, shownSectionId, onWords, places });
   useEffect(() => {
-    latest.current = { onSectionPress, shownSectionId };
+    latest.current = { onSectionPress, shownSectionId, onWords, places };
   });
+  // When words were last typed on the page, and whether the page lacks a change made in the form.
+  const typedAt = useRef(0);
+  const isBehind = useRef(false);
 
   // The first page is asked for at once. After that, a pause in the typing asks for the next.
   useEffect(() => {
     if (address === undefined) return;
     const send = () => {
       hasSent.current = true;
+      isBehind.current = false;
       form.current?.submit();
     };
     if (!hasSent.current) {
       send();
       return;
     }
+    // Words typed on the page are on the page already: drawing it again would take the caret away.
+    if (Date.now() - typedAt.current < OWN && !isBehind.current) return;
+    isBehind.current = true;
     const waiting = setTimeout(send, PAUSE);
     return () => clearTimeout(waiting);
   }, [address, draft]);
 
   const show = (id: string | undefined) => {
     if (id !== undefined) frame.current?.contentWindow?.postMessage({ source: SOURCE, type: 'show', id }, window.location.origin);
+  };
+
+  const tell = (said: string | undefined) => {
+    if (said !== undefined) frame.current?.contentWindow?.postMessage({ source: SOURCE, type: 'typable', places: JSON.parse(said) as unknown }, window.location.origin);
   };
 
   // Only this site's own page, in this frame, is listened to.
@@ -90,13 +115,21 @@ export function PagePreview({ label, address, draft, note, toolbar, emptyText, o
         if (typeof said.field === 'string') latest.current.onSectionPress?.(said.id, said.field);
         else latest.current.onSectionPress?.(said.id);
       }
-      if (said.type === 'ready') show(latest.current.shownSectionId);
+      if (said.type === 'words' && typeof said.id === 'string' && typeof said.field === 'string' && typeof said.words === 'string') {
+        typedAt.current = Date.now();
+        latest.current.onWords?.(said.id, said.field, said.words);
+      }
+      if (said.type === 'ready') {
+        tell(latest.current.places);
+        show(latest.current.shownSectionId);
+      }
     };
     window.addEventListener('message', hear);
     return () => window.removeEventListener('message', hear);
   }, []);
 
   useEffect(() => show(shownSectionId), [shownSectionId]);
+  useEffect(() => tell(places), [places]);
 
   return (
     <div className={pagePreviewClass}>

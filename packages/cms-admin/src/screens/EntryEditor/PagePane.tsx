@@ -51,7 +51,7 @@ export function PagePane({ entry, data, title }: PagePaneProps) {
         />
       }
       emptyText={emptyText}
-      {...(focus && { onSectionPress: focus.press })}
+      {...(focus && { onSectionPress: focus.press, typable: focus.typable, onWords: focus.typed })}
       {...(focus?.opened !== undefined && { shownSectionId: focus.opened })}
     />
   );

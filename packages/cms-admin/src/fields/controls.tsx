@@ -7,7 +7,7 @@ import { prepareImage } from '../lib/prepare-image.js';
 import { smallOf } from '../lib/small-image.js';
 import { entryTitle, groupTranslations, localized, sameData, withValue } from '../lib/content.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
-import { createFieldControlRegistry, type FieldControlProps, type FieldControls, type FieldSummaryProps } from './field-control.js';
+import { createFieldControlRegistry, type FieldControl, type FieldControlProps, type FieldControls, type FieldSummaryProps, type WordsPlace } from './field-control.js';
 import { BlocksControl } from './BlocksControl.js';
 import { FieldEditor } from './FieldEditor.js';
 import { FieldGrid } from './FieldGrid.js';
@@ -327,6 +327,42 @@ function GroupControl({ field, label, help, isLabelHidden = false, value, onChan
 
 const isFilled = (item: unknown) => item !== undefined && item !== null;
 
+type ControlFor = (type: string) => FieldControl | undefined;
+const under = (key: string, place: string) => (place === '' ? key : `${key}.${place}`);
+
+/** Text is its own words. An empty field is a place too: one emptied on the page is typed into again. */
+const textWords = (_field: FieldDef, value: unknown): readonly WordsPlace[] =>
+  value === undefined || value === null || typeof value === 'string' ? [{ place: '', put: (words) => (words === '' ? undefined : words) }] : [];
+
+/** A group holds the words of its fields, each under the field's key. */
+function groupWords(field: FieldDef, value: unknown, controlFor: ControlFor): readonly WordsPlace[] {
+  const inner = Array.isArray(field.options['fields']) ? liveFields(field.options['fields'] as FieldDef[]) : [];
+  const values = typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
+  return inner.flatMap((child) =>
+    (controlFor(child.type)?.words?.(child, values[child.id], controlFor) ?? []).map(({ place, put }) => ({
+      place: under(child.key, place),
+      put: (words: string) => {
+        const changed = withValue(values, child.id, put(words));
+        return Object.keys(changed).length === 0 ? undefined : changed;
+      },
+    })),
+  );
+}
+
+/** A list holds the words of its items, each under the item's place. An item emptied on the page keeps its place. */
+function listWords(field: FieldDef, value: unknown, controlFor: ControlFor): readonly WordsPlace[] {
+  const items: readonly unknown[] = Array.isArray(value) ? value : [];
+  const of = (field.options['of'] ?? { type: 'text' }) as { readonly type: string; readonly options?: Readonly<Record<string, unknown>> };
+  const words = controlFor(of.type)?.words;
+  if (!words) return [];
+  return items.flatMap((item, index) =>
+    words({ ...field, id: `${field.id}.${index}`, key: String(index), type: of.type, required: false, options: of.options ?? {} }, item, controlFor).map(({ place, put }) => ({
+      place: under(String(index), place),
+      put: (typed: string) => items.map((existing, at) => (at === index ? (put(typed) ?? (typeof existing === 'string' ? '' : {})) : existing)),
+    })),
+  );
+}
+
 /** One item of a list on screen. Its id stays with it while it is moved, so an open row stays open. */
 interface Row {
   readonly id: string;
@@ -462,7 +498,7 @@ const ITEM = 'en';
 /** The controls for the field types every site has. A site or plugin registers more on the result. */
 export function createFieldControls(): FieldControls {
   return createFieldControlRegistry()
-    .register({ type: 'text-input', Component: TextControl })
+    .register({ type: 'text-input', Component: TextControl, words: textWords })
     .register({ type: 'url-input', Component: UrlControl })
     .register({ type: 'email-input', Component: EmailControl })
     .register({ type: 'phone-input', Component: PhoneControl })
@@ -475,7 +511,7 @@ export function createFieldControls(): FieldControls {
     .register({ type: 'link', Component: LinkControl })
     .register({ type: 'image', Component: ImageControl })
     .register({ type: 'rich-text', Component: RichTextControl })
-    .register({ type: 'group', Component: GroupControl, titleOf: groupTitle })
-    .register({ type: 'list', Component: ListControl })
+    .register({ type: 'group', Component: GroupControl, titleOf: groupTitle, words: groupWords })
+    .register({ type: 'list', Component: ListControl, words: listWords })
     .register({ type: 'blocks', Component: BlocksControl, showsPage: true });
 }
