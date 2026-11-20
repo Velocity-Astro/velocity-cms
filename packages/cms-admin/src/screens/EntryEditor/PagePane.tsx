@@ -69,15 +69,12 @@ export function PagePane({ entry, data, title, width, onWidthChange, isWhole, on
       width={width}
       isBare={isWhole}
       {...(!isWhole && {
-        note: messages.editor.pageNote,
-        toolbar: (
-          <>
-            <PageWidths width={width} onChange={onWidthChange} />
-            <Button variant="secondary" size="sm" icon={Maximize2} isDisabled={entry === null} onPress={onWhole}>
-              {messages.editor.visualOpen}
-            </Button>
-          </>
+        action: (
+          <Button variant="secondary" size="sm" icon={Maximize2} isDisabled={entry === null} onPress={onWhole}>
+            {messages.editor.visualOpen}
+          </Button>
         ),
+        toolbar: <PageWidths width={width} onChange={onWidthChange} />,
       })}
       emptyText={emptyText}
       {...(focus && {
@@ -88,6 +85,8 @@ export function PagePane({ entry, data, title, width, onWidthChange, isWhole, on
         },
         typable: focus.typable,
         onWords: focus.typed,
+        onSectionAction: focus.acted,
+        ...(focus.tools !== undefined && { tools: focus.tools }),
       })}
       {...(focus?.opened !== undefined && { shownSectionId: focus.opened })}
     />

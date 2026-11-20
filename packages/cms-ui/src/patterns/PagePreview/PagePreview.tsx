@@ -23,6 +23,18 @@ interface Said {
   readonly id?: unknown;
   readonly field?: unknown;
   readonly words?: unknown;
+  readonly action?: unknown;
+}
+
+/** What can be done to a section from the page itself. */
+const ACTIONS = ['up', 'down', 'duplicate', 'remove', 'addBefore', 'addAfter'] as const;
+export type PageSectionAction = (typeof ACTIONS)[number];
+
+export interface PageSectionTools {
+  /** What each button is called, shown when the pointer rests on it, and the words on the button that adds a section. */
+  readonly labels: { readonly up: string; readonly down: string; readonly duplicate: string; readonly remove: string; readonly add: string; readonly addBefore: string; readonly addAfter: string };
+  /** For each section's id: what it is called, and what can be done to it now. */
+  readonly sections: Readonly<Record<string, { readonly name: string; readonly up: boolean; readonly down: boolean; readonly copy: boolean; readonly add: boolean }>>;
 }
 
 export interface PagePreviewProps extends PagePreviewVariants {
@@ -39,6 +51,8 @@ export interface PagePreviewProps extends PagePreviewVariants {
   readonly note?: string;
   /** Controls for the preview, such as the choice of width. */
   readonly toolbar?: ReactNode;
+  /** The one thing to do with the page, such as opening it larger: a `Button` at the start of the bar, in place of `note`. */
+  readonly action?: ReactNode;
   /** Shown in place of the page when there is no `address`. */
   readonly emptyText: string;
   /**
@@ -58,6 +72,13 @@ export interface PagePreviewProps extends PagePreviewVariants {
    * already shows them, so the change of `draft` that follows asks for no new page.
    */
   readonly onWords?: (id: string, field: string, words: string) => void;
+  /**
+   * Puts a small bar on the section the pointer is in (move up, move down, copy, remove) and a
+   * button at each of its edges that adds a section there. Left out, the page has none.
+   */
+  readonly tools?: PageSectionTools;
+  /** Called when a button of `tools` is pressed on the page. The page changes nothing itself. */
+  readonly onSectionAction?: (id: string, action: PageSectionAction) => void;
   /** No border of its own, for a place that frames it already, such as a whole window. */
   readonly isBare?: boolean;
 }
@@ -66,15 +87,16 @@ export interface PagePreviewProps extends PagePreviewVariants {
  * A page of the site as it would look with what is in a form now, in a frame. The page is drawn
  * by the site itself, so it looks exactly as it will; nothing of it is drawn here.
  */
-export function PagePreview({ label, address, draft, note, toolbar, emptyText, onSectionPress, shownSectionId, typable, onWords, isBare = false, width }: PagePreviewProps) {
+export function PagePreview({ label, address, draft, note, toolbar, action, emptyText, onSectionPress, shownSectionId, typable, onWords, tools, onSectionAction, isBare = false, width }: PagePreviewProps) {
   const name = `preview-${useId().replaceAll(':', '')}`;
   const form = useRef<HTMLFormElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const hasSent = useRef(false);
   const places = typable === undefined ? undefined : JSON.stringify(typable);
-  const latest = useRef({ onSectionPress, shownSectionId, onWords, places });
+  const offered = tools === undefined ? undefined : JSON.stringify(tools);
+  const latest = useRef({ onSectionPress, shownSectionId, onWords, places, offered, onSectionAction });
   useEffect(() => {
-    latest.current = { onSectionPress, shownSectionId, onWords, places };
+    latest.current = { onSectionPress, shownSectionId, onWords, places, offered, onSectionAction };
   });
   // When words were last typed on the page, and whether the page lacks a change made in the form.
   const typedAt = useRef(0);
@@ -107,6 +129,10 @@ export function PagePreview({ label, address, draft, note, toolbar, emptyText, o
     if (said !== undefined) frame.current?.contentWindow?.postMessage({ source: SOURCE, type: 'typable', places: JSON.parse(said) as unknown }, window.location.origin);
   };
 
+  const offer = (said: string | undefined) => {
+    if (said !== undefined) frame.current?.contentWindow?.postMessage({ source: SOURCE, type: 'tools', ...(JSON.parse(said) as object) }, window.location.origin);
+  };
+
   // Only this site's own page, in this frame, is listened to.
   useEffect(() => {
     const hear = (event: MessageEvent<Said | null>) => {
@@ -121,8 +147,13 @@ export function PagePreview({ label, address, draft, note, toolbar, emptyText, o
         typedAt.current = Date.now();
         latest.current.onWords?.(said.id, said.field, said.words);
       }
+      if (said.type === 'act' && typeof said.id === 'string') {
+        const action = ACTIONS.find((candidate) => candidate === said.action);
+        if (action) latest.current.onSectionAction?.(said.id, action);
+      }
       if (said.type === 'ready') {
         tell(latest.current.places);
+        offer(latest.current.offered);
         show(latest.current.shownSectionId);
       }
     };
@@ -132,12 +163,13 @@ export function PagePreview({ label, address, draft, note, toolbar, emptyText, o
 
   useEffect(() => show(shownSectionId), [shownSectionId]);
   useEffect(() => tell(places), [places]);
+  useEffect(() => offer(offered), [offered]);
 
   return (
     <div className={pagePreviewVariants({ isBare })}>
-      {(note !== undefined || toolbar !== undefined) && (
+      {(note !== undefined || toolbar !== undefined || action !== undefined) && (
         <div className={pagePreviewBarClass}>
-          <span className={pagePreviewNoteClass}>{note}</span>
+          {action ?? <span className={pagePreviewNoteClass}>{note}</span>}
           {toolbar}
         </div>
       )}

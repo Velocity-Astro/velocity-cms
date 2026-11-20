@@ -362,3 +362,68 @@ it('is sent to the page as text that stands alone', () => {
   // Nothing of the module it was written in may be left in it.
   expect(PREVIEW_BRIDGE_SCRIPT).not.toMatch(/__vite|import\(|require\(/);
 });
+
+const TOOLS = {
+  labels: { up: 'Move up', down: 'Move down', duplicate: 'Duplicate', remove: 'Remove', add: 'Add section', addBefore: 'Add a section above', addAfter: 'Add a section below' },
+  sections: { s1: { name: 'Hero', up: false, down: true, copy: true, add: true }, s2: { name: 'List', up: true, down: false, copy: false, add: false } },
+};
+const pointAt = (selector: string) => $(selector).dispatchEvent(new page.MouseEvent('mouseover', { bubbles: true }));
+const toolOf = (action: string) => $(`[data-cms-tool="${action}"]`) as HTMLButtonElement;
+const acts = () => (said as [{ type: string; id: string; action: string }, string][]).map(([message]) => message).filter((message) => message.type === 'act');
+
+it('shows no bar on a section until the editor says what can be done to it', () => {
+  open();
+  pointAt('h1');
+  expect($('[data-cms-tools]').style.display).toBe('none');
+  hear({ source: 'velocity-cms', type: 'tools', ...TOOLS });
+  pointAt('h1');
+  expect($('[data-cms-tools]').style.display).toBe('flex');
+  expect($('[data-cms-tools]').textContent).toBe('Hero');
+  expect(toolOf('addBefore').style.display).toBe('flex');
+  expect(toolOf('addAfter').textContent).toBe('Add section');
+  expect(toolOf('remove').title).toBe('Remove');
+  // A page outside every section has no bar.
+  pointAt('footer a');
+  expect($('[data-cms-tools]').style.display).toBe('none');
+});
+
+it('says which button of the bar was pressed, changes nothing itself, and keeps the bar while the pointer is on it', () => {
+  open();
+  hear({ source: 'velocity-cms', type: 'tools', ...TOOLS });
+  pointAt('h1');
+  const before = page.document.body.innerHTML;
+  pointAt('[data-cms-tool="down"]');
+  expect($('[data-cms-tools]').style.display).toBe('flex');
+  toolOf('down').click();
+  toolOf('addAfter').click();
+  expect(acts()).toEqual([
+    { source: 'velocity-cms', type: 'act', id: 's1', action: 'down' },
+    { source: 'velocity-cms', type: 'act', id: 's1', action: 'addAfter' },
+  ]);
+  // A press on the bar chooses no section.
+  expect((said as [{ type: string }, string][]).filter(([message]) => message.type === 'section')).toHaveLength(0);
+  expect(page.document.body.innerHTML).toBe(before);
+});
+
+it('leaves out what cannot be done: the first cannot go up, and a full page takes no more', () => {
+  open();
+  hear({ source: 'velocity-cms', type: 'tools', ...TOOLS });
+  pointAt('h1');
+  expect(toolOf('up').disabled).toBe(true);
+  toolOf('up').click();
+  pointAt('li');
+  expect($('[data-cms-tools]').textContent).toBe('List');
+  expect(toolOf('down').disabled).toBe(true);
+  expect(toolOf('duplicate').disabled).toBe(true);
+  expect(toolOf('addBefore').style.display).toBe('none');
+  expect(acts()).toEqual([]);
+});
+
+it('puts the bar away while words are typed', () => {
+  typingPage();
+  hear({ source: 'velocity-cms', type: 'tools', labels: TOOLS.labels, sections: { s1: TOOLS.sections.s1 } });
+  pointAt('#h');
+  expect($('[data-cms-tools]').style.display).toBe('flex');
+  down('#h');
+  expect($('[data-cms-tools]').style.display).toBe('none');
+});

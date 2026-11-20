@@ -135,6 +135,12 @@ it('says so when there is no page yet, and asks for nothing', () => {
   expect(submit).not.toHaveBeenCalled();
 });
 
+it('shows its one action at the start of the bar, in place of the note', () => {
+  render(example({ note: 'A note', action: <button type="button">Open larger</button> }));
+  expect(screen.getByRole('button', { name: 'Open larger' })).toBeTruthy();
+  expect(screen.queryByText('A note')).toBeNull();
+});
+
 it('has no accessibility violations', async () => {
   const { container } = render(example({ note: 'Shows the form as it is now.' }));
   await expectAccessible(container);
