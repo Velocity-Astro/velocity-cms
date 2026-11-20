@@ -626,12 +626,27 @@ export function previewBridge(page: Window & typeof globalThis): void {
     return button;
   };
   const buttons = { up: tool('up'), down: tool('down'), duplicate: tool('duplicate'), remove: tool('remove') };
+  // Adding is on the bar too, for a section whose edges are off the page.
+  const more = doc.createElement('button');
+  more.type = 'button';
+  more.tabIndex = -1;
+  more.setAttribute('data-cms-tool', 'addBelow');
+  Object.assign(more.style, { display: 'grid', placeItems: 'center', width: '28px', height: '28px', padding: '0', border: '0', borderRadius: '6px', background: 'transparent', color: 'inherit', cursor: 'pointer' });
+  more.append(drawing('add'));
+  press(more, 'addAfter');
+  bar.append(more);
   // Swatches: a look of the section chosen among a few of the site's colours has a dot for each
   // choice on the bar. The page changes nothing: it says which was pressed.
   const dots = doc.createElement('span');
   dots.setAttribute('data-cms-swatches', '');
   Object.assign(dots.style, { display: 'none', alignItems: 'center', gap: '7px', padding: '0 6px 0 10px', marginLeft: '4px', borderLeft: '1px solid color-mix(in srgb, currentColor 25%, transparent)' });
   bar.append(dots);
+  // One bar for everything: what can be done to the thing the pointer was last on (a picture, a
+  // link, an item of a list) is at its end, in the editor's orange, as the thing's own outline is.
+  const forThing = doc.createElement('span');
+  forThing.setAttribute('data-cms-about', '');
+  Object.assign(forThing.style, { display: 'none', alignItems: 'center', gap: '4px', paddingLeft: '8px', marginLeft: '4px', borderLeft: '1px solid color-mix(in srgb, currentColor 25%, transparent)' });
+  bar.append(forThing);
   // A colour and nothing else: a sample is never an address to fetch.
   const COLOUR = /^(?:#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})|(?:oklch|oklab|rgb|hsl)\([0-9.%,/ -]+\))$/i;
   let dotted = '';
@@ -704,6 +719,15 @@ export function previewBridge(page: Window & typeof globalThis): void {
     layer.append(button);
     return button;
   };
+  // A line along each edge of the section the bar is on, with the button that adds a section there.
+  const seam = (): HTMLElement => {
+    const drawn = doc.createElement('div');
+    drawn.setAttribute('data-cms-seam', '');
+    Object.assign(drawn.style, { position: 'absolute', display: 'none', height: '2px', marginTop: '-1px', background: ACCENT });
+    layer.append(drawn);
+    return drawn;
+  };
+  const seams = { addBefore: seam(), addAfter: seam() };
   const adders = { addBefore: adder('addBefore'), addAfter: adder('addAfter') };
   // An empty place inside a section (a column with nothing in it yet) has a button that adds the first.
   const slotOf = (element: HTMLElement): string => element.dataset['cmsSlot'] ?? '';
@@ -740,37 +764,36 @@ export function previewBridge(page: Window & typeof globalThis): void {
   };
   layer.append(bar);
   const word = (value: unknown): string => (typeof value === 'string' ? value : '');
-  // What the editor can change from the page has a button of its own while the pointer is over it:
-  // a picture, and a link or a button. The pointer may be on something the template lays over
-  // it, so it is found by where it is.
+  // What the editor can change from the page has a button of its own on the bar once the pointer
+  // has been on it: a picture, and a link or a button. The pointer may be on something the
+  // template lays over it, so it is found by where it is.
   const chip = (name: string): HTMLButtonElement => {
     const button = doc.createElement('button');
     button.type = 'button';
     button.tabIndex = -1;
     button.setAttribute('data-cms-tool', name);
     Object.assign(button.style, {
-      position: 'absolute',
       display: 'none',
       alignItems: 'center',
       gap: '6px',
       height: '28px',
-      padding: '0 12px 0 8px',
+      padding: '0 10px 0 8px',
       border: '0',
-      borderRadius: '14px',
+      borderRadius: '6px',
       background: ACCENT,
       color: ACCENT_INK,
       font: `600 12px/1 ${FONT}`,
-      boxShadow: '0 4px 12px rgb(0 0 0 / 0.25)',
       whiteSpace: 'nowrap',
       cursor: 'pointer',
-      pointerEvents: 'auto',
     });
     button.append(drawing(name), doc.createElement('span'));
     button.addEventListener('mousedown', (event) => event.preventDefault());
-    layer.append(button);
+    forThing.append(button);
     return button;
   };
   let pictured: Mark | null = null;
+  const pictureBox = outline('picture', '2px');
+  const linkBox = outline('link', '2px');
   const changer = chip('picture');
   changer.addEventListener('click', () => {
     if (pictured?.field !== undefined) say({ type: 'picture', id: pictured.section, field: pictured.field });
@@ -992,6 +1015,11 @@ export function previewBridge(page: Window & typeof globalThis): void {
     return found;
   };
   let itemed: Item | null = null;
+  /** Where the item the bar is about will be on the page drawn next. */
+  let next: number | undefined;
+  /** What the bar was on when the page was last drawn: it is on it again, with no move of the pointer. */
+  let again: { readonly id: string; readonly list?: string; readonly at?: number } | null = null;
+  let forget = (): void => undefined;
   const itemAt = (x: number, y: number): Item | null => {
     const id = tooled?.dataset['cmsSection'] ?? '';
     if (!tooled || !tools) return null;
@@ -999,22 +1027,11 @@ export function previewBridge(page: Window & typeof globalThis): void {
     const mark = smallestAt(items, x, y);
     return items.find((item) => item.element === mark?.element && item.field === mark.field) ?? null;
   };
-  const itemBox = outline('item', '1px');
+  const itemBox = outline('item', '2px');
   itemBox.style.borderStyle = 'dashed';
   const itemBar = doc.createElement('div');
   itemBar.setAttribute('data-cms-item-tools', '');
-  Object.assign(itemBar.style, {
-    position: 'absolute',
-    display: 'none',
-    alignItems: 'center',
-    gap: '2px',
-    padding: '2px',
-    borderRadius: '8px',
-    background: 'CanvasText',
-    color: 'Canvas',
-    boxShadow: '0 4px 12px rgb(0 0 0 / 0.25)',
-    pointerEvents: 'auto',
-  });
+  Object.assign(itemBar.style, { display: 'none', alignItems: 'center', gap: '0', padding: '0 2px', height: '28px', boxSizing: 'border-box', borderRadius: '6px', background: ACCENT, color: ACCENT_INK });
   const itemTool = (action: string): HTMLButtonElement => {
     const button = doc.createElement('button');
     button.type = 'button';
@@ -1024,13 +1041,16 @@ export function previewBridge(page: Window & typeof globalThis): void {
     button.append(drawing(action));
     button.addEventListener('mousedown', (event) => event.preventDefault());
     button.addEventListener('click', () => {
-      if (itemed && !button.disabled) say({ type: 'item', id: itemed.section, field: itemed.list, at: itemed.at, action });
+      if (!itemed || button.disabled) return;
+      // Where the item will be once the page is drawn again, so the bar is still about it.
+      next = action === 'remove' ? undefined : itemed.at + (action === 'up' ? -1 : action === 'down' ? 1 : 0);
+      say({ type: 'item', id: itemed.section, field: itemed.list, at: itemed.at, action });
     });
     itemBar.append(button);
     return button;
   };
   const itemButtons = { up: itemTool('up'), down: itemTool('down'), duplicate: itemTool('duplicate'), remove: itemTool('remove') };
-  layer.append(itemBar);
+  forThing.append(itemBar);
   const placeItem = (): void => {
     const rect = shownRect(itemed);
     if (!rect || !tools || !itemed) {
@@ -1051,11 +1071,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
       button.style.cursor = able[action] ? 'pointer' : 'default';
       if (action === 'up' || action === 'down') (button.firstElementChild as SVGElement | null)?.style.setProperty('transform', sideways ? 'rotate(-90deg)' : 'none');
     }
-    // Inside the top corner of a card, and right under a line of words, which it would hide:
-    // either way the pointer reaches it without leaving the item.
-    const small = rect.height < 80;
-    const top = small ? (rect.bottom + 30 <= page.innerHeight ? rect.bottom - 2 : rect.top - 28) : Math.max(rect.top, 0) + 6;
-    Object.assign(itemBar.style, { display: 'flex', top: `${Math.max(top, 0)}px`, left: 'auto', right: `${Math.max(page.innerWidth - rect.right, 0) + (small ? 0 : 6)}px` });
+    itemBar.style.display = 'flex';
   };
   const shownRect = (mark: Mark | null): DOMRect | null => {
     const rect = !typing && !writing && !drag?.moved && mark?.element.isConnected ? mark.element.getBoundingClientRect() : null;
@@ -1063,40 +1079,58 @@ export function previewBridge(page: Window & typeof globalThis): void {
   };
   const placeChips = (): void => {
     const picture = shownRect(pictured);
-    if (picture && tools) {
-      if (changer.lastElementChild) changer.lastElementChild.textContent = word(tools.labels['picture']);
-      // At the picture's lower corner, and at the foot of the page while the picture's own is below it:
-      // the top of a section is where a page's header and the section's bar are.
-      Object.assign(changer.style, { display: 'flex', top: `${Math.max(Math.min(picture.bottom, page.innerHeight) - 36, Math.max(picture.top, 0))}px`, left: `${Math.max(picture.left, 0) + 8}px` });
-    } else {
-      changer.style.display = 'none';
-    }
+    changer.style.display = picture && tools ? 'flex' : 'none';
+    if (picture && tools && changer.lastElementChild) changer.lastElementChild.textContent = word(tools.labels['picture']);
+    place(pictureBox, picture ? pictured : null);
     const link = shownRect(linked);
-    if (link && tools) {
-      if (linker.lastElementChild) linker.lastElementChild.textContent = word(tools.labels['link']);
-      // Right under the link and touching it, so the pointer reaches the button without leaving
-      // both; above it where the page ends below.
-      const top = link.bottom + 26 <= page.innerHeight ? link.bottom - 2 : link.top - 26;
-      Object.assign(linker.style, { display: 'flex', top: `${Math.max(top, 0)}px`, left: `${Math.max(link.left, 0)}px` });
-    } else {
-      linker.style.display = 'none';
-    }
+    linker.style.display = link && tools ? 'flex' : 'none';
+    if (link && tools && linker.lastElementChild) linker.lastElementChild.textContent = word(tools.labels['link']);
+    place(linkBox, link ? linked : null);
     placeItem();
+    forThing.style.display = changer.style.display === 'none' && linker.style.display === 'none' && itemBar.style.display === 'none' ? 'none' : 'flex';
     placeFormat();
+  };
+  // What the bar is about stays as it was while the pointer travels: over nothing, and across
+  // other things on its way to the bar. It turns to another thing once the pointer rests on it.
+  const REST = 140;
+  let resting: number | undefined;
+  const sameThing = (one: Mark | null, other: Mark | null): boolean => one?.element === other?.element && one?.field === other?.field;
+  const pointed = (x: number, y: number, isNow: boolean): void => {
+    page.clearTimeout(resting);
+    resting = undefined;
+    const picture = pictureAt(x, y);
+    const link = linkAt(x, y);
+    const item = itemAt(x, y);
+    if (!picture && !link && !item) return;
+    // Less of the same thing (the card, off its picture) is no reason to take a button away.
+    if ((!picture || sameThing(picture, pictured)) && (!link || sameThing(link, linked)) && (!item || sameThing(item, itemed))) return;
+    const turn = (): void => {
+      resting = undefined;
+      pictured = picture;
+      linked = link;
+      itemed = item;
+      placeTools();
+    };
+    if (isNow || (!pictured && !linked && !itemed)) turn();
+    else resting = page.setTimeout(turn, REST);
+  };
+  forget = (): void => {
+    page.clearTimeout(resting);
+    resting = undefined;
+    pictured = null;
+    linked = null;
+    itemed = null;
   };
   doc.addEventListener(
     'mousemove',
     (event) => {
       // On the layer's own buttons, what they are for stays as it was.
-      if (isElement(event.target) && layer.contains(event.target)) return;
-      const picture = pictureAt(event.clientX, event.clientY);
-      const link = linkAt(event.clientX, event.clientY);
-      const item = itemAt(event.clientX, event.clientY);
-      if (picture?.element === pictured?.element && link?.element === linked?.element && item?.element === itemed?.element && item?.field === itemed?.field) return;
-      pictured = picture;
-      linked = link;
-      itemed = item;
-      placeChips();
+      if (isElement(event.target) && layer.contains(event.target)) {
+        page.clearTimeout(resting);
+        resting = undefined;
+        return;
+      }
+      pointed(event.clientX, event.clientY, false);
     },
     true,
   );
@@ -1107,6 +1141,8 @@ export function previewBridge(page: Window & typeof globalThis): void {
       bar.style.display = 'none';
       adders.addBefore.style.display = 'none';
       adders.addAfter.style.display = 'none';
+      seams.addBefore.style.display = 'none';
+      seams.addAfter.style.display = 'none';
     };
     // While words are typed, nothing sits over them.
     const section = typing || writing || drag?.moved ? null : tooled?.isConnected ? tooled : null;
@@ -1125,12 +1161,17 @@ export function previewBridge(page: Window & typeof globalThis): void {
       button.style.cursor = able[action] ? 'pointer' : 'default';
     }
     // At the section's top corner, and at the top of the page while the section's own top is above it.
+    more.title = word(tools.labels['addAfter']);
+    more.style.display = about.add === true ? 'grid' : 'none';
     Object.assign(bar.style, { display: 'flex', top: `${Math.min(Math.max(rect.top, 0) + 12, Math.max(rect.bottom - 44, 0))}px`, left: 'auto', right: `${Math.max(page.innerWidth - rect.right, 0) + 12}px` });
+    // A bar wider than the room to its left (a narrow column) starts at the page's edge instead.
+    if (bar.offsetWidth > 0 && bar.getBoundingClientRect().left < 4) Object.assign(bar.style, { left: '4px', right: 'auto' });
     for (const [action, edge] of [['addBefore', rect.top], ['addAfter', rect.bottom]] as const) {
       const button = adders[action];
       // An edge that is off the page, or a page that takes no more sections, has no button.
       const shown = about.add === true && edge >= 14 && edge <= page.innerHeight - 14;
       button.style.display = shown ? 'flex' : 'none';
+      Object.assign(seams[action].style, { display: shown ? 'block' : 'none', top: `${edge}px`, left: `${rect.left}px`, width: `${rect.width}px` });
       if (!shown) continue;
       if (button.lastElementChild) button.lastElementChild.textContent = word(tools.labels['add']);
       button.title = word(tools.labels[action]);
@@ -1254,15 +1295,18 @@ export function previewBridge(page: Window & typeof globalThis): void {
     if (isElement(event.target) && layer.contains(event.target)) return;
     marks.over = markOf(event.target);
     if (marks.over) marks.over.element.style.cursor = runFor(marks.over) ? 'text' : 'pointer';
-    tooled = isElement(event.target) ? event.target.closest<HTMLElement>('[data-cms-section]') : null;
+    // Over what is no section (a header, a gap), the bar stays with the section it was on.
+    const section = isElement(event.target) ? event.target.closest<HTMLElement>('[data-cms-section]') : null;
+    if (section && section !== tooled) {
+      tooled = section;
+      forget();
+    }
     draw();
   });
   doc.documentElement.addEventListener('mouseleave', () => {
     marks.over = null;
     tooled = null;
-    pictured = null;
-    linked = null;
-    itemed = null;
+    forget();
     draw();
   });
   // Nothing on the page goes anywhere: a click chooses what it is on.
@@ -1272,6 +1316,8 @@ export function previewBridge(page: Window & typeof globalThis): void {
       event.preventDefault();
       // A press on the layer's own bar is that button's business.
       if (isElement(event.target) && layer.contains(event.target)) return;
+      // A press, or a tap where there is no pointer to rest, says at once what the bar is about.
+      pointed(event.clientX, event.clientY, true);
       const mark = markOf(event.target);
       if (!mark) return;
       marks.chosen = mark;
@@ -1302,6 +1348,12 @@ export function previewBridge(page: Window & typeof globalThis): void {
       const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
       const slots = (said as { slots?: unknown }).slots;
       tools = isRecord(said.labels) && isRecord(said.sections) ? { labels: said.labels, sections: said.sections as Tools['sections'], ...(isRecord(slots) && { slots: slots as NonNullable<Tools['slots']> }) } : null;
+      if (again && tools && !tooled) {
+        const was = again;
+        tooled = [...doc.querySelectorAll<HTMLElement>('[data-cms-section]')].find((section) => section.dataset['cmsSection'] === was.id) ?? null;
+        if (tooled && was.list !== undefined) itemed = itemsOf(tooled, was.id).find((item) => item.list === was.list && item.at === was.at) ?? null;
+      }
+      if (tools) again = null;
       draw();
       return;
     }
@@ -1328,13 +1380,14 @@ export function previewBridge(page: Window & typeof globalThis): void {
   // it stays put even when something above is taller or shorter now, and else by how far down it was.
   const key = `velocity-cms:scroll:${page.location.pathname}`;
   try {
-    let kept: { readonly y?: unknown; readonly id?: unknown; readonly top?: unknown } = {};
+    let kept: { readonly y?: unknown; readonly id?: unknown; readonly top?: unknown; readonly on?: unknown; readonly list?: unknown; readonly at?: unknown } = {};
     try {
       const read: unknown = JSON.parse(page.sessionStorage.getItem(key) ?? 'null');
       kept = typeof read === 'number' ? { y: read } : typeof read === 'object' && read !== null ? read : {};
     } catch {
       // What was kept another way is as good as nothing kept.
     }
+    if (kept.on === true && typeof kept.id === 'string') again = { id: kept.id, ...(typeof kept.list === 'string' && typeof kept.at === 'number' && { list: kept.list, at: kept.at }) };
     const back = (): void => {
       if (typeof kept.y !== 'number' || !(kept.y > 0)) return;
       const section = [...doc.querySelectorAll<HTMLElement>('[data-cms-section]')].find((candidate) => candidate.dataset['cmsSection'] === kept.id);
@@ -1362,7 +1415,8 @@ export function previewBridge(page: Window & typeof globalThis): void {
         return rect !== null && rect.bottom > 0 && rect.top < page.innerHeight;
       };
       const section = inView(tooled) ? tooled : [...doc.querySelectorAll<HTMLElement>('[data-cms-section]')].find(inView);
-      page.sessionStorage.setItem(key, JSON.stringify({ y: page.scrollY, ...(section && { id: section.dataset['cmsSection'], top: section.getBoundingClientRect().top }) }));
+      const item = section === tooled && itemed ? { list: itemed.list, at: next ?? itemed.at } : undefined;
+      page.sessionStorage.setItem(key, JSON.stringify({ y: page.scrollY, ...(section && { id: section.dataset['cmsSection'], top: section.getBoundingClientRect().top, on: section === tooled, ...item }) }));
     });
   } catch {
     // A page that may not keep anything starts at the top.
