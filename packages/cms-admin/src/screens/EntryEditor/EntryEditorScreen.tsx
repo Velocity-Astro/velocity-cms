@@ -2,7 +2,7 @@ import { EmptyState, Link } from '@velocity-astro/cms-ui';
 import { isTrashed } from '@velocity-astro/cms-core';
 import { FileQuestion, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { useParams } from 'react-router';
+import { Navigate, useParams } from 'react-router';
 import { useGo } from '../../app/use-go.js';
 import { NEW_ENTRY, paths } from '../../app/paths.js';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
@@ -42,6 +42,9 @@ export function EntryEditorScreen() {
       />
     );
   }
+
+  // A page that is part of the settings is edited there, whatever address someone kept.
+  if (type.inSettings === true) return <Navigate to={paths.settingsPage(type.key)} replace />;
 
   const notFound = (
     <EmptyState

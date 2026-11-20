@@ -811,9 +811,12 @@ export const en = {
   },
   settings: {
     title: 'Settings',
-    description: 'What this site needs to run, set up here instead of on the server.',
+    description: 'What this site is and what it needs to run, set up here instead of on the server.',
     tabsLabel: 'Parts of the settings',
     areas: { general: 'General', email: 'Email', storage: 'Storage', forms: 'Forms and spam' },
+    namesSite: (field: string) => `${field} is also what this editor and the site's emails call the site, once it is published.`,
+    ownersTitle: 'Settings are for owners',
+    ownersDescription: 'An owner of this site sets up its email, storage and forms here. Ask one if something needs changing.',
     general: {
       title: 'Site name',
       description: 'What this site is called in the editor, in the emails it sends and when someone adds a passkey.',

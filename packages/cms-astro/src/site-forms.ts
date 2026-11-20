@@ -6,6 +6,7 @@ import { pageAt, type DrawnPage } from './page-head.js';
 import { currentSite, siteKey } from './hosted.js';
 import { LogMailer } from './editor.js';
 import { SiteMail } from './site-mail.js';
+import { siteNameNow } from './site-name.js';
 import { SiteChallenge, TURNSTILE_HOST, TURNSTILE_SCRIPT } from './challenge.js';
 import { siteSecret } from './secret.js';
 import { editorOrigin, type SiteEditorSettings } from './site-editor.js';
@@ -41,7 +42,7 @@ export function siteFormPosts(settings: SiteEditorSettings): Promise<FormPosts> 
             return type && entry ? { typeId: type.id, entry: entry.translationGroup } : undefined;
           },
           // The site's own mailer when it sends notices, then Resend from the server's settings, then what an owner set up in the editor.
-          mailer: new SiteMail({ settings: cms.settings, own: settings.mailer, fallback: new LogMailer(), hosted: currentSite() !== undefined, ...(currentSite() === undefined && { siteName: () => cms.settings.siteName() }) }),
+          mailer: new SiteMail({ settings: cms.settings, own: settings.mailer, fallback: new LogMailer(), hosted: currentSite() !== undefined, ...(currentSite() === undefined && { siteName: () => siteNameNow(cms) }) }),
           challenge,
           // What an owner set under Settings, Forms and spam. Settings that cannot be read leave the limit the CMS comes with.
           limiter: { take: async (address) => counted.take(address, await cms.settings.formPostsPerAddress().catch(() => undefined)) },

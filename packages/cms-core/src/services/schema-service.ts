@@ -34,6 +34,10 @@ export interface NewContentType {
   readonly sections?: readonly NewSection[];
   /** Whether a deal can be about one of its entries. Left out, what the editor chose stays. */
   readonly forDeals?: boolean;
+  /** For a single page that is part of the site's setup: the editor shows it under Settings. Left out, it stays as it is. */
+  readonly inSettings?: boolean;
+  /** The field of such a page that holds what the site is called, by key: `name`. */
+  readonly siteNameField?: string;
 }
 
 /** What can be changed about a content type itself. Its key stays: code and addresses use it. */
@@ -345,7 +349,14 @@ export class SchemaService {
 
   /** A type with a description applied to it: its fields, what entries are called by, and its layout. */
   private described(type: ContentTypeDef, input: NewContentType): ContentTypeDef {
-    const { titlePath: _title, list: _list, sections: _sections, urlPattern: _url, localizedUrlPatterns: _urls, forDeals, ...rest } = type;
+    const { titlePath: _title, list: _list, sections: _sections, urlPattern: _url, localizedUrlPatterns: _urls, forDeals, inSettings: wasInSettings, siteNamePath: _name, ...rest } = type;
+    const inSettings = input.inSettings ?? wasInSettings === true;
+    if ((inSettings || input.siteNameField !== undefined) && type.kind !== 'single') {
+      throw new ValidationError(`Only a single page can be part of the settings, and "${type.key}" is a collection. Leave \`inSettings\` and \`siteNameField\` out of it.`, [{ path: ['inSettings'], message: 'Only a single page can be part of the settings.' }]);
+    }
+    if (input.siteNameField !== undefined && !inSettings) {
+      throw new ValidationError(`"${type.key}" names the field that holds the site's name, so it must also say \`inSettings: true\`.`, [{ path: ['siteNameField'], message: 'Say `inSettings: true` as well.' }]);
+    }
     const fields = defineFields(input.fields ?? [], type.fields, this.context);
     const live = liveFields(fields);
     const sections: FieldSection[] = (input.sections ?? []).map((section) => ({
@@ -369,6 +380,8 @@ export class SchemaService {
       }),
       ...(sections.length > 0 && { sections }),
       ...((input.forDeals ?? forDeals === true) && { forDeals: true as const }),
+      ...(inSettings && { inSettings: true as const }),
+      ...(inSettings && input.siteNameField !== undefined && { siteNamePath: this.pathOf(live, input.siteNameField, 'the site name field') }),
     };
   }
 

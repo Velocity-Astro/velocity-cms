@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ConflictError, ForbiddenError, ValidationError, createCms, senderFrom, storageEndpointFrom, type Actor } from './index.js';
+import { ConflictError, ForbiddenError, ValidationError, createCms, senderFrom, siteNameFrom, storageEndpointFrom, type Actor } from './index.js';
 import { InMemoryEntryRepository, InMemorySchemaRepository, InMemorySettingsStore } from './testing/index.js';
 
 const owner: Actor = { kind: 'user', id: 'u1', role: 'owner' };
@@ -175,5 +175,36 @@ describe('SettingsService: forms', () => {
     await expect(cms.settings.forms(editor)).rejects.toBeInstanceOf(ForbiddenError);
     await expect(cms.settings.saveForms(editor, { ...keys, expectedRevision: 1 })).rejects.toBeInstanceOf(ForbiddenError);
     await expect(cms.settings.testForms(editor)).rejects.toBeInstanceOf(ForbiddenError);
+  });
+});
+
+describe('A page of the settings', () => {
+  const described = { key: 'business', kind: 'single' as const, label: { en: 'Business details' }, fields: [{ key: 'name', type: 'text', label: { en: 'Business name' } }, { key: 'phone', type: 'text', label: { en: 'Phone' } }] };
+
+  it('is a single page a template marks, with the field that says what the site is called', async () => {
+    const cms = site();
+    const type = await cms.schema.define(owner, { ...described, inSettings: true, siteNameField: 'name' });
+    const name = type.fields[0]?.id ?? '';
+    expect(type).toMatchObject({ inSettings: true, siteNamePath: [name] });
+    expect(siteNameFrom(type, { [name]: '  Oakhaven   Homes ' })).toBe('Oakhaven Homes');
+    // Nothing that could not be a name is one: empty, not words, or with something a page or an email could trip on.
+    for (const wrong of [undefined, '', '   ', 7, 'Oak<b>haven', 'Oak\nhaven']) expect(siteNameFrom(type, { [name]: wrong })).toBeNull();
+    expect(siteNameFrom(type, { [name]: 'x'.repeat(500) })?.length).toBe(80);
+
+    // A change in the builder, and a description that says nothing of it, leave the page where it is.
+    expect(await cms.schema.update(owner, type.id, { label: { en: 'Your business' } })).toMatchObject({ inSettings: true, siteNamePath: [name] });
+    expect((await cms.schema.define(owner, described)).inSettings).toBe(true);
+    // A description takes it out again, and then it names nothing.
+    const out = await cms.schema.define(owner, { ...described, inSettings: false });
+    expect(out).not.toHaveProperty('inSettings');
+    expect(out).not.toHaveProperty('siteNamePath');
+    expect(siteNameFrom(out, { [name]: 'Oakhaven Homes' })).toBeNull();
+  });
+
+  it('cannot be a collection, name a field it does not have, or name the site from outside the settings', async () => {
+    const cms = site();
+    await expect(cms.schema.define(owner, { ...described, kind: 'collection', inSettings: true })).rejects.toThrowError(/Only a single page can be part of the settings/);
+    await expect(cms.schema.define(owner, { ...described, siteNameField: 'name' })).rejects.toThrowError(/must also say `inSettings: true`/);
+    await expect(cms.schema.define(owner, { ...described, inSettings: true, siteNameField: 'title' })).rejects.toBeInstanceOf(ValidationError);
   });
 });

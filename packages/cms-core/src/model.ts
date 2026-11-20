@@ -74,6 +74,16 @@ export interface ContentTypeDef {
    */
   readonly forDeals?: true;
   /**
+   * Set on a single page that is part of the site's setup (its name, logo and contact details):
+   * the editor shows it as a part of Settings and leaves it out of the list of content.
+   */
+  readonly inSettings?: true;
+  /**
+   * The field of such a page that holds what the site is called, as field ids from the top down.
+   * What is published there is the name the editor and the site's emails use.
+   */
+  readonly siteNamePath?: readonly string[];
+  /**
    * Set when the type was archived: it is out of the editor and its pages are off the site. Its
    * fields and entries are kept as they were, so restoring it brings everything back.
    */

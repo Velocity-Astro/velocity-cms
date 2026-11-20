@@ -3,7 +3,7 @@ import { userEvent } from '@testing-library/user-event';
 import { dismissToasts } from '@velocity-astro/cms-ui';
 import { afterEach, expect, it } from 'vitest';
 import { renderApp } from '../../testing/render-app.js';
-import { sampleContentTypes, sampleUser } from '../../testing/sample-content.js';
+import { sampleBusiness, sampleBusinessType, sampleContentTypes, sampleUser } from '../../testing/sample-content.js';
 
 const site = (changes: object = {}) => ({ user: sampleUser, contentTypes: sampleContentTypes, ...changes });
 const card = async () => within(await screen.findByRole('region', { name: 'Email' }));
@@ -96,12 +96,6 @@ it('says so when the server or the site\'s code decides, and offers no fields', 
   expect(email.getByText(/VELOCITY_CMS_RESEND_API_KEY/)).toBeTruthy();
   expect(email.queryByRole('textbox', { name: /^Sender/ })).toBeNull();
   expect(email.getByRole('button', { name: 'Send a test email' })).toHaveProperty('disabled', false);
-});
-
-it('is for owners: an editor is shown no way there, and is refused at the address', async () => {
-  renderApp('/settings/email', site({ user: { ...sampleUser, role: 'editor' } }));
-  expect(await screen.findByText(/does not allow "settings:manage"/)).toBeTruthy();
-  expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
 });
 
 it('names a bucket for uploads under Storage, tests it, and never shows the secret key again', async () => {
@@ -224,4 +218,69 @@ it('changes how much one address may send without touching the keys', async () =
   await user.click(limit.getByRole('button', { name: 'Save limit' }));
   expect(await screen.findByText('Limit saved')).toBeTruthy();
   expect(await client.getFormsSettings()).toMatchObject({ checking: true, postsPerAddress: 25 });
+});
+
+const business = (changes: object = {}) => site({ contentTypes: [...sampleContentTypes, sampleBusinessType], entries: [sampleBusiness()], ...changes });
+
+it('keeps a page of the settings as their first tab, out of the content, with one field for the name', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/', business());
+  await screen.findByRole('link', { name: 'Listings' });
+  // One way to it in the menu, and no second field for what the site is called.
+  expect(screen.queryByRole('link', { name: 'Business details' })).toBeNull();
+  await user.click(screen.getByRole('link', { name: 'Settings' }));
+  expect((await screen.findByRole('tab', { name: 'Business details' })).getAttribute('aria-selected')).toBe('true');
+  expect(screen.queryByRole('tab', { name: 'General' })).toBeNull();
+  expect(screen.getByRole('tab', { name: 'Email' })).toBeTruthy();
+  expect(await screen.findByText(/Business name is also what this editor and the site's emails call the site/)).toBeTruthy();
+
+  const name = await screen.findByRole('textbox', { name: /^Business name/ });
+  expect(name).toHaveProperty('value', 'Lakeshore Realty');
+  await user.clear(name);
+  await user.type(name, 'Oakhaven Homes');
+  await user.click(screen.getByRole('button', { name: 'Save draft' }));
+  await waitFor(async () => expect((await client.getEntry('b1')).data['f-business-name']).toBe('Oakhaven Homes'));
+  // Saved is not published: the site keeps its name until someone says.
+  expect((await client.getEntry('b1')).published?.data['f-business-name']).toBe('Lakeshore Realty');
+  await user.click(screen.getByRole('button', { name: 'Publish changes' }));
+  await waitFor(async () => expect((await client.getEntry('b1')).published?.data['f-business-name']).toBe('Oakhaven Homes'));
+
+  await user.click(screen.getByRole('tab', { name: 'Email' }));
+  expect(await screen.findByRole('region', { name: 'Email' })).toBeTruthy();
+});
+
+it('leads to the settings from the addresses such a page had among the content', async () => {
+  renderApp('/content/business', business());
+  expect((await screen.findByRole('tab', { name: 'Business details' })).getAttribute('aria-selected')).toBe('true');
+  expect(await screen.findByRole('textbox', { name: /^Business name/ })).toBeTruthy();
+});
+
+it('opens the entry of such a page in the settings too', async () => {
+  renderApp('/content/business/b1', business());
+  expect((await screen.findByRole('tab', { name: 'Business details' })).getAttribute('aria-selected')).toBe('true');
+});
+
+it('starts a page of the settings that has nothing yet', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/settings', business({ entries: [] }));
+  await user.type(await screen.findByRole('textbox', { name: /^Business name/ }), 'Oakhaven Homes');
+  await user.click(screen.getByRole('button', { name: 'Save draft' }));
+  await waitFor(async () => expect((await client.listEntries({ type: 'business' })).items[0]?.data['f-business-name']).toBe('Oakhaven Homes'));
+  // The form carries on with what was typed.
+  expect(screen.getByRole('textbox', { name: /^Business name/ })).toHaveProperty('value', 'Oakhaven Homes');
+});
+
+it('shows an editor the pages of the settings and nothing an owner sets up', async () => {
+  const editor = { ...sampleUser, role: 'editor' as const };
+  const { unmount } = renderApp('/', business({ user: editor }));
+  await userEvent.setup().click(await screen.findByRole('link', { name: 'Settings' }));
+  expect(await screen.findByRole('textbox', { name: /^Business name/ })).toBeTruthy();
+  expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Business details']);
+  unmount();
+
+  // With no such page there is nothing here for them, and the menu does not offer it.
+  renderApp('/settings/email', site({ user: editor }));
+  expect(await screen.findByText('Settings are for owners')).toBeTruthy();
+  expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
+  expect(screen.queryByRole('tab')).toBeNull();
 });

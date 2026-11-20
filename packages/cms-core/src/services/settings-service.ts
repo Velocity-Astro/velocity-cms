@@ -1,6 +1,7 @@
 import type { AccessControl, Actor } from '../access.js';
 import { ConflictError, ValidationError, type ValidationIssue } from '../errors.js';
 import type { EventBus } from '../events.js';
+import type { ContentTypeDef, EntryData } from '../model.js';
 import type { BucketAccount, ChallengeAccount, EmailProvider, EmailSettings, FormsSettings, GeneralSettings, MailAccount, SettingFixedBy, StorageSettings } from '../model.js';
 import type { ChallengeRoom, MailRoom, SettingsStore, StorageRoom } from '../ports.js';
 import type { SecretSeal, Sealed } from '../seal.js';
@@ -44,6 +45,20 @@ export interface GeneralSettingsChanges {
   readonly siteName: string;
   /** The revision the editor loaded. */
   readonly expectedRevision: number;
+}
+
+/**
+ * What a page of the settings says the site is called: the value of the field its type names
+ * (`siteNamePath`), as plain words on one line. `null` when the type names none, when the field
+ * is empty, and when what it holds could not be a name.
+ */
+export function siteNameFrom(type: ContentTypeDef, data: EntryData): string | null {
+  if (type.inSettings !== true || type.siteNamePath === undefined) return null;
+  let value: unknown = data;
+  for (const id of type.siteNamePath) value = typeof value === 'object' && value !== null ? (value as Record<string, unknown>)[id] : undefined;
+  if (typeof value !== 'string' || /[\p{Cc}<>]/u.test(value.trim())) return null;
+  const name = value.trim().replace(/\s+/g, ' ').slice(0, MAX_SITE_NAME_LENGTH);
+  return name === '' ? null : name;
 }
 
 /** What the host knows about the site's name. */
