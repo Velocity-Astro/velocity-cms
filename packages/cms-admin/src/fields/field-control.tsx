@@ -78,6 +78,15 @@ export interface SwatchPlace {
   readonly put: (value: string) => unknown;
 }
 
+/** One place in a value where sections are held: the field that says which blocks it takes, the sections there now, and how the value reads with others. */
+export interface SectionsPlace {
+  readonly place: string;
+  readonly field: FieldDef;
+  readonly sections: readonly unknown[];
+  /** The value with these sections at the place, or `undefined` when that leaves the field empty. */
+  readonly put: (sections: readonly unknown[]) => unknown;
+}
+
 type ControlFor = (type: string) => FieldControl | undefined;
 
 export interface FieldControl {
@@ -133,6 +142,18 @@ export interface FieldControl {
    * (a section's background) can be chosen from the page itself, as swatches on the section's bar.
    */
   readonly swatches?: (field: FieldDef, value: unknown, controlFor: ControlFor) => readonly SwatchPlace[];
+  /**
+   * Where a value of this kind holds sections of its own: the columns of a row. The field that
+   * holds the page answers to the page for those too. A control that holds other fields asks theirs.
+   */
+  readonly sections?: (field: FieldDef, value: unknown, controlFor: ControlFor) => readonly SectionsPlace[];
+  /**
+   * A value of one field as another field of the same kind and keys holds it, where what a value
+   * is keyed by (the ids of a group's fields, of a block and its fields) differs between the two:
+   * a section moved from one column to another. `undefined` when it cannot be held there whole.
+   * Without it, a value is the same in both.
+   */
+  readonly carried?: (from: FieldDef, to: FieldDef, value: unknown, controlFor: ControlFor) => unknown;
   /** `end` when summaries are figures, so a column of them lines up. */
   readonly summaryAlign?: 'start' | 'end';
 }

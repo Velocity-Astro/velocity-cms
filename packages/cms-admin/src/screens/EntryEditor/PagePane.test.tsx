@@ -554,3 +554,93 @@ it('offers no theme where the settings have no looks to choose', async () => {
   await user.click(await screen.findByRole('button', { name: 'Visual editor' }));
   expect(screen.queryByRole('button', { name: 'Theme' })).toBeNull();
 });
+
+/** A page whose first section is a row of two columns, each holding sections of its own: a note in the left, nothing in the right. */
+const withColumns = () => {
+  const words = (id: string): FieldDef => ({ id, key: 'words', type: 'text', label: { en: 'Note' }, required: false, translated: false, options: {} });
+  // The same block in each column, under ids of its own there, as a template's description leaves it.
+  const column = (side: string, label: string): FieldDef => ({
+    ...words(`bf-row-${side}`),
+    key: side,
+    type: 'blocks',
+    label: { en: label },
+    options: { blocks: [{ id: `b-note-${side}`, key: 'note', label: { en: 'Note' }, fields: [words(`bf-note-${side}`)] }], max: 2 },
+  });
+  const row: BlockDef = { id: 'b-row', key: 'columns', label: { en: 'Columns' }, fields: [column('left', 'Left column'), column('right', 'Right column')] };
+  const type = {
+    ...samplePagesType,
+    fields: samplePagesType.fields.map((field) => (field.id === 'f-body' ? { ...field, options: { ...field.options, blocks: [...(field.options['blocks'] as BlockDef[]), row] } } : field)),
+  };
+  const page = samplePage();
+  const first: BlockValue = { id: 'row', block: 'b-row', data: { 'bf-row-left': [{ id: 'n1', block: 'b-note-left', data: { 'bf-note-left': 'First note' } }] } };
+  return { user: sampleUser, contentTypes: [...sampleContentTypes, type], entries: [...sampleEntries(), { ...page, data: { ...page.data, 'f-body': [first, ...(page.data['f-body'] as BlockValue[])] } }] };
+};
+const rowNow = () => (draft().data['f-body'] as BlockValue[]).find((section) => section.id === 'row');
+const columnNow = (side: string) => (rowNow()?.data[`bf-row-${side}`] ?? []) as BlockValue[];
+/** The sections each column of the row holds now, by id. */
+const columnsNow = () => ['left', 'right'].map((side) => columnNow(side).map((section) => section.id));
+
+it('answers to the page for the sections inside a section: what they are, what is typed, and their buttons', async () => {
+  const user = userEvent.setup();
+  renderApp('/content/pages/p1', withColumns());
+  const page = await frame();
+  const post = vi.spyOn(page.contentWindow as Window, 'postMessage').mockImplementation(() => undefined);
+  await say({ source: 'velocity-cms', type: 'ready' });
+  interface Told {
+    readonly type: string;
+    readonly places?: Record<string, string[]>;
+    readonly sections?: Record<string, { name: string; list: string; group: string; copy: boolean }>;
+    readonly slots?: Record<string, { group: string; empty: boolean; full: boolean }>;
+  }
+  const told = (type: string) => post.mock.calls.map(([message]) => message as Told).findLast((message) => message.type === type);
+  expect(told('tools')?.sections?.['n1']).toMatchObject({ name: 'Note', list: 'row:left', group: 'note', copy: true });
+  expect(told('tools')?.sections?.['row']).toMatchObject({ name: 'Columns', list: '', group: '' });
+  expect(told('tools')?.slots).toEqual({
+    'row:left': { group: 'note', empty: false, full: false },
+    'row:right': { group: 'note', empty: true, full: false },
+  });
+  expect(told('typable')?.places?.['n1']).toEqual(['words']);
+
+  // Words typed in an inner section on the page are the form's.
+  await say({ source: 'velocity-cms', type: 'words', id: 'n1', field: 'words', words: 'Typed inside' });
+  expect(columnNow('left')[0]?.data['bf-note-left']).toBe('Typed inside');
+
+  // A copy has an id of its own and sits after the original, and then the column is full.
+  await say({ source: 'velocity-cms', type: 'act', id: 'n1', action: 'duplicate' });
+  expect(columnsNow()[0]).toHaveLength(2);
+  const [, copy] = columnsNow()[0] as [string, string];
+  expect(copy).not.toBe('n1');
+  await say({ source: 'velocity-cms', type: 'act', id: 'n1', action: 'duplicate' });
+  expect(columnsNow()[0]).toHaveLength(2);
+
+  // The button of the empty column offers that column's blocks, and adds there.
+  await say({ source: 'velocity-cms', type: 'slot', id: 'row', field: 'right' });
+  await user.click(await screen.findByRole('option', { name: /^Note/ }));
+  await waitFor(() => expect(columnsNow()[1]).toHaveLength(1));
+  expect(screen.queryByRole('option', { name: /^Text/ })).toBeNull();
+
+  // Dragged into the other column, before what is there; a full column takes no more.
+  const [added] = columnsNow()[1] as [string];
+  await say({ source: 'velocity-cms', type: 'move', id: 'n1', before: added, into: 'row:right' });
+  expect(columnsNow()).toEqual([[copy], ['n1', added]]);
+  // It is held there as that column holds its own: the block and the field of the same keys.
+  expect(columnNow('right')[0]).toEqual({ id: 'n1', block: 'b-note-right', data: { 'bf-note-right': 'Typed inside' } });
+  await say({ source: 'velocity-cms', type: 'move', id: copy, before: null, into: 'row:right' });
+  expect(columnsNow()).toEqual([[copy], ['n1', added]]);
+  // And up within its column.
+  await say({ source: 'velocity-cms', type: 'act', id: added, action: 'up' });
+  expect(columnsNow()[1]).toEqual([added, 'n1']);
+
+  // A copy of the row gives every section in it an id of its own.
+  await say({ source: 'velocity-cms', type: 'act', id: 'row', action: 'duplicate' });
+  const ids = JSON.stringify(draft().data['f-body']).match(/"id":"[^"]+"/g) ?? [];
+  expect(new Set(ids).size).toBe(ids.length);
+});
+
+it('opens an inner section pressed on the page, inside the section that holds it', async () => {
+  renderApp('/content/pages/p1', withColumns());
+  await frame();
+  expect(screen.queryByRole('textbox', { name: 'Note' })).toBeNull();
+  await say({ source: 'velocity-cms', type: 'section', id: 'n1', field: 'words' });
+  expect((await screen.findByRole<HTMLInputElement>('textbox', { name: 'Note' })).value).toBe('First note');
+});

@@ -16,6 +16,8 @@ const PAUSE = 500;
 const SOURCE = 'velocity-cms';
 /** How long after words were typed on the page a change of the draft is taken to be those words, in milliseconds. */
 const OWN = 250;
+/** How close a change of the draft and a section asked for must be to be one act, such as a section moved, in milliseconds. */
+const TOGETHER = 100;
 
 interface Said {
   readonly source?: unknown;
@@ -29,6 +31,7 @@ interface Said {
   readonly form?: unknown;
   readonly href?: unknown;
   readonly value?: unknown;
+  readonly into?: unknown;
 }
 
 /** What can be done to a section from the page itself. */
@@ -50,7 +53,12 @@ export interface PageSectionTools {
   /** What each button is called, shown when the pointer rests on it, and the words on the button that adds a section. */
   readonly labels: { readonly up: string; readonly down: string; readonly duplicate: string; readonly remove: string; readonly add: string; readonly addBefore: string; readonly addAfter: string; readonly picture?: string; readonly link?: string; readonly bold?: string; readonly italic?: string; readonly textLink?: string; readonly itemUp?: string; readonly itemDown?: string; readonly itemDuplicate?: string; readonly itemRemove?: string };
   /** For each section's id: what it is called, and what can be done to it now. */
-  readonly sections: Readonly<Record<string, { readonly name: string; readonly up: boolean; readonly down: boolean; readonly copy: boolean; readonly add: boolean; readonly pictures?: readonly string[]; readonly links?: readonly string[]; readonly lists?: readonly { readonly field: string; readonly count: number; readonly full: boolean }[]; readonly swatches?: readonly PageSectionSwatches[] }>>;
+  readonly sections: Readonly<Record<string, { readonly name: string; readonly up: boolean; readonly down: boolean; readonly copy: boolean; readonly add: boolean; readonly pictures?: readonly string[]; readonly links?: readonly string[]; readonly lists?: readonly { readonly field: string; readonly count: number; readonly full: boolean }[]; readonly swatches?: readonly PageSectionSwatches[]; readonly list?: string; readonly group?: string }>>;
+  /**
+   * The places inside sections that hold sections of their own, each by the section it is in and its field (`id:columns.0.content`):
+   * which places take each other's sections (`group`), and whether one is empty or takes no more.
+   */
+  readonly slots?: Readonly<Record<string, { readonly group: string; readonly empty: boolean; readonly full: boolean }>>;
 }
 
 export interface PagePreviewProps extends PagePreviewVariants {
@@ -111,7 +119,9 @@ export interface PagePreviewProps extends PagePreviewVariants {
    * Called when a section is dragged by its bar and let go: with the section it should now come
    * before, or `null` for after the last.
    */
-  readonly onSectionMove?: (id: string, beforeId: string | null) => void;
+  readonly onSectionMove?: (id: string, beforeId: string | null, into?: string) => void;
+  /** Called when the button of an empty place inside a section is pressed on the page: the section and the place's field, as keys. Offer what can be added there. */
+  readonly onSectionSlot?: (id: string, field: string) => void;
   /**
    * Called when the button on one of a section's pictures is pressed on the page, with the
    * section's id and the picture's field, as keys. Open the window the picture is chosen in.
@@ -135,23 +145,30 @@ export interface PagePreviewProps extends PagePreviewVariants {
  * A page of the site as it would look with what is in a form now, in a frame. The page is drawn
  * by the site itself, so it looks exactly as it will; nothing of it is drawn here.
  */
-export function PagePreview({ label, address, draft, note, toolbar, action, emptyText, onSectionPress, shownSectionId, typable, onWords, tools, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onSectionSwatch, onTextLink, onUndo, onRedo, isBare = false, width }: PagePreviewProps) {
+export function PagePreview({ label, address, draft, note, toolbar, action, emptyText, onSectionPress, shownSectionId, typable, onWords, tools, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onSectionSwatch, onSectionSlot, onTextLink, onUndo, onRedo, isBare = false, width }: PagePreviewProps) {
   const name = `preview-${useId().replaceAll(':', '')}`;
   const form = useRef<HTMLFormElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const hasSent = useRef(false);
   const places = typable === undefined ? undefined : JSON.stringify(typable);
   const offered = tools === undefined ? undefined : JSON.stringify(tools);
-  const latest = useRef({ onSectionPress, shownSectionId, onWords, places, offered, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onSectionSwatch, onTextLink, onUndo, onRedo });
+  const latest = useRef({ onSectionPress, shownSectionId, onWords, places, offered, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onSectionSwatch, onSectionSlot, onTextLink, onUndo, onRedo });
   useEffect(() => {
-    latest.current = { onSectionPress, shownSectionId, onWords, places, offered, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onSectionSwatch, onTextLink, onUndo, onRedo };
+    latest.current = { onSectionPress, shownSectionId, onWords, places, offered, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onSectionSwatch, onSectionSlot, onTextLink, onUndo, onRedo };
   });
   // When words were last typed on the page, and whether the page lacks a change made in the form.
   const typedAt = useRef(0);
   const isBehind = useRef(false);
 
+  // When a section was last asked to be shown, and when the draft last changed. A page drawn again
+  // stays where the person left it, unless the change itself asked for a section: one just moved or added.
+  const askedAt = useRef(0);
+  const changedAt = useRef(0);
+  const hasDrawn = useRef(false);
+
   // The first page is asked for at once. After that, a pause in the typing asks for the next.
   useEffect(() => {
+    changedAt.current = Date.now();
     if (address === undefined) return;
     const send = () => {
       hasSent.current = true;
@@ -169,8 +186,8 @@ export function PagePreview({ label, address, draft, note, toolbar, action, empt
     return () => clearTimeout(waiting);
   }, [address, draft]);
 
-  const show = (id: string | undefined) => {
-    if (id !== undefined) frame.current?.contentWindow?.postMessage({ source: SOURCE, type: 'show', id }, window.location.origin);
+  const show = (id: string | undefined, still = false) => {
+    if (id !== undefined) frame.current?.contentWindow?.postMessage({ source: SOURCE, type: 'show', id, ...(still && { still }) }, window.location.origin);
   };
 
   const tell = (said: string | undefined) => {
@@ -200,7 +217,11 @@ export function PagePreview({ label, address, draft, note, toolbar, action, empt
         if (action) latest.current.onSectionAction?.(said.id, action);
       }
       if (said.type === 'move' && typeof said.id === 'string' && (typeof said.before === 'string' || said.before === null)) {
-        latest.current.onSectionMove?.(said.id, said.before);
+        if (typeof said.into === 'string') latest.current.onSectionMove?.(said.id, said.before, said.into);
+        else latest.current.onSectionMove?.(said.id, said.before);
+      }
+      if (said.type === 'slot' && typeof said.id === 'string' && typeof said.field === 'string') {
+        latest.current.onSectionSlot?.(said.id, said.field);
       }
       if (said.type === 'picture' && typeof said.id === 'string' && typeof said.field === 'string') {
         latest.current.onSectionPicture?.(said.id, said.field);
@@ -230,14 +251,20 @@ export function PagePreview({ label, address, draft, note, toolbar, action, empt
       if (said.type === 'ready') {
         tell(latest.current.places);
         offer(latest.current.offered);
-        show(latest.current.shownSectionId);
+        // Outlined again, and brought into view only on the first page or when the change that drew this one asked for it.
+        show(latest.current.shownSectionId, hasDrawn.current && Math.abs(askedAt.current - changedAt.current) > TOGETHER);
+        hasDrawn.current = true;
+        askedAt.current = 0;
       }
     };
     window.addEventListener('message', hear);
     return () => window.removeEventListener('message', hear);
   }, []);
 
-  useEffect(() => show(shownSectionId), [shownSectionId]);
+  useEffect(() => {
+    askedAt.current = Date.now();
+    show(shownSectionId);
+  }, [shownSectionId]);
   useEffect(() => tell(places), [places]);
   useEffect(() => offer(offered), [offered]);
 

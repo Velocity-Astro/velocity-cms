@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { addEditorScript, asPreview, isEditorPreview, isPreview, keepPreviewInLinks, linkLeads, noteLinkLeads, readPreviewDraft, withPreviewDraft } from './preview.js';
+import { EDITOR_PREVIEW_VERSION, addEditorScript, asPreview, isEditorPreview, isPreview, keepPreviewInLinks, linkLeads, noteLinkLeads, readPreviewDraft, withPreviewDraft } from './preview.js';
 
 const TOKEN = '1790000000000.abc123';
 
@@ -56,8 +56,14 @@ it('shows what was typed for the entry the draft is for, and only inside that pr
   });
 });
 
-it('adds the editor\'s script at the end of the page', () => {
-  expect(addEditorScript('<html><body><p>Hi</p></body></html>')).toBe('<html><body><p>Hi</p><script type="module" src="/cms-preview.js"></script></body></html>');
+it('adds the editor\'s script at the end of the page, and asks that nothing be shown before it has run', () => {
+  const script = `<script id="cms-preview-script" src="/cms-preview.js?v=${EDITOR_PREVIEW_VERSION}"></script>`;
+  expect(addEditorScript('<html><head><title>Hi</title></head><body><p>Hi</p></body></html>')).toBe(
+    `<html><head><link rel="expect" href="#cms-preview-script" blocking="render"><title>Hi</title></head><body><p>Hi</p>${script}</body></html>`,
+  );
+  // A page with no head, or no end, still gets the script.
+  expect(addEditorScript('<body><p>Hi</p></body>')).toBe(`<body><p>Hi</p>${script}</body>`);
+  expect(addEditorScript('<p>Hi</p>')).toBe(`<p>Hi</p>${script}`);
 });
 
 it('notes where links to entries lead only beside the form, and hands the page the list as data', () => {
@@ -67,7 +73,7 @@ it('notes where links to entries lead only beside the form, and hands the page t
   const leads = asPreview(() => (noteLinkLeads('pages', 'g1', '/menu/'), noteLinkLeads('pages', 'g2', '/a</script>'), linkLeads()), { id: 'p1', data: {} });
   expect(leads).toEqual({ 'pages:g1': '/menu/', 'pages:g2': '/a</script>' });
   expect(addEditorScript('<body></body>', leads)).toBe(
-    '<body><script type="application/json" data-cms-links>{"pages:g1":"/menu/","pages:g2":"/a\\u003c/script>"}</script><script type="module" src="/cms-preview.js"></script></body>',
+    `<body><script type="application/json" data-cms-links>{"pages:g1":"/menu/","pages:g2":"/a\\u003c/script>"}</script><script id="cms-preview-script" src="/cms-preview.js?v=${EDITOR_PREVIEW_VERSION}"></script></body>`,
   );
 });
 
