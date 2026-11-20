@@ -9,6 +9,7 @@
  * - marks: which section, and which field of it, an element of the page belongs to
  * - layer: outlines drawn above the page, so nothing of the template's own markup is changed
  * - events: what a pointer over the page and a click on it mean
+ * - typing: words typed straight into a field on the page, said to the editor as they are typed
  * - scroll: the page stays where it was when it is drawn again
  *
  * A template says what is what with two attributes: `data-cms-section` holds a section's id, and
@@ -17,6 +18,10 @@
  * (`data-cms-values`, a list of place and words) has its fields found by what they show, so a
  * template whose blocks hand their words to components of its own needs no mark on each. A mark
  * the template wrote always comes first, and a click that finds no field chooses the section.
+ *
+ * Words can be typed on the page only where the editor says a field holds plain words and the page
+ * shows them exactly as they are held: the one run of text that shows them is changed, and nothing
+ * else of the element can be.
  *
  * The layer's look is set from script, which a page's content rules allow where a style written
  * into the page would not be.
@@ -40,12 +45,18 @@ export function previewBridge(page: Window & typeof globalThis): void {
   // What a section's fields were found to be by what they show: nothing is written on the page.
   const guessed = new WeakMap<Element, string>();
   const guesses = new WeakMap<Element, Map<string, HTMLElement>>();
+  // The run of text that shows a field's words in an element, where there is exactly such a run.
+  const runOf = new WeakMap<Element, Text>();
+  // Every run that shows a field, by section and field, so all of them follow what is typed in one.
+  const shownIn = new WeakMap<Element, Map<string, Text[]>>();
   const squeeze = (text: string | null): string => (text ?? '').replace(/\s+/g, '');
   const guess = (section: HTMLElement): Map<string, HTMLElement> => {
     const known = guesses.get(section);
     if (known) return known;
     const first = new Map<string, HTMLElement>();
     guesses.set(section, first);
+    const shows = new Map<string, Text[]>();
+    shownIn.set(section, shows);
     let values: unknown;
     try {
       values = JSON.parse(section.dataset['cmsValues'] ?? '[]');
@@ -75,6 +86,8 @@ export function previewBridge(page: Window & typeof globalThis): void {
     // Fields that say the same words share the elements that show them, in order.
     const wanted = new Map<string, string[]>();
     const sources: [string, string][] = [];
+    // Fields held as plain words, by what they say: only those can be typed on the page.
+    const plain = new Map<string, string>();
     for (const value of values) {
       if (!Array.isArray(value) || typeof value[0] !== 'string' || typeof value[1] !== 'string') continue;
       const path: string = value[0];
@@ -89,14 +102,25 @@ export function previewBridge(page: Window & typeof globalThis): void {
       }
       const words = squeeze(text);
       if (words !== '') wanted.set(words, [...(wanted.get(words) ?? []), path]);
+      if (value[2] !== 'html') plain.set(path, words);
     }
-    const claim = (element: HTMLElement, path: string): void => {
-      if (!guessed.has(element)) guessed.set(element, path);
+    const claim = (element: HTMLElement, path: string): boolean => {
       if (!first.has(path)) first.set(path, element);
+      if (guessed.has(element)) return false;
+      guessed.set(element, path);
+      return true;
     };
     for (const [words, paths] of wanted) {
       const elements = whole.get(words) ?? runs.get(words) ?? [];
-      elements.forEach((element, at) => claim(element, paths[Math.min(paths.length - 1, Math.floor((at * paths.length) / elements.length))] ?? ''));
+      elements.forEach((element, at) => {
+        const path = paths[Math.min(paths.length - 1, Math.floor((at * paths.length) / elements.length))] ?? '';
+        if (!claim(element, path) || plain.get(path) !== words) return;
+        const held = [...element.childNodes].filter((node): node is Text => node.nodeType === 3 && squeeze(node.nodeValue) === words);
+        const run = held.length === 1 ? held[0] : undefined;
+        if (!run) return;
+        runOf.set(element, run);
+        shows.set(path, [...(shows.get(path) ?? []), run]);
+      });
     }
     // A picture is found by its name in its address: a whole part of it, not letters inside a longer name.
     const names = (address: string): string => {
@@ -185,10 +209,179 @@ export function previewBridge(page: Window & typeof globalThis): void {
   // Pictures arrive and fonts change after the page is drawn, and move what is outlined.
   if (typeof page.ResizeObserver === 'function') new page.ResizeObserver(redraw).observe(doc.documentElement);
 
+  // Typing.
+  let typable: Record<string, unknown> = {};
+  interface Typing {
+    readonly mark: Mark;
+    readonly run: Text;
+    readonly before: string;
+    readonly was: string | null;
+    readonly outline: string;
+    /** How much of the run, at its start and at its end, is space the template left. */
+    readonly lead: number;
+    readonly trail: number;
+  }
+  let typing: Typing | null = null;
+  /** The run of text words can be typed into for a mark, where the editor and the page both allow it. */
+  const runFor = (mark: Mark | null): Text | null => {
+    if (!mark || mark.field === undefined || mark.element.hasAttribute('data-cms-field')) return null;
+    const places = typable[mark.section];
+    if (!Array.isArray(places) || !places.includes(mark.field)) return null;
+    // A button takes a space for a press, and a field of a form is the visitor's to fill.
+    if (mark.element.closest('button, input, textarea, select, [contenteditable="false"]')) return null;
+    const run = runOf.get(mark.element);
+    return run?.isConnected ? run : null;
+  };
+  // Where the words are in the run being typed into: the space a template leaves around them (before the next words of a heading) is not theirs.
+  const wordsAt = (now: Typing): [number, number] => [Math.min(now.lead, now.run.length), Math.max(now.lead, now.run.length - now.trail)];
+  // Spaces in a row show as one, so they are held as one; a new line the field already had is kept.
+  const wordsOf = (run: Text): string => (run.nodeValue ?? '').replace(/[ \t\u00a0]+/g, ' ').trim();
+  const tellWords = (now: Typing): void => {
+    const words = wordsOf(now.run);
+    const section = now.mark.element.closest('[data-cms-section]');
+    // The same field shown elsewhere in the section says the same.
+    for (const other of (section && shownIn.get(section)?.get(now.mark.field ?? '')) ?? []) if (other !== now.run && other.isConnected) other.nodeValue = words;
+    say({ type: 'words', id: now.mark.section, field: now.mark.field, words });
+    redraw();
+  };
+  const stopTyping = (): void => {
+    if (!typing) return;
+    const { mark, was, outline } = typing;
+    typing = null;
+    mark.element.style.outline = outline;
+    if (was === null) mark.element.removeAttribute('contenteditable');
+    else mark.element.setAttribute('contenteditable', was);
+  };
+  const startTyping = (mark: Mark, run: Text): void => {
+    if (typing?.mark.element === mark.element) return;
+    stopTyping();
+    const text = run.nodeValue ?? '';
+    const lead = /^[ \t\n\r]*/.exec(text)?.[0].length ?? 0;
+    const trail = lead === text.length ? 0 : (/[ \t\n\r]*$/.exec(text)?.[0].length ?? 0);
+    typing = { mark, run, before: text, was: mark.element.getAttribute('contenteditable'), outline: mark.element.style.outline, lead, trail };
+    mark.element.setAttribute('contenteditable', 'plaintext-only');
+    // A browser that does not know plain text only is given the ordinary kind; what is pasted is made plain below.
+    if (mark.element.contentEditable !== 'plaintext-only') mark.element.setAttribute('contenteditable', 'true');
+    // The layer's outline says where the typing goes: the browser's own would sit under it.
+    mark.element.style.outline = 'none';
+  };
+  // The element is made ready as the pointer goes down, so the caret lands where it was pressed.
+  doc.addEventListener(
+    'mousedown',
+    (event) => {
+      const mark = markOf(event.target);
+      const run = runFor(mark);
+      if (mark && run) startTyping(mark, run);
+      else if (typing && !(isElement(event.target) && typing.mark.element.contains(event.target))) stopTyping();
+    },
+    true,
+  );
+  // The caret stays in the run: an arrow or End that would carry it into other words of the element stops at the run's edge.
+  doc.addEventListener('selectionchange', () => {
+    const selection = page.getSelection();
+    if (!typing || !selection || selection.rangeCount === 0 || !typing.run.isConnected) return;
+    const { run } = typing;
+    const range = selection.getRangeAt(0);
+    if (!typing.mark.element.contains(range.commonAncestorContainer)) return;
+    const [from, to] = wordsAt(typing);
+    const edge = (node: Node, offset: number): number | null => {
+      if (node === run) return offset < from ? from : offset > to ? to : null;
+      const point = doc.createRange();
+      point.setStart(node, offset);
+      return point.comparePoint(run, 0) === -1 ? to : from;
+    };
+    const start = edge(range.startContainer, range.startOffset);
+    const end = edge(range.endContainer, range.endOffset);
+    if (start === null && end === null) return;
+    selection.setBaseAndExtent(run, start ?? range.startOffset, run, end ?? range.endOffset);
+  });
+  doc.addEventListener('focusout', (event) => {
+    if (typing && event.target === typing.mark.element) stopTyping();
+  });
+  // Only the run of text that shows the field may change: what else the element holds (an icon, other words) stays.
+  doc.addEventListener(
+    'beforeinput',
+    (event) => {
+      if (!typing || !isElement(event.target) || !typing.mark.element.contains(event.target)) return;
+      const { run } = typing;
+      const kind = event.inputType;
+      if (kind === 'insertParagraph' || kind === 'insertLineBreak' || kind.startsWith('format') || kind.startsWith('history') || kind === 'insertFromDrop') {
+        event.preventDefault();
+        return;
+      }
+      // What the change would touch: as the browser says, or else what is selected.
+      const selection = page.getSelection();
+      const said: readonly AbstractRange[] = event.getTargetRanges();
+      const ranges = said.length > 0 ? said : selection && selection.rangeCount > 0 ? [selection.getRangeAt(0)] : [];
+      if (ranges.length !== 1 || !ranges[0]) {
+        event.preventDefault();
+        return;
+      }
+      // The part of the words inside it. A change that would reach outside them is kept to them, and one
+      // wholly outside (a key pressed before the caret was brought back) is made at their nearest end.
+      const [from, to] = wordsAt(typing);
+      const within = (node: Node, offset: number): number => {
+        if (node === run) return Math.min(to, Math.max(from, offset));
+        const point = doc.createRange();
+        point.setStart(node, offset);
+        return point.comparePoint(run, 0) === -1 ? to : from;
+      };
+      let start = within(ranges[0].startContainer, ranges[0].startOffset);
+      let end = within(ranges[0].endContainer, ranges[0].endOffset);
+      // A browser that does not say how much a key would delete says only where the caret is: the reach is worked out here.
+      if (start === end && kind.startsWith('delete')) {
+        const text = run.data;
+        const pair = (at: number): number => (at >= 0 && at < text.length - 1 && text.charCodeAt(at) >= 0xd800 && text.charCodeAt(at) <= 0xdbff ? 2 : 1);
+        if (kind.endsWith('Backward')) {
+          const word = text.slice(from, start).search(/\S+\s*$/);
+          start = kind.includes('Line') ? from : kind.includes('Word') ? from + Math.max(0, word) : Math.max(from, start - pair(start - 2));
+        } else if (kind.endsWith('Forward')) {
+          const word = /^\s*\S+/.exec(text.slice(end, to))?.[0].length ?? 0;
+          end = kind.includes('Line') ? to : kind.includes('Word') ? end + word : Math.min(to, end + pair(end));
+        }
+      }
+      // The change is made here and never by the browser, which would tidy the spaces around the words and take an emptied run away.
+      event.preventDefault();
+      // What is pasted, or put in place of a word, goes in as plain words on one line.
+      const data = kind.startsWith('delete') ? '' : (event.data ?? event.dataTransfer?.getData('text/plain').replace(/\s+/g, ' '));
+      if (typeof data !== 'string' || (start === end && data === '')) return;
+      // A space typed at either end of the words would be lost among the template's own, so it is one that shows.
+      const added = data === ' ' && (start === from || end === to) ? '\u00a0' : data;
+      run.replaceData(start, end - start, added);
+      selection?.collapse(run, start + added.length);
+      tellWords(typing);
+    },
+    true,
+  );
+  doc.addEventListener(
+    'input',
+    (event) => {
+      if (typing && isElement(event.target) && typing.mark.element.contains(event.target) && typing.run.isConnected) tellWords(typing);
+    },
+    true,
+  );
+  doc.addEventListener(
+    'keydown',
+    (event) => {
+      if (!typing || event.isComposing) return;
+      if (event.key !== 'Enter' && event.key !== 'Escape') return;
+      event.preventDefault();
+      const now = typing;
+      // Escape puts back what the field said when the typing began.
+      if (event.key === 'Escape' && now.run.isConnected && now.run.nodeValue !== now.before) {
+        now.run.nodeValue = now.before;
+        tellWords(now);
+      }
+      now.mark.element.blur();
+      stopTyping();
+    },
+    true,
+  );
+
   // Events.
   doc.addEventListener('mouseover', (event) => {
     marks.over = markOf(event.target);
-    if (marks.over) marks.over.element.style.cursor = 'pointer';
+    if (marks.over) marks.over.element.style.cursor = runFor(marks.over) ? 'text' : 'pointer';
     draw();
   });
   doc.documentElement.addEventListener('mouseleave', () => {
@@ -212,7 +405,14 @@ export function previewBridge(page: Window & typeof globalThis): void {
 
   page.addEventListener('message', (event: MessageEvent<{ source?: unknown; type?: unknown; id?: unknown; field?: unknown } | null>) => {
     if (event.origin !== origin || event.source !== page.parent || event.data?.source !== SOURCE) return;
+    if (event.data.type === 'typable') {
+      const places = (event.data as { places?: unknown }).places;
+      typable = typeof places === 'object' && places !== null ? (places as Record<string, unknown>) : {};
+      return;
+    }
     if (event.data.type !== 'show' || typeof event.data.id !== 'string') return;
+    // While words are typed into a section, the outline stays on the field they go into.
+    if (typing?.mark.section === event.data.id) return;
     const mark = find(event.data.id, typeof event.data.field === 'string' ? event.data.field : undefined);
     if (!mark) return;
     marks.chosen = mark;

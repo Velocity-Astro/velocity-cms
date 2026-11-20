@@ -1,6 +1,4 @@
 ---
-import { fieldMark } from '@velocity-astro/cms-astro';
-
 interface Props {
   title?: string;
   items?: { title?: string; text?: string }[];
@@ -11,12 +9,12 @@ const { title, items = [] } = Astro.props;
 
 <section class="band tinted">
   <div class="wrap">
-    {title && <h2 {...fieldMark('title')}>{title}</h2>}
+    {title && <h2>{title}</h2>}
     <ul class="grid">
-      {items.map((item, at) => (
+      {items.map((item) => (
         <li>
-          <h3 {...fieldMark('items', at, 'title')}>{item.title}</h3>
-          {item.text && <p {...fieldMark('items', at, 'text')}>{item.text}</p>}
+          <h3>{item.title}</h3>
+          {item.text && <p>{item.text}</p>}
         </li>
       ))}
     </ul>

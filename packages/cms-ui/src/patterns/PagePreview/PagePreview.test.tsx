@@ -86,6 +86,48 @@ it('asks the page to show a section, when it is chosen and when the page has bee
   expect(post).toHaveBeenCalledTimes(2);
 });
 
+it('says what is typed on the page, and does not draw the page again for it', () => {
+  vi.useFakeTimers();
+  const onWords = vi.fn();
+  const { rerender } = render(example({ onWords }));
+  say({ source: 'velocity-cms', type: 'words', id: 's1', field: 'title', words: 'Typed here' });
+  expect(onWords).toHaveBeenCalledWith('s1', 'title', 'Typed here');
+  // The form now holds those words: the page has them already.
+  rerender(example({ onWords, draft: 'typed on the page' }));
+  act(() => void vi.advanceTimersByTime(800));
+  expect(submit).toHaveBeenCalledTimes(1);
+  // A change made in the form is drawn as before.
+  rerender(example({ onWords, draft: 'typed in the form' }));
+  act(() => void vi.advanceTimersByTime(600));
+  expect(submit).toHaveBeenCalledTimes(2);
+
+  say({ source: 'velocity-cms', type: 'words', id: 's1', field: 'title', words: 7 });
+  say({ source: 'velocity-cms', type: 'words', id: 's1', words: 'No field' });
+  expect(onWords).toHaveBeenCalledTimes(1);
+});
+
+it('still draws a change made in the form that the page lacks, when words are typed on the page before the pause is over', () => {
+  vi.useFakeTimers();
+  const { rerender } = render(example());
+  rerender(example({ draft: 'typed in the form' }));
+  act(() => void vi.advanceTimersByTime(200));
+  say({ source: 'velocity-cms', type: 'words', id: 's1', field: 'title', words: 'Typed here' });
+  rerender(example({ draft: 'both' }));
+  act(() => void vi.advanceTimersByTime(600));
+  expect(submit).toHaveBeenCalledTimes(2);
+});
+
+it('tells the page where words may be typed, when it is drawn and when that changes', () => {
+  const { rerender } = render(example({ typable: { s1: ['title'] } }));
+  const post = vi.spyOn(frame().contentWindow as Window, 'postMessage').mockImplementation(() => undefined);
+  say({ source: 'velocity-cms', type: 'ready' });
+  expect(post).toHaveBeenCalledWith({ source: 'velocity-cms', type: 'typable', places: { s1: ['title'] } }, window.location.origin);
+  rerender(example({ typable: { s1: ['title'] } }));
+  expect(post).toHaveBeenCalledTimes(1);
+  rerender(example({ typable: { s1: ['title', 'items.0.text'] } }));
+  expect(post).toHaveBeenLastCalledWith({ source: 'velocity-cms', type: 'typable', places: { s1: ['title', 'items.0.text'] } }, window.location.origin);
+});
+
 it('says so when there is no page yet, and asks for nothing', () => {
   render(example({ address: undefined }));
   expect(screen.getByText('Save the page once to see it here.')).toBeTruthy();

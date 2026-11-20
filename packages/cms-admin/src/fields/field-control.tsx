@@ -34,6 +34,14 @@ export interface FieldSummaryProps {
   readonly value: unknown;
 }
 
+/** One place in a value where plain words are held, and how the value reads with other words there. */
+export interface WordsPlace {
+  /** Where in the value, as keys joined with dots (`0.text`), or nothing for the value itself. */
+  readonly place: string;
+  /** The value with these words at the place, or `undefined` when that leaves the field empty. */
+  readonly put: (words: string) => unknown;
+}
+
 export interface FieldControl {
   /** The editor name a field type asks for: `text-input`. */
   readonly type: string;
@@ -59,6 +67,12 @@ export interface FieldControl {
    * open, each under that name, in place of every item laid out in full.
    */
   readonly titleOf?: (field: FieldDef, value: unknown) => string | undefined;
+  /**
+   * Where a value of this kind holds plain words, exactly as a page shows them: the places words
+   * can be typed straight on the page beside the form. A control that holds other fields asks
+   * theirs (`controlFor`). Without it, the field is edited only in the form.
+   */
+  readonly words?: (field: FieldDef, value: unknown, controlFor: (type: string) => FieldControl | undefined) => readonly WordsPlace[];
   /** `end` when summaries are figures, so a column of them lines up. */
   readonly summaryAlign?: 'start' | 'end';
 }

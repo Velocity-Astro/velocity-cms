@@ -30,7 +30,7 @@ const fields = (form?.fields ?? []).map((field) => {
     <section class="band">
       <div class="wrap narrow">
         <h1 {...fieldMark('title')}>{title ?? say(form.label)}</h1>
-        {lead && <p class="lead" {...fieldMark('lead')}>{lead}</p>}
+        {lead && <p class="lead">{lead}</p>}
         <form action={form.action} method="post" class="form" data-cms-form data-cms-form-failed="That could not be sent. Please try again.">
           {Object.entries(form.hidden).map(([name, value]) => <input type="hidden" name={name} value={value} />)}
           {fields.map((field) => (

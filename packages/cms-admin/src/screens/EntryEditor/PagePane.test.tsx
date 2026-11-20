@@ -76,6 +76,39 @@ it('opens the section and points at the field pressed on the page, until the per
   expect(screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Line under it' }).value).toMatch(/Always\.$/);
 });
 
+it('tells the page where words may be typed, and puts in the form what is typed there without drawing the page again', async () => {
+  renderApp('/content/pages/p1', site());
+  const page = await frame();
+  const post = vi.spyOn(page.contentWindow as Window, 'postMessage').mockImplementation(() => undefined);
+  await say({ source: 'velocity-cms', type: 'ready' });
+  const told = post.mock.calls.map(([message]) => message as { type: string; places?: Record<string, string[]> }).find((message) => message.type === 'typable');
+  // Plain words can be typed on the page, an empty field of them too; nothing is said of a section's choices.
+  expect(told?.places?.['s1']).toEqual(['title', 'text']);
+  expect(told?.places?.['s2']).toEqual(['title', 'body']);
+
+  const asked = submit.mock.calls.length;
+  // Two fields in one breath: neither is lost to the other.
+  const source = page.contentWindow;
+  act(() => {
+    for (const [field, words] of [['title', 'Sell for more'], ['text', 'One agent.']])
+      window.dispatchEvent(new MessageEvent('message', { data: { source: 'velocity-cms', type: 'words', id: 's1', field, words }, origin: window.location.origin, source }));
+  });
+  const hero = () => (draft().data['f-body'] as { data: Record<string, unknown> }[])[0]?.data;
+  expect(hero()).toEqual({ 'bf-hero-title': 'Sell for more', 'bf-hero-text': 'One agent.' });
+  expect(screen.getByText('Unsaved changes')).toBeTruthy();
+  // Emptied on the page, the field is empty in the form, and can be typed into again.
+  await say({ source: 'velocity-cms', type: 'words', id: 's1', field: 'text', words: '' });
+  expect(hero()).toEqual({ 'bf-hero-title': 'Sell for more' });
+  await say({ source: 'velocity-cms', type: 'words', id: 's1', field: 'text', words: 'Back.' });
+  expect(hero()?.['bf-hero-text']).toBe('Back.');
+  // A place the form does not know changes nothing.
+  await say({ source: 'velocity-cms', type: 'words', id: 's1', field: 'nowhere', words: 'x' });
+  await say({ source: 'velocity-cms', type: 'words', id: 'gone', field: 'title', words: 'x' });
+  expect(hero()).toEqual({ 'bf-hero-title': 'Sell for more', 'bf-hero-text': 'Back.' });
+  await new Promise((done) => setTimeout(done, 700));
+  expect(submit.mock.calls.length).toBe(asked);
+});
+
 it('opens the section alone when the field pressed is not one the form has', async () => {
   renderApp('/content/pages/p1', site());
   await frame();
