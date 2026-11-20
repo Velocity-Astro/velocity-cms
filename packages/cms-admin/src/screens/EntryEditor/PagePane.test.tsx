@@ -349,3 +349,50 @@ it('edits a link from the page: the button on it opens a window that holds the l
   await say({ source: 'velocity-cms', type: 'link', id: 'gone', field: 'buttonTo' });
   expect(screen.queryByRole('dialog', { name: 'Edit link' })).toBeNull();
 });
+
+it('moves, copies and removes an item of a list from the page', async () => {
+  const name: FieldDef = { id: 'bf-card-name', key: 'name', type: 'text', label: { en: 'Name' }, required: false, translated: false, options: {} };
+  const cards: FieldDef = { ...name, id: 'bf-hero-cards', key: 'cards', type: 'list', label: { en: 'Cards' }, options: { max: 3, of: { type: 'group', options: { fields: [name] } } } };
+  const fields = samplePagesType.fields.map((field) =>
+    field.id === 'f-body'
+      ? { ...field, options: { ...field.options, blocks: (field.options['blocks'] as BlockDef[]).map((block) => (block.id === 'b-hero' ? { ...block, fields: [...block.fields, cards] } : block)) } }
+      : field,
+  );
+  const page = samplePage();
+  const card = (words: string) => ({ 'bf-card-name': words });
+  const body = (page.data['f-body'] as BlockValue[]).map((section) => (section.id === 's1' ? { ...section, data: { ...section.data, 'bf-hero-cards': [card('Soup'), card('Bread')] } } : section));
+  renderApp('/content/pages/p1', {
+    user: sampleUser,
+    contentTypes: [...sampleContentTypes, { ...samplePagesType, fields }],
+    entries: [...sampleEntries(), { ...page, data: { ...page.data, 'f-body': body } }],
+  });
+  const shown = await frame();
+  const post = vi.spyOn(shown.contentWindow as Window, 'postMessage').mockImplementation(() => undefined);
+  await say({ source: 'velocity-cms', type: 'ready' });
+  type Told = { type: string; labels?: Record<string, string>; sections?: Record<string, { lists?: unknown }> };
+  const told = () => post.mock.calls.map(([message]) => message as Told).filter((message) => message.type === 'tools').at(-1);
+  expect(told()?.labels?.['itemUp']).toBe('Move earlier');
+  expect(told()?.sections?.['s1']?.lists).toEqual([{ field: 'cards', count: 2, full: false }]);
+  const held = () => ((draft().data['f-body'] as BlockValue[])[0]?.data['bf-hero-cards'] as { 'bf-card-name': string }[] | undefined)?.map((item) => item['bf-card-name']);
+  const item = (at: number, action: string) => say({ source: 'velocity-cms', type: 'item', id: 's1', field: 'cards', at, action });
+
+  await item(1, 'up');
+  await waitFor(() => expect(held()).toEqual(['Bread', 'Soup']));
+  await item(0, 'duplicate');
+  await waitFor(() => expect(held()).toEqual(['Bread', 'Bread', 'Soup']));
+  // A full list takes no copy, whatever the page says, and the page is told it is full.
+  await waitFor(() => expect(told()?.sections?.['s1']?.lists).toEqual([{ field: 'cards', count: 3, full: true }]));
+  await item(0, 'duplicate');
+  await item(0, 'up');
+  await item(2, 'down');
+  await item(7, 'remove');
+  await say({ source: 'velocity-cms', type: 'item', id: 's1', field: 'gone', at: 0, action: 'remove' });
+  await say({ source: 'velocity-cms', type: 'item', id: 's1', field: 'cards', at: 0, action: 'explode' });
+  expect(held()).toEqual(['Bread', 'Bread', 'Soup']);
+  await item(1, 'remove');
+  await waitFor(() => expect(held()).toEqual(['Bread', 'Soup']));
+  await item(0, 'remove');
+  await item(0, 'remove');
+  await waitFor(() => expect(held()).toBeUndefined());
+  expect(screen.getByText('Unsaved changes')).toBeTruthy();
+});

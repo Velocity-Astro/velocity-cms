@@ -574,3 +574,66 @@ it('tells links that lead to one place apart by their order, and leaves alone a 
   }
   expect(links().map((message) => message.field)).toEqual(['to', 'more', 'cards.0.to', 'cards.1.to']);
 });
+
+const ITEMS = `
+  <main>
+    <div data-cms-section="s1" data-cms-values='${JSON.stringify([
+      ['title', 'Our menu'],
+      ['cards.0.name', 'Soup'],
+      ['cards.0.note', 'Warm'],
+      ['cards.1.name', 'Bread'],
+      ['cards.1.note', 'Fresh'],
+    ])}'>
+      <h2>Our menu</h2>
+      <ul>
+        <li class="card-0"><div><h3>Soup</h3><p>Warm</p></div></li>
+        <li class="card-1"><div><h3>Bread</h3><p>Fresh</p></div></li>
+      </ul>
+    </div>
+    <div data-cms-section="s2"><p data-cms-field="text">Words</p></div>
+  </main>`;
+const itemTools = {
+  labels: { ...TOOLS.labels, itemUp: 'Move earlier', itemDown: 'Move later', itemDuplicate: 'Duplicate', itemRemove: 'Remove' },
+  sections: { s1: { ...TOOLS.sections.s1, lists: [{ field: 'cards', count: 2, full: true }] }, s2: TOOLS.sections.s2 },
+};
+const itemTool = (action: string) => $(`[data-cms-item-tool="${action}"]`) as HTMLButtonElement;
+const itemBar = () => $('[data-cms-item-tools]');
+const items = () => (said as [{ type: string }, string][]).map(([message]) => message).filter((message) => message.type === 'item');
+
+it('puts a bar on the item of a list the pointer is in, and says which button of which item was pressed', () => {
+  open(ITEMS);
+  // Each card has a place of its own; everything else is somewhere the pointer is not.
+  const tops: Record<string, number> = { 'card-0': 0, 'card-1': 100 };
+  page.Element.prototype.getBoundingClientRect = function (this: Element) {
+    const card = this.closest('li');
+    return rect(card ? (tops[card.className] ?? 1000) : this.hasAttribute('data-cms-section') ? 0 : 1000);
+  };
+  moveTo('.card-1 p', 50, 110);
+  expect(itemBar().style.display).toBe('none');
+  hear({ source: 'velocity-cms', type: 'tools', ...itemTools });
+  moveTo('.card-1 p', 50, 110);
+  expect(itemBar().style.display).toBe('flex');
+  // The item is the whole card, not the words in it.
+  expect($('[data-cms-outline="item"]').style.display).toBe('block');
+  expect(itemTool('up').title).toBe('Move earlier');
+  // The last item goes no later, and a full list takes no copy.
+  expect(itemTool('up').disabled).toBe(false);
+  expect(itemTool('down').disabled).toBe(true);
+  expect(itemTool('duplicate').disabled).toBe(true);
+  itemTool('down').click();
+  itemTool('duplicate').click();
+  itemTool('up').click();
+  itemTool('remove').click();
+  expect(items()).toEqual([
+    { source: 'velocity-cms', type: 'item', id: 's1', field: 'cards', at: 1, action: 'up' },
+    { source: 'velocity-cms', type: 'item', id: 's1', field: 'cards', at: 1, action: 'remove' },
+  ]);
+  // The page itself is as it was.
+  expect(page.document.querySelectorAll('li')).toHaveLength(2);
+  moveTo('.card-0 h3', 50, 10);
+  expect(itemTool('up').disabled).toBe(true);
+  expect(itemTool('down').disabled).toBe(false);
+  // Outside every item there is no bar.
+  moveTo('h2', 500, 500);
+  expect(itemBar().style.display).toBe('none');
+});

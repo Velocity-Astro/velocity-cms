@@ -393,7 +393,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
   // Tools.
   interface Tools {
     readonly labels: Record<string, unknown>;
-    readonly sections: Record<string, { readonly name?: unknown; readonly up?: unknown; readonly down?: unknown; readonly copy?: unknown; readonly add?: unknown; readonly pictures?: unknown; readonly links?: unknown } | undefined>;
+    readonly sections: Record<string, { readonly name?: unknown; readonly up?: unknown; readonly down?: unknown; readonly copy?: unknown; readonly add?: unknown; readonly pictures?: unknown; readonly links?: unknown; readonly lists?: unknown } | undefined>;
   }
   let tools: Tools | null = null;
   // The section the bar is for: the one the pointer was last in, and it stays while the pointer is on the bar itself.
@@ -622,6 +622,117 @@ export function previewBridge(page: Window & typeof globalThis): void {
     const paths = tools?.sections[id]?.links;
     return tooled && Array.isArray(paths) ? smallestAt(linksOf(tooled, id, paths), x, y) : null;
   };
+  // One item of a list (a card, a row of a menu) has a small bar of its own: earlier, later, copy,
+  // remove. An item is what holds everything found for its fields and nothing of another item's.
+  interface Item extends Mark {
+    readonly list: string;
+    readonly at: number;
+    readonly count: number;
+    readonly full: boolean;
+  }
+  const itemsIn = new WeakMap<Element, { readonly said: string; readonly found: Item[] }>();
+  const itemsOf = (section: HTMLElement, id: string): readonly Item[] => {
+    const about = tools?.sections[id];
+    const lists: readonly unknown[] = Array.isArray(about?.lists) ? about.lists : [];
+    const links: readonly unknown[] = Array.isArray(about?.links) ? about.links : [];
+    const said = JSON.stringify([lists, links]);
+    const known = itemsIn.get(section);
+    if (known?.said === said) return known.found;
+    const found: Item[] = [];
+    itemsIn.set(section, { said, found });
+    // Every element known to show a field, by the field's place.
+    const shown: [string, HTMLElement][] = [...guess(section)];
+    for (const marked of section.querySelectorAll<HTMLElement>('[data-cms-field]')) shown.push([marked.dataset['cmsField'] ?? '', marked]);
+    for (const link of linksOf(section, id, links)) shown.push([link.field ?? '', link.element]);
+    for (const list of lists) {
+      if (typeof list !== 'object' || list === null) continue;
+      const { field, count, full } = list as { readonly field?: unknown; readonly count?: unknown; readonly full?: unknown };
+      if (typeof field !== 'string' || typeof count !== 'number') continue;
+      const held = new Map<number, HTMLElement[]>();
+      for (const [path, element] of shown) {
+        if (!path.startsWith(`${field}.`)) continue;
+        const at = Number(path.slice(field.length + 1).split('.')[0]);
+        if (Number.isInteger(at) && at >= 0 && at < count) held.set(at, [...(held.get(at) ?? []), element]);
+      }
+      for (const [at, elements] of held) {
+        let element = elements[0];
+        if (!element) continue;
+        while (element !== section && !elements.every((inner) => element?.contains(inner)) && element.parentElement) element = element.parentElement;
+        // As far out as it goes without taking in another item, so the whole card is the item.
+        const others = [...held].filter(([other]) => other !== at).flatMap(([, theirs]) => theirs);
+        if (others.some((other) => element?.contains(other))) continue;
+        while (others.length > 0 && element.parentElement && element.parentElement !== section && !others.some((other) => element?.parentElement?.contains(other))) element = element.parentElement;
+        if (element !== section) found.push({ element, section: id, field: `${field}.${at}`, list: field, at, count, full: full === true });
+      }
+    }
+    return found;
+  };
+  let itemed: Item | null = null;
+  const itemAt = (x: number, y: number): Item | null => {
+    const id = tooled?.dataset['cmsSection'] ?? '';
+    if (!tooled || !tools) return null;
+    const items = itemsOf(tooled, id);
+    const mark = smallestAt(items, x, y);
+    return items.find((item) => item.element === mark?.element && item.field === mark.field) ?? null;
+  };
+  const itemBox = outline('item', '1px');
+  itemBox.style.borderStyle = 'dashed';
+  const itemBar = doc.createElement('div');
+  itemBar.setAttribute('data-cms-item-tools', '');
+  Object.assign(itemBar.style, {
+    position: 'absolute',
+    display: 'none',
+    alignItems: 'center',
+    gap: '2px',
+    padding: '2px',
+    borderRadius: '8px',
+    background: 'CanvasText',
+    color: 'Canvas',
+    boxShadow: '0 4px 12px rgb(0 0 0 / 0.25)',
+    pointerEvents: 'auto',
+  });
+  const itemTool = (action: string): HTMLButtonElement => {
+    const button = doc.createElement('button');
+    button.type = 'button';
+    button.tabIndex = -1;
+    button.setAttribute('data-cms-item-tool', action);
+    Object.assign(button.style, { display: 'grid', placeItems: 'center', width: '26px', height: '26px', padding: '0', border: '0', borderRadius: '6px', background: 'transparent', color: 'inherit', cursor: 'pointer' });
+    button.append(drawing(action));
+    button.addEventListener('mousedown', (event) => event.preventDefault());
+    button.addEventListener('click', () => {
+      if (itemed && !button.disabled) say({ type: 'item', id: itemed.section, field: itemed.list, at: itemed.at, action });
+    });
+    itemBar.append(button);
+    return button;
+  };
+  const itemButtons = { up: itemTool('up'), down: itemTool('down'), duplicate: itemTool('duplicate'), remove: itemTool('remove') };
+  layer.append(itemBar);
+  const placeItem = (): void => {
+    const rect = shownRect(itemed);
+    if (!rect || !tools || !itemed) {
+      itemBar.style.display = 'none';
+      itemBox.style.display = 'none';
+      return;
+    }
+    place(itemBox, itemed);
+    // Items side by side are moved sideways, and the arrows say so.
+    const beside = itemsOf(tooled ?? itemed.element, itemed.section).find((other) => other.list === itemed?.list && other.at !== itemed.at);
+    const sideways = beside !== undefined && Math.abs(beside.element.getBoundingClientRect().top - rect.top) < rect.height / 2;
+    const able = { up: itemed.at > 0, down: itemed.at < itemed.count - 1, duplicate: !itemed.full, remove: true };
+    for (const action of ['up', 'down', 'duplicate', 'remove'] as const) {
+      const button = itemButtons[action];
+      button.title = word(tools.labels[`item${action.charAt(0).toUpperCase()}${action.slice(1)}`]);
+      button.disabled = !able[action];
+      button.style.opacity = able[action] ? '1' : '0.4';
+      button.style.cursor = able[action] ? 'pointer' : 'default';
+      if (action === 'up' || action === 'down') (button.firstElementChild as SVGElement | null)?.style.setProperty('transform', sideways ? 'rotate(-90deg)' : 'none');
+    }
+    // Inside the top corner of a card, and right under a line of words, which it would hide:
+    // either way the pointer reaches it without leaving the item.
+    const small = rect.height < 80;
+    const top = small ? (rect.bottom + 30 <= page.innerHeight ? rect.bottom - 2 : rect.top - 28) : Math.max(rect.top, 0) + 6;
+    Object.assign(itemBar.style, { display: 'flex', top: `${Math.max(top, 0)}px`, left: 'auto', right: `${Math.max(page.innerWidth - rect.right, 0) + (small ? 0 : 6)}px` });
+  };
   const shownRect = (mark: Mark | null): DOMRect | null => {
     const rect = !typing && !drag?.moved && mark?.element.isConnected ? mark.element.getBoundingClientRect() : null;
     return !rect || !tools || rect.bottom <= 0 || rect.top >= page.innerHeight || (rect.width === 0 && rect.height === 0) ? null : rect;
@@ -646,6 +757,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
     } else {
       linker.style.display = 'none';
     }
+    placeItem();
   };
   doc.addEventListener(
     'mousemove',
@@ -654,9 +766,11 @@ export function previewBridge(page: Window & typeof globalThis): void {
       if (isElement(event.target) && layer.contains(event.target)) return;
       const picture = pictureAt(event.clientX, event.clientY);
       const link = linkAt(event.clientX, event.clientY);
-      if (picture?.element === pictured?.element && link?.element === linked?.element) return;
+      const item = itemAt(event.clientX, event.clientY);
+      if (picture?.element === pictured?.element && link?.element === linked?.element && item?.element === itemed?.element && item?.field === itemed?.field) return;
       pictured = picture;
       linked = link;
+      itemed = item;
       placeChips();
     },
     true,
@@ -793,6 +907,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
     tooled = null;
     pictured = null;
     linked = null;
+    itemed = null;
     draw();
   });
   // Nothing on the page goes anywhere: a click chooses what it is on.

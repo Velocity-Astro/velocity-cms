@@ -5,7 +5,7 @@ import { lazy, Suspense, useState } from 'react';
 import { useContentTypes, useEntries, useForms } from '../client/queries.js';
 import { entryTitle, groupTranslations, localized, sameData, withValue } from '../lib/content.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
-import { createFieldControlRegistry, type FieldControl, type FieldControlProps, type FieldControls, type FieldSummaryProps, type LinkPlace, type PicturePlace, type WordsPlace } from './field-control.js';
+import { createFieldControlRegistry, type FieldControl, type FieldControlProps, type FieldControls, type FieldSummaryProps, type LinkPlace, type ListPlace, type PicturePlace, type WordsPlace } from './field-control.js';
 import { BlocksControl } from './BlocksControl.js';
 import { FieldEditor } from './FieldEditor.js';
 import { FieldGrid } from './FieldGrid.js';
@@ -300,7 +300,7 @@ interface AnyPlace {
   readonly put: (held: never) => unknown;
 }
 type Places<Place extends AnyPlace> = (field: FieldDef, value: unknown, controlFor: ControlFor) => readonly Place[];
-type Asked = 'words' | 'pictures' | 'links';
+type Asked = 'words' | 'pictures' | 'links' | 'lists';
 const putAt = (found: AnyPlace, held: unknown): unknown => (found.put as (held: unknown) => unknown)(held);
 
 /** A group holds the places of its fields, each under the field's key. */
@@ -341,6 +341,15 @@ const listPictures: Places<PicturePlace> = (field, value, controlFor) => inList(
 
 const groupLinks: Places<LinkPlace> = (field, value, controlFor) => inGroup('links', field, value, controlFor);
 const listLinks: Places<LinkPlace> = (field, value, controlFor) => inList('links', field, value, controlFor);
+
+const groupLists: Places<ListPlace> = (field, value, controlFor) => inGroup('lists', field, value, controlFor);
+/** A list is a place itself, and holds the lists of its items. */
+const listLists: Places<ListPlace> = (field, value, controlFor) => {
+  const items: readonly unknown[] = Array.isArray(value) ? value : [];
+  const max = typeof field.options['max'] === 'number' ? field.options['max'] : undefined;
+  const own: ListPlace = { place: '', items, isFull: max !== undefined && items.length >= max, put: (next) => (next.length === 0 ? undefined : next) };
+  return [own, ...inList<ListPlace>('lists', field, value, controlFor)];
+};
 
 /** A link field is its own link, chosen or not. */
 const linkLinks = (field: FieldDef, value: unknown): readonly LinkPlace[] => [{ place: '', field, link: value, put: (link) => link }];
@@ -496,7 +505,7 @@ export function createFieldControls(): FieldControls {
     .register({ type: 'link', Component: LinkControl, links: linkLinks })
     .register({ type: 'image', Component: ImageControl, pictures: imagePictures })
     .register({ type: 'rich-text', Component: RichTextControl })
-    .register({ type: 'group', Component: GroupControl, titleOf: groupTitle, words: groupWords, pictures: groupPictures, links: groupLinks })
-    .register({ type: 'list', Component: ListControl, words: listWords, pictures: listPictures, links: listLinks })
+    .register({ type: 'group', Component: GroupControl, titleOf: groupTitle, words: groupWords, pictures: groupPictures, links: groupLinks, lists: groupLists })
+    .register({ type: 'list', Component: ListControl, words: listWords, pictures: listPictures, links: listLinks, lists: listLists })
     .register({ type: 'blocks', Component: BlocksControl, showsPage: true });
 }
