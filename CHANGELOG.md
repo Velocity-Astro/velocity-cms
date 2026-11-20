@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+## 0.1.0-beta.6
+
 - **A picture of each kind of section.** A block can name a picture of itself (`defineBlock({ thumbnail: '/cms/blocks/text.webp' })`, a file in the site's `public` folder), and "Add a section" then shows its kinds as cards with their pictures in place of a list of names. A block with no picture shows its icon in the same frame, and a site whose blocks have none keeps the list.
 - **What the editor draws on a page is Velocity orange.** The outlines, the "Add section" buttons and the line that shows where a dragged section lands were the browser's blue.
 - **Fixed: the page beside the form could run an old script for an hour after an upgrade.** A browser kept `/cms-preview.js` for an hour, so something new on the page (a section's bar, for one) did not show until then. It is now asked for each time.
