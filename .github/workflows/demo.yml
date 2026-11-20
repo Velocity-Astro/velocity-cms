@@ -1,7 +1,8 @@
 name: Demo
 
 # Deploys each Premium template that has a demo on the CMS (real estate, restaurant) to its own
-# Vercel project. A template's public demo is another project and is not touched.
+# Vercel project, which answers at the template's demo domain (realestate.deployvelocity.com,
+# restaurant.deployvelocity.com). A template's static demo is another project and is not touched.
 #
 # The demos are listed in .github/scripts/demo-site.sh, with the project and database of each.
 # Real estate has its database in two secrets. A newer demo needs none of its own: the workflow
@@ -89,7 +90,6 @@ jobs:
       - name: Find the demo's project, database and secret
         env:
           DEMO_MAKE_DATABASE: 'true'
-          CMS_DEMO_URL: ${{ vars.CMS_DEMO_URL }}
           FIXED_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
           FIXED_DATABASE_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
           BASE_SECRET: ${{ secrets.VELOCITY_CMS_SECRET }}
@@ -195,7 +195,7 @@ jobs:
             if curl -fsS "$SITE_URL/api/cms/session" | jq -e 'has("user")' > /dev/null; then exit 0; fi
             sleep 10
           done
-          echo "::error::$SITE_URL/api/cms/session did not answer. If the real estate project has another address, set the CMS_DEMO_URL variable to it and run again."
+          echo "::error::$SITE_URL/api/cms/session did not answer. Check that the domain is on the project $VERCEL_PROJECT in Vercel (Settings, Domains), then run again."
           exit 1
 
       - name: Check a visitor is let in as the shared editor
