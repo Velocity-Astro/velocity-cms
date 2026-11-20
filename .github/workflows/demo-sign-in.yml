@@ -1,11 +1,16 @@
 name: Demo sign-in link
 
-# Prints a link that signs one person in to the CMS demo, until the demo sends email itself.
+# Prints a link that signs one person in to one of the CMS demos, which send no email themselves.
 # The first run creates the site's owner. The link works once, for 10 minutes, and is shown in
 # this run's log, which only people with access to this repository can read.
 on:
   workflow_dispatch:
     inputs:
+      demo:
+        description: Which demo to sign in to
+        type: choice
+        options: [real-estate, restaurant]
+        default: real-estate
       email:
         description: Your email address
         required: true
@@ -23,14 +28,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      VELOCITY_CMS_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
-      VELOCITY_CMS_DATABASE_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
-      VELOCITY_CMS_SECRET: ${{ secrets.VELOCITY_CMS_SECRET }}
-      VELOCITY_CMS_ORIGIN: ${{ vars.CMS_DEMO_URL || 'https://velocity-cms-real-estate-demo.vercel.app' }}
       EMAIL: ${{ inputs.email }}
       NAME: ${{ inputs.name }}
     steps:
       - uses: actions/checkout@v4
+      - name: Find the demo's address, database and secret
+        env:
+          DEMO: ${{ inputs.demo }}
+          CMS_DEMO_URL: ${{ vars.CMS_DEMO_URL }}
+          FIXED_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          FIXED_DATABASE_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          BASE_SECRET: ${{ secrets.VELOCITY_CMS_SECRET }}
+          TURSO_API_TOKEN: ${{ secrets.TURSO_API_TOKEN }}
+          TURSO_ORGANIZATION: ${{ vars.TURSO_ORGANIZATION }}
+          TURSO_GROUP: ${{ vars.TURSO_GROUP }}
+        run: |
+          bash .github/scripts/demo-site.sh
+          # Links are made for the demo's own address.
+          echo "VELOCITY_CMS_ORIGIN=$(grep '^SITE_URL=' "$GITHUB_ENV" | tail -1 | cut -d= -f2-)" >> "$GITHUB_ENV"
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
