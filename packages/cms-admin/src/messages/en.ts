@@ -186,6 +186,7 @@ export const en = {
     pageAddAfter: 'Add a section below',
     pagePicture: 'Change image',
     pageLink: 'Edit link',
+    pageTextLinkProblem: 'A link must be a web address, an email address, a phone number or a page of this site such as /contact/.',
     pageItemUp: 'Move earlier',
     pageItemDown: 'Move later',
     pageItemDuplicate: 'Duplicate',

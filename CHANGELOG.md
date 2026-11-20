@@ -4,6 +4,7 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **Write formatted text on the page.** In the visual editor and beside the form, text with paragraphs, bold and links is written right where the page shows it. Choosing words there shows a small bar with bold, italic and link. What is pasted goes in as plain words, and only what the format keeps is saved.
 - **Move, duplicate and remove a card from the page.** In the visual editor and beside the form, an item of a list in a section (a card, a row of a menu, a line of a checklist) shows a small bar while the pointer is in it: earlier, later, duplicate, remove. A copy can be typed over right there. A template needs no change.
 - **Edit a link or a button from the page.** In the visual editor and beside the form, a button or a link of a section shows an "Edit link" button while the pointer is over it. It opens a window with the link's own field: a page of the site chosen by name, or an address. A template needs no change, as long as its blocks ask `linkTo` where a link leads.
 - **Change a picture from the page.** In the visual editor and beside the form, a picture of a section shows a "Change image" button while the pointer is over it. It opens the same window the field in the form does, to choose one of the site's images or upload a new one, and the page shows it at once. Pictures inside a list (a team, a row of cards) work the same way. Nothing is asked of a template.

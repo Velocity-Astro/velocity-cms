@@ -1,8 +1,10 @@
-import type { Entry, EntryData } from '@velocity-astro/cms-core';
-import { Button, PagePreview, Segmented } from '@velocity-astro/cms-ui';
+import { isSafeLink, type Entry, type EntryData } from '@velocity-astro/cms-core';
+import { Button, Dialog, Form, PagePreview, Segmented, TextField } from '@velocity-astro/cms-ui';
 import { Maximize2 } from 'lucide-react';
+import { useState } from 'react';
 import { usePagePreview } from '../../client/queries.js';
 import { usePageFocus } from '../../fields/index.js';
+import { useLast } from '../../lib/use-closing.js';
 import { useMessages } from '../../messages/messages-context.js';
 
 const WIDTHS = ['phone', 'tablet', 'full'] as const;
@@ -53,6 +55,15 @@ export function PagePane({ entry, data, title, width, onWidthChange, isWhole, on
   const messages = useMessages();
   const focus = usePageFocus();
   const link = usePagePreview(entry?.id, entry?.revision);
+  // Where a link in text written on the page should lead, while the person is asked.
+  const [asked, setAsked] = useState<{ readonly href: string; readonly typed: string; readonly answer: (href: string | null) => void } | null>(null);
+  const shownAsked = useLast(asked);
+  const answer = (href: string | null) => {
+    asked?.answer(href);
+    setAsked(null);
+  };
+  const typedLink = (shownAsked?.typed ?? '').trim();
+  const isWrong = typedLink !== '' && !isSafeLink(typedLink);
 
   const emptyText =
     entry === null
@@ -62,37 +73,77 @@ export function PagePane({ entry, data, title, width, onWidthChange, isWhole, on
         : messages.editor.pageLoading;
 
   return (
-    <PagePreview
-      label={messages.editor.pageFrame(title)}
-      {...(entry !== null && link.data && { address: link.data.path })}
-      draft={entry === null ? '' : JSON.stringify({ id: entry.id, data })}
-      width={width}
-      isBare={isWhole}
-      {...(!isWhole && {
-        action: (
-          <Button variant="secondary" size="sm" icon={Maximize2} isDisabled={entry === null} onPress={onWhole}>
-            {messages.editor.visualOpen}
-          </Button>
-        ),
-        toolbar: <PageWidths width={width} onChange={onWidthChange} />,
-      })}
-      emptyText={emptyText}
-      {...(focus && {
-        onSectionPress: (id: string, field?: string) => {
-          focus.press(id, field);
-          // Words that can be typed on the page are typed there. Anything else is edited in the form.
-          if (field === undefined || focus.typable[id]?.includes(field) !== true) onFormWanted();
-        },
-        typable: focus.typable,
-        onWords: focus.typed,
-        onSectionAction: focus.acted,
-        onSectionMove: focus.dragged,
-        onSectionPicture: focus.pictured,
-        onSectionLink: focus.linked,
-        onSectionItem: focus.itemActed,
-        ...(focus.tools !== undefined && { tools: focus.tools }),
-      })}
-      {...(focus?.opened !== undefined && { shownSectionId: focus.opened })}
-    />
+    <>
+      <PagePreview
+        label={messages.editor.pageFrame(title)}
+        {...(entry !== null && link.data && { address: link.data.path })}
+        draft={entry === null ? '' : JSON.stringify({ id: entry.id, data })}
+        width={width}
+        isBare={isWhole}
+        {...(!isWhole && {
+          action: (
+            <Button variant="secondary" size="sm" icon={Maximize2} isDisabled={entry === null} onPress={onWhole}>
+              {messages.editor.visualOpen}
+            </Button>
+          ),
+          toolbar: <PageWidths width={width} onChange={onWidthChange} />,
+        })}
+        emptyText={emptyText}
+        {...(focus && {
+          onSectionPress: (id: string, field?: string, inForm?: boolean) => {
+            focus.press(id, field);
+            // Words that can be typed on the page are typed there. Anything else is edited in the form.
+            if (inForm === true || field === undefined || focus.typable[id]?.includes(field) !== true) onFormWanted();
+          },
+          onTextLink: (href: string, answer: (href: string | null) => void) => setAsked({ href, typed: href, answer }),
+          typable: focus.typable,
+          onWords: focus.typed,
+          onSectionAction: focus.acted,
+          onSectionMove: focus.dragged,
+          onSectionPicture: focus.pictured,
+          onSectionLink: focus.linked,
+          onSectionItem: focus.itemActed,
+          ...(focus.tools !== undefined && { tools: focus.tools }),
+        })}
+        {...(focus?.opened !== undefined && { shownSectionId: focus.opened })}
+      />
+      <Dialog
+        isOpen={asked !== null}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) answer(null);
+        }}
+        title={messages.editor.richText.link}
+        closeLabel={messages.editor.close}
+        size="sm"
+        footer={
+          <>
+            {shownAsked?.href !== '' && (
+              <Button variant="secondary" onPress={() => answer('')}>
+                {messages.editor.richText.linkRemove}
+              </Button>
+            )}
+            <Button isDisabled={typedLink === '' || isWrong} onPress={() => answer(typedLink)}>
+              {messages.editor.richText.linkApply}
+            </Button>
+          </>
+        }
+      >
+        <Form
+          label={messages.editor.richText.link}
+          onSubmit={() => {
+            if (typedLink !== '' && !isWrong) answer(typedLink);
+          }}
+        >
+          <TextField
+            label={messages.editor.richText.linkAddress}
+            description={messages.editor.richText.linkHelp}
+            value={shownAsked?.typed ?? ''}
+            onChange={(typed) => setAsked((last) => (last ? { ...last, typed } : last))}
+            autoFocus
+            {...(isWrong && { errorMessage: messages.editor.pageTextLinkProblem })}
+          />
+        </Form>
+      </Dialog>
+    </>
   );
 }

@@ -63,9 +63,9 @@ it('tells the editor it is ready, and nobody but this site', () => {
 it('says which field of which section was clicked', () => {
   const event = click('h1');
   expect(event.defaultPrevented).toBe(true);
-  expect(said.at(-1)).toEqual([{ source: 'velocity-cms', type: 'section', id: 's1', field: 'title' }, origin]);
+  expect(said.at(-1)).toEqual([{ source: 'velocity-cms', type: 'section', id: 's1', field: 'title', form: true }, origin]);
   click('li');
-  expect(said.at(-1)).toEqual([{ source: 'velocity-cms', type: 'section', id: 's2', field: 'items.0.text' }, origin]);
+  expect(said.at(-1)).toEqual([{ source: 'velocity-cms', type: 'section', id: 's2', field: 'items.0.text', form: true }, origin]);
 });
 
 it('says only the section where what was clicked has no field mark', () => {
@@ -325,9 +325,9 @@ it('ends the typing on Enter, and puts back what was there on Escape', () => {
   expect($('#h').hasAttribute('contenteditable')).toBe(false);
 });
 
-it('lets nothing be typed where the editor has not said so, in shaped text, in a button, or where the template marked the field itself', () => {
+it('lets nothing be typed where the editor has not said so, in a button, or where the template marked the field itself', () => {
   typingPage();
-  for (const selector of ['#body p', '#inb']) {
+  for (const selector of ['#inb']) {
     down(selector);
     expect(page.document.querySelector('[contenteditable]')).toBeNull();
   }
@@ -636,4 +636,106 @@ it('puts a bar on the item of a list the pointer is in, and says which button of
   // Outside every item there is no bar.
   moveTo('h2', 500, 500);
   expect(itemBar().style.display).toBe('none');
+});
+
+const WRITTEN = '<p>One <strong>bold</strong> thing, <a href="/contact/">here</a>.</p><p>Two.</p>';
+const writingPage = (shown = '<p>One <strong>bold</strong> thing, <a href="/contact/?preview=1.abc">here</a>.</p><p>Two.</p>') => {
+  open(held('s1', [['title', 'Welcome'], ['body', WRITTEN, 'html'], ['aside', '<p>Changed by the template</p>', 'html']], `<h1 id="h">Welcome</h1><div id="body">${shown}</div><div id="aside"><p class="lead">Changed by the template</p></div>`));
+  hear({ source: 'velocity-cms', type: 'typable', places: { s1: ['title', 'body', 'aside'] } });
+  hear({ source: 'velocity-cms', type: 'tools', labels: { ...TOOLS.labels, bold: 'Bold', italic: 'Italic', textLink: 'Link' }, sections: TOOLS.sections });
+};
+const formatTool = (name: string) => $(`[data-cms-format-tool="${name}"]`) as HTMLButtonElement;
+const choose = (node: Node, from: number, to: number) => {
+  const range = page.document.createRange();
+  range.setStart(node, from);
+  range.setEnd(node, to);
+  const selection = page.getSelection() as Selection;
+  selection.removeAllRanges();
+  selection.addRange(range);
+  page.document.dispatchEvent(new page.Event('selectionchange'));
+};
+
+it('lets shaped text be written where the page shows it as it is held, and says what it now holds', () => {
+  writingPage();
+  down('#body strong');
+  // The whole of the text is written in, not the one word that was pressed.
+  expect($('#body').getAttribute('contenteditable')).toBe('true');
+  click('#body strong');
+  expect(said.at(-1)).toEqual([{ source: 'velocity-cms', type: 'section', id: 's1', field: 'body' }, origin]);
+  $('#body p').append(' More.');
+  typed('#body p');
+  // A link says where the field says it leads, without what the preview added.
+  expect(words().at(-1)).toEqual({ source: 'velocity-cms', type: 'words', id: 's1', field: 'body', words: '<p>One <strong>bold</strong> thing, <a href="/contact/">here</a>. More.</p><p>Two.</p>' });
+  expect($('#body a').getAttribute('href')).toBe('/contact/?preview=1.abc');
+  // A press elsewhere ends it, and the element is as the template made it.
+  down('#h');
+  expect($('#body').hasAttribute('contenteditable')).toBe(false);
+});
+
+it('writes nothing where the page shows the text another way, and sends that to the form', () => {
+  writingPage();
+  down('#aside p');
+  expect(page.document.querySelector('[contenteditable]')).toBeNull();
+  click('#aside p');
+  expect(said.at(-1)).toEqual([{ source: 'velocity-cms', type: 'section', id: 's1', field: 'aside', form: true }, origin]);
+});
+
+it('puts back what the text said when Escape is pressed, and takes what is pasted as words alone', () => {
+  writingPage();
+  down('#body p');
+  const was = $('#body').innerHTML;
+  const exec = vi.fn();
+  page.document.execCommand = exec;
+  const paste = new page.Event('paste', { bubbles: true, cancelable: true });
+  Object.defineProperty(paste, 'clipboardData', { value: { getData: (kind: string) => (kind === 'text/plain' ? 'Plain words' : '<b onclick="x()">Plain words</b>') } });
+  $('#body p').dispatchEvent(paste);
+  expect(paste.defaultPrevented).toBe(true);
+  expect(exec).toHaveBeenCalledWith('insertText', false, 'Plain words');
+  $('#body p').append(' Typed.');
+  typed('#body p');
+  $('#body').dispatchEvent(new page.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+  expect($('#body').innerHTML).toBe(was);
+  expect(words().at(-1)?.words).toBe(WRITTEN);
+  expect($('#body').hasAttribute('contenteditable')).toBe(false);
+});
+
+it('offers bold, italic and a link on words chosen in text being written, and asks the editor where a link leads', () => {
+  writingPage();
+  const bar = () => $('[data-cms-format]');
+  down('#body p');
+  expect(bar().style.display).toBe('none');
+  const exec = vi.fn();
+  page.document.execCommand = exec;
+  const text = $('#body p').firstChild as Text;
+  choose(text, 0, 3);
+  expect(bar().style.display).toBe('flex');
+  expect(formatTool('bold').title).toBe('Bold');
+  formatTool('bold').click();
+  formatTool('italic').click();
+  expect(exec.mock.calls).toEqual([['bold', false, undefined], ['italic', false, undefined]]);
+  expect(words()).toHaveLength(2);
+  // Where a link leads is the editor's to ask: the page says what the words lead to now.
+  formatTool('link').click();
+  expect(said.at(-1)).toEqual([{ source: 'velocity-cms', type: 'linkAsk', id: 's1', field: 'body', href: '' }, origin]);
+  expect(bar().style.display).toBe('none');
+  // The page is left while the person is asked, and the text stays open.
+  $('#body').dispatchEvent(new page.FocusEvent('focusout', { bubbles: true }));
+  expect($('#body').getAttribute('contenteditable')).toBe('true');
+  hear({ source: 'velocity-cms', type: 'linkAnswer', href: '/visit/' });
+  expect(exec.mock.calls.at(-1)).toEqual(['createLink', false, '/visit/']);
+  // Words already in a link say where it leads, and an empty answer takes the link away.
+  choose($('#body a').firstChild as Text, 0, 4);
+  formatTool('link').click();
+  expect(said.at(-1)).toEqual([{ source: 'velocity-cms', type: 'linkAsk', id: 's1', field: 'body', href: '/contact/' }, origin]);
+  hear({ source: 'velocity-cms', type: 'linkAnswer', href: '' });
+  expect(exec.mock.calls.at(-1)).toEqual(['unlink', false, undefined]);
+  // No answer leaves the words as they are.
+  choose(text, 0, 3);
+  formatTool('link').click();
+  const calls = exec.mock.calls.length;
+  hear({ source: 'velocity-cms', type: 'linkAnswer', href: null });
+  expect(exec.mock.calls).toHaveLength(calls);
+  // Nothing chosen, no bar.
+  choose(text, 1, 1);
+  expect(bar().style.display).toBe('none');
 });
