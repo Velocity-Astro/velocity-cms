@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
   pagePreviewBarClass,
-  pagePreviewClass,
+  pagePreviewVariants,
   pagePreviewEmptyClass,
   pagePreviewFrameVariants,
   pagePreviewNoteClass,
@@ -58,13 +58,15 @@ export interface PagePreviewProps extends PagePreviewVariants {
    * already shows them, so the change of `draft` that follows asks for no new page.
    */
   readonly onWords?: (id: string, field: string, words: string) => void;
+  /** No border of its own, for a place that frames it already, such as a whole window. */
+  readonly isBare?: boolean;
 }
 
 /**
  * A page of the site as it would look with what is in a form now, in a frame. The page is drawn
  * by the site itself, so it looks exactly as it will; nothing of it is drawn here.
  */
-export function PagePreview({ label, address, draft, note, toolbar, emptyText, onSectionPress, shownSectionId, typable, onWords, width }: PagePreviewProps) {
+export function PagePreview({ label, address, draft, note, toolbar, emptyText, onSectionPress, shownSectionId, typable, onWords, isBare = false, width }: PagePreviewProps) {
   const name = `preview-${useId().replaceAll(':', '')}`;
   const form = useRef<HTMLFormElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
@@ -132,7 +134,7 @@ export function PagePreview({ label, address, draft, note, toolbar, emptyText, o
   useEffect(() => tell(places), [places]);
 
   return (
-    <div className={pagePreviewClass}>
+    <div className={pagePreviewVariants({ isBare })}>
       {(note !== undefined || toolbar !== undefined) && (
         <div className={pagePreviewBarClass}>
           <span className={pagePreviewNoteClass}>{note}</span>

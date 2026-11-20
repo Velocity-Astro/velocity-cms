@@ -63,3 +63,10 @@ export const Saving: Story = {
     ),
   },
 };
+/** Across a whole window, where going back closes the view instead of leading to a list. */
+export const AcrossAWindow: Story = {
+  args: {
+    across: 'window',
+    back: { label: 'Back to the form', onPress: () => undefined },
+  },
+};

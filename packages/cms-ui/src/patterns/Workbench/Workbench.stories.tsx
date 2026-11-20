@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { Button } from '../../components/Button/index.js';
 import { Card } from '../../components/Card/index.js';
 import { Text } from '../../components/Text/index.js';
 import { TextField } from '../../components/TextField/index.js';
@@ -32,3 +33,11 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+const bar = <Button variant="secondary">Back to the form</Button>;
+
+/** With the whole window: the bar across the top, the form a panel at the side. */
+export const Whole: Story = { tags: ['!autodocs'], args: { view: 'whole', bar } };
+
+/** The panel put away, so the pane has everything. */
+export const WholeWithTheFormAway: Story = { tags: ['!autodocs'], args: { view: 'whole', bar, isFormAway: true } };

@@ -224,7 +224,7 @@
       "name": "Workbench",
       "layer": "pattern",
       "group": "Layout",
-      "description": "A form with what it makes shown large beside it and kept in view: the sections of a page, and the page.",
+      "description": "A form with what it makes shown large beside it and kept in view: the sections of a page, and the page. With view=\"whole\" the two take the whole window, the form a panel at the side that can be put away.",
       "example": "<Workbench paneLabel=\"The page\" pane={<PagePreview … />}>…</Workbench>",
       "useInstead": "Split for a form with a few settings beside it; Grid for things of equal weight.",
       "uses": []

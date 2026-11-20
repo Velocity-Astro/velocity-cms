@@ -127,6 +127,46 @@ it('tries the page at a phone\'s and a tablet\'s width', async () => {
   expect(screen.getByRole('radio', { name: 'Phone' }).getAttribute('aria-checked')).toBe('true');
 });
 
+it('gives the page the whole window, and brings the form back for what cannot be typed on the page', async () => {
+  const user = userEvent.setup();
+  renderApp('/content/pages/p1', site());
+  const page = await frame();
+  await user.click(screen.getByRole('button', { name: 'Visual editor' }));
+  // The same page, not a new one: nothing is asked for again.
+  expect(await frame()).toBe(page);
+  expect(submit).toHaveBeenCalledOnce();
+  // One bar, with the way back, the widths and the save buttons.
+  const bar = within(screen.getByRole('region', { name: 'Save and publish' }));
+  expect(bar.getByRole('radio', { name: 'Tablet' })).toBeTruthy();
+  expect(bar.getByRole('button', { name: 'Save draft' })).toBeTruthy();
+  expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+  expect(screen.queryByRole('button', { name: 'Visual editor' })).toBeNull();
+
+  // Words that can be typed on the page leave the form where it is.
+  expect(bar.getByRole('button', { name: 'Show the form' })).toBeTruthy();
+  await say({ source: 'velocity-cms', type: 'ready' });
+  await say({ source: 'velocity-cms', type: 'section', id: 's1', field: 'title' });
+  expect(bar.getByRole('button', { name: 'Show the form' })).toBeTruthy();
+  // A section, or a field edited only in the form, brings the form.
+  await say({ source: 'velocity-cms', type: 'section', id: 's1' });
+  expect(await bar.findByRole('button', { name: 'Hide the form' })).toBeTruthy();
+  await user.click(bar.getByRole('button', { name: 'Hide the form' }));
+  expect(bar.getByRole('button', { name: 'Show the form' })).toBeTruthy();
+
+  // What is typed here is the form's, and is still there on the way back.
+  await say({ source: 'velocity-cms', type: 'words', id: 's1', field: 'title', words: 'Typed in the window' });
+  await user.click(bar.getByRole('button', { name: 'Back to the form' }));
+  expect(await screen.findByRole('button', { name: 'Visual editor' })).toBeTruthy();
+  expect(await frame()).toBe(page);
+  expect((draft().data['f-body'] as { data: Record<string, unknown> }[])[0]?.data['bf-hero-title']).toBe('Typed in the window');
+});
+
+it('offers the whole window only once there is a page to show', async () => {
+  renderApp('/content/pages/new', site());
+  const pane = within(await screen.findByRole('region', { name: 'The page' }));
+  expect(pane.getByRole('button', { name: 'Visual editor' }).hasAttribute('disabled')).toBe(true);
+});
+
 it('says a new page must be saved once before it can be shown', async () => {
   renderApp('/content/pages/new', site());
   const pane = within(await screen.findByRole('region', { name: 'The page' }));

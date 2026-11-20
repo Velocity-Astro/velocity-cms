@@ -1,7 +1,7 @@
 import type { ContentTypeDef, Entry, EntryData, FieldDef } from '@velocity-astro/cms-core';
 import { HOME_SLUG, SLUG_PATH, isSlug, isSlugPath, liveFields, takesSlugPath } from '@velocity-astro/cms-core';
 import { Box, Button, Card, ConfirmDialog, Form, IconButton, Menu, SaveBar, Segmented, Split, Stack, Tag, Text, TextField, Workbench, toast } from '@velocity-astro/cms-ui';
-import { CalendarClock, Copy, Ellipsis, EyeOff, History, Trash2 } from 'lucide-react';
+import { CalendarClock, Copy, Ellipsis, EyeOff, History, PanelLeftClose, PanelLeftOpen, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { paths } from '../../app/paths.js';
 import { AdminRequestError } from '../../client/errors.js';
@@ -18,7 +18,7 @@ import { useLocale, useMessages } from '../../messages/messages-context.js';
 import { PluginBoundary } from '../../plugins/PluginBoundary.js';
 import { usePluginExtensions } from '../../plugins/plugin-editor.js';
 import { EntryDeals } from './EntryDeals.js';
-import { PagePane } from './PagePane.js';
+import { PagePane, PageWidths, type PageWidth } from './PagePane.js';
 
 const STATE_TONE = { draft: 'neutral', scheduled: 'info', published: 'success', unpublishedChanges: 'warning' } as const satisfies Record<
   EntryState,
@@ -73,6 +73,10 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   const [isConfirmingTrash, setConfirmingTrash] = useState(false);
   const [isShowingHistory, setShowingHistory] = useState(false);
   const [isScheduling, setScheduling] = useState(false);
+  // The visual editor: the page has the whole window, and the form is a panel at its side.
+  const [isVisual, setVisual] = useState(false);
+  const [isFormAway, setFormAway] = useState(true);
+  const [pageWidth, setPageWidth] = useState<PageWidth>('full');
 
   const typeName = localized(type.label, locale);
   const title = entryTitle(type, data);
@@ -289,62 +293,108 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   /** A card in the form's column beside the page, where there is room for one field per row. */
   const narrowCard = (section: (typeof sections)[number]) => card({ ...section, aside: true });
 
+  const heading = isSingle ? typeName : (title ?? (entry ? messages.contentList.untitled : messages.editor.newTitle));
+  const status = (
+    <>
+      <Tag tone={STATE_TONE[state]}>{messages.status[state]}</Tag>
+      {entry?.publishProblem !== undefined && <Tag tone="danger">{messages.editor.missedSchedule}</Tag>}
+      <Text as="span" size="sm" tone="muted">
+        {savedNote}
+      </Text>
+    </>
+  );
+  const actions = (
+    <>
+      {entry !== null && versions.length > 1 && (
+        <Segmented
+          label={messages.editor.language}
+          selected={entry.id}
+          onChange={(id) => onSwitch?.(id)}
+          options={versions.map((version) => ({
+            id: version.id,
+            label: languageName(version.locale, locale),
+            isDisabled: version.id !== entry.id && isBusy,
+          }))}
+        />
+      )}
+      {more.length > 0 && (
+        <Menu
+          trigger={<IconButton label={messages.editor.more} icon={Ellipsis} isDisabled={isBusy} />}
+          actions={more}
+          onAction={(id) => (id === 'schedule' ? setScheduling(true) : id === 'history' ? setShowingHistory(true) : id === 'trash' ? setConfirmingTrash(true) : id === 'duplicate' && entry ? void makeCopy(entry.id) : setConfirmingUnpublish(true))}
+        />
+      )}
+      {hasPage && (
+        <Button variant="ghost" isDisabled={isBusy} isPending={running === 'preview'} onPress={() => void preview()}>
+          {messages.editor.preview}
+        </Button>
+      )}
+      <Button variant="secondary" isDisabled={isBusy || !hasChanges} isPending={running === 'save'} onPress={() => void run('save')}>
+        {messages.editor.saveDraft}
+      </Button>
+      <Button isDisabled={isBusy || (state === 'published' && !hasChanges)} isPending={running === 'publish'} onPress={() => void run('publish')}>
+        {entry?.status === 'published' ? messages.editor.publishChanges : messages.editor.publish}
+      </Button>
+    </>
+  );
+
   return (
     <Stack gap={0} fill>
-      <SaveBar
-        label={messages.editor.saveBar}
-        {...(!isSingle && { back: { href: paths.contentList(type.key), label: typeName } })}
-        title={isSingle ? typeName : (title ?? (entry ? messages.contentList.untitled : messages.editor.newTitle))}
-        status={
-          <>
-            <Tag tone={STATE_TONE[state]}>{messages.status[state]}</Tag>
-            {entry?.publishProblem !== undefined && <Tag tone="danger">{messages.editor.missedSchedule}</Tag>}
-            <Text as="span" size="sm" tone="muted">
-              {savedNote}
-            </Text>
-          </>
-        }
-        actions={
-          <>
-            {entry !== null && versions.length > 1 && (
-              <Segmented
-                label={messages.editor.language}
-                selected={entry.id}
-                onChange={(id) => onSwitch?.(id)}
-                options={versions.map((version) => ({
-                  id: version.id,
-                  label: languageName(version.locale, locale),
-                  isDisabled: version.id !== entry.id && isBusy,
-                }))}
-              />
-            )}
-            {more.length > 0 && (
-              <Menu
-                trigger={<IconButton label={messages.editor.more} icon={Ellipsis} isDisabled={isBusy} />}
-                actions={more}
-                onAction={(id) => (id === 'schedule' ? setScheduling(true) : id === 'history' ? setShowingHistory(true) : id === 'trash' ? setConfirmingTrash(true) : id === 'duplicate' && entry ? void makeCopy(entry.id) : setConfirmingUnpublish(true))}
-              />
-            )}
-            {hasPage && (
-              <Button variant="ghost" isDisabled={isBusy} isPending={running === 'preview'} onPress={() => void preview()}>
-                {messages.editor.preview}
-              </Button>
-            )}
-            <Button variant="secondary" isDisabled={isBusy || !hasChanges} isPending={running === 'save'} onPress={() => void run('save')}>
-              {messages.editor.saveDraft}
-            </Button>
-            <Button isDisabled={isBusy || (state === 'published' && !hasChanges)} isPending={running === 'publish'} onPress={() => void run('publish')}>
-              {entry?.status === 'published' ? messages.editor.publishChanges : messages.editor.publish}
-            </Button>
-          </>
-        }
-      />
+      {/* The visual editor covers the screen and has this bar's words and buttons in a bar of its own. */}
+      {!(showsPage && isVisual) && (
+        <SaveBar
+          label={messages.editor.saveBar}
+          {...(!isSingle && { back: { href: paths.contentList(type.key), label: typeName } })}
+          title={heading}
+          status={status}
+          actions={actions}
+        />
+      )}
       <Box paddingX={embedded ? 0 : 12} paddingY={8} grow>
         <Form label={messages.editor.form} gap={5} onSubmit={() => void run('save')}>
           {showsPage ? (
             // The page is beside the form, so everything else is in the form's one column.
             <PageFocusProvider>
-              <Workbench paneLabel={messages.editor.pagePane} pane={<PagePane entry={entry} data={data} title={title ?? typeName} />}>
+              <Workbench
+                paneLabel={messages.editor.pagePane}
+                view={isVisual ? 'whole' : 'beside'}
+                isFormAway={isFormAway}
+                bar={
+                  <SaveBar
+                    across="window"
+                    label={messages.editor.saveBar}
+                    back={{ label: messages.editor.visualClose, onPress: () => setVisual(false) }}
+                    title={heading}
+                    status={status}
+                    actions={
+                      <>
+                        <IconButton
+                          label={isFormAway ? messages.editor.visualShowForm : messages.editor.visualHideForm}
+                          icon={isFormAway ? PanelLeftOpen : PanelLeftClose}
+                          onPress={() => setFormAway(!isFormAway)}
+                        />
+                        <PageWidths width={pageWidth} onChange={setPageWidth} />
+                        {actions}
+                      </>
+                    }
+                  />
+                }
+                pane={
+                  <PagePane
+                    entry={entry}
+                    data={data}
+                    title={title ?? typeName}
+                    width={pageWidth}
+                    onWidthChange={setPageWidth}
+                    isWhole={isVisual}
+                    onWhole={() => {
+                      setFormAway(true);
+                      setVisual(true);
+                    }}
+                    onFormWanted={() => setFormAway(false)}
+                  />
+                }
+              >
                 {sections.filter((section) => !section.aside).map(narrowCard)}
                 {!isSingle && (
                   <Card title={slugPattern !== undefined ? messages.editor.addressSection : messages.editor.identifierSection}>

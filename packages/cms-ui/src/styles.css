@@ -117,6 +117,11 @@
   transition-duration: var(--motion-base);
   transition-timing-function: var(--motion-ease);
 }
+/* A panel that is part of the layout and makes room or takes it: the form beside a page. */
+@utility motion-slide {
+  transition-duration: var(--motion-slow);
+  transition-timing-function: var(--motion-ease);
+}
 /*
  * How things arrive and leave. React Aria marks a part `data-entering` while it opens and
  * `data-exiting` while it closes, and waits for the animation before taking it away. Leaving is
