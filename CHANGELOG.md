@@ -4,6 +4,7 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **Moving a section shows where it goes.** Dragging a section of a page by its bar now lays the page's sections out by name, one short row each: the one held follows the pointer and a thick line shows where it will land. The bar also has a Reorder button that opens the same list to stay, where a section is dragged or sent a place earlier or later until Done.
 - The editor shows its frame and a sign that it is loading while its script is on its way, in place of a blank page.
 - A button pressed on the page (move, copy, remove, a swatch, undo) shows its result about half a second sooner.
 - On Home, a single page such as Navigation is listed by its name, not as "Untitled".

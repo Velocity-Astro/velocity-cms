@@ -219,6 +219,8 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
           duplicate: messages.editor.pageDuplicate,
           remove: messages.editor.pageRemove,
           add: messages.editor.pageAdd,
+          reorder: messages.editor.pageReorder,
+          done: messages.editor.pageReorderDone,
           addBefore: messages.editor.pageAddBefore,
           addAfter: messages.editor.pageAddAfter,
           picture: messages.editor.pagePicture,

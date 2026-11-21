@@ -592,6 +592,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
     link: ['M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71', 'M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'],
     bold: ['M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8'],
     italic: ['M19 4h-9', 'M14 20H5', 'M15 4 9 20'],
+    reorder: ['m21 16-4 4-4-4', 'M17 20V4', 'm3 8 4-4 4 4', 'M7 4v16'],
     drag: ['M9 5h.01', 'M9 12h.01', 'M9 19h.01', 'M15 5h.01', 'M15 12h.01', 'M15 19h.01'],
   };
   const drawing = (name: string): SVGElement => {
@@ -659,6 +660,16 @@ export function previewBridge(page: Window & typeof globalThis): void {
   more.append(drawing('add'));
   press(more, 'addAfter');
   bar.append(more);
+  // The page's sections by name, to put in another order.
+  const sorter = doc.createElement('button');
+  sorter.type = 'button';
+  sorter.tabIndex = -1;
+  sorter.setAttribute('data-cms-tool', 'reorder');
+  Object.assign(sorter.style, { display: 'none', placeItems: 'center', width: '28px', height: '28px', padding: '0', border: '0', borderRadius: '6px', background: 'transparent', color: 'inherit', cursor: 'pointer' });
+  sorter.append(drawing('reorder'));
+  sorter.addEventListener('mousedown', (event) => event.preventDefault());
+  sorter.addEventListener('click', () => openStack(null, true, 0));
+  bar.append(sorter);
   // Swatches: a look of the section chosen among a few of the site's colours has a dot for each
   // choice on the bar. The page changes nothing: it says which was pressed.
   const dots = doc.createElement('span');
@@ -1185,6 +1196,8 @@ export function previewBridge(page: Window & typeof globalThis): void {
       button.style.cursor = able[action] ? 'pointer' : 'default';
     }
     // At the section's top corner, and at the top of the page while the section's own top is above it.
+    sorter.title = word(tools.labels['reorder']);
+    sorter.style.display = word(about.list) === '' && pageOrder().length > 1 ? 'grid' : 'none';
     more.title = word(tools.labels['addAfter']);
     more.style.display = about.add === true ? 'grid' : 'none';
     Object.assign(bar.style, { display: 'flex', top: at(Math.min(Math.max(rect.top, 0) + 12 * grow, Math.max(rect.bottom - 44 * grow, 0))), left: 'auto', right: at(Math.max(page.innerWidth - rect.right, 0) + 12 * grow) });
@@ -1299,6 +1312,13 @@ export function previewBridge(page: Window & typeof globalThis): void {
       drag.y = event.clientY;
       // A few pixels of give, so a press that was only a press moves nothing.
       if (Math.abs(drag.y - drag.from) > 4) drag.moved = true;
+      // A section of the page itself is moved among the page's sections by name.
+      if (drag.moved && word(tools?.sections[drag.id]?.list) === '') {
+        const { id } = drag;
+        endDrag(false);
+        openStack(id, false, event.clientY);
+        return;
+      }
       if (drag.moved) aim();
     },
     true,
@@ -1312,6 +1332,262 @@ export function previewBridge(page: Window & typeof globalThis): void {
     },
     true,
   );
+
+  // Moving a section of the page itself. A page is long and a section is tall, so where a dragged
+  // one would land cannot be seen on the page: the page gives way to its sections by name, one
+  // short row each. The one held follows the pointer, a thick line with its name shows where it
+  // would land, and letting go says so to the editor. The same rows, opened from the bar, stay
+  // open: a row is dragged, or sent one place earlier or later.
+  interface Stack {
+    order: string[];
+    /** Opened from the bar: it stays open after a move. */
+    readonly stays: boolean;
+    held: string | null;
+    from: number;
+    y: number;
+    moved: boolean;
+  }
+  interface StackWords {
+    readonly names: Record<string, string>;
+    readonly title: string;
+    readonly done: string;
+    readonly up: string;
+    readonly down: string;
+  }
+  const ROW = 44;
+  const STEP = 50;
+  let stacked: Stack | null = null;
+  let stackWords: StackWords = { names: {}, title: '', done: '', up: '', down: '' };
+  let shift = 0;
+  const stackKey = `velocity-cms:stack:${page.location.pathname}`;
+  const pageOrder = (): string[] => movable().filter((section) => word(tools?.sections[section.dataset['cmsSection'] ?? '']?.list) === '').map((section) => section.dataset['cmsSection'] ?? '');
+  const stack = doc.createElement('div');
+  stack.setAttribute('data-cms-stack', '');
+  Object.assign(stack.style, { position: 'absolute', inset: '0', display: 'none', overflow: 'hidden', background: 'rgb(14 14 16 / 0.82)', backdropFilter: 'blur(6px)', color: '#fff', font: `500 14px/1 ${FONT}`, pointerEvents: 'auto', userSelect: 'none' });
+  const column = doc.createElement('div');
+  Object.assign(column.style, { position: 'absolute', top: '0', left: '50%', width: 'min(26rem, calc(100% - 32px))' });
+  stack.append(column);
+  layer.append(stack);
+  const headOf = (now: Stack): number => (now.stays ? 56 : 0);
+  /** Which row the held one would land before: as many as there are rows for after the last. */
+  const landing = (now: Stack): number => Math.min(Math.max(Math.round((now.y - shift - headOf(now)) / STEP), 0), now.order.length);
+  const drawStack = (): void => {
+    const now = stacked;
+    stack.style.display = now ? 'block' : 'none';
+    if (!now) return;
+    const head = headOf(now);
+    const dragging = now.held !== null && now.moved;
+    const own = now.held === null ? -1 : now.order.indexOf(now.held);
+    const to = landing(now);
+    column.replaceChildren();
+    Object.assign(column.style, { height: `${head + now.order.length * STEP}px`, transform: `translate(-50%, ${shift}px)` });
+    if (now.stays) {
+      const top = doc.createElement('div');
+      Object.assign(top.style, { position: 'absolute', top: '0', left: '0', right: '0', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', font: `600 15px/1 ${FONT}` });
+      const title = doc.createElement('span');
+      title.textContent = stackWords.title;
+      const done = doc.createElement('button');
+      done.type = 'button';
+      done.tabIndex = -1;
+      done.setAttribute('data-cms-stack-done', '');
+      done.textContent = stackWords.done;
+      Object.assign(done.style, { height: '32px', padding: '0 14px', border: '0', borderRadius: '8px', background: ACCENT, color: ACCENT_INK, font: `600 13px/1 ${FONT}`, cursor: 'pointer' });
+      done.addEventListener('click', () => closeStack());
+      top.append(title, done);
+      column.append(top);
+    }
+    const rowLook = { position: 'absolute', left: '0', right: '0', height: `${ROW}px`, boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: '10px', padding: '0 8px 0 12px', borderRadius: '10px' };
+    now.order.forEach((id, at) => {
+      const row = doc.createElement('div');
+      row.setAttribute('data-cms-stack-row', id);
+      const isHeld = dragging && id === now.held;
+      Object.assign(row.style, rowLook, {
+        top: `${head + at * STEP}px`,
+        background: isHeld ? 'transparent' : 'rgb(255 255 255 / 0.1)',
+        border: isHeld ? '1px dashed rgb(255 255 255 / 0.35)' : '1px solid rgb(255 255 255 / 0.14)',
+        color: isHeld ? 'rgb(255 255 255 / 0.35)' : '#fff',
+        cursor: now.stays ? 'grab' : 'grabbing',
+      });
+      const count = doc.createElement('span');
+      count.textContent = String(at + 1);
+      Object.assign(count.style, { width: '20px', textAlign: 'right', opacity: '0.55', font: `500 12px/1 ${FONT}` });
+      const name = doc.createElement('span');
+      name.textContent = stackWords.names[id] ?? '';
+      Object.assign(name.style, { flex: '1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+      row.append(drawing('drag'), count, name);
+      if (now.stays) {
+        for (const [way, label, able] of [['up', stackWords.up, at > 0], ['down', stackWords.down, at < now.order.length - 1]] as const) {
+          const nudge = doc.createElement('button');
+          nudge.type = 'button';
+          nudge.tabIndex = -1;
+          nudge.title = label;
+          nudge.disabled = !able;
+          nudge.setAttribute('data-cms-stack-nudge', way);
+          Object.assign(nudge.style, { display: 'grid', placeItems: 'center', width: '30px', height: '30px', padding: '0', border: '0', borderRadius: '6px', background: 'transparent', color: 'inherit', opacity: able ? '1' : '0.3', cursor: able ? 'pointer' : 'default' });
+          nudge.append(drawing(way));
+          nudge.addEventListener('mousedown', (event) => event.stopPropagation());
+          nudge.addEventListener('click', () => {
+            if (able) land(id, way === 'up' ? at - 1 : at + 2);
+          });
+          row.append(nudge);
+        }
+        row.addEventListener('mousedown', (event) => {
+          if (event.button !== 0) return;
+          event.preventDefault();
+          Object.assign(now, { held: id, from: event.clientY, y: event.clientY, moved: false });
+        });
+      }
+      column.append(row);
+    });
+    if (!dragging || now.held === null) return;
+    // Where it would land: nowhere new before itself or before the one after it.
+    if (to !== own && to !== own + 1) {
+      const mark = doc.createElement('div');
+      mark.setAttribute('data-cms-stack-line', String(to));
+      Object.assign(mark.style, { position: 'absolute', left: '-10px', right: '-10px', top: `${head + to * STEP - 6}px`, height: '6px', borderRadius: '3px', background: ACCENT, boxShadow: `0 0 0 3px color-mix(in srgb, ${ACCENT} 30%, transparent)` });
+      column.append(mark);
+    }
+    const ghost = doc.createElement('div');
+    ghost.setAttribute('data-cms-stack-held', now.held);
+    Object.assign(ghost.style, rowLook, { top: `${now.y - shift - ROW / 2}px`, left: '40px', right: '-40px', background: ACCENT, color: ACCENT_INK, font: `600 14px/1 ${FONT}`, boxShadow: '0 12px 32px rgb(0 0 0 / 0.45)', transform: 'rotate(-1deg)', pointerEvents: 'none', cursor: 'grabbing' });
+    const held = doc.createElement('span');
+    held.textContent = stackWords.names[now.held] ?? '';
+    Object.assign(held.style, { flex: '1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+    ghost.append(drawing('drag'), held);
+    column.append(ghost);
+  };
+  const wordsNow = (): void => {
+    if (!tools) return;
+    const { labels, sections } = tools;
+    stackWords = { names: Object.fromEntries(pageOrder().map((id) => [id, word(sections[id]?.name)])), title: word(labels['reorder']), done: word(labels['done']), up: word(labels['up']), down: word(labels['down']) };
+  };
+  const keepStack = (): void => {
+    try {
+      if (stacked?.stays) page.sessionStorage.setItem(stackKey, JSON.stringify({ order: stacked.order, words: stackWords }));
+      else page.sessionStorage.removeItem(stackKey);
+    } catch {
+      // A page that may keep nothing opens the rows again from the bar.
+    }
+  };
+  const closeStack = (): void => {
+    stacked = null;
+    keepStack();
+    draw();
+    drawStack();
+  };
+  /** The held section goes before the row at `to`, and the editor is told; the rows stay if they were opened to stay. */
+  const land = (id: string, to: number): boolean => {
+    const now = stacked;
+    if (!now) return false;
+    const own = now.order.indexOf(id);
+    if (own < 0 || to === own || to === own + 1) return false;
+    const before = now.order[to] ?? null;
+    const rest = now.order.filter((other) => other !== id);
+    rest.splice(before === null ? rest.length : rest.indexOf(before), 0, id);
+    now.order = rest;
+    if (now.stays) keepStack();
+    say({ type: 'move', id, before });
+    drawStack();
+    return true;
+  };
+  const openStack = (held: string | null, stays: boolean, y: number, order = pageOrder()): void => {
+    if (order.length < 2) return;
+    wordsNow();
+    stacked = { order, stays, held, from: y, y, moved: held !== null };
+    const total = headOf(stacked) + order.length * STEP;
+    // Opened by a drag, the held section's own row is under the pointer; opened from the bar, the rows are in the middle.
+    shift = held === null ? Math.max((page.innerHeight - total) / 2, 24) : y - (order.indexOf(held) * STEP + ROW / 2);
+    tooled = null;
+    forget();
+    draw();
+    drawStack();
+    if (held !== null) page.setTimeout(creepStack, 16);
+  };
+  // Near the top or the bottom, rows out of sight come within reach.
+  const creepStack = (): void => {
+    const now = stacked;
+    if (!now || now.held === null) return;
+    const total = headOf(now) + now.order.length * STEP;
+    const by = now.y < 72 && shift < 24 ? 12 : now.y > page.innerHeight - 72 && shift + total > page.innerHeight - 24 ? -12 : 0;
+    if (by !== 0 && now.moved) {
+      shift += by;
+      drawStack();
+    }
+    page.setTimeout(creepStack, 16);
+  };
+  doc.addEventListener(
+    'mousemove',
+    (event) => {
+      const now = stacked;
+      if (!now || now.held === null) return;
+      now.y = event.clientY;
+      if (!now.moved && Math.abs(now.y - now.from) > 4) {
+        now.moved = true;
+        page.setTimeout(creepStack, 16);
+      }
+      if (now.moved) drawStack();
+    },
+    true,
+  );
+  const letGo = (drop: boolean): void => {
+    const now = stacked;
+    if (!now || now.held === null) return;
+    const { held, moved } = now;
+    const to = landing(now);
+    now.held = null;
+    now.moved = false;
+    const landed = drop && moved && land(held, to);
+    if (now.stays) drawStack();
+    // Dropped, the rows stay in their new order until the page drawn from it takes their place.
+    else if (landed) page.setTimeout(() => stacked === now && closeStack(), 4000);
+    else closeStack();
+  };
+  doc.addEventListener('mouseup', () => letGo(true), true);
+  doc.documentElement.addEventListener('mouseleave', () => letGo(false));
+  doc.addEventListener(
+    'keydown',
+    (event) => {
+      if (!stacked || event.key !== 'Escape') return;
+      event.stopPropagation();
+      if (stacked.held !== null && stacked.stays) letGo(false);
+      else closeStack();
+    },
+    true,
+  );
+  // A press beside the rows closes them.
+  stack.addEventListener('mousedown', (event) => {
+    if (event.target === stack && stacked?.stays) closeStack();
+  });
+  stack.addEventListener(
+    'wheel',
+    (event) => {
+      const now = stacked;
+      if (!now) return;
+      event.preventDefault();
+      const total = headOf(now) + now.order.length * STEP;
+      shift = Math.min(Math.max(shift - event.deltaY, Math.min(page.innerHeight - total - 24, 24)), 24);
+      drawStack();
+    },
+    { passive: false },
+  );
+  // Rows that were open when a move drew the page again are open on it at once, in the new order.
+  try {
+    const read: unknown = JSON.parse(page.sessionStorage.getItem(stackKey) ?? 'null');
+    const was = typeof read === 'object' && read !== null ? (read as { order?: unknown; words?: unknown }) : {};
+    if (Array.isArray(was.order) && was.order.every((id) => typeof id === 'string') && typeof was.words === 'object' && was.words !== null) {
+      const words = was.words as Partial<StackWords>;
+      const names = typeof words.names === 'object' && words.names !== null ? words.names : {};
+      stackWords = { names: Object.fromEntries(Object.entries(names).map(([id, name]) => [id, word(name)])), title: word(words.title), done: word(words.done), up: word(words.up), down: word(words.down) };
+      const order = was.order as string[];
+      if (order.length > 1) {
+        stacked = { order, stays: true, held: null, from: 0, y: 0, moved: false };
+        shift = Math.max((page.innerHeight - (56 + order.length * STEP)) / 2, 24);
+        drawStack();
+      }
+    }
+  } catch {
+    // Nothing kept, or nothing that can be read: the rows are opened from the bar.
+  }
 
   // Events.
   doc.addEventListener('mouseover', (event) => {
@@ -1393,6 +1669,13 @@ export function previewBridge(page: Window & typeof globalThis): void {
         if (tooled && was.list !== undefined) itemed = itemsOf(tooled, was.id).find((item) => item.list === was.list && item.at === was.at) ?? null;
       }
       if (tools) again = null;
+      if (stacked && stacked.held === null && tools) {
+        // The page as it is now says the order and the names.
+        const order = pageOrder();
+        if (order.length > 1) stacked.order = order;
+        wordsNow();
+        drawStack();
+      }
       draw();
       return;
     }
