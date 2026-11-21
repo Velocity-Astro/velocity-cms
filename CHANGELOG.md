@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **The visual editor is cleaner.** No more dark band round every field of the form (it was the outline that marks a field pointed at on the page, drawn even when nothing was). The page sits in a darker well between the panels, and the edges that resize them are hairlines that show on hover.
+- **A small field takes the whole width of a narrow form.** A choice, a date or a number inside a section no longer squeezes into a third of the form beside the page, with its help wrapped into a thin column.
 ## 0.1.0-beta.9
 
 - **Fixed: a page kept through the live loader alone went stale after a publish.** What `cmsLiveLoader` hands out now carries the site's own cache tag, which every publish clears (each site's own on a host for many sites).
