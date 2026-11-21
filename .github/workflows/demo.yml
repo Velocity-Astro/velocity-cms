@@ -29,6 +29,12 @@ on:
       templates_ref:
         description: Branch of velocity-templates to build from (to try a change before it is merged)
         default: main
+      owner:
+        description: Add an owner, by email address (signs in at /admin; the link is in the Vercel project's logs)
+        default: ''
+      owner_name:
+        description: The owner's name (left empty, the address before the @)
+        default: ''
   push:
     branches: [main]
     paths: ['packages/**', '.github/workflows/demo.yml', '.github/scripts/demo-site.sh']
@@ -180,6 +186,12 @@ jobs:
         env:
           VELOCITY_CMS_DIR: ${{ github.workspace }}/cms
         run: node "$GITHUB_WORKSPACE/templates/cms/$DEMO/prepare.mjs" .
+
+      - name: Add an owner
+        if: inputs.owner != ''
+        # The address is read from the run's event and masked by the script, never put in this
+        # step's environment, which the log prints. No sign-in link is printed: the logs are public.
+        run: node "$GITHUB_WORKSPACE/cms/.github/scripts/demo-owner.mjs"
 
       - name: Deploy to Vercel
         working-directory: templates/build/${{ matrix.demo }}
