@@ -25,7 +25,8 @@ export const tableRowClass = [
   'group outline-none transition-colors motion-fast',
   'data-hovered:bg-background-secondary data-pressed:bg-background-tertiary',
   'data-focus-visible:ring-2 data-focus-visible:ring-ring data-focus-visible:ring-inset',
-  'data-href:cursor-default data-action:cursor-default',
+  // A row that opens something says so to the pointer.
+  'data-href:cursor-pointer data-action:cursor-pointer',
 ].join(' ');
 
 export const tableCellVariants = cva(

@@ -78,6 +78,7 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
         logo={<Logo label={messages.app.product} />}
         siteName={siteName}
         navLabel={messages.app.mainNavigation}
+        menuLabel={messages.app.openMenu}
         skipLabel={messages.app.skipToContent}
         nav={[
           { id: 'top', items: [{ id: 'home', label: messages.app.home, href: paths.home, icon: House, isCurrent: location.pathname === paths.home }] },

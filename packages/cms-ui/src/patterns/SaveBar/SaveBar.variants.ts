@@ -1,10 +1,11 @@
 import { cva } from 'class-variance-authority';
 
 /** On a screen the bar stays at the top of the screen's panel. Across a whole window it is the window's top edge. */
-export const saveBarVariants = cva('flex flex-wrap items-center gap-4 border-b border-border bg-background py-3', {
+/** The buttons go under the title when the window has no room for them beside it, and never off its edge. */
+export const saveBarVariants = cva('flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-background py-3', {
   variants: {
     across: {
-      screen: 'sticky top-0 layer-sticky rounded-t-2xl px-6',
+      screen: 'sticky top-0 layer-sticky px-4 md:rounded-t-2xl md:px-6',
       window: 'shrink-0 px-4',
     },
   },
@@ -17,10 +18,10 @@ export const saveBarBackClass = [
   'outline-none data-hovered:bg-background-secondary data-focus-visible:ring-2 data-focus-visible:ring-ring',
 ].join(' ');
 
-export const saveBarHeadingClass = 'flex min-w-0 flex-1 flex-col gap-0.5';
+export const saveBarHeadingClass = 'flex min-w-0 flex-1 basis-48 flex-col gap-0.5';
 export const saveBarTitleClass = 'truncate text-lg font-semibold text-foreground';
 export const saveBarStatusClass = 'flex min-w-0 items-center gap-2';
-export const saveBarActionsClass = 'flex shrink-0 items-center gap-2';
+export const saveBarActionsClass = 'flex max-w-full shrink-0 flex-wrap items-center gap-2';
 
 /** The size of the arrow on the way back, in pixels. */
 export const saveBarBackIconSize = 16;

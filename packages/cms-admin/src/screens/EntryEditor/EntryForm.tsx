@@ -37,6 +37,8 @@ const NO_PROBLEMS: ReadonlyMap<string, string> = new Map();
 /** How the address says the page has the whole window. */
 const VIEW = 'view';
 const VISUAL = 'visual';
+/** A window narrower than this, in pixels, is taken to be a phone. */
+const NARROW = 640;
 
 export interface EntryFormProps {
   readonly type: ContentTypeDef;
@@ -116,7 +118,8 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
     }
   };
   const [isFormAway, setFormAway] = useState(true);
-  const [pageWidth, setPageWidth] = useState<PageWidth>('full');
+  // On a phone the page is tried as a phone shows it: the desktop page, made to fit, would be too small to read.
+  const [pageWidth, setPageWidth] = useState<PageWidth>(() => (window.innerWidth < NARROW ? 'phone' : 'full'));
   // The site's theme, tried on the page beside the form: what is chosen and not published, and whether its card is in view.
   const [themeDraft, setThemeDraft] = useState<ThemeDraft>({});
   const [isThemeShown, setThemeShown] = useState(false);

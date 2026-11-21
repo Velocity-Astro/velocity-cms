@@ -159,6 +159,16 @@
     transform: translateX(100%);
   }
 }
+@keyframes motion-sheet-start-in {
+  from {
+    transform: translateX(-100%);
+  }
+}
+@keyframes motion-sheet-start-out {
+  to {
+    transform: translateX(-100%);
+  }
+}
 @keyframes motion-float-in {
   from {
     opacity: 0;
@@ -217,6 +227,16 @@
   }
   &[data-exiting] {
     animation: motion-sheet-out var(--motion-slow) var(--motion-ease-exit)
+      forwards;
+  }
+}
+/* The same from the other edge: the navigation of a narrow window. */
+@utility motion-sheet-start {
+  &[data-entering] {
+    animation: motion-sheet-start-in var(--motion-slower) var(--motion-ease-enter);
+  }
+  &[data-exiting] {
+    animation: motion-sheet-start-out var(--motion-slow) var(--motion-ease-exit)
       forwards;
   }
 }

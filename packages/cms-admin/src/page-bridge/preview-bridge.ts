@@ -180,6 +180,18 @@ export function previewBridge(page: Window & typeof globalThis): void {
   // page looks like the editor, whatever the page's own colours are.
   const ACCENT = 'oklch(62.5% 0.22 38)';
   const ACCENT_INK = 'oklch(14% 0 0)';
+  // The editor may show the page smaller than it is, so a wide page fits a narrow pane. What the
+  // editor draws for a pointer (bars and buttons) is then drawn that much larger, so it is the
+  // size it always is on the person's screen. `grow` is how much, and a place for such a thing is
+  // written with `at`, since the growing takes its place along.
+  let grow = 1;
+  const at = (px: number): string => `${px / grow}px`;
+  const grown: HTMLElement[] = [];
+  const grows = <T extends HTMLElement>(element: T): T => {
+    grown.push(element);
+    if (grow !== 1) element.style.setProperty('zoom', String(grow));
+    return element;
+  };
   const layer = doc.createElement('div');
   layer.setAttribute('data-cms-layer', '');
   layer.setAttribute('aria-hidden', 'true');
@@ -594,7 +606,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
     return svg;
   };
   const FONT = 'system-ui, sans-serif';
-  const bar = doc.createElement('div');
+  const bar = grows(doc.createElement('div'));
   bar.setAttribute('data-cms-tools', '');
   Object.assign(bar.style, {
     position: 'absolute',
@@ -703,7 +715,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
     dots.style.display = dots.childElementCount > 0 ? 'flex' : 'none';
   };
   const adder = (action: string, acts = true): HTMLButtonElement => {
-    const button = doc.createElement('button');
+    const button = grows(doc.createElement('button'));
     button.type = 'button';
     button.tabIndex = -1;
     button.setAttribute('data-cms-tool', action);
@@ -771,7 +783,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
       }
       if (button.lastElementChild) button.lastElementChild.textContent = word(tools?.labels['add']);
       const middle = Math.min(Math.max(rect.top + rect.height / 2, 16), page.innerHeight - 16);
-      Object.assign(button.style, { display: 'flex', top: `${middle}px`, left: `${rect.left + rect.width / 2}px` });
+      Object.assign(button.style, { display: 'flex', top: at(middle), left: at(rect.left + rect.width / 2) });
     }
   };
   layer.append(bar);
@@ -903,7 +915,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
   };
   // Words chosen in text being written have a bar of their own: bold, italic, link. The browser
   // shapes the words; where a link leads is asked of the editor, which has the words to ask with.
-  const formatBar = doc.createElement('div');
+  const formatBar = grows(doc.createElement('div'));
   formatBar.setAttribute('data-cms-format', '');
   Object.assign(formatBar.style, {
     position: 'absolute',
@@ -978,7 +990,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
     const rect = typeof range.getBoundingClientRect === 'function' ? range.getBoundingClientRect() : (writing?.mark.element.getBoundingClientRect() ?? null);
     if (!rect) return;
     // Above the chosen words, and under them where the page ends above.
-    Object.assign(formatBar.style, { display: 'flex', top: `${rect.top >= 40 ? rect.top - 36 : rect.bottom + 6}px`, left: `${Math.max(rect.left, 4)}px` });
+    Object.assign(formatBar.style, { display: 'flex', top: at(rect.top >= 40 * grow ? rect.top - 36 * grow : rect.bottom + 6), left: at(Math.max(rect.left, 4)) });
   };
 
   // One item of a list (a card, a row of a menu) has a small bar of its own: earlier, later, copy,
@@ -1175,9 +1187,9 @@ export function previewBridge(page: Window & typeof globalThis): void {
     // At the section's top corner, and at the top of the page while the section's own top is above it.
     more.title = word(tools.labels['addAfter']);
     more.style.display = about.add === true ? 'grid' : 'none';
-    Object.assign(bar.style, { display: 'flex', top: `${Math.min(Math.max(rect.top, 0) + 12, Math.max(rect.bottom - 44, 0))}px`, left: 'auto', right: `${Math.max(page.innerWidth - rect.right, 0) + 12}px` });
+    Object.assign(bar.style, { display: 'flex', top: at(Math.min(Math.max(rect.top, 0) + 12 * grow, Math.max(rect.bottom - 44 * grow, 0))), left: 'auto', right: at(Math.max(page.innerWidth - rect.right, 0) + 12 * grow) });
     // A bar wider than the room to its left (a narrow column) starts at the page's edge instead.
-    if (bar.offsetWidth > 0 && bar.getBoundingClientRect().left < 4) Object.assign(bar.style, { left: '4px', right: 'auto' });
+    if (bar.offsetWidth > 0 && bar.getBoundingClientRect().left < 4) Object.assign(bar.style, { left: at(4), right: 'auto' });
     for (const [action, edge] of [['addBefore', rect.top], ['addAfter', rect.bottom]] as const) {
       const button = adders[action];
       // An edge that is off the page, or a page that takes no more sections, has no button.
@@ -1187,7 +1199,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
       if (!shown) continue;
       if (button.lastElementChild) button.lastElementChild.textContent = word(tools.labels['add']);
       button.title = word(tools.labels[action]);
-      Object.assign(button.style, { top: `${edge}px`, left: `${rect.left + rect.width / 2}px` });
+      Object.assign(button.style, { top: at(edge), left: at(rect.left + rect.width / 2) });
     }
   };
 
@@ -1353,6 +1365,21 @@ export function previewBridge(page: Window & typeof globalThis): void {
     }
     if (event.data.type === 'linkAnswer') {
       answerLink((event.data as { href?: unknown }).href);
+      return;
+    }
+    if (event.data.type === 'zoom') {
+      // How much smaller than life the editor shows the page: between a tenth and life size.
+      const scale = (event.data as { scale?: unknown }).scale;
+      const next = typeof scale === 'number' && scale >= 0.1 && scale < 1 ? 1 / scale : 1;
+      if (next !== grow) {
+        grow = next;
+        for (const element of grown) {
+          if (grow === 1) element.style.removeProperty('zoom');
+          else element.style.setProperty('zoom', String(grow));
+        }
+        draw();
+        placeFormat();
+      }
       return;
     }
     if (event.data.type === 'tools') {

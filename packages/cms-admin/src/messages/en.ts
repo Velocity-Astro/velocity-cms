@@ -10,6 +10,7 @@ export const en = {
     contentGroup: 'Content',
     home: 'Home',
     skipToContent: 'Skip to content',
+    openMenu: 'Open the menu',
     mainNavigation: 'Main',
     notifications: 'Notifications',
     dismiss: 'Dismiss',
