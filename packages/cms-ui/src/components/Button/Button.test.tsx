@@ -62,6 +62,11 @@ it('submits the form it is in', async () => {
   expect(onSubmit).toHaveBeenCalledOnce();
 });
 
+it('comes in the brand colour for the one step a view leads to', () => {
+  render(<Button variant="brand">Publish</Button>);
+  expect(screen.getByRole('button', { name: 'Publish' }).getAttribute('class')).toContain('bg-brand-fill');
+});
+
 it('hides its icon from screen readers and has no accessibility violations', async () => {
   const { container } = render(
     <Button icon={Plus} variant="secondary" size="sm">

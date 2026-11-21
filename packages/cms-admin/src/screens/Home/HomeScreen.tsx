@@ -1,4 +1,4 @@
-import { BarChart, Box, Button, Card, EmptyState, Grid, Inline, Link, PageHeader, Split, Stack, Stat, Table, Tag, Text, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
+import { BarChart, Box, Button, Card, EmptyState, Grid, Inline, Link, SiteWindow, Split, Stack, Stat, Table, Tag, Text, Welcome, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
 import { HOME_SLUG, takesSlugPath, type ContentTypeDef, type Entry } from '@velocity-astro/cms-core';
 import { ArrowRight, ExternalLink, Inbox, MousePointer2, Shapes } from 'lucide-react';
 import { useGo } from '../../app/use-go.js';
@@ -80,6 +80,8 @@ export function HomeScreen({ siteName }: HomeScreenProps) {
   // The page at the top of the site: what most people come to the editor to change.
   const home = all.find(({ type, entry }) => takesSlugPath(type) && entry.slug === HOME_SLUG);
   const isCounted = !failed && !pending;
+  const greeting = session.data ? messages.home.greeting[dayPart()](session.data.name) : messages.app.home;
+  const homePublished = home?.entry.published?.at;
 
   const columns: TableColumn[] = [
     { id: 'title', label: messages.contentList.columnTitle },
@@ -109,25 +111,38 @@ export function HomeScreen({ siteName }: HomeScreenProps) {
 
   return (
     <>
-      <PageHeader
-        title={session.data ? messages.home.greeting[dayPart()](session.data.name) : messages.app.home}
-        description={isCounted ? messages.home.waiting(waiting, siteName) : messages.home.description(siteName)}
+      {/* Home has no header in the bar: it opens on this greeting, the one large line of the editor. */}
+      <Welcome
+        eyebrow={new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())}
+        title={isCounted ? messages.home.headline(greeting, waiting) : greeting}
+        {...(isCounted && waiting > 0 && { highlight: messages.home.waitingCount(waiting) })}
+        description={messages.home.description(siteName)}
         actions={
           <>
-            <Button variant="ghost" icon={ExternalLink} onPress={() => openSite()}>
-              {messages.home.viewSite}
-            </Button>
-            {home && (
-              <Button variant={carryOn ? 'secondary' : 'primary'} icon={MousePointer2} onPress={() => go(paths.visualEntry(home.type.key, home.entry.id))}>
-                {messages.home.editHome}
-              </Button>
-            )}
             {carryOn && (
               <Button icon={ArrowRight} onPress={() => go(paths.entry(carryOn.type.key, carryOn.entry.id))}>
                 {messages.home.carryOn(titleOf(carryOn))}
               </Button>
             )}
+            {home && (
+              <Button variant={carryOn ? 'secondary' : 'primary'} icon={MousePointer2} onPress={() => go(paths.visualEntry(home.type.key, home.entry.id))}>
+                {messages.home.editHome}
+              </Button>
+            )}
+            <Button variant="ghost" icon={ExternalLink} onPress={() => openSite()}>
+              {messages.home.viewSite}
+            </Button>
           </>
+        }
+        aside={
+          <SiteWindow
+            address={window.location.host}
+            src="/"
+            title={messages.home.siteWindowTitle(siteName)}
+            label={home ? messages.home.editHomeShort : messages.home.openSite}
+            {...(homePublished !== undefined && { meta: messages.home.publishedWhen(relativeTime(homePublished, locale)) })}
+            onPress={() => (home ? go(paths.visualEntry(home.type.key, home.entry.id)) : openSite())}
+          />
         }
       />
       <Box paddingX={12} paddingY={8}>
@@ -184,7 +199,7 @@ export function HomeScreen({ siteName }: HomeScreenProps) {
 const dayKey = (at: Date) => `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}`;
 
 /**
- * How many people wrote in each day of the last two weeks, today in the brand's colour. Spam is
+ * How many people wrote in each day of the last two weeks, today last. Spam is
  * left out. It reads only when each submission came, and keeps nothing of what they said.
  */
 function SubmissionsByDay() {
@@ -215,8 +230,8 @@ function SubmissionsByDay() {
         <LoadingState shape="summary" />
       ) : (
         <BarChart
+          // Home spends its one orange on the greeting, so today is not set apart here.
           label={messages.home.submissionsTitle}
-          highlightId={dayKey(today)}
           bars={days.map((day) => {
             const key = dayKey(day);
             const one = perDay.get(key) ?? 0;

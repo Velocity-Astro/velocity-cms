@@ -32,3 +32,7 @@ is not thrown back to the top of the page. Disabled buttons are dimmed and skipp
 <Button variant="secondary">Save draft</Button>
 <Button variant="danger" isPending={deleting}>Delete</Button>
 ```
+
+## Brand
+
+`variant="brand"` is the brand's orange with dark ink. It is a screen's one orange, for the one step a whole view leads to, such as Publish in the visual editor. Everywhere else the main action is `primary`.

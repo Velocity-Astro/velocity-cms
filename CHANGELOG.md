@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **Home opens on its greeting again.** The large greeting with what is waiting set apart in orange, the way to carry on and the home page beside it are back at the top of Home, which has no title in the bar above it. The cards and charts follow.
+- **The visual editor is a studio.** It is dark, with Publish in the brand's orange as the one step it leads to. Its bar keeps to three groups: the way back with the page's name and state, the widths of the page as icons in the middle, and undo, redo, one menu (another language, a preview tab, schedule, history and the rest), Save draft and Publish. The sections on the left and the form on the right are dragged wider or narrower by their edges, or with the arrow keys, and stay as you left them.
 - **One bar at the top of every screen.** A screen's title, what it holds and its buttons are in the bar across the top, beside the search, and the rest of the window is the screen's content. An entry's back link, state, undo and save buttons are there too, and an entry has the width to itself. The Create button in the bar is gone: each screen has its own, and Ctrl or Command with K still starts a new entry of any type.
 - **Home in cards, with charts.** How many entries each kind of content has, submissions a day over the last two weeks (today in orange), and the open deals by stage, beside the recent changes, the inbox and follow-ups.
 - **A list of content opens an entry with one press again.** The side pane and its live page are gone: the list has the width, and loads nothing heavy.

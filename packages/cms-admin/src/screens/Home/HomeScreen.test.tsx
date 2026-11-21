@@ -8,10 +8,11 @@ const signedIn = { user: sampleUser, contentTypes: sampleContentTypes, entries: 
 
 it('greets the person and counts where the content stands', async () => {
   renderApp('/', signedIn);
-  // The greeting is the screen's title, in the bar, with what is waiting under it: two drafts and one entry with changes.
-  const bar = within(await screen.findByRole('banner'));
-  expect(await bar.findByRole('heading', { level: 1, name: /^Good (morning|afternoon|evening), Dana$/ })).toBeTruthy();
-  expect(await bar.findByText('3 drafts are waiting for you.')).toBeTruthy();
+  // Home opens on its greeting, with what is waiting set apart: two drafts and one entry with changes.
+  const headline = await screen.findByRole('heading', { level: 1, name: /^Good (morning|afternoon|evening), Dana\. 3 drafts are waiting\.$/ });
+  expect(headline.querySelector('mark')?.textContent).toBe('3 drafts');
+  // Its bar holds no title of its own, so the greeting is the screen's one heading.
+  expect(within(screen.getByRole('banner')).queryByRole('heading')).toBeNull();
   expect(within(await screen.findByRole('group', { name: 'Published' })).getByText('2')).toBeTruthy();
   expect(within(screen.getByRole('group', { name: 'Drafts' })).getByText('2')).toBeTruthy();
   expect(within(screen.getByRole('group', { name: 'Unpublished changes' })).getByText('1')).toBeTruthy();
@@ -36,6 +37,13 @@ it('carries on with the latest entry that is waiting', async () => {
   renderApp('/', signedIn);
   await user.click(await screen.findByRole('button', { name: 'Continue “18 Alder Court”' }));
   expect(await screen.findByRole('heading', { level: 1, name: '18 Alder Court' })).toBeTruthy();
+});
+
+it('shows the site as visitors see it, beside the greeting', async () => {
+  renderApp('/', signedIn);
+  const frame = (await screen.findByTitle('The home page of Lakeshore Realty, as visitors see it')) as HTMLIFrameElement;
+  expect(frame.getAttribute('src')).toBe('/');
+  expect(screen.getByRole('link', { name: 'Open the site' })).toBeTruthy();
 });
 
 it('draws how the content and what came in stand as charts, for those who may read submissions', async () => {
@@ -63,7 +71,8 @@ it('says what came in from the forms, and what the open deals are worth, to thos
 it('says everything is published when nothing is waiting', async () => {
   const published = sampleEntries().filter((entry) => entry.status === 'published' && entry.published?.revision === entry.revision);
   renderApp('/', { ...signedIn, entries: published });
-  expect(await within(await screen.findByRole('banner')).findByText('Everything on Lakeshore Realty is published.')).toBeTruthy();
+  const headline = await screen.findByRole('heading', { level: 1, name: /Everything is published\.$/ });
+  expect(headline.querySelector('mark')).toBeNull();
 });
 
 it('says so when nothing has been written yet', async () => {
