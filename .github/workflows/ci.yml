@@ -4,6 +4,9 @@ on:
   pull_request:
   push:
     branches: [main]
+  # The release pull request is pushed by a workflow, which starts no other workflow by itself:
+  # release-pr.yml asks for this one on its branch, so the checks main requires are there.
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}

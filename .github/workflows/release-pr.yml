@@ -18,6 +18,8 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
+  # To start CI on the release branch (see below).
+  actions: write
 
 jobs:
   propose:
@@ -58,4 +60,7 @@ jobs:
           else
             gh pr create --base main --head release/next --title "Release $version" --body-file "$RUNNER_TEMP/body.md"
           fi
+          # A push by this workflow starts no other workflow, so CI is asked for by name: main
+          # requires its checks before anything, this pull request included, can be merged.
+          gh workflow run ci.yml --ref release/next
           echo "The pull request \"Release $version\" is up to date." >> "$GITHUB_STEP_SUMMARY"
