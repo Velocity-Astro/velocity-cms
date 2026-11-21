@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+## 0.1.0-beta.9
+
 - **Fixed: a page kept through the live loader alone went stale after a publish.** What `cmsLiveLoader` hands out now carries the site's own cache tag, which every publish clears (each site's own on a host for many sites).
 - **The starter adds a form its model names on every deploy,** not only into an empty database. A form the site has, or moved to the trash, is left as the editor made it.
 - **The starter writes the whole title a plugin gives** (the SEO plugin's title ending).
