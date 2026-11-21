@@ -20,7 +20,7 @@ The demo is a real estate site on the CMS, with one click into its editor. Every
 | **Content** | Content types made in a visual builder or described in code. Drafts and published versions, trash, duplicate, history with restore, scheduled publishing, preview links, several languages. |
 | **Pages** | Pages built from sections, with the live page beside the form. Pages under pages, a home page, menus edited in the CMS. |
 | **Media** | An image library with uploads, kept in a folder or any S3-compatible bucket. Each upload is made lighter and kept as WebP. |
-| **Forms** | A form builder, forms as page sections, spam marking, notices by email, export and erase of what a person sent. |
+| **Forms** | A form builder, forms as page sections, spam marking, an optional Cloudflare Turnstile check, notices by email, export and erase of what a person sent. |
 | **CRM** | Contacts with a timeline and notes, a pipeline board, owners and follow-up days, deals with a forecast, custom fields, CSV import. |
 | **Plugins** | A plugin API with settings, secrets and retried background work. Five come with it, off until an owner switches one on: SEO, Webhooks, and the experimental Mailchimp, Slack and HubSpot. |
 | **People** | Sign-in by email link or passkey, no passwords. Owner, editor and author roles. Invitations. |
@@ -72,7 +72,7 @@ Open the link `init` printed once the site is running, then open Pages and chang
 - SQLite and libSQL only.
 - The editor is in English. The site can be in any language.
 - The Mailchimp, Slack and HubSpot plugins pass their tests but have not run against the real services.
-- Forms have no file uploads, no challenge such as Turnstile, and send nothing to the visitor.
+- Forms have no file uploads and send nothing to the visitor.
 - One pipeline per site. No importers for other CMSs.
 - No outside security review yet. See [SECURITY.md](SECURITY.md).
 

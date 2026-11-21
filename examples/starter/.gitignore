@@ -3,4 +3,4 @@ dist
 .astro
 .env
 /cms/data.db*
-/cms/uploads/
+/cms/media/

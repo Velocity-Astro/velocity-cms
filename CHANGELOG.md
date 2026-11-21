@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **Fixed: `velocity-cms init` kept the whole `cms` folder out of git.** A site's own files there, such as `cms/model.mjs`, were never committed. It now leaves out only the database (`/cms/data.db*`) and uploads (`/cms/media/`). A site set up earlier has `/cms/` in its `.gitignore`: replace that line with those two.
+- `velocity-cms init` says how to start the site with the site's own package manager (`pnpm dev`, `yarn dev`), not always `npm run dev`.
 - History shows saves made in one go as one row that opens, so the saves a draft makes by itself do not bury the ones that matter.
 - On a phone the visual editor's bar is shorter: the widths are left out, and Preview is under the button for more.
 - A section's background shows which swatch is in use before anyone has chosen one, a section's summary no longer shows a picture's file name, and the bar on a section stays under a site's own header.

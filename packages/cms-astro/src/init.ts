@@ -6,6 +6,17 @@ const PACKAGE = '@velocity-astro/cms-astro';
 const CONFIG_FILES = ['astro.config.mjs', 'astro.config.ts', 'astro.config.js', 'astro.config.mts'];
 /** Where the database is kept unless the site says otherwise (see `connect`). */
 const DATA_FOLDER = 'cms';
+/** What the CMS writes in that folder: the database (with the files SQLite keeps beside it) and uploads. */
+const KEPT_OUT = [`/${DATA_FOLDER}/data.db*`, `/${DATA_FOLDER}/media/`];
+
+/** How this site's own scripts are run, from the lockfile its package manager left. */
+export function runScript(dir: string, script: string): string {
+  const has = (file: string) => fs.existsSync(path.join(dir, file));
+  if (has('pnpm-lock.yaml')) return `pnpm ${script}`;
+  if (has('yarn.lock')) return `yarn ${script}`;
+  if (has('bun.lock') || has('bun.lockb')) return `bun run ${script}`;
+  return `npm run ${script}`;
+}
 
 export interface InitOptions {
   /** The site's folder. */
@@ -92,7 +103,9 @@ export function initSite({ dir, print, secret = () => randomBytes(32).toString('
   const ignored = ignoreText.split(/\r?\n/).map((line) => line.trim());
   // The database's folder is named from the top, so a `src/cms` of the site's own is still kept.
   const bare = (entry: string) => entry.replace(/^\/|\/$/g, '');
-  const missing = ['.env', `/${DATA_FOLDER}/`].filter((entry) => !ignored.some((line) => bare(line) === bare(entry)));
+  // Only what the CMS writes there is left out: the site's own files in that folder (its model, its seed) are kept.
+  const whole = ignored.some((line) => bare(line) === DATA_FOLDER);
+  const missing = ['.env', ...(whole ? [] : KEPT_OUT)].filter((entry) => !ignored.some((line) => bare(line) === bare(entry)));
   if (missing.length > 0) {
     fs.writeFileSync(at('.gitignore'), `${ignoreText}${ignoreText === '' || ignoreText.endsWith('\n') ? '' : '\n'}${missing.join('\n')}\n`);
     print(`.gitignore: now leaves out ${missing.join(' and ')}.`);
