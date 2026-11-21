@@ -18,18 +18,22 @@ The demo is a real estate site on the CMS, with one click into its editor. Every
 | | |
 |---|---|
 | **Content** | Content types made in a visual builder or described in code. Drafts and published versions, trash, duplicate, history with restore, scheduled publishing, preview links, several languages. |
-| **Pages** | Pages built from sections, with the live page beside the form. Pages under pages, a home page, menus edited in the CMS. |
+| **Pages** | Pages built from sections, with the live page beside the form, or a visual editor that gives the page the window: words typed on the page, sections moved, added and removed there. Pages under pages, a home page, menus edited in the CMS. |
+| **Theme** | A site's colors and fonts set in the editor: a color picker with the template's palette, the template's fonts, tried on the page before they are published. |
 | **Media** | An image library with uploads, kept in a folder or any S3-compatible bucket. Each upload is made lighter and kept as WebP. |
 | **Forms** | A form builder, forms as page sections, spam marking, an optional Cloudflare Turnstile check, notices by email, export and erase of what a person sent. |
 | **CRM** | Contacts with a timeline and notes, a pipeline board, owners and follow-up days, deals with a forecast, custom fields, CSV import. |
 | **Plugins** | A plugin API with settings, secrets and retried background work. Five come with it, off until an owner switches one on: SEO, Webhooks, and the experimental Mailchimp, Slack and HubSpot. |
 | **People** | Sign-in by email link or passkey, no passwords. Owner, editor and author roles. Invitations. |
+| **Editor** | A home that says what is waiting, one bar at the top of every screen, search with Ctrl or Command and K, light and dark, and a layout that fits a phone. |
 | **Site** | Live pages from a cache that a publish clears. Search and the sitemap follow. A fully static build is an option. |
 
 ## A look around
 
 | | |
 |---|---|
+| <picture> <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/home-dark.webp"> <img src="docs/screenshots/home-light.webp" alt="Home: a greeting that says what is waiting, the home page beside it, and cards with charts"></picture> | <img src="docs/screenshots/visual-editor.webp" alt="The visual editor: the page's sections by name, the page, and the site's theme with its brand color and fonts"> |
+| **Home.** What is waiting, the home page as visitors see it, and how the content, the forms and the deals stand. | **Visual editor.** The page has the window: type on it, move its sections, and try the site's colors and fonts before publishing. |
 | <picture> <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/contacts-board-dark.webp"> <img src="docs/screenshots/contacts-board-light.webp" alt="Contacts as a board by stage"></picture> | <picture> <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/deals-dark.webp"> <img src="docs/screenshots/deals-light.webp" alt="Deals by stage with what is open, forecast and won"></picture> |
 | **Contacts.** Everyone who wrote in through a form, by stage, with an owner and a day to follow up. | **Deals.** What each contact may buy, added up by stage and by how likely it is. |
 | <picture> <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/form-fields-dark.webp"> <img src="docs/screenshots/form-fields-light.webp" alt="A form and its fields"></picture> | <picture> <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/content-type-dark.webp"> <img src="docs/screenshots/content-type-light.webp" alt="A content type and its fields in the builder"></picture> |
