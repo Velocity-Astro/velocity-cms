@@ -1,6 +1,6 @@
 ---
 /** The frame around every page: the head, the menu people edit in the CMS, and the footer. */
-import { menuLinks, pageHead } from '@velocity-astro/cms-astro';
+import { menuLinks, pageHead, single } from '@velocity-astro/cms-astro';
 import '../styles/site.css';
 
 interface Props {
@@ -14,6 +14,17 @@ const head = await pageHead(Astro, { title: Astro.props.title ?? SITE, descripti
 // With no menu in the CMS yet, the site shows these.
 const edited = await menuLinks(Astro, { type: 'navigation', field: 'header' });
 const links = edited.length > 0 ? edited : [{ label: 'Home', href: '/', external: false }, { label: 'Blog', href: '/blog/', external: false }];
+// The theme set in the editor. A colour field holds a hex colour and nothing else, and a font is one of
+// the names below, so both can go into the page's style as they are.
+const FONTS: Record<string, string> = {
+  system: 'system-ui, sans-serif',
+  serif: 'Georgia, "Times New Roman", serif',
+  rounded: 'ui-rounded, "SF Pro Rounded", system-ui, sans-serif',
+};
+const theme = await single(Astro, 'theme');
+const brand = typeof theme?.['brand'] === 'string' ? theme['brand'] : undefined;
+const headings = typeof theme?.['headings'] === 'string' ? FONTS[theme['headings']] : undefined;
+const themed = [brand && `--brand: ${brand};`, headings && `--headings: ${headings};`].filter(Boolean).join(' ');
 ---
 
 <!doctype html>
@@ -24,6 +35,7 @@ const links = edited.length > 0 ? edited : [{ label: 'Home', href: '/', external
     <title>{head.title === SITE ? SITE : `${head.title} · ${SITE}`}</title>
     {head.description && <meta name="description" content={head.description} />}
     {head.noindex && <meta name="robots" content="noindex" />}
+    {themed && <style set:html={`:root { ${themed} }`} />}
   </head>
   <body>
     <header class="top">

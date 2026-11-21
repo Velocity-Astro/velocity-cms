@@ -4,6 +4,9 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **Colours and fonts are set in the CMS.** Two new kinds of field: a colour (typed, or picked in an area of shades and a slider of hues, or from the template's suggested palette) and a font (one of those the template offers). On a page of the settings they are part of the theme: change them under Settings, or in the visual editor's Theme card, where the page shows each change at once and nothing is kept until it is published. The starter has a Theme page with a brand colour and a headings font.
+- **A guide to converting an Astro site to the CMS,** step by step, for people and for coding agents: `docs/converting-a-template.md`.
+- **Fixed: the starter's Features block took more than six points.** A list's limit is now kept with what it holds.
 - **One row at the top of every screen, on every window.** A screen's title (cut to fit when it is long), its state and its buttons share one row: an entry says "‹ Pages · title · Draft · Saved 3 hours ago", then undo, redo, one menu, Save draft and Publish. The language an entry is in is one button that opens the others, and Preview is in the menu. On a phone the bar is as on any phone: the way back in place of the menu, the title, the menu and Publish; a list's main button is its icon and its other buttons are in the menu. Tables leave out what can wait on a phone, and a section's tag no longer covers its buttons.
 - **The visual editor is calmer.** Its frame is the editor's dark grey instead of black, Exit leaves it, and the theme is in its menu.
 - **Escape closes the page's list of sections, and a dragged section goes back,** wherever the keyboard is.

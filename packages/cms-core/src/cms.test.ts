@@ -652,6 +652,37 @@ describe('a link to another entry', () => {
   });
 });
 
+describe('the colours and fonts of a theme', () => {
+  it('holds a hex colour and nothing else, and one of the fonts the template offers', async () => {
+    const settings = await cms.schema.create(owner, {
+      key: 'theme',
+      kind: 'single',
+      label: { en: 'Theme' },
+      fields: [
+        { key: 'brand', type: 'color', label: { en: 'Brand colour' }, options: { presets: ['#1f3a5f', '#c2410c'] } },
+        { key: 'headings', type: 'font', label: { en: 'Headings' }, options: { choices: ['inter', 'fraunces'] } },
+      ],
+    });
+    const theme = await cms.content.create(owner, { typeId: settings.id, locale: 'en', slug: 'theme', data: { [id(settings, 'brand')]: '#c2410c', [id(settings, 'headings')]: 'fraunces' } });
+    expect(cms.content.toPublic(settings, theme, 'working').data).toEqual({ brand: '#c2410c', headings: 'fraunces' });
+    // A colour is put in a style by the template: an address or more CSS is never one.
+    for (const colour of ['url(https://example.com/x)', 'red; background: url(x)', 'oklch(50% 0.1 30)', '#12345']) {
+      await expect(cms.content.update(owner, theme.id, { data: { [id(settings, 'brand')]: colour }, expectedRevision: theme.revision })).rejects.toBeInstanceOf(ValidationError);
+    }
+    // Only a font the template has can be chosen.
+    await expect(cms.content.update(owner, theme.id, { data: { [id(settings, 'headings')]: 'comic-sans' }, expectedRevision: theme.revision })).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it('refuses a suggested colour that is not a hex colour, and a font field with no fonts', async () => {
+    await expect(
+      cms.schema.create(owner, { key: 'look', kind: 'single', label: { en: 'Look' }, fields: [{ key: 'brand', type: 'color', label: { en: 'Brand' }, options: { presets: ['url(x)'] } }] }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    await expect(
+      cms.schema.create(owner, { key: 'look', kind: 'single', label: { en: 'Look' }, fields: [{ key: 'font', type: 'font', label: { en: 'Font' }, options: { choices: [] } }] }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+});
+
 describe('describing a content type again', () => {
   const agents = {
     key: 'agents',

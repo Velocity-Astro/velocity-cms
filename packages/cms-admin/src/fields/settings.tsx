@@ -151,6 +151,13 @@ export const fieldSettings: FieldSettingsRegistry = new Registry<FieldSettings>(
     Component: SelectSettings,
     problem: (options, messages) => (((options['choices'] as unknown[] | undefined) ?? []).length === 0 ? messages.builder.choicesNeeded : undefined),
   })
+  .register({ type: 'color', initial: {} })
+  .register({
+    type: 'font',
+    initial: { choices: [] },
+    Component: SelectSettings,
+    problem: (options, messages) => (((options['choices'] as unknown[] | undefined) ?? []).length === 0 ? messages.builder.choicesNeeded : undefined),
+  })
   .register({ type: 'image', initial: {}, canBeListed: true })
   .register({
     type: 'reference',
