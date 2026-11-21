@@ -4,6 +4,7 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **The editor opens on the Velocity mark.** In place of a small spinner in the corner, the mark sits in the middle of the screen, its three facets arriving in grey and taking their colour, from the first moment the page arrives until the editor's first screen is ready, then it fades. People who ask for less motion see the mark still.
 - **The visual editor is cleaner.** No more dark band round every field of the form (it was the outline that marks a field pointed at on the page, drawn even when nothing was). The page sits in a darker well between the panels, and the edges that resize them are hairlines that show on hover.
 - **A small field takes the whole width of a narrow form.** A choice, a date or a number inside a section no longer squeezes into a third of the form beside the page, with its help wrapped into a thin column.
 - **The SEO plugin's search preview shows only on entries that have a page of their own.** Menus, the site's settings and its theme no longer get one, and its review leaves them out too. A plugin's panel can ask for the same with `pagesOnly: true` in `register.entryPanel`.

@@ -17,6 +17,8 @@ export const en = {
     notifications: 'Notifications',
     dismiss: 'Dismiss',
     loading: 'Loading',
+    /** Read out while the editor opens, under the mark. */
+    opening: 'Opening the editor',
     accountMenu: 'Account',
     signOut: 'Sign out',
     signedOut: 'Signed out',

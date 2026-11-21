@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createBrowserRouter, createMemoryRouter, RouterProvider } from 'react-router';
 import type { AdminClient } from '../client/admin-client.js';
 import { ClientProvider } from '../client/client-context.js';
@@ -8,6 +8,7 @@ import { createFieldControls, FieldControlsProvider, type FieldControls } from '
 import type { Messages } from '../messages/en.js';
 import { MessagesProvider } from '../messages/messages-context.js';
 import { PluginExtensions, PluginExtensionsProvider, sitePluginEditors, type PluginEditorLoader } from '../plugins/plugin-editor.js';
+import { bootDrawn } from '../lib/boot.js';
 import { createRoutes } from './routes.js';
 
 export interface AdminAppProps {
@@ -51,6 +52,9 @@ export function AdminApp({ client, siteName, basePath = '/admin', messages, loca
       ? createBrowserRouter(routes, { basename: basePath })
       : createMemoryRouter(routes, { initialEntries: [initialPath] });
   });
+
+  // The page's own mark, shown while the script was on its way, fades once the first screen is drawn.
+  useEffect(bootDrawn, []);
 
   return (
     <QueryClientProvider client={queries}>

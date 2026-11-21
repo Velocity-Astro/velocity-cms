@@ -14,6 +14,7 @@ export * from './IconButton/index.js';
 export * from './Inline/index.js';
 export * from './Link/index.js';
 export * from './Logo/index.js';
+export * from './LoadingMark/index.js';
 export * from './Menu/index.js';
 export * from './NumberField/index.js';
 export * from './SearchField/index.js';

@@ -1,4 +1,4 @@
-import { AppShell, CommandPalette, dismissToasts, toast, type AppShellNavGroup, type AppShellNavItem, type CommandItem } from '@velocity-astro/cms-ui';
+import { AppShell, CommandPalette, LoadingMark, dismissToasts, toast, type AppShellNavGroup, type AppShellNavItem, type CommandItem } from '@velocity-astro/cms-ui';
 import { Blocks, Contact, HandCoins, House, Images, Inbox, KeyRound, Layers, LogOut, Plus, Puzzle, Settings, Shapes, Trash2, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router';
@@ -8,9 +8,10 @@ import { localized } from '../lib/content.js';
 import { hasCommandKey, useCommandKey } from '../lib/use-command-key.js';
 import { typeIcon } from '../lib/type-icon.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
+import { holdBoot } from '../lib/boot.js';
 import { useLoadPluginEditors, usePluginExtensions } from '../plugins/plugin-editor.js';
 import { paths } from './paths.js';
-import { ErrorState, LoadingState } from './RequestState.js';
+import { ErrorState } from './RequestState.js';
 import { PasskeysDialog } from './PasskeysDialog.js';
 
 export interface AdminLayoutProps {
@@ -48,7 +49,11 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
   const hasPlugins = useLoadPluginEditors(isSignedIn);
   const { screens } = usePluginExtensions();
 
-  if (session.isPending || (isSignedIn && !hasPlugins)) return <LoadingState shape="spinner" />;
+  // Until then the editor has no screen to draw: the mark, which keeps the page's own up over it.
+  const isOpening = session.isPending || (isSignedIn && !hasPlugins);
+  useEffect(() => (isOpening ? holdBoot() : undefined), [isOpening]);
+
+  if (isOpening) return <LoadingMark label={messages.app.opening} />;
   if (session.isError) return <ErrorState error={session.error} onRetry={() => void session.refetch()} />;
   if (session.data === null) return <Navigate to={paths.signIn} replace />;
 
