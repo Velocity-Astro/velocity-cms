@@ -6,7 +6,6 @@ import {
   PageHeader,
   SearchField,
   Segmented,
-  Split,
   Stack,
   Table,
   Tag,
@@ -27,7 +26,6 @@ import { FieldSummary, useControlFor } from '../../fields/index.js';
 import { entryAddress, entryImage, entryState, entryTitle, fieldAt, groupTranslations, localized, type EntryState } from '../../lib/content.js';
 import { relativeTime } from '../../lib/relative-time.js';
 import { smallOf } from '../../lib/small-image.js';
-import { EntryPeek } from './EntryPeek.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 
 /** How each state is coloured. The words come from the messages. */
@@ -62,8 +60,6 @@ export function ContentListScreen() {
   const controlFor = useControlFor();
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
-  // The entry whose details stand beside the list. Until one is chosen, the first shown.
-  const [chosenId, setChosenId] = useState<string | null>(null);
 
   if (types.isPending) return <LoadingState />;
   if (types.isError) return <ErrorState error={types.error} onRetry={() => void types.refetch()} />;
@@ -158,8 +154,6 @@ export function ContentListScreen() {
     };
   });
 
-  const chosen = shown.find(({ primary }) => primary.id === chosenId) ?? shown[0];
-
   const newEntry = (
     <Button icon={Plus} onPress={() => go(paths.newEntry(type.key))}>
       {messages.contentList.newEntry}
@@ -202,16 +196,7 @@ export function ContentListScreen() {
             {rows.length === 0 ? (
               <EmptyState icon={SearchX} title={messages.contentList.noMatchesTitle} description={messages.contentList.noMatchesDescription} />
             ) : (
-              <Split asideLabel={messages.contentList.peekLabel} aside={chosen && <EntryPeek type={type} primary={chosen.primary} versions={chosen.versions} />}>
-                <Table
-                  label={name}
-                  columns={columns}
-                  rows={rows}
-                  selectedId={chosen?.primary.id ?? null}
-                  onSelect={setChosenId}
-                  onRowAction={(id) => go(paths.entry(type.key, id))}
-                />
-              </Split>
+              <Table label={name} columns={columns} rows={rows} onRowAction={(id) => go(paths.entry(type.key, id))} />
             )}
           </>
         )}

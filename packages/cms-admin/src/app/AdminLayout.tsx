@@ -1,4 +1,4 @@
-import { AppShell, Button, CommandPalette, Menu, dismissToasts, toast, type AppShellNavGroup, type AppShellNavItem, type CommandItem } from '@velocity-astro/cms-ui';
+import { AppShell, CommandPalette, dismissToasts, toast, type AppShellNavGroup, type AppShellNavItem, type CommandItem } from '@velocity-astro/cms-ui';
 import { Blocks, Contact, HandCoins, House, Images, Inbox, KeyRound, Layers, LogOut, Plus, Puzzle, Settings, Shapes, Trash2, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router';
@@ -70,13 +70,17 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
     ...(typeNav.length > 0 ? [{ id: 'collections', label: messages.app.collectionsGroup, items: typeNav }] : []),
     { id: 'workspace', label: messages.app.workspaceGroup, items: workspaceNav },
   ];
+  // Content leads to a list: a single page would open its entry, with no column to choose another from.
+  const firstList = contentTypes.find((type) => type.kind !== 'single') ?? contentTypes[0];
+  // An entry being edited has the width to itself: the column of places comes back with the list.
+  const isInEntry = /^\/content\/[^/]+\/[^/]+/.test(location.pathname);
   const content: AppShellNavItem = {
     id: 'content',
     label: messages.app.contentGroup,
-    href: typeNav[0]?.href ?? workspaceNav[0]?.href ?? paths.trash,
+    href: firstList === undefined ? (workspaceNav[0]?.href ?? paths.trash) : paths.contentList(firstList.key),
     icon: Layers,
     isCurrent: location.pathname.startsWith('/content/') || at(paths.types) || at(paths.trash),
-    children: contentChildren,
+    ...(!isInEntry && { children: contentChildren }),
   };
 
   // Plugins have a section of their own: the screens they added, for everyone (what each may do
@@ -166,15 +170,6 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
           shortcut: hasCommandKey() ? messages.app.searchShortcutCommand : messages.app.searchShortcutControl,
           onPress: () => setSearching(true),
         }}
-        {...(creatable.length > 0 && {
-          actions: (
-            <Menu
-              trigger={<Button icon={Plus}>{messages.app.create}</Button>}
-              actions={creatable.map((type) => ({ id: type.key, label: messages.app.createIn(localized(type.label, locale)), icon: typeIcon(type.key) }))}
-              onAction={(key) => go(paths.newEntry(key))}
-            />
-          ),
-        })}
         account={{
           name: session.data.name,
           detail: session.data.email,
@@ -207,7 +202,7 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
         isOpen={isSearching}
         onOpenChange={setSearching}
         label={messages.app.searchTitle}
-        placeholder={messages.app.search}
+        placeholder={messages.app.searchPlaceholder}
         emptyText={messages.app.searchEmpty}
         groups={[
           { id: 'go', label: messages.app.goToGroup, items: places },

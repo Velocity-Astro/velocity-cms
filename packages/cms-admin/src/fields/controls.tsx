@@ -14,6 +14,7 @@ import { FieldGrid } from './FieldGrid.js';
 import { useControlFor } from './FieldSummary.js';
 import { LinkControl } from './LinkControl.js';
 import { SiteImagePicker } from './SiteImagePicker.js';
+import { loadFresh } from '../lib/load-fresh.js';
 
 /** A field setting, when it is a number. Settings are checked by the server, not here. */
 function numberOption(field: FieldDef, name: string): number | undefined {
@@ -264,7 +265,7 @@ const isPlainText = (value: unknown): value is string | string[] =>
  * The rich text editor is the largest part of the editor by far, and many forms have no rich
  * text. It is fetched the first time a form shows one, not with the first screen.
  */
-const RichTextEditor = lazy(async () => ({ default: (await import('@velocity-astro/cms-ui/rich-text')).RichTextEditor }));
+const RichTextEditor = lazy(async () => ({ default: (await loadFresh(() => import('@velocity-astro/cms-ui/rich-text'))).RichTextEditor }));
 
 /** Text with headings, lists, quotes, bold, italics and links. */
 function RichTextControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {

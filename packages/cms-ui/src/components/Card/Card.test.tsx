@@ -36,6 +36,18 @@ it('shows only what it holds when it has no title', () => {
   expect(screen.getByText('6214 Lakeshore Drive')).toBeTruthy();
 });
 
+it('runs what it holds to its edges when flush, for a table or a list of rows', () => {
+  const { container, rerender } = render(<Card title="Recent changes">Rows</Card>);
+  const body = () => container.querySelector('section > div:last-child')?.getAttribute('class') ?? '';
+  expect(body()).toContain('p-6');
+  rerender(
+    <Card title="Recent changes" isFlush>
+      Rows
+    </Card>,
+  );
+  expect(body()).not.toContain('p-6');
+});
+
 it('has no accessibility violations', async () => {
   const { container } = render(
     <Card title="Address">

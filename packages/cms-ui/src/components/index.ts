@@ -36,3 +36,4 @@ export * from './Toast/index.js';
 export * from './Tooltip/index.js';
 export type { Space } from './scales.js';
 export * from './Meter/index.js';
+export * from './BarChart/index.js';

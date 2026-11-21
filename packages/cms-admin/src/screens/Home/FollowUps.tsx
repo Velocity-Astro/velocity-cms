@@ -1,4 +1,4 @@
-import { Heading, Inline, Link, Stack, Table, Tag, Text, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
+import { Card, Link, Table, Tag, Text, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
 import { paths } from '../../app/paths.js';
 import { useGo } from '../../app/use-go.js';
 import { useContacts, usePipeline } from '../../client/queries.js';
@@ -41,22 +41,13 @@ export function FollowUps({ userId }: { readonly userId: string }) {
   const more = due.data.total - due.data.items.length;
 
   return (
-    <Stack gap={3}>
-      <Stack gap={1}>
-        <Heading level={2}>{messages.home.followUpsTitle}</Heading>
-        <Text size="sm" tone="muted">
-          {messages.home.followUpsHelp}
-        </Text>
-      </Stack>
-      <Table label={messages.home.followUpsTitle} columns={columns} rows={rows} onRowAction={(id) => go(paths.contact(id))} />
-      <Inline gap={2}>
-        {more > 0 && (
-          <Text size="sm" tone="muted">
-            {messages.home.followUpsMore(more)}
-          </Text>
-        )}
-        <Link href={paths.contacts}>{messages.home.allContacts}</Link>
-      </Inline>
-    </Stack>
+    <Card
+      title={messages.home.followUpsTitle}
+      description={more > 0 ? `${messages.home.followUpsHelp} ${messages.home.followUpsMore(more)}` : messages.home.followUpsHelp}
+      actions={<Link href={paths.contacts}>{messages.home.allContacts}</Link>}
+      isFlush
+    >
+      <Table label={messages.home.followUpsTitle} columns={columns} rows={rows} frame="none" onRowAction={(id) => go(paths.contact(id))} />
+    </Card>
   );
 }

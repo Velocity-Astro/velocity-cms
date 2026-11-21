@@ -9,7 +9,7 @@ const signedIn = (role: 'owner' | 'editor' | 'author' = 'owner') => ({ user: { .
 it('opens the search from the bar and goes where the person chooses', async () => {
   const user = userEvent.setup();
   renderApp('/', signedIn());
-  await user.click(await screen.findByRole('button', { name: 'Search, jump to or create anything' }));
+  await user.click(await screen.findByRole('button', { name: 'Search' }));
   const search = within(await screen.findByRole('dialog', { name: 'Search and commands' }));
   await user.keyboard('agen');
   expect(search.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['AgentsContent', 'New in Agents']);
@@ -45,13 +45,4 @@ it('offers only the places a person may go', async () => {
   const offered = search.getAllByRole('menuitem').map((item) => item.textContent);
   expect(offered).toContain('TrashContent');
   for (const hidden of ['Forms', 'Contacts', 'Deals', 'People', 'Content types']) expect(offered.some((words) => words?.startsWith(hidden))).toBe(false);
-});
-
-it('creates an entry of any type from the bar', async () => {
-  const user = userEvent.setup();
-  renderApp('/', signedIn());
-  await user.click(await screen.findByRole('button', { name: 'Create' }));
-  expect((await screen.findAllByRole('menuitem')).map((item) => item.textContent)).toEqual(['New in Agents', 'New in Listings']);
-  await user.click(screen.getByRole('menuitem', { name: 'New in Agents' }));
-  expect(await screen.findByRole('textbox', { name: /^Slug/ })).toBeTruthy();
 });

@@ -167,6 +167,15 @@
       "uses": []
     },
     {
+      "name": "BarChart",
+      "layer": "component",
+      "group": "Data",
+      "description": "Values side by side as bars, as columns (a run of days) or rows (named things), with one bar able to stand out.",
+      "example": "<BarChart label=\"Submissions in the last 14 days\" bars={days} highlightId={today} />",
+      "useInstead": "Table or Stat for exact figures; Meter for progress toward one target.",
+      "uses": []
+    },
+    {
       "name": "Meter",
       "layer": "component",
       "group": "Data",
@@ -282,7 +291,6 @@
       "example": "<PageHeader title=\"Listings\" actions={<Button>New listing</Button>} />",
       "uses": [
         "Heading",
-        "Stack",
         "Text"
       ]
     },
@@ -353,24 +361,6 @@
       "description": "A window to find anything by typing and go there: a box, and under it the matches in groups.",
       "example": "<CommandPalette isOpen={isOpen} onOpenChange={setOpen} label=\"Search and commands\" placeholder=\"Search, jump to or create anything\" emptyText=\"Nothing matches that.\" groups={groups} onAction={run} />",
       "useInstead": "SearchField to narrow down one list on a screen.",
-      "uses": []
-    },
-    {
-      "name": "Welcome",
-      "layer": "pattern",
-      "group": "Page",
-      "description": "The top of a screen that greets the person: what matters now in large words, one phrase set apart, what to do first, and the site beside it.",
-      "example": "<Welcome eyebrow=\"Saturday, 21 November\" title=\"Good morning, Dana. 3 drafts are waiting.\" highlight=\"3 drafts\" actions={actions} aside={preview} />",
-      "useInstead": "PageHeader for the top of every other screen.",
-      "uses": []
-    },
-    {
-      "name": "SiteWindow",
-      "layer": "pattern",
-      "group": "Page",
-      "description": "A page of the site in a small browser window, as visitors see it now. The whole card is one link.",
-      "example": "<SiteWindow address=\"lakeshore.example\" src=\"/\" title=\"The home page\" label=\"Edit the home page\" meta=\"Published 3 days ago\" onPress={edit} />",
-      "useInstead": "PagePreview to see and work on a draft.",
       "uses": []
     },
     {

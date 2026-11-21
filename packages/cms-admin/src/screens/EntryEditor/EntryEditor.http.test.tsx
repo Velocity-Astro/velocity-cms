@@ -13,7 +13,7 @@ it('edits and publishes an entry through the real API, with its refusals shown o
   const { client } = await createHttpServer({ contentTypes: sampleContentTypes, entries: sampleEntries() }, sampleUser);
   render(<AdminApp client={client} siteName="Lakeshore" initialPath="/content/listings" />);
 
-  await user.dblClick(await screen.findByRole('rowheader', { name: /^Untitled/ }));
+  await user.click(await screen.findByRole('rowheader', { name: /^Untitled/ }));
   await user.click(await screen.findByRole('button', { name: 'Publish' }));
   expect(await screen.findByText('Not published')).toBeTruthy();
   const title = await screen.findByRole('textbox', { name: /Title/ });

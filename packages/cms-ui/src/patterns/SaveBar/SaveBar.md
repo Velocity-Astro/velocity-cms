@@ -35,3 +35,8 @@ screen reader hears "Saved" without moving focus.
   actions={<><Button variant="secondary" onPress={save}>Save draft</Button><Button onPress={publish}>Publish</Button></>}
 />
 ```
+
+## In the shell
+
+Inside `AppShell`, a bar on a screen is drawn in the shell's own bar across the top, which already stays in view, so an editing
+screen has one bar like every other screen. `across="window"` is never moved: it is the top of a view that covers the window.

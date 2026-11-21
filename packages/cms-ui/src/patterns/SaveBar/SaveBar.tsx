@@ -1,5 +1,6 @@
 import { ChevronLeft } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Button, Link } from 'react-aria-components';
 import {
   saveBarActionsClass,
@@ -10,6 +11,7 @@ import {
   saveBarTitleClass,
   saveBarVariants,
 } from './SaveBar.variants.js';
+import { usePageBar } from '../page-bar.js';
 
 export interface SaveBarBack {
   /** Where it goes. Left out, `onPress` says what going back does. */
@@ -31,14 +33,22 @@ export interface SaveBarProps {
   readonly status: ReactNode;
   /** The buttons, main action last. */
   readonly actions: ReactNode;
-  /** `window` for a bar across a whole window, in place of one at the top of a screen. */
-  readonly across?: 'screen' | 'window';
+  /**
+   * `screen` for the bar of an editing screen, drawn in the shell's bar inside `AppShell`. `section` for a
+   * form inside a screen that has its own header, where it stays at the top of that part. `window` for a
+   * bar across a whole window.
+   */
+  readonly across?: 'screen' | 'section' | 'window';
 }
 
 /** The bar that stays at the top of an editing screen: the way back, what is being edited, its state and its save buttons. */
 export function SaveBar({ label, back, title, status, actions, across = 'screen' }: SaveBarProps) {
-  return (
-    <div role="region" aria-label={label} className={saveBarVariants({ across })}>
+  const shellBar = usePageBar();
+  const inShell = across === 'screen' && shellBar !== undefined;
+  // The shell is still drawing its bar: this one comes once there is a place for it.
+  if (inShell && shellBar === null) return null;
+  const bar = (
+    <div role="region" aria-label={label} className={saveBarVariants({ across: inShell ? 'shell' : across })}>
       {back?.href !== undefined && (
         <Link href={back.href} className={saveBarBackClass}>
           <ChevronLeft aria-hidden size={saveBarBackIconSize} />
@@ -60,4 +70,5 @@ export function SaveBar({ label, back, title, status, actions, across = 'screen'
       <div className={saveBarActionsClass}>{actions}</div>
     </div>
   );
+  return inShell && shellBar ? createPortal(bar, shellBar) : bar;
 }

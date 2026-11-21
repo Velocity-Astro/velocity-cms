@@ -31,33 +31,6 @@ it('opens a row on a press and on Enter', async () => {
   expect(onRowAction).toHaveBeenLastCalledWith('a');
 });
 
-it('chooses a row on a press and opens it on Enter, when rows can be chosen', async () => {
-  const user = userEvent.setup();
-  const chosen: string[] = [];
-  const opened: string[] = [];
-  render(
-    <Table
-      label="Listings"
-      columns={[{ id: 'title', label: 'Title' }]}
-      rows={[
-        { id: 'a', cells: { title: '6214 Lakeshore Drive' } },
-        { id: 'b', cells: { title: '18 Alder Court' } },
-      ]}
-      selectedId="a"
-      onSelect={(id) => chosen.push(id)}
-      onRowAction={(id) => opened.push(id)}
-    />,
-  );
-  expect(screen.getByRole('row', { name: /6214 Lakeshore Drive/ }).getAttribute('aria-selected')).toBe('true');
-  await user.click(screen.getByRole('row', { name: /18 Alder Court/ }));
-  expect(chosen).toEqual(['b']);
-  expect(opened).toEqual([]);
-  await user.keyboard('{Enter}');
-  expect(opened).toEqual(['b']);
-  await user.dblClick(screen.getByRole('row', { name: /6214 Lakeshore Drive/ }));
-  expect(opened).toEqual(['b', 'a']);
-});
-
 it('shows how it is sorted and asks for a new sort when a heading is pressed', async () => {
   const onSortChange = vi.fn();
   const user = userEvent.setup();
@@ -71,6 +44,13 @@ it('shows how it is sorted and asks for a new sort when a heading is pressed', a
 it('shows its empty message when there are no rows', () => {
   render(<Table label="Listings" columns={columns} rows={[]} empty="No listings yet." />);
   expect(screen.getByText('No listings yet.')).toBeTruthy();
+});
+
+it('draws no frame of its own inside a card that frames it', () => {
+  const { container, rerender } = render(<Table label="Listings" columns={columns} rows={rows} />);
+  expect(container.firstElementChild?.getAttribute('class')).toContain('border');
+  rerender(<Table label="Listings" columns={columns} rows={rows} frame="none" />);
+  expect(container.firstElementChild?.getAttribute('class')).not.toContain('border');
 });
 
 it('has no accessibility violations', async () => {

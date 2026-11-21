@@ -42,7 +42,7 @@ export const workbenchFormVariants = cva('flex min-w-0 flex-col gap-6', {
 export const workbenchPaneVariants = cva('min-w-0', {
   variants: {
     view: {
-      beside: 'pane-tall xl:sticky xl:top-24 xl:flex-1',
+      beside: 'pane-tall xl:sticky xl:top-8 xl:flex-1',
       whole: 'min-h-0 flex-1',
     },
   },

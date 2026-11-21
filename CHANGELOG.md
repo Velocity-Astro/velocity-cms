@@ -4,6 +4,11 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **One bar at the top of every screen.** A screen's title, what it holds and its buttons are in the bar across the top, beside the search, and the rest of the window is the screen's content. An entry's back link, state, undo and save buttons are there too, and an entry has the width to itself. The Create button in the bar is gone: each screen has its own, and Ctrl or Command with K still starts a new entry of any type.
+- **Home in cards, with charts.** How many entries each kind of content has, submissions a day over the last two weeks (today in orange), and the open deals by stage, beside the recent changes, the inbox and follow-ups.
+- **A list of content opens an entry with one press again.** The side pane and its live page are gone: the list has the width, and loads nothing heavy.
+- **Fixed: a screen could break the first time it was opened after the site was updated.** A tab opened before an update now loads the editor afresh once instead, and a screen that cannot be drawn says so inside the frame, with a way to try again, in place of a bare error page.
+
 ## 0.1.0-beta.8
 
 - **A new frame for the editor.** The sidebar is now a slim dark rail of sections (Home, Content, Media, then Forms, Contacts and Deals, with People, Plugins and Settings at the bottom), each with its name in a tooltip. Content opens a column that lists every kind of content, the content types and the trash; a plugin's screens are listed the same way under Plugins. A bar across the top holds the site's name and address, the search, and a Create button for a new entry of any type.

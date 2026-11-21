@@ -1,12 +1,17 @@
 import { cva } from 'class-variance-authority';
 
-/** On a screen the bar stays at the top of the screen's panel. Across a whole window it is the window's top edge. */
-/** The buttons go under the title when the window has no room for them beside it, and never off its edge. */
-export const saveBarVariants = cva('flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-background py-3', {
+/**
+ * On a screen the bar stays at the top of the screen. Inside `AppShell` it is drawn in the shell's own
+ * bar, which already stays. Across a whole window it is the window's top edge.
+ * The buttons go under the title when the window has no room for them beside it, and never off its edge.
+ */
+export const saveBarVariants = cva('flex flex-wrap items-center gap-x-4 gap-y-2', {
   variants: {
     across: {
-      screen: 'sticky top-0 layer-sticky px-4 md:rounded-t-2xl md:px-6',
-      window: 'shrink-0 px-4',
+      screen: 'sticky top-0 layer-sticky border-b border-border bg-background px-4 py-3 md:px-6',
+      shell: 'min-w-0 flex-1 py-2 md:flex-nowrap',
+      section: 'sticky top-0 layer-sticky border-b border-border bg-background px-4 py-3 md:px-6',
+      window: 'shrink-0 border-b border-border bg-background px-4 py-3',
     },
   },
   defaultVariants: { across: 'screen' },
@@ -19,8 +24,8 @@ export const saveBarBackClass = [
 ].join(' ');
 
 export const saveBarHeadingClass = 'flex min-w-0 flex-1 basis-48 flex-col gap-0.5';
-export const saveBarTitleClass = 'truncate text-lg font-semibold text-foreground';
-export const saveBarStatusClass = 'flex min-w-0 items-center gap-2';
+export const saveBarTitleClass = 'truncate text-xl font-semibold text-foreground';
+export const saveBarStatusClass = 'flex min-w-0 items-center gap-2 whitespace-nowrap';
 export const saveBarActionsClass = 'flex max-w-full shrink-0 flex-wrap items-center gap-2';
 
 /** The size of the arrow on the way back, in pixels. */

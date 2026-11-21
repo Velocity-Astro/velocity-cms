@@ -220,11 +220,6 @@
   --type-2xl-leading: 2rem;
   --type-3xl: 1.875rem;
   --type-3xl-leading: 2.125rem;
-  /* The greeting at the top of Home, the one large line of the editor. */
-  --type-4xl: 2.25rem;
-  --type-4xl-leading: 2.5rem;
-  --type-5xl: 3rem;
-  --type-5xl-leading: 3.25rem;
 
   /* Motion: short, and off entirely for people who ask for less. */
   --motion-fast: 100ms;
@@ -241,7 +236,7 @@
 
   /* The height of a pane that stays in view beside a form: the window less the frame, the bar
      at the top of the screen and the space around the pane. */
-  --pane-height: calc(100dvh - 11rem);
+  --pane-height: calc(100dvh - 8rem);
 
   /* The rail: the dark strip of the editor's sections down the side of the window. It is dark in
      both themes, so these hold for light and dark alike (see .dark below for its ground). */
