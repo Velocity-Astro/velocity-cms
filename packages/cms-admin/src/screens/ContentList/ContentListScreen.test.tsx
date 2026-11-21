@@ -179,29 +179,3 @@ it('puts the home page first and says which it is', async () => {
   expect(about?.textContent).toContain('About us');
   expect(about?.textContent).not.toContain('Home page');
 });
-
-it('shows the chosen entry beside the list, and opens it on a second press', async () => {
-  const user = userEvent.setup();
-  renderApp('/content/listings', signedIn);
-  const table = await screen.findByRole('grid', { name: 'Listings' });
-  // The first is chosen until another is.
-  const peek = () => within(screen.getByRole('complementary', { name: 'The chosen entry' }));
-  expect(peek().getByRole('heading', { name: '6214 Lakeshore Drive' })).toBeTruthy();
-  expect(peek().getByTitle('6214 Lakeshore Drive, as visitors see it').getAttribute('src')).toBe('/listings/6214-lakeshore-drive/');
-
-  await user.click(within(table).getByRole('row', { name: /18 Alder Court/ }));
-  expect(peek().getByRole('heading', { name: '18 Alder Court' })).toBeTruthy();
-  expect(peek().getByText('Not on the site yet. Publish it to see its page here.')).toBeTruthy();
-  expect(screen.getByRole('heading', { level: 1, name: 'Listings' })).toBeTruthy();
-
-  await user.click(peek().getByRole('button', { name: 'Open' }));
-  expect(await screen.findByRole('heading', { level: 1, name: '18 Alder Court' })).toBeTruthy();
-});
-
-it('opens an entry from the list with Enter or a double click', async () => {
-  const user = userEvent.setup();
-  renderApp('/content/listings', signedIn);
-  const table = await screen.findByRole('grid', { name: 'Listings' });
-  await user.dblClick(within(table).getByRole('row', { name: /907 Mesa Verde Lane/ }));
-  expect(await screen.findByRole('heading', { level: 1, name: '907 Mesa Verde Lane' })).toBeTruthy();
-});

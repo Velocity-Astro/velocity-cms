@@ -24,3 +24,7 @@ A framed part of a screen with its own heading.
   <Select label="Status" options={statuses} />
 </Card>
 ```
+
+## Flush
+
+`isFlush` runs what the card holds to its edges, for a `Table` with `frame="none"` or a list of rows that has its own spacing.

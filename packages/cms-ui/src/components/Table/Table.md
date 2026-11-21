@@ -19,11 +19,9 @@ Give a column `isSortable`, and pass `sort` and `onSortChange`. The table shows 
 tells screen readers; the screen sorts the rows, because the data usually comes from the server
 a page at a time.
 
-## Choosing a row
+## Inside a card
 
-Pass `selectedId` and `onSelect` to have a press choose a row rather than open it, such as to show its details beside the
-table. Enter, a second press or a double click then opens it with `onRowAction`, and the arrow keys choose as they move. On a
-touch screen a tap still opens the row, since the details beside it may be off the screen.
+`frame="none"` leaves out the table's own border, for a table inside a `Card` with `isFlush`, which frames it already.
 
 ## Keyboard
 

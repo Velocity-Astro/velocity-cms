@@ -40,7 +40,6 @@ const meta = {
     menuLabel: 'Open the menu',
     skipLabel: 'Skip to content',
     search: { label: 'Search, jump to or create anything', shortcut: '⌘K', onPress: () => undefined },
-    actions: <Button icon={Plus}>Create</Button>,
     nav: [
       { id: 'top', items: [{ id: 'home', label: 'Home', href: '#home', icon: House }] },
       {

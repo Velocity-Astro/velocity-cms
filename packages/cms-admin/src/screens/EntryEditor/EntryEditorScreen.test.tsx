@@ -26,7 +26,7 @@ afterEach(() => act(() => dismissToasts()));
 it('opens an entry from the list, with each value in the control its field type asks for', async () => {
   const user = userEvent.setup();
   renderApp('/content/listings', signedIn());
-  await user.dblClick(await screen.findByRole('rowheader', { name: /^6214 Lakeshore Drive/ }));
+  await user.click(await screen.findByRole('rowheader', { name: /^6214 Lakeshore Drive/ }));
 
   expect(await screen.findByRole('heading', { level: 1, name: '6214 Lakeshore Drive' })).toBeTruthy();
   expect((await field('Title')).value).toBe('6214 Lakeshore Drive');
@@ -366,7 +366,7 @@ it('asks before leaving with unsaved changes, and keeps what was typed when the 
   await waitFor(() => expect(screen.queryByRole('alertdialog', { name: 'Leave without saving?' })).toBeNull());
   expect((await field('Title')).value).toBe('6214 Lakeshore Drive East');
 
-  await user.click(within(screen.getByRole('navigation', { name: 'Content' })).getByRole('link', { name: 'Agents' }));
+  await user.click(within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: 'Content' }));
   await user.click(within(await screen.findByRole('alertdialog', { name: 'Leave without saving?' })).getByRole('button', { name: 'Leave without saving' }));
   expect(await screen.findByRole('heading', { level: 1, name: 'Agents' })).toBeTruthy();
 });
@@ -377,7 +377,7 @@ it('does not ask when nothing was changed, or once the changes are saved', async
   await user.type(await field('Title'), ' East');
   await user.click(saveBar().getByRole('button', { name: 'Save draft' }));
   await waitFor(() => expect(saveBar().getByRole('button', { name: 'Save draft' })).toHaveProperty('disabled', true));
-  await user.click(within(screen.getByRole('navigation', { name: 'Content' })).getByRole('link', { name: 'Agents' }));
+  await user.click(within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: 'Content' }));
   expect(await screen.findByRole('heading', { level: 1, name: 'Agents' })).toBeTruthy();
   expect(screen.queryByRole('alertdialog', { name: 'Leave without saving?' })).toBeNull();
 });
@@ -386,8 +386,8 @@ it('does not ask about a new entry nobody typed in', async () => {
   const user = userEvent.setup();
   renderApp('/content/agents/new', signedIn());
   await field('Slug');
-  await user.click(within(screen.getByRole('navigation', { name: 'Content' })).getByRole('link', { name: 'Listings' }));
-  expect(await screen.findByRole('heading', { level: 1, name: 'Listings' })).toBeTruthy();
+  await user.click(within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: 'Content' }));
+  expect(await screen.findByRole('heading', { level: 1, name: 'Agents' })).toBeTruthy();
   expect(screen.queryByRole('alertdialog', { name: 'Leave without saving?' })).toBeNull();
 });
 

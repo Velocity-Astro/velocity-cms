@@ -438,6 +438,17 @@ export function useSubmissionCountsOf(formIds: readonly string[], isAsked = true
   return useQueries({ queries: formIds.map((formId) => ({ queryKey: keys.submissionCounts(formId), queryFn: () => client.countSubmissions(formId), enabled: isAsked })) });
 }
 
+/** Every submission of each form, read to the end, asked for together: what Home counts by day. For those who may read them. */
+export function useSubmissionLists(formIds: readonly string[], isAsked = true) {
+  const client = useClient();
+  return useQueries({
+    queries: formIds.map((formId) => {
+      const query: SubmissionListQuery = { formId, limit: MOST };
+      return { queryKey: keys.submissionList(query), queryFn: () => whole(query, (asked) => client.listSubmissions(asked)), enabled: isAsked };
+    }),
+  });
+}
+
 /** What every change to a submission does afterwards: the lists and the counts are asked for again. */
 function useSubmissionsChanged() {
   const cache = useQueryClient();

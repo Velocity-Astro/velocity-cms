@@ -14,7 +14,7 @@ import {
   tableColumnLabelClass,
   tableColumnVariants,
   tableEmptyClass,
-  tableFrameClass,
+  tableFrameVariants,
   tableRowClass,
   tableSortIconSize,
 } from "./Table.variants.js";
@@ -45,20 +45,15 @@ export interface TableProps {
   /** The first column names each row. */
   readonly columns: readonly TableColumn[];
   readonly rows: readonly TableRow[];
-  /** Called when a row is pressed or Enter is pressed on it. With `onSelect`, a press chooses the row and a second one opens it. */
+  /** Called when a row is pressed or Enter is pressed on it. */
   readonly onRowAction?: (id: string) => void;
-  /** The row that is chosen, such as the one whose details stand beside the table. */
-  readonly selectedId?: string | null;
-  /**
-   * Called when a row is chosen: pressed once, or reached with the arrow keys. Enter or a second
-   * press then opens it (`onRowAction`). On a touch screen a tap still opens it.
-   */
-  readonly onSelect?: (id: string) => void;
   /** How the rows are sorted. The table shows it; the screen does the sorting. */
   readonly sort?: TableSort;
   readonly onSortChange?: (sort: TableSort) => void;
   /** Shown instead of rows when there are none. */
   readonly empty?: ReactNode;
+  /** `none` inside a `Card` with `isFlush`, which frames it already. */
+  readonly frame?: 'card' | 'none';
 }
 
 /** Rows of the same kind of thing, with a heading for each column. */
@@ -67,14 +62,13 @@ export function Table({
   columns,
   rows,
   onRowAction,
-  selectedId,
-  onSelect,
   sort,
   onSortChange,
   empty,
+  frame = 'card',
 }: TableProps) {
   return (
-    <div className={tableFrameClass}>
+    <div className={tableFrameVariants({ frame })}>
       <AriaTable
         aria-label={label}
         className={tableClass}
@@ -87,17 +81,6 @@ export function Table({
             }),
         })}
         {...(onRowAction && { onRowAction: (key) => onRowAction(String(key)) })}
-        {...(onSelect && {
-          selectionMode: 'single' as const,
-          selectionBehavior: 'replace' as const,
-          disallowEmptySelection: true,
-          selectedKeys: selectedId === undefined || selectedId === null ? [] : [selectedId],
-          onSelectionChange: (keys) => {
-            if (keys === 'all') return;
-            const [first] = [...keys];
-            if (first !== undefined) onSelect(String(first));
-          },
-        })}
       >
         <TableHeader>
           {columns.map((column, index) => (

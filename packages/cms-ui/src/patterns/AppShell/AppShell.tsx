@@ -1,22 +1,20 @@
 import { ChevronsUpDown, Menu as MenuIcon, Search, type LucideIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Button as AriaButton, Dialog as AriaDialog, DialogTrigger, Link, Modal, ModalOverlay } from 'react-aria-components';
 import { Logo } from '../../components/Logo/index.js';
 import { Menu, type MenuAction } from '../../components/Menu/index.js';
 import { Tooltip } from '../../components/Tooltip/index.js';
+import { PageBarContext } from '../page-bar.js';
 import {
   appShellAccountDetailClass,
   appShellAccountIconSize,
   appShellAccountNameClass,
   appShellAccountTextClass,
-  appShellBarActionsClass,
   appShellBarClass,
-  appShellBarLogoClass,
-  appShellBarSiteClass,
-  appShellBarSiteDetailClass,
-  appShellBarSiteNameClass,
-  appShellBarSiteTextClass,
-  appShellBarSpacerClass,
+  appShellBarSlotClass,
+  appShellSiteClass,
+  appShellSiteDetailClass,
+  appShellSiteNameClass,
   appShellClass,
   appShellColumnClass,
   appShellDrawerAccountClass,
@@ -54,7 +52,6 @@ import {
   appShellSearchLabelClass,
   appShellSearchShortcutClass,
   appShellSectionClass,
-  appShellSectionTitleClass,
   appShellSkipClass,
 } from './AppShell.variants.js';
 
@@ -105,7 +102,7 @@ export interface AppShellSearch {
 export interface AppShellProps {
   /** What the mark at the top of the rail stands for, such as "Velocity", for screen readers. */
   readonly logoLabel: string;
-  /** The site's name, at the start of the bar. */
+  /** The site's name, at the top of a section's column and of the panel of a narrow window. */
   readonly siteName: string;
   /** Under the site's name: its address, or its template. */
   readonly siteDetail?: string;
@@ -117,10 +114,8 @@ export interface AppShellProps {
   readonly menuLabel: string;
   /** The words of the link that jumps past the navigation, such as "Skip to content". */
   readonly skipLabel: string;
-  /** The button in the middle of the bar that opens the search. */
+  /** The button at the end of the bar that opens the search. */
   readonly search?: AppShellSearch;
-  /** At the end of the bar: the one or two things a person does from anywhere, such as a `Button` that creates. */
-  readonly actions?: ReactNode;
   /** The signed-in person, at the bottom of the rail, with their menu. */
   readonly account?: AppShellAccount;
   /** The screen. */
@@ -170,9 +165,18 @@ function PlaceGroups({ groups, onPress }: { readonly groups: readonly AppShellNa
 
 /**
  * The frame around every screen: the rail of sections, the places of the current section beside it,
- * the bar across the top with the search, and the main area.
+ * the bar across the top, which holds the screen's own header (its `PageHeader` or `SaveBar`) and the
+ * search, and the main area, which holds only the screen's content.
  */
-export function AppShell({ logoLabel, siteName, siteDetail, navLabel, nav, menuLabel, skipLabel, search, actions, account, children }: AppShellProps) {
+export function AppShell({ logoLabel, siteName, siteDetail, navLabel, nav, menuLabel, skipLabel, search, account, children }: AppShellProps) {
+  // Where the screen's header is drawn: the screen's own parts are handed it once the bar is there.
+  const [bar, setBar] = useState<HTMLElement | null>(null);
+  const site = (
+    <div className={appShellSiteClass}>
+      <span className={appShellSiteNameClass}>{siteName}</span>
+      {siteDetail !== undefined && <span className={appShellSiteDetailClass}>{siteDetail}</span>}
+    </div>
+  );
   const current = nav.flatMap((group) => group.items).find((item) => item.isCurrent === true && (item.children?.length ?? 0) > 0);
 
   const accountWords = account !== undefined && (
@@ -246,9 +250,7 @@ export function AppShell({ logoLabel, siteName, siteDetail, navLabel, nav, menuL
 
       {current?.children !== undefined && (
         <nav aria-label={current.label} className={appShellSectionClass}>
-          <div aria-hidden className={appShellSectionTitleClass}>
-            {current.label}
-          </div>
+          {site}
           <PlaceGroups groups={current.children} />
         </nav>
       )}
@@ -264,6 +266,7 @@ export function AppShell({ logoLabel, siteName, siteDetail, navLabel, nav, menuL
                 <AriaDialog aria-label={menuLabel} className={appShellDrawerContentClass}>
                   {({ close }) => (
                     <>
+                      {site}
                       <nav aria-label={navLabel} className={appShellDrawerNavClass}>
                         {nav.map((group) => (
                           <div key={group.id} role="group" {...(group.label !== undefined && { 'aria-label': group.label })}>
@@ -315,16 +318,7 @@ export function AppShell({ logoLabel, siteName, siteDetail, navLabel, nav, menuL
               </Modal>
             </ModalOverlay>
           </DialogTrigger>
-          <div className={appShellBarSiteClass}>
-            <span className={appShellBarLogoClass}>
-              <Logo label={logoLabel} size="sm" />
-            </span>
-            <div className={appShellBarSiteTextClass}>
-              <span className={appShellBarSiteNameClass}>{siteName}</span>
-              {siteDetail !== undefined && <span className={appShellBarSiteDetailClass}>{siteDetail}</span>}
-            </div>
-          </div>
-          <span aria-hidden className={appShellBarSpacerClass} />
+          <div ref={setBar} className={appShellBarSlotClass} />
           {search !== undefined && (
             <AriaButton className={appShellSearchClass} onPress={search.onPress}>
               <Search aria-hidden size={appShellSearchIconSize} />
@@ -338,11 +332,9 @@ export function AppShell({ logoLabel, siteName, siteDetail, navLabel, nav, menuL
               )}
             </AriaButton>
           )}
-          <span aria-hidden className={appShellBarSpacerClass} />
-          {actions !== undefined && <div className={appShellBarActionsClass}>{actions}</div>}
         </header>
         <main id={appShellMainId} tabIndex={-1} className={appShellMainClass}>
-          {children}
+          <PageBarContext value={bar}>{children}</PageBarContext>
         </main>
       </div>
     </div>

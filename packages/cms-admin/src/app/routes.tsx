@@ -18,17 +18,24 @@ import { TrashScreen } from '../screens/Trash/TrashScreen.js';
 import { SignInScreen } from '../screens/SignIn/SignInScreen.js';
 import { AdminLayout } from './AdminLayout.js';
 import { NavigationBridge } from './NavigationBridge.js';
+import { RouteError } from './RouteError.js';
 
 /** Every screen and its address. A new screen is added here and in `paths.ts`. */
 export function createRoutes(siteName: string): RouteObject[] {
   return [
     {
       element: <NavigationBridge />,
+      // A fault in the frame itself: the screen says so rather than the router's own page.
+      errorElement: <RouteError />,
       children: [
         { path: 'sign-in', element: <SignInScreen siteName={siteName} /> },
         {
           element: <AdminLayout siteName={siteName} />,
           children: [
+            {
+              // A screen that cannot be drawn says so inside the frame, so the way to every other screen stays.
+              errorElement: <RouteError />,
+              children: [
             { index: true, element: <HomeScreen siteName={siteName} /> },
             { path: 'people', element: <PeopleScreen /> },
             { path: 'media', element: <MediaScreen /> },
@@ -49,6 +56,10 @@ export function createRoutes(siteName: string): RouteObject[] {
             // A new entry has this address too, with `NEW_ENTRY` as its id, so saving it for the
             // first time changes the address without starting the screen again.
             { path: 'content/:typeKey/:entryId', element: <EntryEditorScreen /> },
+            // An address the editor has no screen for.
+            { path: '*', element: <RouteError isNotFound /> },
+              ],
+            },
           ],
         },
       ],

@@ -5,6 +5,7 @@ import { Tag } from '../Tag/index.js';
 import { Text } from '../Text/index.js';
 import { TextField } from '../TextField/index.js';
 import { Card } from './Card.js';
+import { Table } from '../Table/index.js';
 
 const meta = {
   title: 'Components/Layout/Card',
@@ -25,6 +26,9 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 export const WithDescription: Story = { args: { description: 'Shown on the listing and used to place the pin on the map.' } };
+export const Flush: Story = {
+  args: { title: 'Recent changes', isFlush: true, children: <Table label="Recent changes" frame="none" columns={[{ id: 'title', label: 'Title' }, { id: 'status', label: 'Status' }]} rows={[{ id: '1', cells: { title: '6214 Lakeshore Drive', status: 'Published' } }, { id: '2', cells: { title: '18 Alder Court', status: 'Draft' } }]} /> },
+};
 export const WithoutTitle: Story = { args: { children: <TextField label="Street" defaultValue="6214 Lakeshore Drive" /> }, render: ({ children }) => <Card>{children}</Card> };
 export const WithActionsAndFooter: Story = {
   args: {

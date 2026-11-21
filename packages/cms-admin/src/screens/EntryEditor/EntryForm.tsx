@@ -482,6 +482,8 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
       {!(showsPage && isVisual) && (
         <SaveBar
           label={messages.editor.saveBar}
+          // A form inside another screen (a page of the settings) keeps its bar with it: the screen has its own header.
+          across={embedded ? 'section' : 'screen'}
           {...(!isSingle && { back: { href: paths.contentList(type.key), label: typeName } })}
           title={heading}
           status={status}

@@ -3,6 +3,7 @@ import { userEvent } from '@testing-library/user-event';
 import { FileText, House, Image, Layers } from 'lucide-react';
 import { expect, it } from 'vitest';
 import { expectAccessible } from '../../testing/accessible.js';
+import { PageHeader } from '../PageHeader/index.js';
 import { AppShell, type AppShellNavGroup } from './AppShell.js';
 
 const nav = (contentIsCurrent: boolean): AppShellNavGroup[] => [
@@ -44,7 +45,6 @@ const example = (contentIsCurrent = true) => (
     skipLabel="Skip to content"
     nav={nav(contentIsCurrent)}
     search={{ label: 'Search or jump to', shortcut: '⌘K', onPress: () => searched.push('open') }}
-    actions={<button type="button">Create</button>}
     account={{
       name: 'dana whitfield',
       detail: 'Owner',
@@ -53,7 +53,8 @@ const example = (contentIsCurrent = true) => (
       onAction: (id) => chosen.push(id),
     }}
   >
-    The screen
+    <PageHeader title="Listings" description="16 entries" actions={<button type="button">New listing</button>} />
+    <p>The screen</p>
   </AppShell>
 );
 
@@ -62,8 +63,6 @@ it('draws the screen in the page\'s main area, beside a rail of the sections', (
   expect(screen.getByRole('main').textContent).toBe('The screen');
   const rail = screen.getByRole('navigation', { name: 'Main' });
   expect(within(rail).getAllByRole('link').map((link) => link.textContent)).toEqual(['Home', 'Content', 'Media3']);
-  expect(screen.getByText('Lakeshore Realty')).toBeTruthy();
-  expect(screen.getByText('lakeshore.example')).toBeTruthy();
 });
 
 it('lists the places of the current section beside the rail, under its name', () => {
@@ -102,7 +101,22 @@ it('opens the search from the bar', async () => {
   await user.click(screen.getByRole('button', { name: 'Search or jump to' }));
   expect(searched).toEqual(['open']);
   expect(screen.getByText('⌘K')).toBeTruthy();
-  expect(screen.getByRole('button', { name: 'Create' })).toBeTruthy();
+});
+
+it('draws the screen\'s header in the bar, so the main area holds only the screen\'s content', async () => {
+  render(example());
+  const bar = screen.getByRole('banner');
+  expect(within(bar).getByRole('heading', { level: 1, name: 'Listings' })).toBeTruthy();
+  expect(within(bar).getByText('16 entries')).toBeTruthy();
+  expect(within(bar).getByRole('button', { name: 'New listing' })).toBeTruthy();
+  expect(within(screen.getByRole('main')).queryByRole('heading', { level: 1 })).toBeNull();
+});
+
+it('names the site at the top of the current section\'s column', () => {
+  render(example());
+  const places = within(screen.getByRole('navigation', { name: 'Content' }));
+  expect(places.getByText('Lakeshore Realty')).toBeTruthy();
+  expect(places.getByText('lakeshore.example')).toBeTruthy();
 });
 
 it('offers a way past the navigation as the first thing the keyboard reaches', async () => {

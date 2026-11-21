@@ -1,7 +1,10 @@
 import { cva, type VariantProps } from 'class-variance-authority';
 
-/** The card the table sits in. A table wider than the screen scrolls inside it. */
-export const tableFrameClass = 'overflow-x-auto rounded-xl border border-border bg-card';
+/** The card the table sits in, or none inside a `Card` that is its frame already. A table wider than the screen scrolls inside it. */
+export const tableFrameVariants = cva('overflow-x-auto', {
+  variants: { frame: { card: 'rounded-xl border border-border bg-card', none: '' } },
+  defaultVariants: { frame: 'card' },
+});
 
 export const tableClass = 'w-full border-separate border-spacing-0 text-left text-base outline-none';
 
@@ -27,8 +30,6 @@ export const tableRowClass = [
   'data-focus-visible:ring-2 data-focus-visible:ring-ring data-focus-visible:ring-inset',
   // A row that opens something says so to the pointer.
   'data-href:cursor-pointer data-action:cursor-pointer',
-  // The row whose details stand beside the table.
-  'data-selected:bg-background-tertiary',
 ].join(' ');
 
 export const tableCellVariants = cva(

@@ -61,7 +61,10 @@ export const appShellRailAvatarClass =
 /* --- The column of a section's own places ------------------------------------ */
 
 export const appShellSectionClass = 'hidden w-56 shrink-0 flex-col gap-5 overflow-y-auto border-r border-border bg-card px-3 py-5 md:flex';
-export const appShellSectionTitleClass = 'px-2.5 font-display text-lg font-semibold text-foreground';
+/** The site's name and address, at the top of a section's column and of a narrow window's panel. */
+export const appShellSiteClass = 'flex min-w-0 flex-col gap-0.5 px-2.5';
+export const appShellSiteNameClass = 'truncate text-base font-bold text-foreground';
+export const appShellSiteDetailClass = 'truncate text-xs text-foreground-subtle';
 export const appShellGroupLabelClass = 'px-2.5 pb-1.5 text-xs font-semibold tracking-widest text-foreground-subtle uppercase';
 export const appShellNavListClass = 'flex flex-col gap-0.5';
 export const appShellNavLinkVariants = cva(
@@ -86,24 +89,19 @@ export const appShellNavIconSize = 16;
 /* --- The bar across the top -------------------------------------------------- */
 
 export const appShellColumnClass = 'flex min-h-0 min-w-0 flex-1 flex-col';
-export const appShellBarClass = 'flex min-h-15 shrink-0 items-center gap-3 border-b border-border bg-card px-3 md:px-6';
-export const appShellBarSiteClass = 'flex min-w-0 shrink items-center gap-2.5';
-/** The site's name and address beside the logo, on a narrow window, where the rail and its logo are hidden. */
-export const appShellBarLogoClass = 'flex shrink-0 md:hidden';
-export const appShellBarSiteTextClass = 'flex min-w-0 flex-col';
-export const appShellBarSiteNameClass = 'truncate text-base font-bold text-foreground';
-export const appShellBarSiteDetailClass = 'hidden truncate text-xs text-foreground-subtle sm:block';
-export const appShellBarSpacerClass = 'min-w-0 flex-1';
-export const appShellBarActionsClass = 'flex shrink-0 items-center gap-2';
+/** One bar on every screen: the screen's header (title, state and buttons) on the left, the search at the end. */
+export const appShellBarClass = 'flex min-h-16 shrink-0 items-center gap-3 border-b border-border bg-card px-3 md:px-6';
+/** Where a screen's `PageHeader` or `SaveBar` is drawn. */
+export const appShellBarSlotClass = 'flex min-w-0 flex-1 items-center';
 
-/** The wide button that opens the search, in the middle of the bar. On a narrow window it shows only its icon, and its words are read out. */
+/** The button that opens the search, at the end of the bar. Below `xl` it shows only its icon, and its words are read out. */
 export const appShellSearchClass = [
   'flex h-10 min-w-0 shrink items-center gap-2.5 rounded-lg border border-border bg-background px-3 text-base text-foreground-subtle transition-colors motion-fast',
   'outline-none data-hovered:border-border-strong data-hovered:text-foreground-muted data-focus-visible:ring-2 data-focus-visible:ring-ring',
-  'md:w-96',
+  'xl:w-52',
 ].join(' ');
-export const appShellSearchLabelClass = 'sr-only min-w-0 flex-1 truncate text-left md:not-sr-only';
-export const appShellSearchShortcutClass = 'hidden rounded-sm border border-border px-1.5 font-mono text-xs text-foreground-subtle md:block';
+export const appShellSearchLabelClass = 'sr-only min-w-0 flex-1 truncate text-left xl:not-sr-only xl:overflow-hidden xl:whitespace-nowrap';
+export const appShellSearchShortcutClass = 'hidden shrink-0 rounded-sm border border-border px-1.5 font-mono text-xs text-foreground-subtle xl:block';
 export const appShellSearchIconSize = 16;
 
 export const appShellMenuButtonClass = [

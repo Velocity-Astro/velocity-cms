@@ -28,5 +28,4 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const Sorted: Story = { args: { sort: { column: 'title', direction: 'ascending' } } };
 export const RowsThatOpen: Story = { args: { onRowAction: () => undefined } };
-export const AChosenRow: Story = { args: { selectedId: '2', onSelect: () => undefined, onRowAction: () => undefined } };
 export const Empty: Story = { args: { rows: [], empty: 'No listings yet.' } };
