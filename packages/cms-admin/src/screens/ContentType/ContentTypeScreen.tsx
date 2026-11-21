@@ -142,7 +142,7 @@ function TypeBuilder({ type, holders, fields }: TypeBuilderProps) {
       },
     }));
   const addField = (
-    <Button icon={Plus} onPress={() => setAdding(true)}>
+    <Button icon={Plus} collapses onPress={() => setAdding(true)}>
       {messages.builder.addField}
     </Button>
   );
@@ -161,20 +161,15 @@ function TypeBuilder({ type, holders, fields }: TypeBuilderProps) {
             <PageHeader
               title={name}
               description={[messages.builder.keyIs(type.key), type.urlPattern ?? messages.builder.noAddress].join(' · ')}
-              actions={
-                <Inline gap={2} wrap>
-                  <Button variant="ghost" icon={Archive} onPress={() => setArchiving(true)}>
-                    {messages.builder.archive}
-                  </Button>
-                  <Button variant="secondary" icon={Settings2} onPress={() => setChangingSettings(true)}>
-                    {messages.builder.settings}
-                  </Button>
-                  <Button variant="secondary" icon={LayoutList} onPress={() => setChangingSections(true)}>
-                    {messages.builder.sections}
-                  </Button>
-                  {addField}
-                </Inline>
-              }
+              secondary={{
+                moreLabel: messages.app.moreActions,
+                actions: [
+                  { id: 'archive', label: messages.builder.archive, icon: Archive, variant: 'ghost', onPress: () => setArchiving(true) },
+                  { id: 'settings', label: messages.builder.settings, icon: Settings2, onPress: () => setChangingSettings(true) },
+                  { id: 'sections', label: messages.builder.sections, icon: LayoutList, onPress: () => setChangingSections(true) },
+                ],
+              }}
+              actions={addField}
             />
             <Link href={paths.contentList(type.key)}>{messages.builder.viewEntries}</Link>
           </Stack>

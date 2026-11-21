@@ -101,8 +101,16 @@ export interface PagePreviewProps extends PagePreviewVariants {
   readonly onRedo?: () => void;
   /** Called when the keys that save are pressed on the page. The page saves nothing itself. */
   readonly onSave?: () => void;
+  /**
+   * How many times Escape was pressed in the editor around the page. Each new count is told to the page as
+   * its own Escape: it drops a dragged section where it was and closes its list of sections, as Escape on
+   * the page does, wherever the keyboard happened to be.
+   */
+  readonly escapes?: number;
   /** The section the page should have in view, and outlined. */
   readonly shownSectionId?: string;
+  /** Changes each time the section is asked for again, so the same one is brought into view again. */
+  readonly shownAt?: number;
   /**
    * Where words may be typed on the page itself: for each section's id, the fields of it, as keys
    * (`title`, `items.0.text`). Left out, the page is only looked at and pressed.
@@ -150,7 +158,7 @@ export interface PagePreviewProps extends PagePreviewVariants {
  * A page of the site as it would look with what is in a form now, in a frame. The page is drawn
  * by the site itself, so it looks exactly as it will; nothing of it is drawn here.
  */
-export function PagePreview({ label, address, draft, note, toolbar, action, emptyText, onSectionPress, shownSectionId, typable, onWords, tools, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onSectionSwatch, onSectionSlot, onTextLink, onUndo, onRedo, onSave, isBare = false, width }: PagePreviewProps) {
+export function PagePreview({ label, address, draft, note, toolbar, action, emptyText, onSectionPress, shownSectionId, shownAt = 0, typable, onWords, tools, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onSectionSwatch, onSectionSlot, onTextLink, onUndo, onRedo, onSave, escapes = 0, isBare = false, width }: PagePreviewProps) {
   const name = `preview-${useId().replaceAll(':', '')}`;
   const form = useRef<HTMLFormElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
@@ -229,6 +237,10 @@ export function PagePreview({ label, address, draft, note, toolbar, action, empt
     scaleNow.current = scale;
     zoom(scale);
   }, [scale]);
+
+  useEffect(() => {
+    if (escapes > 0) frame.current?.contentWindow?.postMessage({ source: SOURCE, type: 'escape' }, window.location.origin);
+  }, [escapes]);
 
   const show = (id: string | undefined, still = false) => {
     if (id !== undefined) frame.current?.contentWindow?.postMessage({ source: SOURCE, type: 'show', id, ...(still && { still }) }, window.location.origin);
@@ -312,7 +324,7 @@ export function PagePreview({ label, address, draft, note, toolbar, action, empt
   useEffect(() => {
     askedAt.current = Date.now();
     show(shownSectionId);
-  }, [shownSectionId]);
+  }, [shownSectionId, shownAt]);
   useEffect(() => tell(places), [places]);
   useEffect(() => offer(offered), [offered]);
 

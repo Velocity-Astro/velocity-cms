@@ -290,7 +290,10 @@
       "description": "The top of every screen: its title, what it is for, and its main actions.",
       "example": "<PageHeader title=\"Listings\" actions={<Button>New listing</Button>} />",
       "uses": [
+        "Button",
         "Heading",
+        "IconButton",
+        "Menu",
         "Text"
       ]
     },

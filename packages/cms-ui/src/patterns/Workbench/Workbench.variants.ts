@@ -9,7 +9,7 @@ export const workbenchVariants = cva('', {
   variants: {
     view: {
       beside: 'w-full',
-      whole: 'dark fixed inset-0 layer-overlay flex flex-col bg-rail text-foreground',
+      whole: 'dark fixed inset-0 layer-overlay flex flex-col bg-background-secondary text-foreground',
     },
   },
   defaultVariants: { view: 'beside' },
@@ -34,7 +34,7 @@ export const workbenchFormVariants = cva('flex min-w-0 flex-col gap-6', {
   variants: {
     view: {
       beside: 'xl:w-lg xl:shrink-0',
-      whole: 'order-last max-w-full shrink-0 overflow-auto bg-background p-4',
+      whole: 'order-last max-w-full shrink-0 overflow-auto border-l border-border bg-card p-4',
     },
     isAway: { true: '', false: '' },
   },
@@ -98,7 +98,7 @@ export const workbenchPaneVariants = cva('min-w-0', {
 });
 
 /** Whole, the way around what is made, on the left: from `lg` up, where there is room for three columns. */
-export const workbenchOutlineClass = 'hidden shrink-0 flex-col overflow-auto bg-background p-3 lg:flex';
+export const workbenchOutlineClass = 'hidden shrink-0 flex-col overflow-auto border-r border-border bg-card p-3 lg:flex';
 
 /**
  * The edge between two columns, dragged to make one wider or narrower, or moved with the arrow keys

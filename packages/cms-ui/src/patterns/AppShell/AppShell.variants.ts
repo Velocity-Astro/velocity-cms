@@ -90,34 +90,53 @@ export const appShellNavIconSize = 16;
 
 export const appShellColumnClass = 'flex min-h-0 min-w-0 flex-1 flex-col';
 /**
- * One bar on every screen: the screen's header (title, state and buttons) on the left, the search at the end.
- * On a phone it has two rows: the menu, the screen's title and the search, then the screen's buttons across the
- * whole width under them, so nothing is squeezed or pushed over the title.
+ * One bar on every screen, one row on every window: the menu (on a phone), the screen's header (its title,
+ * state and buttons, which fold into a menu on a phone) and the search at the end.
  */
-export const appShellBarClass = [
-  'flex min-h-16 shrink-0 flex-wrap items-center gap-x-2 gap-y-2 border-b border-border bg-card px-3 py-2',
-  'md:flex-nowrap md:gap-3 md:px-6 md:py-0',
-].join(' ');
-/**
- * Where a screen's `PageHeader` or `SaveBar` is drawn. On a phone it lays out nothing itself: what is drawn
- * in it takes its place in the bar's rows (`order-2` for the title, `order-4` for the row of buttons).
- */
-export const appShellBarSlotClass = 'contents md:flex md:min-w-0 md:flex-1 md:items-center';
+export const appShellBarClass = 'flex min-h-14 shrink-0 items-center gap-2 border-b border-border bg-card px-3 md:min-h-16 md:gap-3 md:px-6';
+/** Where a screen's `PageHeader` or `SaveBar` is drawn. */
+export const appShellBarSlotClass = 'flex min-w-0 flex-1 items-center';
 
 /** The button that opens the search, at the end of the bar. Below `xl` it shows only its icon, and its words are read out. */
-export const appShellSearchClass = [
-  'flex h-10 min-w-0 shrink items-center gap-2.5 rounded-lg border border-border bg-background px-3 text-base text-foreground-subtle transition-colors motion-fast',
-  'outline-none data-hovered:border-border-strong data-hovered:text-foreground-muted data-focus-visible:ring-2 data-focus-visible:ring-ring',
-  'order-3 md:order-none xl:w-52',
-].join(' ');
-export const appShellSearchLabelClass = 'sr-only min-w-0 flex-1 truncate text-left xl:not-sr-only xl:overflow-hidden xl:whitespace-nowrap';
-export const appShellSearchShortcutClass = 'hidden shrink-0 rounded-sm border border-border px-1.5 font-mono text-xs text-foreground-subtle xl:block';
+export const appShellSearchVariants = cva(
+  [
+    'flex h-10 min-w-0 shrink-0 items-center gap-2.5 rounded-lg border border-border bg-background px-3 text-base text-foreground-subtle transition-colors motion-fast',
+    'outline-none data-hovered:border-border-strong data-hovered:text-foreground-muted data-focus-visible:ring-2 data-focus-visible:ring-ring',
+  ],
+  {
+    variants: {
+      /**
+       * A screen that leads back (an entry) is for working, not looking: its search is an icon, and on a phone it
+       * has none, the way back in the menu's place.
+       */
+      isScreenLeadingBack: { true: 'max-md:hidden', false: 'xl:w-52' },
+    },
+    defaultVariants: { isScreenLeadingBack: false },
+  },
+);
+export const appShellSearchLabelVariants = cva('sr-only min-w-0 flex-1 truncate text-left', {
+  variants: { isScreenLeadingBack: { true: '', false: 'xl:not-sr-only xl:overflow-hidden xl:whitespace-nowrap' } },
+  defaultVariants: { isScreenLeadingBack: false },
+});
+export const appShellSearchShortcutVariants = cva('hidden shrink-0 rounded-sm border border-border px-1.5 font-mono text-xs text-foreground-subtle', {
+  variants: { isScreenLeadingBack: { true: '', false: 'xl:block' } },
+  defaultVariants: { isScreenLeadingBack: false },
+});
 export const appShellSearchIconSize = 16;
 
-export const appShellMenuButtonClass = [
-  'flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-foreground transition-colors motion-fast md:hidden',
-  'outline-none data-hovered:bg-background-tertiary data-pressed:bg-background-tertiary data-focus-visible:ring-2 data-focus-visible:ring-ring',
-].join(' ');
+export const appShellMenuButtonVariants = cva(
+  [
+    'h-10 w-10 shrink-0 items-center justify-center rounded-md text-foreground transition-colors motion-fast md:hidden',
+    'outline-none data-hovered:bg-background-tertiary data-pressed:bg-background-tertiary data-focus-visible:ring-2 data-focus-visible:ring-ring',
+  ],
+  {
+    variants: {
+      /** The way back takes the menu's place on a screen that leads back, as on any phone. */
+      isScreenLeadingBack: { true: 'hidden', false: 'flex' },
+    },
+    defaultVariants: { isScreenLeadingBack: false },
+  },
+);
 export const appShellMenuIconSize = 20;
 
 /* --- The panel of a narrow window -------------------------------------------- */

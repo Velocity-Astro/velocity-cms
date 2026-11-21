@@ -98,7 +98,7 @@ export function FormsScreen() {
     },
   }));
   const create = (
-    <Button icon={Plus} onPress={() => setCreating(true)}>
+    <Button icon={Plus} collapses onPress={() => setCreating(true)}>
       {messages.forms.newForm}
     </Button>
   );
@@ -109,16 +109,10 @@ export function FormsScreen() {
         <PageHeader
           title={messages.forms.title}
           description={messages.forms.description}
-          actions={
-            mayManage && (
-            <Inline gap={2}>
-              <Button variant="ghost" icon={UserX} onPress={() => setForgetting(true)}>
-                {messages.forms.forget}
-              </Button>
-              {create}
-            </Inline>
-            )
-          }
+          {...(mayManage && {
+            secondary: { moreLabel: messages.app.moreActions, actions: [{ id: 'forget', label: messages.forms.forget, icon: UserX, variant: 'ghost' as const, onPress: () => setForgetting(true) }] },
+            actions: create,
+          })}
         />
         {forms.isPending && <LoadingState shape="table" />}
         {forms.isError && <ErrorState error={forms.error} onRetry={() => void forms.refetch()} />}

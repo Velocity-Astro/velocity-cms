@@ -91,7 +91,7 @@ export function ContentTypesScreen() {
     },
   }));
   const create = (
-    <Button icon={Plus} onPress={() => setCreating(true)}>
+    <Button icon={Plus} collapses onPress={() => setCreating(true)}>
       {messages.builder.newType}
     </Button>
   );

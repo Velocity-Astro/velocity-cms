@@ -1,5 +1,5 @@
 import type { Deal, Pipeline } from '@velocity-astro/cms-core';
-import { Board, Box, Button, EmptyState, Grid, Link, Meter, PageHeader, Stack, Stat, toast, type BoardColumn } from '@velocity-astro/cms-ui';
+import { Board, Box, EmptyState, Grid, Link, Meter, PageHeader, Stack, Stat, toast, type BoardColumn } from '@velocity-astro/cms-ui';
 import { HandCoins, ListPlus } from 'lucide-react';
 import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
@@ -30,11 +30,7 @@ export function DealsScreen() {
         <PageHeader
           title={messages.deals.title}
           description={messages.deals.description}
-          actions={
-            <Button variant="secondary" icon={ListPlus} onPress={() => setEditingFields(true)}>
-              {messages.customFields.button}
-            </Button>
-          }
+          secondary={{ moreLabel: messages.app.moreActions, actions: [{ id: 'fields', label: messages.customFields.button, icon: ListPlus, onPress: () => setEditingFields(true) }] }}
         />
         {pipeline.isPending && <LoadingState shape="summary" />}
         {pipeline.isError && <ErrorState error={pipeline.error} onRetry={() => void pipeline.refetch()} />}

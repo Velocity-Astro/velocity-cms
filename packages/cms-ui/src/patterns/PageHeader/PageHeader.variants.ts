@@ -2,23 +2,33 @@ import { cva } from 'class-variance-authority';
 
 /**
  * On its own, the top of a screen, with the actions under the title when there is no room beside it.
- * In the shell's bar, one line: the title and its sentence on the left, the actions on the right.
+ * In the shell's bar, one row on every window: the title and its sentence on the left, the actions on the right.
  */
-export const pageHeaderVariants = cva('min-w-0 justify-between', {
+export const pageHeaderVariants = cva('flex min-w-0 justify-between', {
   variants: {
     place: {
-      page: 'flex flex-wrap items-start gap-x-6 gap-y-4',
-      // On a phone its parts are the bar's own: the title beside the menu, the buttons on a row under them.
-      bar: 'contents md:flex md:flex-1 md:items-center md:gap-4 md:py-2',
+      page: 'flex-wrap items-start gap-x-6 gap-y-4',
+      bar: 'flex-1 items-center gap-2 md:gap-4 md:py-2',
     },
   },
   defaultVariants: { place: 'page' },
 });
-export const pageHeaderTitleVariants = cva('flex min-w-0 flex-col', {
-  variants: { place: { page: 'gap-1', bar: 'order-2 flex-1 gap-0 md:order-none' } },
+/** In the bar, one row: the title, then its sentence after it, cut to fit. */
+export const pageHeaderTitleVariants = cva('flex min-w-0', {
+  variants: { place: { page: 'flex-col gap-1', bar: 'flex-1 items-baseline gap-3' } },
   defaultVariants: { place: 'page' },
 });
-export const pageHeaderActionsVariants = cva('flex max-w-full shrink-0 flex-wrap items-center gap-2', {
-  variants: { place: { page: '', bar: 'order-4 w-full justify-end md:order-none md:w-auto' } },
+/** In the bar a phone has room for the title alone: the sentence after it comes from `md` up. */
+export const pageHeaderDescriptionVariants = cva('min-w-0', {
+  variants: { place: { page: '', bar: 'hidden flex-1 md:block' } },
   defaultVariants: { place: 'page' },
 });
+/** In the bar they never wrap: on a phone they are icons and one menu. */
+export const pageHeaderActionsVariants = cva('flex max-w-full shrink-0 items-center', {
+  variants: { place: { page: 'flex-wrap gap-2', bar: 'gap-1 md:gap-2' } },
+  defaultVariants: { place: 'page' },
+});
+/** The other buttons, as buttons from `md` up. */
+export const pageHeaderSecondaryClass = 'hidden items-center gap-2 md:flex';
+/** The same, as one menu on a phone. */
+export const pageHeaderMoreClass = 'flex md:hidden';

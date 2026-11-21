@@ -1,5 +1,5 @@
 import type { FormDef } from '@velocity-astro/cms-core';
-import { Box, Button, ConfirmDialog, EmptyState, Inline, Link, PageHeader, Stack, Tabs, Text, toast } from '@velocity-astro/cms-ui';
+import { Box, ConfirmDialog, EmptyState, Link, PageHeader, Stack, Tabs, Text, toast } from '@velocity-astro/cms-ui';
 import { Inbox, Settings2, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useParams } from 'react-router';
@@ -54,18 +54,15 @@ function FormParts({ form }: { readonly form: FormDef }) {
           <PageHeader
             title={name}
             description={messages.forms.detail(form.key, form.open ? messages.forms.open : messages.forms.closed)}
-            actions={
-              mayManage && (
-                <Inline gap={2}>
-                  <Button variant="ghost" icon={Trash2} onPress={() => setTrashing(true)}>
-                    {messages.forms.trash}
-                  </Button>
-                  <Button variant="secondary" icon={Settings2} onPress={() => setChangingSettings(true)}>
-                    {messages.forms.settings}
-                  </Button>
-                </Inline>
-              )
-            }
+            {...(mayManage && {
+              secondary: {
+                moreLabel: messages.app.moreActions,
+                actions: [
+                  { id: 'trash', label: messages.forms.trash, icon: Trash2, variant: 'ghost' as const, tone: 'danger' as const, onPress: () => setTrashing(true) },
+                  { id: 'settings', label: messages.forms.settings, icon: Settings2, onPress: () => setChangingSettings(true) },
+                ],
+              },
+            })}
           />
         </Stack>
         <Tabs

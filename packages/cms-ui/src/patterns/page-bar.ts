@@ -11,3 +11,15 @@ export const PageBarContext = createContext<HTMLElement | null | undefined>(unde
 export function usePageBar(): HTMLElement | null | undefined {
   return useContext(PageBarContext);
 }
+
+/**
+ * Told by a screen whose bar leads back (an entry, with the way back to its list) that it does, so on a
+ * phone the shell leaves out its menu and its search: one row, the way back in the menu's place, as on
+ * any phone. Outside a shell there is nothing to tell.
+ */
+export const PageBarBackContext = createContext<((leadsBack: boolean) => void) | undefined>(undefined);
+
+/** Says, while the screen is shown, that its bar leads back. */
+export function usePageBarBack(): ((leadsBack: boolean) => void) | undefined {
+  return useContext(PageBarBackContext);
+}

@@ -1653,6 +1653,12 @@ export function previewBridge(page: Window & typeof globalThis): void {
       typable = typeof places === 'object' && places !== null ? (places as Record<string, unknown>) : {};
       return;
     }
+    if (event.data.type === 'escape') {
+      // Escape pressed in the editor around the page: the page takes it as its own, so a drag is dropped
+      // and the list of sections closed wherever the keyboard was.
+      doc.dispatchEvent(new page.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      return;
+    }
     if (event.data.type === 'linkAnswer') {
       answerLink((event.data as { href?: unknown }).href);
       return;
@@ -1700,9 +1706,10 @@ export function previewBridge(page: Window & typeof globalThis): void {
     if (!mark) return;
     marks.chosen = mark;
     const rect = mark.element.getBoundingClientRect();
-    // What is already in view stays where it is: the page does not jump while someone types. Nor
-    // does a page drawn again, which is where the person left it: the editor says so (`still`).
-    if ((event.data as { still?: unknown }).still !== true && (rect.bottom <= 0 || rect.top >= page.innerHeight)) {
+    // A section asked for is brought to the top of the window, unless its top is there already (in the
+    // upper half): the page does not jump for what is in view. Nor does a page drawn again, which is
+    // where the person left it: the editor says so (`still`).
+    if ((event.data as { still?: unknown }).still !== true && (rect.top < 0 || rect.top >= page.innerHeight / 2)) {
       // Room for a header that stays at the top of the page.
       mark.element.style.scrollMarginTop = '6rem';
       settled = true;

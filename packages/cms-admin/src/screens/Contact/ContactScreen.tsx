@@ -86,31 +86,30 @@ function ContactPage({ contact }: { readonly contact: Contact }) {
           <PageHeader
             title={name}
             {...(contact.name !== undefined && { description: contact.email })}
-            actions={
-              <Inline gap={2} wrap>
-                <Button variant="ghost" icon={UserX} onPress={() => setErasing(true)}>
-                  {messages.contacts.erase}
-                </Button>
-                <Button
-                  variant="secondary"
-                  icon={Download}
-                  isPending={exportFile.isPending}
-                  onPress={() =>
+            secondary={{
+              moreLabel: messages.app.moreActions,
+              actions: [
+                { id: 'erase', label: messages.contacts.erase, icon: UserX, variant: 'ghost', tone: 'danger', onPress: () => setErasing(true) },
+                {
+                  id: 'export',
+                  label: messages.contacts.export,
+                  icon: Download,
+                  isPending: exportFile.isPending,
+                  onPress: () =>
                     exportFile.mutate(contact.id, {
                       onSuccess: (file) => {
                         downloadText(`contact-${contact.email}.json`, file, 'application/json;charset=utf-8');
                         toast({ title: messages.contacts.exported, description: messages.contacts.exportedDescription, tone: 'success' });
                       },
                       onError: (error) => toast({ title: messages.contacts.notExported, description: messageOf(error), tone: 'danger' }),
-                    })
-                  }
-                >
-                  {messages.contacts.export}
-                </Button>
-                <Button icon={Pencil} onPress={() => setEditing(true)}>
-                  {messages.contacts.edit}
-                </Button>
-              </Inline>
+                    }),
+                },
+              ],
+            }}
+            actions={
+              <Button icon={Pencil} collapses onPress={() => setEditing(true)}>
+                {messages.contacts.edit}
+              </Button>
             }
           />
         </Stack>

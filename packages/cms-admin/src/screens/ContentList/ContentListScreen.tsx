@@ -155,7 +155,7 @@ export function ContentListScreen() {
   });
 
   const newEntry = (
-    <Button icon={Plus} onPress={() => go(paths.newEntry(type.key))}>
+    <Button icon={Plus} collapses onPress={() => go(paths.newEntry(type.key))}>
       {messages.contentList.newEntry}
     </Button>
   );
