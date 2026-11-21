@@ -16,6 +16,8 @@ export const buttonVariants = cva(
           'border border-border bg-secondary text-secondary-foreground data-hovered:border-border-strong data-hovered:bg-secondary-hover data-pressed:bg-secondary-hover',
         ghost: 'text-foreground-secondary data-hovered:bg-secondary data-hovered:text-foreground data-pressed:bg-secondary-hover',
         danger: 'bg-destructive text-destructive-foreground data-hovered:opacity-90 data-pressed:opacity-90',
+        // The brand's colour, a screen's one orange: for the one step a whole view leads to, such as Publish in the visual editor.
+        brand: 'bg-brand-fill text-brand-ink data-hovered:bg-brand-fill-hover data-pressed:bg-brand-fill-hover',
       },
       size: {
         sm: 'h-8 px-3 text-sm',

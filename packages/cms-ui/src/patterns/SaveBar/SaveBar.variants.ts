@@ -11,7 +11,7 @@ export const saveBarVariants = cva('flex flex-wrap items-center gap-x-4 gap-y-2'
       screen: 'sticky top-0 layer-sticky border-b border-border bg-background px-4 py-3 md:px-6',
       shell: 'min-w-0 flex-1 py-2 md:flex-nowrap',
       section: 'sticky top-0 layer-sticky border-b border-border bg-background px-4 py-3 md:px-6',
-      window: 'shrink-0 border-b border-border bg-background px-4 py-3',
+      window: 'shrink-0 border-b border-border bg-background px-3 py-2 md:flex-nowrap',
     },
   },
   defaultVariants: { across: 'screen' },
@@ -23,7 +23,13 @@ export const saveBarBackClass = [
   'outline-none data-hovered:bg-background-secondary data-focus-visible:ring-2 data-focus-visible:ring-ring',
 ].join(' ');
 
-export const saveBarHeadingClass = 'flex min-w-0 flex-1 basis-48 flex-col gap-0.5';
+/** With something in the middle of the bar, the heading keeps to its words and the middle takes the room. */
+export const saveBarHeadingVariants = cva('flex min-w-0 flex-col gap-0.5', {
+  variants: { hasCenter: { true: 'shrink', false: 'flex-1 basis-48' } },
+  defaultVariants: { hasCenter: false },
+});
+/** In the middle of the bar, from `md` up: the controls of what is shown, such as the widths of a page. */
+export const saveBarCenterClass = 'hidden min-w-0 flex-1 items-center justify-center md:flex';
 export const saveBarTitleClass = 'truncate text-xl font-semibold text-foreground';
 export const saveBarStatusClass = 'flex min-w-0 items-center gap-2 whitespace-nowrap';
 export const saveBarActionsClass = 'flex max-w-full shrink-0 flex-wrap items-center gap-2';

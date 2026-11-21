@@ -1,7 +1,7 @@
 import type { ContentTypeDef, Entry, EntryData, FieldDef } from '@velocity-astro/cms-core';
 import { HOME_SLUG, SLUG_PATH, isSlug, isSlugPath, liveFields, takesSlugPath } from '@velocity-astro/cms-core';
 import { Box, Button, Card, ConfirmDialog, Form, IconButton, Menu, SaveBar, Segmented, Split, Stack, Tag, Text, TextField, Workbench, toast } from '@velocity-astro/cms-ui';
-import { CalendarClock, Copy, Ellipsis, ExternalLink, Eye, EyeOff, History, Palette, PanelRightClose, PanelRightOpen, Redo2, Trash2, Undo2 } from 'lucide-react';
+import { CalendarClock, Copy, Ellipsis, ExternalLink, Eye, EyeOff, History, Languages, Palette, PanelRightClose, PanelRightOpen, Redo2, Trash2, Undo2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { paths } from '../../app/paths.js';
@@ -20,6 +20,7 @@ import { useLeaveGuard } from '../../lib/use-leave-guard.js';
 import { useSaveKey } from '../../lib/use-save-key.js';
 import { NARROW, useNarrow } from '../../lib/use-narrow.js';
 import { useUndoKeys } from '../../lib/use-undo-keys.js';
+import { usePanelSizes } from '../../lib/use-panel-sizes.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 import { PluginBoundary } from '../../plugins/PluginBoundary.js';
 import { usePluginExtensions } from '../../plugins/plugin-editor.js';
@@ -89,6 +90,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   const [isConfirmingUnpublish, setConfirmingUnpublish] = useState(false);
   const [isConfirmingTrash, setConfirmingTrash] = useState(false);
   const [isShowingHistory, setShowingHistory] = useState(false);
+  const [panelSizes, keepPanelSizes] = usePanelSizes();
   const [isScheduling, setScheduling] = useState(false);
   // The visual editor: the page has the whole window, and the form is a panel at its side.
   // Which of the two is part of the address, so a reload keeps it, the browser's way back leads
@@ -439,6 +441,22 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
       </Text>
     </>
   );
+  const onMore = (id: string) => {
+    if (id.startsWith('language:')) return onSwitch?.(id.slice('language:'.length));
+    if (id === 'preview') return void preview();
+    if (id === 'view') return openSite(liveAddress ?? '/');
+    if (id === 'schedule') return setScheduling(true);
+    if (id === 'history') return setShowingHistory(true);
+    if (id === 'trash') return setConfirmingTrash(true);
+    if (id === 'duplicate' && entry) return void makeCopy(entry.id);
+    if (id === 'unpublish') setConfirmingUnpublish(true);
+  };
+  // The visual editor's menu holds what its bar has no room for: the entry's other languages and a preview tab first.
+  const visualMore = [
+    ...(entry !== null ? versions.filter((version) => version.id !== entry.id).map((version) => ({ id: `language:${version.id}`, label: messages.editor.switchLanguage(languageName(version.locale, locale)), icon: Languages, isDisabled: isBusy })) : []),
+    ...(hasPage && !more.some((action) => action.id === 'preview') ? [{ id: 'preview', label: messages.editor.preview, icon: Eye }] : []),
+    ...more,
+  ];
   const actions = (
     <>
       {entry !== null && versions.length > 1 && (
@@ -459,7 +477,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
         <Menu
           trigger={<IconButton label={messages.editor.more} icon={Ellipsis} isDisabled={isBusy} />}
           actions={more}
-          onAction={(id) => (id === 'preview' ? void preview() : id === 'view' ? openSite(liveAddress ?? '/') : id === 'schedule' ? setScheduling(true) : id === 'history' ? setShowingHistory(true) : id === 'trash' ? setConfirmingTrash(true) : id === 'duplicate' && entry ? void makeCopy(entry.id) : setConfirmingUnpublish(true))}
+          onAction={onMore}
         />
       )}
       {hasPage && !isPhone && (
@@ -499,6 +517,9 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
                 paneLabel={messages.editor.pagePane}
                 view={isVisual ? 'whole' : 'beside'}
                 isFormAway={isFormAway}
+                {...(panelSizes !== undefined && { sizes: panelSizes })}
+                onSizesChange={keepPanelSizes}
+                resizeLabels={{ outline: messages.editor.resizeOutline, form: messages.editor.resizeForm }}
                 outline={<SectionOutline onChosen={() => setFormAway(false)} />}
                 outlineLabel={messages.editor.outlineLabel}
                 bar={
@@ -508,6 +529,8 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
                     back={{ label: messages.editor.visualClose, onPress: () => setVisual(false) }}
                     title={heading}
                     status={status}
+                    // A phone tries the page as a phone, and has no room to try another.
+                    {...(!isPhone && { center: <PageWidths width={pageWidth} onChange={setPageWidth} isIconOnly /> })}
                     actions={
                       <>
                         <IconButton
@@ -515,9 +538,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
                           icon={isFormAway ? PanelRightOpen : PanelRightClose}
                           onPress={() => setFormAway(!isFormAway)}
                         />
-                        {/* A phone tries the page as a phone, and has no room to try another. */}
-                        {!isPhone && <PageWidths width={pageWidth} onChange={setPageWidth} />}
-                        {canTheme && isPhone && (
+                        {canTheme && (
                           <IconButton
                             label={messages.editor.theme}
                             icon={Palette}
@@ -527,19 +548,17 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
                             }}
                           />
                         )}
-                        {canTheme && !isPhone && (
-                          <Button
-                            variant="ghost"
-                            icon={Palette}
-                            onPress={() => {
-                              if (!isThemeShown) setFormAway(false);
-                              setThemeShown(!isThemeShown);
-                            }}
-                          >
-                            {messages.editor.theme}
-                          </Button>
-                        )}
-                        {actions}
+                        <IconButton label={messages.editor.undo} icon={Undo2} isDisabled={isBusy || !history.canUndo} onPress={undo} />
+                        <IconButton label={messages.editor.redo} icon={Redo2} isDisabled={isBusy || !history.canRedo} onPress={redo} />
+                        {/* Everything else is behind one button: another language, a preview tab and the rest. */}
+                        <Menu trigger={<IconButton label={messages.editor.more} icon={Ellipsis} isDisabled={isBusy} />} actions={visualMore} onAction={onMore} />
+                        <Button variant="secondary" isDisabled={isBusy || !hasChanges} isPending={running === 'save'} onPress={() => void run('save')}>
+                          {messages.editor.saveDraft}
+                        </Button>
+                        {/* The one orange of the studio: what the whole view leads to. */}
+                        <Button variant="brand" isDisabled={isBusy || (state === 'published' && !hasChanges)} isPending={running === 'publish'} onPress={() => void run('publish')}>
+                          {entry?.status === 'published' ? messages.editor.publishChanges : messages.editor.publish}
+                        </Button>
                       </>
                     }
                   />

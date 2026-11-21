@@ -220,6 +220,11 @@
   --type-2xl-leading: 2rem;
   --type-3xl: 1.875rem;
   --type-3xl-leading: 2.125rem;
+  /* The greeting at the top of Home, the one large line of the editor. */
+  --type-4xl: 2.25rem;
+  --type-4xl-leading: 2.5rem;
+  --type-5xl: 3rem;
+  --type-5xl-leading: 3.25rem;
 
   /* Motion: short, and off entirely for people who ask for less. */
   --motion-fast: 100ms;

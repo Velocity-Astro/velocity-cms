@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
 import { Segmented } from './Segmented.js';
+import { Monitor, Smartphone, Tablet } from 'lucide-react';
 
 const options = [
   { id: 'all', label: 'All' },
@@ -37,3 +38,15 @@ export const Swatches: Story = {
   },
 };
 export const WithOneOff: Story = { args: { options: [...options, { id: 'scheduled', label: 'Scheduled', isDisabled: true }] } };
+export const IconsOnly: Story = {
+  args: {
+    label: 'Width of the page',
+    areLabelsHidden: true,
+    selected: 'full',
+    options: [
+      { id: 'phone', label: 'Phone', icon: Smartphone },
+      { id: 'tablet', label: 'Tablet', icon: Tablet },
+      { id: 'full', label: 'Desktop', icon: Monitor },
+    ],
+  },
+};

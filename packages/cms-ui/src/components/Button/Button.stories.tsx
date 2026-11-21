@@ -15,6 +15,7 @@ export const Primary: Story = {};
 export const Secondary: Story = { args: { variant: 'secondary', children: 'Save draft' } };
 export const Ghost: Story = { args: { variant: 'ghost', children: 'Cancel' } };
 export const Danger: Story = { args: { variant: 'danger', icon: Trash2, children: 'Delete listing' } };
+export const Brand: Story = { args: { variant: 'brand', children: 'Publish changes' } };
 export const Small: Story = { args: { size: 'sm' } };
 export const WithIcon: Story = { args: { icon: Plus, children: 'New listing' } };
 export const Disabled: Story = { args: { isDisabled: true } };

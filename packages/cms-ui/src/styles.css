@@ -79,6 +79,7 @@
   --color-rail-border: var(--rail-border);
   --color-brand-fill: var(--brand-fill);
   --color-brand-ink: var(--brand-ink);
+  --color-brand-fill-hover: var(--brand-fill-hover);
 
   --font-sans: var(--font-ui);
   --font-mono: var(--font-code);
@@ -98,6 +99,10 @@
   --text-2xl--line-height: var(--type-2xl-leading);
   --text-3xl: var(--type-3xl);
   --text-3xl--line-height: var(--type-3xl-leading);
+  --text-4xl: var(--type-4xl);
+  --text-4xl--line-height: var(--type-4xl-leading);
+  --text-5xl: var(--type-5xl);
+  --text-5xl--line-height: var(--type-5xl-leading);
 
   --radius-sm: var(--theme-radius-sm);
   --radius-md: var(--theme-radius-md);
@@ -306,6 +311,14 @@
 ::view-transition-new(root) {
   animation-duration: var(--motion-base);
   animation-timing-function: var(--motion-ease);
+}
+
+/* A faint grid behind the top of a screen that greets: lines of the border colour, 40px apart. */
+@utility bg-grid {
+  background-image:
+    linear-gradient(to bottom, var(--border-subtle) 1px, transparent 1px),
+    linear-gradient(to right, var(--border-subtle) 1px, transparent 1px);
+  background-size: 2.5rem 2.5rem;
 }
 
 /* As tall as the room a screen has under its bar, for a pane that stays in view. */

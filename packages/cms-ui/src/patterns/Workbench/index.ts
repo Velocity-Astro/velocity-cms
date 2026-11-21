@@ -1,1 +1,1 @@
-export { Workbench, type WorkbenchProps } from './Workbench.js';
+export { Workbench, type WorkbenchProps, type WorkbenchSizes } from './Workbench.js';

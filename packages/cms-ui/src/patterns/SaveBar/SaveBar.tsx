@@ -6,7 +6,8 @@ import {
   saveBarActionsClass,
   saveBarBackClass,
   saveBarBackIconSize,
-  saveBarHeadingClass,
+  saveBarCenterClass,
+  saveBarHeadingVariants,
   saveBarStatusClass,
   saveBarTitleClass,
   saveBarVariants,
@@ -33,6 +34,8 @@ export interface SaveBarProps {
   readonly status: ReactNode;
   /** The buttons, main action last. */
   readonly actions: ReactNode;
+  /** In the middle of the bar, from `md` up: controls for what is shown, such as the widths of a page. */
+  readonly center?: ReactNode;
   /**
    * `screen` for the bar of an editing screen, drawn in the shell's bar inside `AppShell`. `section` for a
    * form inside a screen that has its own header, where it stays at the top of that part. `window` for a
@@ -42,7 +45,7 @@ export interface SaveBarProps {
 }
 
 /** The bar that stays at the top of an editing screen: the way back, what is being edited, its state and its save buttons. */
-export function SaveBar({ label, back, title, status, actions, across = 'screen' }: SaveBarProps) {
+export function SaveBar({ label, back, title, status, actions, center, across = 'screen' }: SaveBarProps) {
   const shellBar = usePageBar();
   const inShell = across === 'screen' && shellBar !== undefined;
   // The shell is still drawing its bar: this one comes once there is a place for it.
@@ -61,12 +64,13 @@ export function SaveBar({ label, back, title, status, actions, across = 'screen'
           {back.label}
         </Button>
       )}
-      <div className={saveBarHeadingClass}>
+      <div className={saveBarHeadingVariants({ hasCenter: center !== undefined })}>
         {title !== undefined && <h1 className={saveBarTitleClass}>{title}</h1>}
         <div className={saveBarStatusClass} aria-live="polite">
           {status}
         </div>
       </div>
+      {center !== undefined && <div className={saveBarCenterClass}>{center}</div>}
       <div className={saveBarActionsClass}>{actions}</div>
     </div>
   );

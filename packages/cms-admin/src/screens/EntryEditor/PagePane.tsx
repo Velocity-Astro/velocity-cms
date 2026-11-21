@@ -1,6 +1,6 @@
 import { isSafeLink, type Entry, type EntryData } from '@velocity-astro/cms-core';
 import { Button, Dialog, Form, PagePreview, Segmented, TextField } from '@velocity-astro/cms-ui';
-import { Maximize2 } from 'lucide-react';
+import { Maximize2, Monitor, Smartphone, Tablet, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { usePagePreview } from '../../client/queries.js';
 import { usePageFocus } from '../../fields/index.js';
@@ -14,18 +14,22 @@ export type PageWidth = (typeof WIDTHS)[number];
 export interface PageWidthsProps {
   readonly width: PageWidth;
   readonly onChange: (width: PageWidth) => void;
+  /** Each width as its icon alone, named in a tooltip: in the visual editor's bar. */
+  readonly isIconOnly?: boolean;
 }
 
 /** The choice of the width the page is tried at. */
-export function PageWidths({ width, onChange }: PageWidthsProps) {
+export function PageWidths({ width, onChange, isIconOnly = false }: PageWidthsProps) {
   const messages = useMessages();
   const labels: Record<PageWidth, string> = { phone: messages.editor.pagePhone, tablet: messages.editor.pageTablet, full: messages.editor.pageDesktop };
+  const icons: Record<PageWidth, LucideIcon> = { phone: Smartphone, tablet: Tablet, full: Monitor };
   return (
     <Segmented
       label={messages.editor.pageWidth}
       selected={width}
       onChange={(id) => onChange(WIDTHS.find((candidate) => candidate === id) ?? 'full')}
-      options={WIDTHS.map((id) => ({ id, label: labels[id] }))}
+      options={WIDTHS.map((id) => ({ id, label: labels[id], icon: icons[id] }))}
+      areLabelsHidden={isIconOnly}
     />
   );
 }

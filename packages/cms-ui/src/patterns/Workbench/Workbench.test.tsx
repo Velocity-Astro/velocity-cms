@@ -80,6 +80,35 @@ it('shows the outline on the left only when it has the whole window, and keeps t
   expect(screen.getByRole('button', { name: 'In the form' })).toBe(form);
 });
 
+it('is a studio in the dark theme with the whole window, whose columns are resized with the arrow keys', async () => {
+  const user = userEvent.setup();
+  const changes: { outline: number; form: number }[] = [];
+  const { container } = render(
+    <Workbench
+      paneLabel="The page"
+      view="whole"
+      outline={<p>Every section</p>}
+      outlineLabel="Sections of the page"
+      resizeLabels={{ outline: 'Width of the sections', form: 'Width of the form' }}
+      onSizesChange={(sizes) => changes.push(sizes)}
+      pane={<p>What it makes</p>}
+    >
+      <p>In the form</p>
+    </Workbench>,
+  );
+  expect(container.querySelector('.dark')).toBeTruthy();
+  const form = screen.getByRole('separator', { name: 'Width of the form' });
+  const before = Number(form.getAttribute('aria-valuenow'));
+  form.focus();
+  // The form's edge is on its left: moving it left makes the form wider.
+  await user.keyboard('{ArrowLeft}');
+  expect(screen.getByRole('separator', { name: 'Width of the form' }).getAttribute('aria-valuenow')).toBe(String(before + 1));
+  const outline = screen.getByRole('separator', { name: 'Width of the sections' });
+  outline.focus();
+  await user.keyboard('{ArrowRight}');
+  expect(changes.at(-1)).toEqual({ outline: Number(outline.getAttribute('aria-valuenow')), form: before + 1 });
+});
+
 it('keeps the keyboard inside while it has the whole window', async () => {
   const user = userEvent.setup();
   render(whole(false));

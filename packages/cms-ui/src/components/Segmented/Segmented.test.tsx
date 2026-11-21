@@ -3,6 +3,7 @@ import { userEvent } from '@testing-library/user-event';
 import { expect, it } from 'vitest';
 import { expectAccessible } from '../../testing/accessible.js';
 import { Segmented } from './Segmented.js';
+import { Monitor, Smartphone } from 'lucide-react';
 
 const options = [
   { id: 'all', label: 'All' },
@@ -52,6 +53,26 @@ it('shows a sample of a colour beside a choice, and sits in a form with its labe
   rerender(<Segmented label="Background" options={swatches} selected="default" onChange={() => undefined} isLabelShown description="From the template." errorMessage="Choose one." />);
   expect(screen.getByText('Choose one.')).toBeTruthy();
   expect(screen.queryByText('From the template.')).toBeNull();
+});
+
+it('shows each choice as its icon alone, named for screen readers and in a tooltip', async () => {
+  const user = userEvent.setup();
+  render(
+    <Segmented
+      label="Width"
+      areLabelsHidden
+      selected="full"
+      onChange={() => undefined}
+      options={[
+        { id: 'phone', label: 'Phone', icon: Smartphone },
+        { id: 'full', label: 'Desktop', icon: Monitor },
+      ]}
+    />,
+  );
+  const phone = screen.getByRole('radio', { name: 'Phone' });
+  expect(phone.textContent).toBe('Phone');
+  await user.tab();
+  expect((await screen.findByRole('tooltip')).textContent).toBe('Phone');
 });
 
 it('has no accessibility violations', async () => {

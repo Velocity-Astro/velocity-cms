@@ -24,3 +24,7 @@ A few choices in a row, one of them always chosen.
 ```tsx
 <Segmented label="Show" options={[{ id: 'all', label: 'All' }, { id: 'drafts', label: 'Drafts' }]} selected={filter} onChange={setFilter} />
 ```
+
+## Icons
+
+An option may have an `icon`. With `areLabelsHidden` each choice shows its icon alone, as a square: its words are still read out, and shown in a tooltip on hover and focus. Use it only where every choice has an icon people know, such as the widths of a page.

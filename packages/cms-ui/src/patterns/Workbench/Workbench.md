@@ -29,6 +29,19 @@ one view to the other keeps the form and the pane as they are: nothing typed is 
 is not made again. While it has the window, the keyboard stays inside it. Always give `bar` a way
 back.
 
+## The studio
+
+With the whole window the workbench is always in the dark theme, whatever the editor's own theme: the page is the one thing
+in full colour. Menus and windows opened inside it open inside it, so they are dark too.
+
+## Resizing
+
+With the whole window and `resizeLabels`, the edges between the outline, the pane and the form are dragged to make the outline
+or the form wider or narrower, in steps of the spacing scale. With the focus, the arrow keys move an edge a step. Each edge is a
+separator with its value, named by `resizeLabels`: React Aria has no part for it, so its role and value are said by the part
+itself. Give `sizes` and `onSizesChange` to keep the widths a person chose. While an edge is dragged, the page takes no
+pointer, so the drag is not lost over it.
+
 ## Example
 
 ```tsx
