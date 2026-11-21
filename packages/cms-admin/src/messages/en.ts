@@ -297,7 +297,7 @@ export const en = {
     chooseFont: 'Choose a font',
     themeHide: 'Hide the theme',
     themeTitle: 'Site theme',
-    themeHelp: (settings: string) => `The colors of the whole site, from the template's own. Try them on this page, then publish them. They are kept in Settings, under ${settings}, and publishing them publishes what is saved there.`,
+    themeHelp: (settings: string) => `The colors and fonts of the whole site, from the template's own. Try them on this page, then publish them. They are kept in Settings, under ${settings}, and publishing them publishes what is saved there.`,
     themePublish: 'Publish theme',
     themeDiscard: 'Discard',
     themePublished: 'Theme published',
