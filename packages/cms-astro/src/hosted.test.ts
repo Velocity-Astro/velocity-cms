@@ -94,6 +94,20 @@ describe('a server that runs many sites', () => {
     expect(await inSite(orchard, titles)).toEqual(['Orchard Dental']);
   });
 
+  it('tags what the live loader hands out with its own site, so that site\'s publish clears the page', async () => {
+    const tagsOf = async () => {
+      const loaded = await cmsLiveLoader({ type: 'pages' }).loadCollection({ filter: undefined } as never);
+      if ('error' in loaded) throw loaded.error;
+      return { list: loaded.cacheHint?.tags ?? [], entry: loaded.entries[0]?.cacheHint?.tags ?? [] };
+    };
+    const atHarbor = await inSite(harbor, tagsOf);
+    const atOrchard = await inSite(orchard, tagsOf);
+    expect(atHarbor.list).toContain(`cms-site:${harbor.id}`);
+    expect(atHarbor.entry).toContain(`cms-site:${harbor.id}`);
+    expect(atOrchard.entry).toContain(`cms-site:${orchard.id}`);
+    expect(atOrchard.entry).not.toContain(`cms-site:${harbor.id}`);
+  });
+
   it('opens the site\'s own database whatever a template asks for', async () => {
     const other = `file:${path.join(directory, 'orchard', 'data.db')}`;
     const loaded = await inSite(harbor, () => cmsLiveLoader({ type: 'pages', url: other }).loadCollection({ filter: undefined } as never));

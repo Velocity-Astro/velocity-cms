@@ -9,7 +9,8 @@ interface Props {
 }
 
 const SITE = 'Starter';
-// Plugins such as SEO may change what a page says about itself. Without one, this is what was given.
+// Plugins such as SEO may change what a page says about itself, and may give the whole title (`fullTitle`,
+// with their own ending). Without one, this is what was given.
 const head = await pageHead(Astro, { title: Astro.props.title ?? SITE, description: Astro.props.description ?? '' });
 // With no menu in the CMS yet, the site shows these.
 const edited = await menuLinks(Astro, { type: 'navigation', field: 'header' });
@@ -32,7 +33,7 @@ const themed = [brand && `--brand: ${brand};`, headings && `--headings: ${headin
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{head.title === SITE ? SITE : `${head.title} · ${SITE}`}</title>
+    <title>{head.fullTitle ?? (head.title === SITE ? SITE : `${head.title} · ${SITE}`)}</title>
     {head.description && <meta name="description" content={head.description} />}
     {head.noindex && <meta name="robots" content="noindex" />}
     {themed && <style set:html={`:root { ${themed} }`} />}
