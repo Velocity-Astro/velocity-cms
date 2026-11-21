@@ -19,6 +19,13 @@ Give a column `isSortable`, and pass `sort` and `onSortChange`. The table shows 
 tells screen readers; the screen sorts the rows, because the data usually comes from the server
 a page at a time.
 
+## On a phone
+
+A table wider than the window scrolls inside its frame, but a phone should rarely need it. Mark
+the columns a person can do without at a glance `isSecondary` (when it was changed, where it
+came from): below `md` they are left out, so the title and the state have the width. The first
+column is never left out.
+
 ## Inside a card
 
 `frame="none"` leaves out the table's own border, for a table inside a `Card` with `isFlush`, which frames it already.

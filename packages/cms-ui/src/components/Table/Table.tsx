@@ -26,6 +26,11 @@ export interface TableColumn {
   /** `end` for numbers and amounts, so their digits line up. */
   readonly align?: "start" | "end";
   readonly isSortable?: boolean;
+  /**
+   * Left out on a narrow window (below `md`), where there is room for the main columns only.
+   * Never the first column, which names each row.
+   */
+  readonly isSecondary?: boolean;
 }
 
 export interface TableRow {
@@ -87,7 +92,7 @@ export function Table({
             <Column
               key={column.id}
               id={column.id}
-              className={tableColumnVariants({ align: column.align })}
+              className={tableColumnVariants({ align: column.align, isSecondary: index > 0 && column.isSecondary === true })}
               isRowHeader={index === 0}
               allowsSorting={column.isSortable ?? false}
               textValue={column.label}
@@ -113,10 +118,10 @@ export function Table({
         >
           {rows.map((row) => (
             <Row key={row.id} id={row.id} className={tableRowClass}>
-              {columns.map((column) => (
+              {columns.map((column, index) => (
                 <Cell
                   key={column.id}
-                  className={tableCellVariants({ align: column.align })}
+                  className={tableCellVariants({ align: column.align, isSecondary: index > 0 && column.isSecondary === true })}
                 >
                   {row.cells[column.id]}
                 </Cell>

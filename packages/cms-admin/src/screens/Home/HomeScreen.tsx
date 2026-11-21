@@ -85,9 +85,9 @@ export function HomeScreen({ siteName }: HomeScreenProps) {
 
   const columns: TableColumn[] = [
     { id: 'title', label: messages.contentList.columnTitle },
-    { id: 'type', label: messages.home.columnType },
+    { id: 'type', label: messages.home.columnType, isSecondary: true },
     { id: 'status', label: messages.contentList.columnStatus },
-    { id: 'updated', label: messages.contentList.columnUpdated },
+    { id: 'updated', label: messages.contentList.columnUpdated, isSecondary: true },
   ];
   const rows: TableRow[] = recent.map((listed) => {
     const state = entryState(listed.entry);

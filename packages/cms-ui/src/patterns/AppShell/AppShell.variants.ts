@@ -89,16 +89,26 @@ export const appShellNavIconSize = 16;
 /* --- The bar across the top -------------------------------------------------- */
 
 export const appShellColumnClass = 'flex min-h-0 min-w-0 flex-1 flex-col';
-/** One bar on every screen: the screen's header (title, state and buttons) on the left, the search at the end. */
-export const appShellBarClass = 'flex min-h-16 shrink-0 items-center gap-3 border-b border-border bg-card px-3 md:px-6';
-/** Where a screen's `PageHeader` or `SaveBar` is drawn. */
-export const appShellBarSlotClass = 'flex min-w-0 flex-1 items-center';
+/**
+ * One bar on every screen: the screen's header (title, state and buttons) on the left, the search at the end.
+ * On a phone it has two rows: the menu, the screen's title and the search, then the screen's buttons across the
+ * whole width under them, so nothing is squeezed or pushed over the title.
+ */
+export const appShellBarClass = [
+  'flex min-h-16 shrink-0 flex-wrap items-center gap-x-2 gap-y-2 border-b border-border bg-card px-3 py-2',
+  'md:flex-nowrap md:gap-3 md:px-6 md:py-0',
+].join(' ');
+/**
+ * Where a screen's `PageHeader` or `SaveBar` is drawn. On a phone it lays out nothing itself: what is drawn
+ * in it takes its place in the bar's rows (`order-2` for the title, `order-4` for the row of buttons).
+ */
+export const appShellBarSlotClass = 'contents md:flex md:min-w-0 md:flex-1 md:items-center';
 
 /** The button that opens the search, at the end of the bar. Below `xl` it shows only its icon, and its words are read out. */
 export const appShellSearchClass = [
   'flex h-10 min-w-0 shrink items-center gap-2.5 rounded-lg border border-border bg-background px-3 text-base text-foreground-subtle transition-colors motion-fast',
   'outline-none data-hovered:border-border-strong data-hovered:text-foreground-muted data-focus-visible:ring-2 data-focus-visible:ring-ring',
-  'xl:w-52',
+  'order-3 md:order-none xl:w-52',
 ].join(' ');
 export const appShellSearchLabelClass = 'sr-only min-w-0 flex-1 truncate text-left xl:not-sr-only xl:overflow-hidden xl:whitespace-nowrap';
 export const appShellSearchShortcutClass = 'hidden shrink-0 rounded-sm border border-border px-1.5 font-mono text-xs text-foreground-subtle xl:block';

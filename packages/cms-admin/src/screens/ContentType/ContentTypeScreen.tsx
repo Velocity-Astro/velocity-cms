@@ -101,7 +101,7 @@ function TypeBuilder({ type, holders, fields }: TypeBuilderProps) {
   const columns: TableColumn[] = [
     { id: 'field', label: messages.builder.columnField },
     { id: 'kind', label: messages.builder.columnKind },
-    { id: 'rules', label: messages.builder.columnRules },
+    { id: 'rules', label: messages.builder.columnRules, isSecondary: true },
     { id: 'actions', label: messages.builder.columnActions, align: 'end' },
   ];
   const nameCell = (field: FieldDef) => {

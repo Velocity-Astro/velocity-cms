@@ -7,7 +7,7 @@ the one or two things a person does from anywhere. Under it, the main area the s
 
 It owns the page's only `main` landmark, and its navigation: `Main` for the rail, and one named after the section for its column.
 
-On a narrow window the rail and the column are behind a button in the bar: a panel lists every section with its places under it.
+On a narrow window the rail and the column are behind a button in the bar: a panel lists every section with its places under it. The bar then has two rows: the menu button, the screen's title and the search, then the screen's buttons (a `PageHeader`'s or a `SaveBar`'s) across the whole width.
 
 ## Use it for
 

@@ -36,8 +36,8 @@ export function TrashScreen() {
 
   const columns: TableColumn[] = [
     { id: 'name', label: messages.trash.columnName },
-    { id: 'type', label: messages.trash.columnType },
-    { id: 'moved', label: messages.trash.columnMoved },
+    { id: 'type', label: messages.trash.columnType, isSecondary: true },
+    { id: 'moved', label: messages.trash.columnMoved, isSecondary: true },
     { id: 'actions', label: messages.trash.columnActions, align: 'end' },
   ];
   const rows: TableRow[] = (trash.data?.items ?? []).map((entry) => {

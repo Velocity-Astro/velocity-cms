@@ -37,7 +37,7 @@ export function FormsScreen() {
 
   const columns: TableColumn[] = [
     { id: 'name', label: messages.forms.columnName },
-    { id: 'fields', label: messages.forms.columnFields },
+    { id: 'fields', label: messages.forms.columnFields, isSecondary: true },
     { id: 'fresh', label: messages.forms.columnNew },
     { id: 'status', label: messages.forms.columnStatus },
   ];

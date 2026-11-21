@@ -5,6 +5,7 @@ import { Button, Link } from 'react-aria-components';
 import {
   saveBarActionsClass,
   saveBarBackClass,
+  saveBarBackLabelClass,
   saveBarBackIconSize,
   saveBarCenterClass,
   saveBarHeadingVariants,
@@ -55,13 +56,13 @@ export function SaveBar({ label, back, title, status, actions, center, across = 
       {back?.href !== undefined && (
         <Link href={back.href} className={saveBarBackClass}>
           <ChevronLeft aria-hidden size={saveBarBackIconSize} />
-          {back.label}
+          <span className={saveBarBackLabelClass}>{back.label}</span>
         </Link>
       )}
       {back !== undefined && back.href === undefined && (
         <Button className={saveBarBackClass} {...(back.onPress && { onPress: back.onPress })}>
           <ChevronLeft aria-hidden size={saveBarBackIconSize} />
-          {back.label}
+          <span className={saveBarBackLabelClass}>{back.label}</span>
         </Button>
       )}
       <div className={saveBarHeadingVariants({ hasCenter: center !== undefined })}>
