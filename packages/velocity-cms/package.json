@@ -1,6 +1,6 @@
 {
   "name": "velocity-cms",
-  "version": "0.1.0-beta.9",
+  "version": "0.1.0-beta.10",
   "description": "The command that adds Velocity CMS to an Astro site: npx velocity-cms init",
   "type": "module",
   "license": "MIT",
