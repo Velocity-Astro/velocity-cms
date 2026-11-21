@@ -9,7 +9,7 @@ export const workbenchVariants = cva('', {
   variants: {
     view: {
       beside: 'w-full',
-      whole: 'dark fixed inset-0 layer-overlay flex flex-col bg-background-secondary text-foreground',
+      whole: 'dark fixed inset-0 layer-overlay flex flex-col bg-background text-foreground',
     },
   },
   defaultVariants: { view: 'beside' },
@@ -104,8 +104,15 @@ export const workbenchOutlineClass = 'hidden shrink-0 flex-col overflow-auto bor
  * The edge between two columns, dragged to make one wider or narrower, or moved with the arrow keys
  * once it has the focus. It shows as a line, and as the brand's colour while it is held or chosen.
  */
+/**
+ * The edge a panel is dragged by: a hairline over the panel's own border, seen on hover and in the brand's
+ * orange while it moves, with a wider area either side to take the pointer.
+ */
 export const workbenchHandleVariants = cva(
-  'relative z-10 w-1 shrink-0 cursor-col-resize touch-none bg-border transition-colors motion-fast outline-none hover:bg-border-strong',
+  [
+    'relative z-10 w-px shrink-0 cursor-col-resize touch-none bg-transparent transition-colors motion-fast outline-none hover:bg-border-strong',
+    'before:absolute before:inset-y-0 before:-inset-x-1.5',
+  ].join(' '),
   {
     variants: {
       place: { outline: 'hidden lg:block', form: 'order-last max-md:hidden' },
