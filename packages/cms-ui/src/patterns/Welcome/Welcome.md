@@ -1,7 +1,7 @@
 # Welcome
 
 The top of a screen that greets the person, across the whole width on a faint grid: a few words over the title, the title in large
-type with one phrase set apart on the brand's colour, a sentence under it, what to do first, and beside it a picture of the site. On a phone the picture is left out, so the screen's
+type with one phrase, such as the person's name, set apart in the brand's colour, a sentence under it, what to do first, and beside it a picture of the site. On a phone the picture is left out, so the screen's
 content is not pushed far down.
 
 ## Use it for
@@ -16,7 +16,7 @@ content is not pushed far down.
 ## Accessibility
 
 The title is the screen's only level 1 heading. The highlighted phrase is a `mark`, and is read with the rest of the title.
-The brand's colour sits under dark ink, which passes WCAG AA in both themes.
+The phrase is in the brand's colour for words (`brand-text`), which passes WCAG AA on the page in both themes.
 
 ## Example
 
@@ -24,7 +24,7 @@ The brand's colour sits under dark ink, which passes WCAG AA in both themes.
 <Welcome
   eyebrow="Saturday, 21 November"
   title="Good morning, Dana. 3 drafts are waiting."
-  highlight="3 drafts"
+  highlight="Dana"
   description="One has changes that are not on the site yet."
   actions={<Button icon={ArrowRight}>Continue “18 Alder Court”</Button>}
   aside={<SiteWindow address="lakeshore.example" src="/" title="The home page" label="Edit the home page" onPress={edit} />}

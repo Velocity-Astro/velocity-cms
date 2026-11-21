@@ -115,7 +115,7 @@ export function HomeScreen({ siteName }: HomeScreenProps) {
       <Welcome
         eyebrow={new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())}
         title={isCounted ? messages.home.headline(greeting, waiting) : greeting}
-        {...(isCounted && waiting > 0 && { highlight: messages.home.waitingCount(waiting) })}
+        {...(session.data && { highlight: session.data.name })}
         description={messages.home.description(siteName)}
         actions={
           <>

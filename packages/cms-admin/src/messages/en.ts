@@ -1250,8 +1250,6 @@ export const en = {
     description: (site: string) => `Here is where ${site} stands.`,
     headline: (greeting: string, waiting: number) =>
       waiting === 0 ? `${greeting}. Everything is published.` : `${greeting}. ${waiting === 1 ? '1 draft is' : `${waiting} drafts are`} waiting.`,
-    /** The words of the headline set apart: they must appear in it exactly. */
-    waitingCount: (waiting: number) => (waiting === 1 ? '1 draft' : `${waiting} drafts`),
     siteWindowTitle: (site: string) => `The home page of ${site}, as visitors see it`,
     editHomeShort: 'Edit this page',
     openSite: 'Open the site',

@@ -1,5 +1,5 @@
 import type { ContentTypeDef, Entry, EntryData, FieldDef } from '@velocity-astro/cms-core';
-import { HOME_SLUG, SLUG_PATH, isSlug, isSlugPath, liveFields, takesSlugPath } from '@velocity-astro/cms-core';
+import { HOME_SLUG, SLUG_PATH, hasOwnPages, isSlug, isSlugPath, liveFields, takesSlugPath } from '@velocity-astro/cms-core';
 import { Box, Button, Card, ConfirmDialog, Form, IconButton, Menu, SaveBar, Split, Stack, Tag, TextField, Workbench, toast } from '@velocity-astro/cms-ui';
 import { CalendarClock, Copy, Ellipsis, ExternalLink, Eye, EyeOff, History, Languages, Palette, PanelRightClose, PanelRightOpen, Redo2, Save, Trash2, Undo2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -349,7 +349,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   // Where visitors read this entry today, when it is published and has a page of its own.
   const liveAddress = entry?.status === 'published' ? entryAddress(type, { locale: entry.locale, slug: entry.slug, data: entry.data }) : null;
   // A type whose entries only show on other pages has nothing of its own to preview.
-  const hasPage = type.urlPattern !== undefined || Object.keys(type.localizedUrlPatterns ?? {}).length > 0;
+  const hasPage = hasOwnPages(type);
   // On a phone the bar keeps to what is pressed most: the rest is behind the one button.
   const isPhone = useNarrow();
   const more = [
@@ -398,7 +398,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   const showsPage = hasPage && live.some((field) => controlFor(field.type)?.showsPage === true);
   // What plugins show beside this entry: a card each, which gets what is in the form now.
   const panels = usePluginExtensions()
-    .panels.filter((panel) => panel.types === undefined || panel.types.includes(type.key))
+    .panels.filter((panel) => (panel.types === undefined || panel.types.includes(type.key)) && (panel.pagesOnly !== true || hasPage))
     .map((panel) => (
       <Card key={`${panel.plugin}/${panel.id}`} title={panel.title}>
         <PluginBoundary>

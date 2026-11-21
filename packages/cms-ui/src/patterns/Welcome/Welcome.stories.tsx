@@ -10,7 +10,7 @@ const meta = {
   args: {
     eyebrow: 'Saturday, 21 November',
     title: 'Good morning, Dana. 3 drafts are waiting.',
-    highlight: '3 drafts',
+    highlight: 'Dana',
     description: 'One has changes that are not on the site yet, and two people wrote in since yesterday.',
     actions: (
       <>

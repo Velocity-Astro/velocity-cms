@@ -49,6 +49,7 @@ function counterEditor({ React, ui, client, register }: PluginEditorApi) {
     types: ['listings'],
     Component: ({ data, type }) => h(ui.Text, null, `${Object.keys(data).length} of ${type.fields.length} fields filled in`),
   });
+  register.entryPanel({ id: 'address', title: 'Where it is', pagesOnly: true, Component: ({ type }) => h(ui.Text, null, type.urlPattern ?? '') });
 }
 
 const editors: PluginEditorLoader = async (name) => {
@@ -96,13 +97,25 @@ it('shows a plugin\'s panel beside an entry of the types it names', async () => 
   renderApp(`/content/listings/${listing?.id ?? ''}`, site({ plugins: [counter()], entries }), editors);
   const panel = within((await screen.findByRole('heading', { name: 'Length' })).closest('section') ?? document.body);
   expect(panel.getByText(/fields filled in/)).toBeTruthy();
+  // A panel for pages shows on an entry that has a page of its own.
+  expect(await screen.findByRole('heading', { name: 'Where it is' })).toBeTruthy();
+});
+
+it('leaves a panel for pages off an entry with no page of its own', async () => {
+  const entries = sampleEntries();
+  const listing = entries.find((entry) => entry.typeId === sampleContentTypes.find((type) => type.key === 'listings')?.id);
+  // Listings as a site might keep them for a list on another page: no address of their own.
+  const contentTypes = sampleContentTypes.map(({ urlPattern, ...type }) => (type.key === 'listings' ? type : { ...type, ...(urlPattern !== undefined && { urlPattern }) }));
+  renderApp(`/content/listings/${listing?.id ?? ''}`, site({ plugins: [counter()], entries, contentTypes }), editors);
+  expect(await screen.findByRole('heading', { name: 'Length' })).toBeTruthy();
+  expect(screen.queryByRole('heading', { name: 'Where it is' })).toBeNull();
 });
 
 it('says on the Plugins screen what an active plugin adds, and opens its screen from there', async () => {
   const user = userEvent.setup();
   renderApp('/plugins', site({ plugins: [counter()] }), editors);
   const row = within(await screen.findByRole('region', { name: /Counter/ }));
-  expect(row.getByText('Adds the "Counter" screen in the sidebar, the "Broken screen" screen in the sidebar, the "Length" panel on entries.')).toBeTruthy();
+  expect(row.getByText('Adds the "Counter" screen in the sidebar, the "Broken screen" screen in the sidebar, the "Length" panel on entries, the "Where it is" panel on entries.')).toBeTruthy();
   await user.click(row.getByRole('button', { name: 'Open Counter' }));
   expect(await screen.findByRole('heading', { level: 1, name: 'Counter' })).toBeTruthy();
 });

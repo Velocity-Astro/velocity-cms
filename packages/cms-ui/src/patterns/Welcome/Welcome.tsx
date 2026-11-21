@@ -26,9 +26,16 @@ export interface WelcomeProps {
   readonly aside?: ReactNode;
 }
 
+/** Where the words first stand whole in the title (a name "No" is not the end of "afternoon"), else where they first appear. */
+function placeOf(title: string, words: string): number {
+  const escaped = words.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const whole = new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'u').exec(title);
+  return whole ? whole.index : title.indexOf(words);
+}
+
 /** The title with the highlighted words marked, where they appear in it. */
 function marked(title: string, highlight: string | undefined): ReactNode {
-  const at = highlight === undefined || highlight === '' ? -1 : title.indexOf(highlight);
+  const at = highlight === undefined || highlight === '' ? -1 : placeOf(title, highlight);
   if (highlight === undefined || at < 0) return title;
   return (
     <>
