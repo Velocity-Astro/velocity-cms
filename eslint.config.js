@@ -106,7 +106,7 @@ export default tseslint.config(
     rules: { 'no-restricted-imports': 'off' },
   },
   {
-    files: ['prototypes/**/*.mjs', 'scripts/**/*.mjs', 'packages/*/scripts/**/*.mjs', 'packages/*/bin/**/*.mjs', 'packages/cms-admin/app-directory.mjs', 'examples/**/*.mjs', '*.config.js'],
+    files: ['prototypes/**/*.mjs', 'scripts/**/*.mjs', '.github/scripts/**/*.mjs', 'packages/*/scripts/**/*.mjs', 'packages/*/bin/**/*.mjs', 'packages/cms-admin/app-directory.mjs', 'examples/**/*.mjs', '*.config.js'],
     languageOptions: { globals: { document: 'readonly', globalThis: 'readonly', console: 'readonly', process: 'readonly', performance: 'readonly', fetch: 'readonly', setTimeout: 'readonly', URL: 'readonly', URLSearchParams: 'readonly', Buffer: 'readonly' } },
   },
 );
