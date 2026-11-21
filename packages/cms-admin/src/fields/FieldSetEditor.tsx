@@ -34,7 +34,7 @@ export function FieldSetEditor({ set, mayChange }: FieldSetEditorProps) {
   const columns: TableColumn[] = [
     { id: 'field', label: messages.forms.columnField },
     { id: 'kind', label: messages.forms.columnKind },
-    { id: 'rules', label: messages.forms.columnRules },
+    { id: 'rules', label: messages.forms.columnRules, isSecondary: true },
     ...(mayChange ? [{ id: 'actions', label: messages.forms.columnActions, align: 'end' as const }] : []),
   ];
   const rows: TableRow[] = fields.map((field, index) => ({

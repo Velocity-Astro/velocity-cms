@@ -13,13 +13,16 @@ const align = {
   end: 'text-right',
 } as const;
 
+/** A column a narrow window leaves out, so the main ones have its width. */
+const isSecondary = { true: 'hidden md:table-cell', false: '' } as const;
+
 export const tableColumnVariants = cva(
   [
     'border-b border-border px-4 py-2.5 text-xs font-semibold whitespace-nowrap text-foreground-muted',
     'outline-none data-focus-visible:ring-2 data-focus-visible:ring-ring data-focus-visible:ring-inset',
     'data-allows-sorting:cursor-default data-hovered:text-foreground',
   ],
-  { variants: { align }, defaultVariants: { align: 'start' } },
+  { variants: { align, isSecondary }, defaultVariants: { align: 'start', isSecondary: false } },
 );
 
 export const tableColumnLabelClass = 'inline-flex items-center gap-1';
@@ -34,7 +37,7 @@ export const tableRowClass = [
 
 export const tableCellVariants = cva(
   'border-b border-border px-4 py-3 align-middle text-foreground outline-none group-last:border-b-0 data-focus-visible:ring-2 data-focus-visible:ring-ring data-focus-visible:ring-inset',
-  { variants: { align }, defaultVariants: { align: 'start' } },
+  { variants: { align, isSecondary }, defaultVariants: { align: 'start', isSecondary: false } },
 );
 
 export const tableEmptyClass = 'px-4 py-12 text-center text-foreground-muted';

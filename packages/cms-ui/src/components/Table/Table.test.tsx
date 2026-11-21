@@ -53,6 +53,19 @@ it('draws no frame of its own inside a card that frames it', () => {
   expect(container.firstElementChild?.getAttribute('class')).not.toContain('border');
 });
 
+it('leaves a secondary column out of a narrow window, never the one that names the rows', () => {
+  render(
+    <Table
+      label="Listings"
+      columns={[{ id: 'title', label: 'Title', isSecondary: true }, { id: 'price', label: 'Price', isSecondary: true }]}
+      rows={rows}
+    />,
+  );
+  expect(screen.getByRole('columnheader', { name: 'Price' }).className).toContain('hidden md:table-cell');
+  expect(screen.getByText('$845,000').className).toContain('hidden md:table-cell');
+  expect(screen.getByRole('columnheader', { name: 'Title' }).className).not.toContain('hidden');
+});
+
 it('has no accessibility violations', async () => {
   const { container } = render(<Table label="Listings" columns={columns} rows={rows} />);
   await expectAccessible(container);

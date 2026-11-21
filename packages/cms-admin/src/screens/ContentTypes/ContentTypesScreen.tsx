@@ -70,9 +70,9 @@ export function ContentTypesScreen() {
 
   const columns: TableColumn[] = [
     { id: 'name', label: messages.builder.columnName },
-    { id: 'kind', label: messages.builder.columnKind },
+    { id: 'kind', label: messages.builder.columnKind, isSecondary: true },
     { id: 'fields', label: messages.builder.columnFields },
-    { id: 'address', label: messages.builder.columnAddress },
+    { id: 'address', label: messages.builder.columnAddress, isSecondary: true },
   ];
   const rows: TableRow[] = (types.data ?? []).map((type) => ({
     id: type.key,

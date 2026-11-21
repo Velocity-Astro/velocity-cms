@@ -1,7 +1,7 @@
 import type { ContentTypeDef, Entry, EntryData, FieldDef } from '@velocity-astro/cms-core';
 import { HOME_SLUG, SLUG_PATH, isSlug, isSlugPath, liveFields, takesSlugPath } from '@velocity-astro/cms-core';
 import { Box, Button, Card, ConfirmDialog, Form, IconButton, Menu, SaveBar, Segmented, Split, Stack, Tag, Text, TextField, Workbench, toast } from '@velocity-astro/cms-ui';
-import { CalendarClock, Copy, Ellipsis, ExternalLink, Eye, EyeOff, History, Languages, Palette, PanelRightClose, PanelRightOpen, Redo2, Trash2, Undo2 } from 'lucide-react';
+import { CalendarClock, Copy, Ellipsis, ExternalLink, Eye, EyeOff, History, Languages, Palette, PanelRightClose, PanelRightOpen, Redo2, Save, Trash2, Undo2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { paths } from '../../app/paths.js';
@@ -444,6 +444,11 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   const onMore = (id: string) => {
     if (id.startsWith('language:')) return onSwitch?.(id.slice('language:'.length));
     if (id === 'preview') return void preview();
+    if (id === 'save') return void run('save');
+    if (id === 'theme') {
+      setFormAway(false);
+      return setThemeShown(true);
+    }
     if (id === 'view') return openSite(liveAddress ?? '/');
     if (id === 'schedule') return setScheduling(true);
     if (id === 'history') return setShowingHistory(true);
@@ -451,15 +456,22 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
     if (id === 'duplicate' && entry) return void makeCopy(entry.id);
     if (id === 'unpublish') setConfirmingUnpublish(true);
   };
+  // The entry in its other languages, for a menu where the bar has no room to show them all.
+  const languageMore = entry !== null ? versions.filter((version) => version.id !== entry.id).map((version) => ({ id: `language:${version.id}`, label: messages.editor.switchLanguage(languageName(version.locale, locale)), icon: Languages, isDisabled: isBusy })) : [];
+  // On a phone the bar's one row of buttons has no room for the languages either.
+  const formMore = isPhone ? [...languageMore, ...more] : more;
   // The visual editor's menu holds what its bar has no room for: the entry's other languages and a preview tab first.
   const visualMore = [
-    ...(entry !== null ? versions.filter((version) => version.id !== entry.id).map((version) => ({ id: `language:${version.id}`, label: messages.editor.switchLanguage(languageName(version.locale, locale)), icon: Languages, isDisabled: isBusy })) : []),
+    // A phone has room in the bar for the main steps only: the theme and saving a draft are here.
+    ...(isPhone && canTheme ? [{ id: 'theme', label: messages.editor.theme, icon: Palette }] : []),
+    ...(isPhone ? [{ id: 'save', label: messages.editor.saveDraft, icon: Save, isDisabled: isBusy || !hasChanges }] : []),
+    ...languageMore,
     ...(hasPage && !more.some((action) => action.id === 'preview') ? [{ id: 'preview', label: messages.editor.preview, icon: Eye }] : []),
     ...more,
   ];
   const actions = (
     <>
-      {entry !== null && versions.length > 1 && (
+      {entry !== null && versions.length > 1 && !isPhone && (
         <Segmented
           label={messages.editor.language}
           selected={entry.id}
@@ -473,10 +485,10 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
       )}
       <IconButton label={messages.editor.undo} icon={Undo2} isDisabled={isBusy || !history.canUndo} onPress={undo} />
       <IconButton label={messages.editor.redo} icon={Redo2} isDisabled={isBusy || !history.canRedo} onPress={redo} />
-      {more.length > 0 && (
+      {formMore.length > 0 && (
         <Menu
           trigger={<IconButton label={messages.editor.more} icon={Ellipsis} isDisabled={isBusy} />}
-          actions={more}
+          actions={formMore}
           onAction={onMore}
         />
       )}
@@ -489,7 +501,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
         {messages.editor.saveDraft}
       </Button>
       <Button isDisabled={isBusy || (state === 'published' && !hasChanges)} isPending={running === 'publish'} onPress={() => void run('publish')}>
-        {entry?.status === 'published' ? messages.editor.publishChanges : messages.editor.publish}
+        {entry?.status === 'published' && !isPhone ? messages.editor.publishChanges : messages.editor.publish}
       </Button>
     </>
   );
@@ -538,7 +550,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
                           icon={isFormAway ? PanelRightOpen : PanelRightClose}
                           onPress={() => setFormAway(!isFormAway)}
                         />
-                        {canTheme && (
+                        {canTheme && !isPhone && (
                           <IconButton
                             label={messages.editor.theme}
                             icon={Palette}
@@ -552,12 +564,14 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
                         <IconButton label={messages.editor.redo} icon={Redo2} isDisabled={isBusy || !history.canRedo} onPress={redo} />
                         {/* Everything else is behind one button: another language, a preview tab and the rest. */}
                         <Menu trigger={<IconButton label={messages.editor.more} icon={Ellipsis} isDisabled={isBusy} />} actions={visualMore} onAction={onMore} />
-                        <Button variant="secondary" isDisabled={isBusy || !hasChanges} isPending={running === 'save'} onPress={() => void run('save')}>
-                          {messages.editor.saveDraft}
-                        </Button>
+                        {!isPhone && (
+                          <Button variant="secondary" isDisabled={isBusy || !hasChanges} isPending={running === 'save'} onPress={() => void run('save')}>
+                            {messages.editor.saveDraft}
+                          </Button>
+                        )}
                         {/* The one orange of the studio: what the whole view leads to. */}
                         <Button variant="brand" isDisabled={isBusy || (state === 'published' && !hasChanges)} isPending={running === 'publish'} onPress={() => void run('publish')}>
-                          {entry?.status === 'published' ? messages.editor.publishChanges : messages.editor.publish}
+                          {entry?.status === 'published' && !isPhone ? messages.editor.publishChanges : messages.editor.publish}
                         </Button>
                       </>
                     }

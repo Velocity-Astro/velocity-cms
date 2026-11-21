@@ -23,6 +23,7 @@ import {
   sectionListLabelClass,
   sectionPanelClass,
   sectionProblemClass,
+  sectionDetailClass,
   sectionSummaryClass,
   sectionTextClass,
   sectionTitleVariants,
@@ -207,9 +208,13 @@ function SectionRow({ item, index, ids, isOpen, onOpenChange, onMove, onAction, 
               )}
               <span className={sectionTextClass}>
                 <span className={sectionTitleVariants({ tone })}>{title}</span>
-                {summary !== undefined && <span className={sectionSummaryClass}>{summary}</span>}
+                {(tag !== undefined || summary !== undefined) && (
+                  <span className={sectionDetailClass}>
+                    {summary !== undefined && <span className={sectionSummaryClass}>{summary}</span>}
+                    {tag !== undefined && <Tag>{tag}</Tag>}
+                  </span>
+                )}
               </span>
-              {tag !== undefined && <Tag>{tag}</Tag>}
             </AriaButton>
           </Heading>
           <div className={sectionActionsClass}>

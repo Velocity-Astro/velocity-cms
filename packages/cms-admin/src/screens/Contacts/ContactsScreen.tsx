@@ -65,10 +65,10 @@ function ContactList() {
   const columns: TableColumn[] = [
     { id: 'name', label: messages.contacts.columnName },
     { id: 'stage', label: messages.contacts.columnStage },
-    { id: 'owner', label: messages.contacts.columnOwner },
-    { id: 'followUp', label: messages.contacts.columnFollowUp },
-    { id: 'source', label: messages.contacts.columnSource },
-    { id: 'added', label: messages.contacts.columnAdded, align: 'end' },
+    { id: 'owner', label: messages.contacts.columnOwner, isSecondary: true },
+    { id: 'followUp', label: messages.contacts.columnFollowUp, isSecondary: true },
+    { id: 'source', label: messages.contacts.columnSource, isSecondary: true },
+    { id: 'added', label: messages.contacts.columnAdded, align: 'end', isSecondary: true },
   ];
   const rows: TableRow[] = (contacts.data?.items ?? []).map((contact: Contact) => {
     const placed = stages.find((candidate) => candidate.id === contact.stage);

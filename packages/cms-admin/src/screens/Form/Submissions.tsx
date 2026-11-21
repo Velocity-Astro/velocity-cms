@@ -37,7 +37,7 @@ export function Submissions({ form }: { readonly form: FormDef }) {
 
   const columns: TableColumn[] = [
     { id: 'from', label: messages.forms.columnFrom },
-    { id: 'summary', label: messages.forms.columnSummary },
+    { id: 'summary', label: messages.forms.columnSummary, isSecondary: true },
     { id: 'received', label: messages.forms.columnReceived, align: 'end' },
   ];
   const rows: TableRow[] = (submissions.data?.items ?? []).map((submission) => {

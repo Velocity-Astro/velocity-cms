@@ -355,6 +355,26 @@ it('switches to the entry\'s other language', async () => {
   expect((await field('Slug')).value).toBe('paseo-del-lago');
 });
 
+it('on a phone, offers the entry\'s other language in its menu, so the bar keeps to one row of buttons', async () => {
+  // A window as narrow as a phone: every media query that asks for one says yes.
+  vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('max-width'), media: query, addEventListener: () => {}, removeEventListener: () => {} }));
+  try {
+    const user = userEvent.setup();
+    const [first, ...rest] = sampleEntries();
+    if (!first) throw new Error('No sample entries.');
+    const spanish = { ...first, id: 'e-es', locale: 'es', slug: 'paseo-del-lago', data: { ...first.data, 'f-title': 'Paseo del Lago 6214' } };
+    renderApp(`/content/listings/${first.id}`, { ...signedIn(), entries: [first, spanish, ...rest] });
+
+    await screen.findByRole('heading', { level: 1, name: '6214 Lakeshore Drive' });
+    expect(screen.queryByRole('radiogroup', { name: 'Language' })).toBeNull();
+    await user.click(saveBar().getByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Edit in Spanish' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Paseo del Lago 6214' })).toBeTruthy();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
 it('asks before leaving with unsaved changes, and keeps what was typed when the person stays', async () => {
   const user = userEvent.setup();
   renderApp('/content/listings/e1', signedIn());

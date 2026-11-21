@@ -23,7 +23,7 @@ export function ContactDeals({ contact }: { readonly contact: Contact }) {
   const columns: TableColumn[] = [
     { id: 'title', label: messages.deals.columnTitle },
     { id: 'stage', label: messages.deals.columnStage },
-    { id: 'close', label: messages.deals.columnClose },
+    { id: 'close', label: messages.deals.columnClose, isSecondary: true },
     { id: 'value', label: messages.deals.columnValue, align: 'end' },
   ];
   const rows: TableRow[] = (deals.data?.items ?? []).map((deal) => {

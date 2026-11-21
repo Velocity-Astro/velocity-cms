@@ -109,8 +109,8 @@ export function ContentListScreen() {
     { id: 'title', label: messages.contentList.columnTitle },
     ...summaries.map(({ id, field }) => ({ id, label: localized(field.label, locale), align: controlFor(field.type)?.summaryAlign ?? ('start' as const) })),
     { id: 'status', label: messages.contentList.columnStatus },
-    ...(manyLanguages ? [{ id: 'languages', label: messages.contentList.columnLanguages }] : []),
-    { id: 'updated', label: messages.contentList.columnUpdated },
+    ...(manyLanguages ? [{ id: 'languages', label: messages.contentList.columnLanguages, isSecondary: true }] : []),
+    { id: 'updated', label: messages.contentList.columnUpdated, isSecondary: true },
   ];
   const rows: TableRow[] = shown.map(({ primary, versions }) => {
     const state = entryState(primary);

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Heading } from '../../components/Heading/index.js';
 import { Text } from '../../components/Text/index.js';
 import { usePageBar } from '../page-bar.js';
-import { pageHeaderActionsClass, pageHeaderTitleVariants, pageHeaderVariants } from './PageHeader.variants.js';
+import { pageHeaderActionsVariants, pageHeaderTitleVariants, pageHeaderVariants } from './PageHeader.variants.js';
 
 export interface PageHeaderProps {
   /** The name of the screen. It becomes the page's only level 1 heading. */
@@ -37,7 +37,7 @@ export function PageHeader({ title, description, actions }: PageHeaderProps) {
           </Text>
         )}
       </div>
-      {actions !== undefined && <div className={pageHeaderActionsClass}>{actions}</div>}
+      {actions !== undefined && <div className={pageHeaderActionsVariants({ place })}>{actions}</div>}
     </Element>
   );
   return bar === undefined ? header : createPortal(header, bar);

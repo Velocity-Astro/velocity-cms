@@ -40,7 +40,8 @@ export const sectionTriggerClass = [
 ].join(' ');
 export const sectionChevronClass = 'shrink-0 text-foreground-muted';
 
-export const sectionIconVariants = cva('grid size-8 shrink-0 place-items-center rounded-md', {
+/** The block's icon, left out on a phone, where the row needs its width for the words and the buttons. */
+export const sectionIconVariants = cva('hidden size-8 shrink-0 place-items-center rounded-md sm:grid', {
   variants: {
     tone: {
       default: 'bg-secondary text-secondary-foreground',
@@ -60,7 +61,9 @@ export const sectionTitleVariants = cva('truncate text-sm font-medium', {
   },
   defaultVariants: { tone: 'default' },
 });
-export const sectionSummaryClass = 'truncate text-sm text-foreground-muted';
+/** Under the title: the summary, which gives way to a tag after it (such as a block no longer used). */
+export const sectionDetailClass = 'flex min-w-0 items-center gap-2';
+export const sectionSummaryClass = 'min-w-0 truncate text-sm text-foreground-muted';
 export const sectionActionsClass = 'flex shrink-0 items-center';
 export const sectionPanelClass = 'border-t border-border p-4';
 export const sectionProblemClass = 'px-4 pb-3 text-sm text-destructive';
