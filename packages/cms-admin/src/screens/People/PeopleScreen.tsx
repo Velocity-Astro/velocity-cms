@@ -76,7 +76,7 @@ export function PeopleScreen() {
           title={messages.people.title}
           description={messages.people.description}
           actions={
-            <Button icon={UserPlus} onPress={() => setInviting(true)}>
+            <Button icon={UserPlus} collapses onPress={() => setInviting(true)}>
               {messages.people.invite}
             </Button>
           }

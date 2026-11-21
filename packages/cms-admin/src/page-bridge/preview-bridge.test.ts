@@ -534,6 +534,18 @@ it('opens the page\'s sections by name from the bar, where one is sent a place e
   expect($('[data-cms-stack]').style.display).toBe('none');
 });
 
+it('closes its sections by name when Escape is pressed in the editor around the page', () => {
+  stacked();
+  hear({ source: 'velocity-cms', type: 'tools', labels: { ...TOOLS.labels, reorder: 'Reorder sections', done: 'Done' }, sections: { a: { name: 'Hero' }, b: { name: 'Team' }, c: { name: 'Contact' } } });
+  pointAt('[data-cms-section="b"] h2');
+  toolOf('reorder').click();
+  expect($('[data-cms-stack]').style.display).toBe('block');
+  // The keyboard is in the editor, not the page: the editor says Escape was pressed.
+  hear({ source: 'velocity-cms', type: 'escape' });
+  expect($('[data-cms-stack]').style.display).toBe('none');
+  expect(moves()).toEqual([]);
+});
+
 const PICTURES = `
   <main>
     <div data-cms-section="s1"><img data-cms-field="photo" src="/photos/porch.webp" alt=""><div class="shade">Over the photo</div></div>

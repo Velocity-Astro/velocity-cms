@@ -156,7 +156,7 @@ it('gives the page the whole window, and brings the form back for what cannot be
 
   // What is typed here is the form's, and is still there on the way back.
   await say({ source: 'velocity-cms', type: 'words', id: 's1', field: 'title', words: 'Typed in the window' });
-  await user.click(bar.getByRole('button', { name: 'Back to the form' }));
+  await user.click(bar.getByRole('button', { name: 'Exit' }));
   expect(await screen.findByRole('button', { name: 'Visual editor' })).toBeTruthy();
   expect(await frame()).toBe(page);
   expect((draft().data['f-body'] as { data: Record<string, unknown> }[])[0]?.data['bf-hero-title']).toBe('Typed in the window');
@@ -185,9 +185,9 @@ it('keeps the whole window through a reload, and the browser\'s way back leads t
   // The address says which of the two it is, so it opens that way.
   renderApp('/content/pages/p1?view=visual', site());
   const bar = within(await screen.findByRole('region', { name: 'Save and publish' }));
-  expect(await bar.findByRole('button', { name: 'Back to the form' })).toBeTruthy();
+  expect(await bar.findByRole('button', { name: 'Exit' })).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Visual editor' })).toBeNull();
-  await user.click(bar.getByRole('button', { name: 'Back to the form' }));
+  await user.click(bar.getByRole('button', { name: 'Exit' }));
   expect(await screen.findByRole('button', { name: 'Visual editor' })).toBeTruthy();
 });
 
@@ -566,7 +566,8 @@ it('tries the site\'s theme on the page from the visual editor, and publishes it
   const { client } = renderApp('/content/pages/p1', { user: sampleUser, contentTypes: [...sampleContentTypes, samplePagesType, settings], entries: [...sampleEntries(), samplePage(), kept] });
   await frame();
   await user.click(await screen.findByRole('button', { name: 'Visual editor' }));
-  await user.click(await screen.findByRole('button', { name: 'Theme' }));
+  await user.click(await screen.findByRole('button', { name: 'More actions' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Theme' }));
 
   const card = within(await screen.findByRole('region', { name: 'Site theme' }));
   const colours = within(card.getByRole('radiogroup', { name: 'Brand color' }));
@@ -598,7 +599,9 @@ it('offers no theme where the settings have no looks to choose', async () => {
   renderApp('/content/pages/p1', site());
   await frame();
   await user.click(await screen.findByRole('button', { name: 'Visual editor' }));
-  expect(screen.queryByRole('button', { name: 'Theme' })).toBeNull();
+  await user.click(await screen.findByRole('button', { name: 'More actions' }));
+  await screen.findByRole('menuitem', { name: 'History' });
+  expect(screen.queryByRole('menuitem', { name: 'Theme' })).toBeNull();
 });
 
 /** A page whose first section is a row of two columns, each holding sections of its own: a note in the left, nothing in the right. */

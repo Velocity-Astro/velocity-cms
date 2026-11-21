@@ -1,5 +1,5 @@
 import { ChevronLeft } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Button, Link } from 'react-aria-components';
 import {
@@ -9,11 +9,12 @@ import {
   saveBarBackIconSize,
   saveBarCenterClass,
   saveBarHeadingVariants,
+  saveBarNoteClass,
   saveBarStatusClass,
   saveBarTitleClass,
   saveBarVariants,
 } from './SaveBar.variants.js';
-import { usePageBar } from '../page-bar.js';
+import { usePageBar, usePageBarBack } from '../page-bar.js';
 
 export interface SaveBarBack {
   /** Where it goes. Left out, `onPress` says what going back does. */
@@ -31,8 +32,13 @@ export interface SaveBarProps {
   readonly back?: SaveBarBack;
   /** What is being edited. It becomes the page's level 1 heading. */
   readonly title?: string;
-  /** Where the entry stands: a `Tag` and a few words, such as "Saved 2 minutes ago". */
+  /** Where the entry stands, such as a `Tag` saying Draft. Beside the title, on its one row. */
   readonly status: ReactNode;
+  /**
+   * A few words more about it, such as "Saved 2 minutes ago", after the status. Shown from `lg` up, where the
+   * row has room for them; read out on every window, with the status.
+   */
+  readonly note?: ReactNode;
   /** The buttons, main action last. */
   readonly actions: ReactNode;
   /** In the middle of the bar, from `md` up: controls for what is shown, such as the widths of a page. */
@@ -46,9 +52,17 @@ export interface SaveBarProps {
 }
 
 /** The bar that stays at the top of an editing screen: the way back, what is being edited, its state and its save buttons. */
-export function SaveBar({ label, back, title, status, actions, center, across = 'screen' }: SaveBarProps) {
+export function SaveBar({ label, back, title, status, note, actions, center, across = 'screen' }: SaveBarProps) {
   const shellBar = usePageBar();
   const inShell = across === 'screen' && shellBar !== undefined;
+  // A bar that leads back has the way back where a phone shows the menu: the shell leaves its menu and search out there.
+  const leadsBack = usePageBarBack();
+  const isLeadingBack = inShell && back !== undefined;
+  useEffect(() => {
+    if (!isLeadingBack || leadsBack === undefined) return;
+    leadsBack(true);
+    return () => leadsBack(false);
+  }, [isLeadingBack, leadsBack]);
   // The shell is still drawing its bar: this one comes once there is a place for it.
   if (inShell && shellBar === null) return null;
   const bar = (
@@ -69,6 +83,7 @@ export function SaveBar({ label, back, title, status, actions, center, across = 
         {title !== undefined && <h1 className={saveBarTitleClass}>{title}</h1>}
         <div className={saveBarStatusClass} aria-live="polite">
           {status}
+          {note !== undefined && <span className={saveBarNoteClass}>{note}</span>}
         </div>
       </div>
       {center !== undefined && <div className={saveBarCenterClass}>{center}</div>}

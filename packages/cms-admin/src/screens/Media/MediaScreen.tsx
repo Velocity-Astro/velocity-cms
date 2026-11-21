@@ -44,7 +44,7 @@ export function MediaScreen() {
   };
   const uploadButton = (variant: 'primary' | 'secondary') =>
     rules && (
-      <FileButton accept="image" icon={Upload} variant={variant} isPending={uploading.isPending} onSelect={(file) => void upload(file)}>
+      <FileButton accept="image" icon={Upload} variant={variant} collapses={variant === 'primary'} isPending={uploading.isPending} onSelect={(file) => void upload(file)}>
         {messages.media.upload}
       </FileButton>
     );

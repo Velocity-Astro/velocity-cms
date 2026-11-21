@@ -348,9 +348,10 @@ it('switches to the entry\'s other language', async () => {
   const spanish = { ...first, id: 'e-es', locale: 'es', slug: 'paseo-del-lago', data: { ...first.data, 'f-title': 'Paseo del Lago 6214' } };
   renderApp(`/content/listings/${first.id}`, { ...signedIn(), entries: [first, spanish, ...rest] });
 
-  const languages = within(await screen.findByRole('radiogroup', { name: 'Language' }));
-  expect(languages.getByRole('radio', { name: 'English' }).getAttribute('aria-checked')).toBe('true');
-  await user.click(languages.getByRole('radio', { name: 'Spanish' }));
+  // The language it is in names the button, which opens the others.
+  await screen.findByRole('heading', { level: 1, name: '6214 Lakeshore Drive' });
+  await user.click(saveBar().getByRole('button', { name: 'English' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Edit in Spanish' }));
   expect(await screen.findByRole('heading', { level: 1, name: 'Paseo del Lago 6214' })).toBeTruthy();
   expect((await field('Slug')).value).toBe('paseo-del-lago');
 });
@@ -366,7 +367,7 @@ it('on a phone, offers the entry\'s other language in its menu, so the bar keeps
     renderApp(`/content/listings/${first.id}`, { ...signedIn(), entries: [first, spanish, ...rest] });
 
     await screen.findByRole('heading', { level: 1, name: '6214 Lakeshore Drive' });
-    expect(screen.queryByRole('radiogroup', { name: 'Language' })).toBeNull();
+    expect(saveBar().queryByRole('button', { name: 'English' })).toBeNull();
     await user.click(saveBar().getByRole('button', { name: 'More actions' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Edit in Spanish' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Paseo del Lago 6214' })).toBeTruthy();
@@ -414,7 +415,7 @@ it('does not ask about a new entry nobody typed in', async () => {
 it('shows no language switch for an entry in one language', async () => {
   renderApp('/content/listings/e1', signedIn());
   await screen.findByRole('heading', { level: 1, name: '6214 Lakeshore Drive' });
-  expect(screen.queryByRole('radiogroup', { name: 'Language' })).toBeNull();
+  expect(saveBar().queryByRole('button', { name: 'English' })).toBeNull();
 });
 
 it('builds a list: add an item, fill it in, reorder, remove', async () => {
@@ -568,7 +569,8 @@ it('previews a draft: saves what was typed, then opens its page in a new tab', a
   const title = await field('Title');
   await user.clear(title);
   await user.type(title, '6214 Lakeshore Drive, renovated');
-  await user.click(saveBar().getByRole('button', { name: 'Preview' }));
+  await user.click(saveBar().getByRole('button', { name: 'More actions' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Preview' }));
 
   await waitFor(() => expect(tab.location.href).toMatch(/\/listings\/6214-lakeshore-drive\/\?preview=\d+\.[0-9a-f]{64}$/));
   expect(open).toHaveBeenCalledWith('', '_blank');
@@ -586,7 +588,8 @@ it('closes the tab and says why when there is no preview, and offers none for a 
   const client = new MemoryAdminClient(signedIn());
   client.previewEntry = () => Promise.reject(new Error('This site has no previews.'));
   render(<AdminApp client={client} siteName="Lakeshore" initialPath="/content/listings/e1" />);
-  await user.click(await screen.findByRole('button', { name: 'Preview' }));
+  await user.click(await screen.findByRole('button', { name: 'More actions' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Preview' }));
   expect(await screen.findByText('This site has no previews.')).toBeTruthy();
   expect(tab.close).toHaveBeenCalled();
   expect(tab.location.href).toBe('');
@@ -596,8 +599,10 @@ it('closes the tab and says why when there is no preview, and offers none for a 
 it('offers no preview for a type whose entries have no page of their own', async () => {
   const contentTypes = sampleContentTypes.map(({ urlPattern: _pattern, ...type }) => type);
   render(<AdminApp client={new MemoryAdminClient({ ...signedIn(), contentTypes })} siteName="Lakeshore" initialPath="/content/listings/e1" />);
-  await screen.findByRole('button', { name: 'Save draft' });
-  expect(screen.queryByRole('button', { name: 'Preview' })).toBeNull();
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'More actions' }));
+  await screen.findByRole('menuitem', { name: 'History' });
+  expect(screen.queryByRole('menuitem', { name: 'Preview' })).toBeNull();
 });
 
 /** The sample listings with a description: rich text in a field that used to be a list of paragraphs. */

@@ -10,6 +10,8 @@ export const headingVariants = cva('text-foreground tracking-tight', {
       // A screen's title: the display face, as on the site itself.
       display: 'font-display text-3xl font-bold',
     },
+    /** One line, cut with an ellipsis: for a title in a bar, where a long name must not push the buttons off. */
+    truncate: { true: 'truncate', false: '' },
   },
 });
 

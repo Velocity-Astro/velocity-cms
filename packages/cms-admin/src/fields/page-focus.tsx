@@ -16,6 +16,8 @@ export interface PageFocus {
   readonly press: (id: string, field?: string) => void;
   /** The section last opened in the form. */
   readonly opened: string | undefined;
+  /** Counts every opening, so a section opened again (closed and opened, or chosen twice) is brought into view again. */
+  readonly openedAt: number;
   readonly open: (id: string) => void;
   /**
    * Where words may be typed on the page itself: for each section's id, its fields as keys. The
@@ -75,6 +77,7 @@ const PageFocusContext = createContext<PageFocus | null>(null);
 export function PageFocusProvider({ children }: { readonly children: ReactNode }) {
   const [pressed, setPressed] = useState<PageFocus['pressed']>(undefined);
   const [opened, setOpened] = useState<string | undefined>(undefined);
+  const [openedAt, setOpenedAt] = useState(0);
   const [typable, setPlaces] = useState(NOWHERE);
   const listeners = useRef(new Set<TypedListener>());
   const [tools, setOffered] = useState<PageSectionTools | undefined>(undefined);
@@ -90,7 +93,11 @@ export function PageFocusProvider({ children }: { readonly children: ReactNode }
       pressed,
       press: (id, field) => setPressed((last) => ({ id, ...(field !== undefined && { field }), at: (last?.at ?? 0) + 1 })),
       opened,
-      open: setOpened,
+      openedAt,
+      open: (id) => {
+        setOpened(id);
+        setOpenedAt((count) => count + 1);
+      },
       typable,
       // The same places said again change nothing, so the page is not told twice.
       setTypable: (places) => setPlaces((last) => (JSON.stringify(last) === JSON.stringify(places) ? last : places)),
@@ -137,7 +144,7 @@ export function PageFocusProvider({ children }: { readonly children: ReactNode }
         return () => void slotting.current.delete(listener);
       },
     }),
-    [pressed, opened, typable, tools],
+    [pressed, opened, openedAt, typable, tools],
   );
   return <PageFocusContext value={focus}>{children}</PageFocusContext>;
 }

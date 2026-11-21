@@ -1,10 +1,10 @@
 import { ChevronsUpDown, Menu as MenuIcon, Search, type LucideIcon } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { Button as AriaButton, Dialog as AriaDialog, DialogTrigger, Link, Modal, ModalOverlay } from 'react-aria-components';
 import { Logo } from '../../components/Logo/index.js';
 import { Menu, type MenuAction } from '../../components/Menu/index.js';
 import { Tooltip } from '../../components/Tooltip/index.js';
-import { PageBarContext } from '../page-bar.js';
+import { PageBarBackContext, PageBarContext } from '../page-bar.js';
 import {
   appShellAccountDetailClass,
   appShellAccountIconSize,
@@ -29,7 +29,7 @@ import {
   appShellHiddenClass,
   appShellMainClass,
   appShellMainId,
-  appShellMenuButtonClass,
+  appShellMenuButtonVariants,
   appShellMenuIconSize,
   appShellNavCountClass,
   appShellNavIconSize,
@@ -47,10 +47,10 @@ import {
   appShellRailListClass,
   appShellRailLogoClass,
   appShellRailNavClass,
-  appShellSearchClass,
+  appShellSearchVariants,
   appShellSearchIconSize,
-  appShellSearchLabelClass,
-  appShellSearchShortcutClass,
+  appShellSearchLabelVariants,
+  appShellSearchShortcutVariants,
   appShellSectionClass,
   appShellSkipClass,
 } from './AppShell.variants.js';
@@ -171,6 +171,10 @@ function PlaceGroups({ groups, onPress }: { readonly groups: readonly AppShellNa
 export function AppShell({ logoLabel, siteName, siteDetail, navLabel, nav, menuLabel, skipLabel, search, account, children }: AppShellProps) {
   // Where the screen's header is drawn: the screen's own parts are handed it once the bar is there.
   const [bar, setBar] = useState<HTMLElement | null>(null);
+  // How many parts of the screen say its bar leads back (one, or none): counted, so one leaving never undoes another.
+  const [leadingBack, setLeadingBack] = useState(0);
+  const leadsBack = useCallback((yes: boolean) => setLeadingBack((count) => Math.max(0, count + (yes ? 1 : -1))), []);
+  const isScreenLeadingBack = leadingBack > 0;
   const site = (
     <div className={appShellSiteClass}>
       <span className={appShellSiteNameClass}>{siteName}</span>
@@ -258,7 +262,7 @@ export function AppShell({ logoLabel, siteName, siteDetail, navLabel, nav, menuL
       <div className={appShellColumnClass}>
         <header className={appShellBarClass}>
           <DialogTrigger>
-            <AriaButton aria-label={menuLabel} className={appShellMenuButtonClass}>
+            <AriaButton aria-label={menuLabel} className={appShellMenuButtonVariants({ isScreenLeadingBack })}>
               <MenuIcon aria-hidden size={appShellMenuIconSize} />
             </AriaButton>
             <ModalOverlay isDismissable className={appShellDrawerOverlayClass}>
@@ -320,13 +324,13 @@ export function AppShell({ logoLabel, siteName, siteDetail, navLabel, nav, menuL
           </DialogTrigger>
           <div ref={setBar} className={appShellBarSlotClass} />
           {search !== undefined && (
-            <AriaButton className={appShellSearchClass} onPress={search.onPress}>
+            <AriaButton className={appShellSearchVariants({ isScreenLeadingBack })} onPress={search.onPress}>
               <Search aria-hidden size={appShellSearchIconSize} />
-              <span className={appShellSearchLabelClass}>
+              <span className={appShellSearchLabelVariants({ isScreenLeadingBack })}>
                 {search.label}
               </span>
               {search.shortcut !== undefined && (
-                <kbd aria-hidden className={appShellSearchShortcutClass}>
+                <kbd aria-hidden className={appShellSearchShortcutVariants({ isScreenLeadingBack })}>
                   {search.shortcut}
                 </kbd>
               )}
@@ -334,7 +338,9 @@ export function AppShell({ logoLabel, siteName, siteDetail, navLabel, nav, menuL
           )}
         </header>
         <main id={appShellMainId} tabIndex={-1} className={appShellMainClass}>
-          <PageBarContext value={bar}>{children}</PageBarContext>
+          <PageBarContext value={bar}>
+            <PageBarBackContext value={leadsBack}>{children}</PageBarBackContext>
+          </PageBarContext>
         </main>
       </div>
     </div>

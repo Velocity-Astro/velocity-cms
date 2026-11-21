@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { usePagePreview } from '../../client/queries.js';
 import { usePageFocus } from '../../fields/index.js';
 import { useLast } from '../../lib/use-closing.js';
+import { useEscapes } from '../../lib/use-escapes.js';
 import { useMessages } from '../../messages/messages-context.js';
 
 const WIDTHS = ['phone', 'tablet', 'full'] as const;
@@ -69,6 +70,7 @@ const pageOf = (path: string) => path.split('?')[0];
  */
 export function PagePane({ entry, data, title, width, onWidthChange, isWhole, onWhole, onFormWanted, onUndo, onRedo, onSave, also = [] }: PagePaneProps) {
   const messages = useMessages();
+  const escapes = useEscapes();
   const focus = usePageFocus();
   const link = usePagePreview(entry?.id, entry?.revision);
   // Every save brings a new link, nearly always to the page already shown. The page is drawn again
@@ -115,6 +117,7 @@ export function PagePane({ entry, data, title, width, onWidthChange, isWhole, on
         {...(onUndo && { onUndo })}
         {...(onRedo && { onRedo })}
         {...(onSave && { onSave })}
+        escapes={escapes}
         {...(focus && {
           onSectionPress: (id: string, field?: string, inForm?: boolean) => {
             focus.press(id, field);
@@ -133,7 +136,7 @@ export function PagePane({ entry, data, title, width, onWidthChange, isWhole, on
           onSectionSlot: focus.slotted,
           ...(focus.tools !== undefined && { tools: focus.tools }),
         })}
-        {...(focus?.opened !== undefined && { shownSectionId: focus.opened })}
+        {...(focus?.opened !== undefined && { shownSectionId: focus.opened, shownAt: focus.openedAt })}
       />
       <Dialog
         isOpen={asked !== null}

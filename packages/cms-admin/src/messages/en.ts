@@ -7,6 +7,8 @@
 export const en = {
   app: {
     product: 'Velocity',
+    /** The menu a screen's other buttons fold into on a phone. */
+    moreActions: 'More actions',
     contentGroup: 'Content',
     home: 'Home',
     skipToContent: 'Skip to content',
@@ -215,7 +217,7 @@ export const en = {
     pageItemRemove: 'Remove',
     pageLinkDone: 'Done',
     visualOpen: 'Visual editor',
-    visualClose: 'Back to the form',
+    visualClose: 'Exit',
     resizeOutline: 'Width of the sections',
     resizeForm: 'Width of the form',
     switchLanguage: (language: string) => `Edit in ${language}`,
@@ -289,6 +291,7 @@ export const en = {
     unpublish: 'Unpublish',
     more: 'More actions',
     theme: 'Theme',
+    themeHide: 'Hide the theme',
     themeTitle: 'Site theme',
     themeHelp: (settings: string) => `The colors of the whole site, from the template's own. Try them on this page, then publish them. They are kept in Settings, under ${settings}, and publishing them publishes what is saved there.`,
     themePublish: 'Publish theme',

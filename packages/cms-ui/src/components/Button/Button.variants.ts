@@ -26,10 +26,21 @@ export const buttonVariants = cva(
       fullWidth: {
         true: 'w-full',
       },
+      /** On a phone, its icon alone in a square: `px-0` with the width of its height. */
+      collapses: {
+        true: 'max-md:aspect-square max-md:px-0',
+        false: '',
+      },
     },
-    defaultVariants: { variant: 'primary', size: 'md' },
+    defaultVariants: { variant: 'primary', size: 'md', collapses: false },
   },
 );
+
+/** The words of a button that collapses: read out, and shown from `md` up. */
+export const buttonLabelVariants = cva('', {
+  variants: { collapses: { true: 'max-md:sr-only', false: '' } },
+  defaultVariants: { collapses: false },
+});
 
 /** The icon's size in pixels for each button size. */
 export const iconSize = { sm: 14, md: 16 } as const;

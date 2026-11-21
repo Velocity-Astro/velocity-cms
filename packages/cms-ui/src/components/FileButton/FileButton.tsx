@@ -15,10 +15,12 @@ export interface FileButtonProps {
   readonly isPending?: boolean;
   readonly variant?: 'primary' | 'secondary';
   readonly size?: 'sm' | 'md';
+  /** On a phone, its icon alone, as `Button`'s `collapses`. */
+  readonly collapses?: boolean;
 }
 
 /** A button that opens the computer's file chooser and hands back the file that was picked. */
-export function FileButton({ children, icon, accept, onSelect, isPending = false, variant = 'secondary', size = 'md' }: FileButtonProps) {
+export function FileButton({ children, icon, accept, onSelect, isPending = false, variant = 'secondary', size = 'md', collapses = false }: FileButtonProps) {
   return (
     <FileTrigger
       acceptedFileTypes={[...fileKinds[accept]]}
@@ -27,7 +29,7 @@ export function FileButton({ children, icon, accept, onSelect, isPending = false
         if (file) onSelect(file);
       }}
     >
-      <Button variant={variant} size={size} isPending={isPending} {...(icon && { icon })}>
+      <Button variant={variant} size={size} isPending={isPending} collapses={collapses} {...(icon && { icon })}>
         {children}
       </Button>
     </FileTrigger>

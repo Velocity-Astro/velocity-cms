@@ -1,6 +1,6 @@
 import type { Contact } from '@velocity-astro/cms-core';
 import { Box, Button, Dialog, EmptyState, Form, Inline, PageHeader, SearchField, Segmented, Select, Stack, Table, Tag, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
-import { Contact as ContactIcon, FileUp, ListFilter, ListPlus, Plus, SearchX, Settings2 } from 'lucide-react';
+import { Columns3, Contact as ContactIcon, FileUp, List, ListFilter, ListPlus, Plus, SearchX, Settings2 } from 'lucide-react';
 import { useDeferredValue, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
@@ -103,7 +103,7 @@ function ContactList() {
     };
   });
   const create = (
-    <Button icon={Plus} onPress={() => setCreating(true)}>
+    <Button icon={Plus} collapses onPress={() => setCreating(true)}>
       {messages.contacts.newContact}
     </Button>
   );
@@ -115,25 +115,28 @@ function ContactList() {
         <PageHeader
           title={messages.contacts.title}
           description={messages.contacts.description}
+          secondary={{
+            moreLabel: messages.app.moreActions,
+            actions: [
+              { id: 'fields', label: messages.customFields.button, icon: ListPlus, onPress: () => setEditingFields(true) },
+              { id: 'import', label: messages.contactImport.button, icon: FileUp, onPress: () => setImporting(true) },
+            ],
+          }}
           actions={
-            <Inline gap={2} wrap>
+            <>
+              {/* The two views as icons, named in a tooltip, so the bar keeps to one row on a phone. */}
               <Segmented
                 label={messages.contacts.view}
+                areLabelsHidden
                 options={[
-                  { id: 'list', label: messages.contacts.viewList },
-                  { id: 'board', label: messages.contacts.viewBoard },
+                  { id: 'list', label: messages.contacts.viewList, icon: List },
+                  { id: 'board', label: messages.contacts.viewBoard, icon: Columns3 },
                 ]}
                 selected={view}
                 onChange={(next) => setAddress(next === 'board' ? { view: 'board' } : {}, { replace: true })}
               />
-              <Button variant="secondary" icon={ListPlus} onPress={() => setEditingFields(true)}>
-                {messages.customFields.button}
-              </Button>
-              <Button variant="secondary" icon={FileUp} onPress={() => setImporting(true)}>
-                {messages.contactImport.button}
-              </Button>
               {create}
-            </Inline>
+            </>
           }
         />
         <Stack gap={2}>
