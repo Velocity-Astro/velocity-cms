@@ -2,7 +2,7 @@ import { CmsAuth } from '@velocity-astro/cms-auth';
 import { CmsError } from '@velocity-astro/cms-core';
 import { connect } from './connection.js';
 import { LogMailer } from './editor.js';
-import { initSite } from './init.js';
+import { initSite, runScript } from './init.js';
 
 export interface CliEnvironment {
   readonly env: Readonly<Record<string, string | undefined>>;
@@ -27,6 +27,7 @@ export async function runCli(args: readonly string[], environment: CliEnvironmen
   const [asked, email, ...nameParts] = args;
   const name = nameParts.join(' ');
   let command = asked;
+  const dev = runScript(environment.dir ?? process.cwd(), 'dev');
   if (command === 'init') {
     if (email && !name) {
       print(`Give the owner's name after the address, or leave both out.\n\n${USAGE}`);
@@ -35,7 +36,7 @@ export async function runCli(args: readonly string[], environment: CliEnvironmen
     const done = initSite({ dir: environment.dir ?? process.cwd(), print });
     if (done.code !== 0) return done.code;
     if (!email) {
-      print('\nNext, make the first owner:\n\n  npx velocity-cms owner <email> <name>\n\nThen start the site (`npm run dev`) and open /admin.');
+      print(`\nNext, make the first owner:\n\n  npx velocity-cms owner <email> <name>\n\nThen start the site (\`${dev}\`) and open /admin.`);
       return 0;
     }
     // What init wrote is used at once; what the environment already said still wins.
@@ -63,7 +64,7 @@ export async function runCli(args: readonly string[], environment: CliEnvironmen
     const auth = new CmsAuth({ db: connection.db, secret, origin, siteName: 'Velocity CMS', mailer: new LogMailer(print), access: connection.cms.access });
     if (command === 'owner') {
       const { user, link } = await auth.createFirstOwner({ email, name });
-      print(`${user.name} <${user.email}> is the site's owner.\n\nOpen this link to sign in. It works once, for 10 minutes:\n\n${link}\n${origin.includes('localhost') ? '\nStart the site first (`npm run dev`), so the link has somewhere to land.\n' : ''}`);
+      print(`${user.name} <${user.email}> is the site's owner.\n\nOpen this link to sign in. It works once, for 10 minutes:\n\n${link}\n${origin.includes('localhost') ? `\nStart the site first (\`${dev}\`), so the link has somewhere to land.\n` : ''}`);
     } else {
       // Whoever holds the link is that person, so it is only ever printed here, for whoever runs the site.
       print(`Open this link to sign in as ${email}. It works once, for 10 minutes:\n\n${await auth.createSignInLink(email)}\n`);

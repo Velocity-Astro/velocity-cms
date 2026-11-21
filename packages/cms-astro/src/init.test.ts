@@ -34,7 +34,7 @@ describe('setting a site up', () => {
     expect(code).toBe(0);
     expect(readEnvFile(read('.env'))).toEqual({ VELOCITY_CMS_SECRET: 's'.repeat(43), VELOCITY_CMS_ORIGIN: 'http://localhost:4321' });
     expect(env['VELOCITY_CMS_SECRET']).toBe('s'.repeat(43));
-    expect(read('.gitignore').split('\n')).toEqual(expect.arrayContaining(['.env', '/cms/']));
+    expect(read('.gitignore').split('\n')).toEqual(expect.arrayContaining(['.env', '/cms/data.db*', '/cms/media/']));
     expect(read('astro.config.mjs')).toContain("import node from '@astrojs/node';\nimport velocityCms from '@velocity-astro/cms-astro';");
     expect(read('astro.config.mjs')).toContain('integrations: [velocityCms()],');
     expect(printed.join('\n')).not.toMatch(/no adapter|no `site`/);
@@ -56,10 +56,28 @@ describe('setting a site up', () => {
     initSite({ dir, print });
     const [env, ignore, config] = [read('.env'), read('.gitignore'), read('astro.config.mjs')];
     expect(readEnvFile(env)).toMatchObject({ RESEND_API_KEY: 'abc', VELOCITY_CMS_SECRET: 'kept-as-it-is-kept-as-it-is-kept-as-it-is' });
-    expect(ignore).toBe('node_modules\n.env\n/cms/\n');
+    expect(ignore).toBe('node_modules\n.env\n/cms/data.db*\n/cms/media/\n');
     initSite({ dir, print });
     expect([read('.env'), read('.gitignore'), read('astro.config.mjs')]).toEqual([env, ignore, config]);
     expect(printed.join('\n')).toContain('already has the CMS');
+  });
+
+  it('keeps the site\'s own files in the cms folder in git, and leaves a folder already left out whole as it is', () => {
+    write('astro.config.mjs', CONFIG);
+    initSite({ dir, print });
+    // A model at cms/model.mjs is the site's code: only the database and uploads are left out.
+    expect(read('.gitignore').split('\n')).not.toContain('/cms/');
+    fs.rmSync(path.join(dir, '.gitignore'));
+    write('.gitignore', '.env\ncms/\n');
+    initSite({ dir, print });
+    expect(read('.gitignore')).toBe('.env\ncms/\n');
+  });
+
+  it('says how to start the site with the package manager the site uses', async () => {
+    write('astro.config.mjs', CONFIG);
+    write('pnpm-lock.yaml', '');
+    await runCli(['init', 'dana@example.com', 'Dana'], { env: { VELOCITY_CMS_DATABASE_URL: ':memory:' }, print, dir });
+    expect(printed.join('\n')).toContain('Start the site first (`pnpm dev`)');
   });
 
   it('says what is still to do: an adapter, the site address, a config it cannot edit', () => {
