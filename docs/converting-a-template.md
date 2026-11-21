@@ -407,18 +407,22 @@ const formId = made.find((form) => form.key === 'contact')?.id;
 
 - A single page still has a slug; the starter uses the type's key (`slug: 'navigation'`).
 
-**Make the seed safe to run again.** The starter adds content only when the database had no
-content types before this run:
+**Make the seed safe to run again.** The starter adds every form the model names that the site
+does not have yet, on every run, and adds sample content only when the database had no content
+types before this run:
 
 ```js
 const isNew = (await cms.schema.list()).length === 0;
 for (const type of model) types.set(type.key, await cms.schema.define(SEED, type));
-if (isNew) { /* forms, pages, posts, menu */ }
+// A form is the editor's once it is there, kept or in the trash: only a missing one is added.
+const held = new Set([...(await cms.forms.list(SEED)), ...(await cms.forms.listTrashed(SEED))].map((form) => form.key));
+for (const form of forms.filter((form) => !held.has(form.key))) await cms.forms.create(SEED, form);
+if (isNew) { /* pages, posts, menu */ }
 ```
 
-This means content added to the model later is not seeded into a running site. If you add a
-form or a page after launch, check for it by key and create it only when it is missing, or let an
-editor add it in the editor. Never overwrite what people edited.
+Sample pages added to the model later are not seeded into a running site: an editor adds them,
+or a one-off script checks for each by slug and creates only what is missing. Never overwrite
+what people edited.
 
 For many entries (an existing blog), write a one-off import script with the same `publish`
 helper, reading the template's Markdown or JSON. Rich text accepts plain paragraphs: a list of
@@ -559,9 +563,11 @@ Astro's live collections allow; the loader's filter types are `CmsCollectionFilt
   publish.
 - Those pages are cached under the `cms` tag by the `routeRules` line in step 2. A publish
   clears that tag. Do not add a rebuild to publishing.
-- `Astro.cache.set(cacheHint)` adds the loader's own tags; it keeps the `cms` tag the route rule
-  set. Tags from `typeTag` and `entryTag` are not cleared by a publish on their own, so do not
-  rely on them alone.
+- `Astro.cache.set(cacheHint)` adds the loader's tags to the page. Every hint carries the site's
+  own tag (`cms`, or the site's own on a host for many sites), which a publish clears, so a page
+  kept through the loader is fresh at once too. The route rule is still what covers pages that
+  read the CMS another way (`entryPage`, `single`, `menuLinks`). `typeTag` and `entryTag` are
+  there for a site that clears pages of one type itself.
 - Previews are never cached: the CMS's middleware turns caching off for a request with a valid
   preview token. Do not cache anything that calls `isPreview()` yourself.
 - Pages with no CMS content (a legal page kept as a file) may still be prerendered, except on a
@@ -750,7 +756,7 @@ export const forms = [
 ```
 
 Create them in the seed with `cms.forms.create(SEED, form)`. There is no `define` for forms:
-create one only when no form has its key. After that, people change forms under Forms. A form
+create one only when no form, kept or in the trash, has its key (step 5 shows how). After that, people change forms under Forms. A form
 takes only fields a visitor can fill in: `text`, `number`, `boolean`, `date`, `url`, `email`,
 `phone`, `select`. `contact` names the fields that make the sender a contact. `notify` lists who
 is emailed; a visitor is never emailed. `startsDeal: true` starts a deal about the entry whose
@@ -984,7 +990,7 @@ Components
 
 Forms
 
-- [ ] Forms are created in the seed only when missing.
+- [ ] The seed adds a form only when no form, kept or in the trash, has its key, on every run.
 - [ ] Each form section uses a `form` field and `siteForm(Astro, { id })`, and is left out when it answers `null`.
 - [ ] Every `form.hidden` field, the `form.trap` field and `/cms-form.js` are on the page.
 

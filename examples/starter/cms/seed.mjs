@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
- * Tells the CMS about this site's content (cms/model.mjs) and, in an empty database, adds the
- * sample pages, a post, the contact form and the menu.
+ * Tells the CMS about this site's content (cms/model.mjs): its content types, and any of its forms
+ * the site does not have yet. In an empty database it also adds the sample pages, a post and the menu.
  *
  *   npm run seed
  *
  * Safe to run again, and on every deploy: the content types are made to match the model, fields
- * keep their ids, and nothing that was edited is touched.
+ * keep their ids, and nothing that was edited is touched. A form is added only when no form, kept
+ * or in the trash, has its key: once it is there, it is the editor's.
  */
 import { randomUUID } from 'node:crypto';
 import { sharedConnection } from '@velocity-astro/cms-astro';
@@ -21,10 +22,15 @@ try {
   const types = new Map();
   for (const type of model) types.set(type.key, await cms.schema.define(SEED, type));
   console.log(`Content types match cms/model.mjs: ${[...types.keys()].join(', ')}.`);
+  // A form the model names and the site does not have yet is added, on a new site and on one that
+  // has run for years. One the site has, or moved to the trash, is left as the editor made it.
+  const held = new Set([...(await cms.forms.list(SEED)), ...(await cms.forms.listTrashed(SEED))].map((form) => form.key));
+  const added = forms.filter((form) => !held.has(form.key));
+  for (const form of added) await cms.forms.create(SEED, form);
+  if (added.length > 0) console.log(`Added the forms ${added.map((form) => form.key).join(', ')}.`);
   if (!isNew) {
     console.log('The database already has content, so no samples were added.');
   } else {
-    for (const form of forms) await cms.forms.create(SEED, form);
     const made = await cms.forms.list(SEED);
     const publish = async (type, { slug, ...values }) => {
       const draft = await cms.content.create(SEED, { typeId: type.id, locale: 'en', slug, data: toStoredData(type.fields, values, randomUUID) });
@@ -37,7 +43,7 @@ try {
     for (const post of samplePosts) await publish(types.get('posts'), post);
     const header = sampleMenu.map(({ label, href, page }) => ({ label, link: href ? { kind: 'address', href } : { kind: 'entry', type: 'pages', entry: pages.get(page).translationGroup } }));
     await publish(types.get('navigation'), { slug: 'navigation', header });
-    console.log(`Added ${samplePages.length} pages, ${samplePosts.length} post, the contact form and the menu.`);
+    console.log(`Added ${samplePages.length} pages, ${samplePosts.length} post and the menu.`);
   }
 } finally {
   connection.close();

@@ -4,6 +4,9 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **Fixed: a page kept through the live loader alone went stale after a publish.** What `cmsLiveLoader` hands out now carries the site's own cache tag, which every publish clears (each site's own on a host for many sites).
+- **The starter adds a form its model names on every deploy,** not only into an empty database. A form the site has, or moved to the trash, is left as the editor made it.
+- **The starter writes the whole title a plugin gives** (the SEO plugin's title ending).
 - **Colours and fonts are set in the CMS.** Two new kinds of field: a colour (typed, or picked in an area of shades and a slider of hues, or from the template's suggested palette) and a font (one of those the template offers). On a page of the settings they are part of the theme: change them under Settings, or in the visual editor's Theme card, where the page shows each change at once and nothing is kept until it is published. The starter has a Theme page with a brand colour and a headings font.
 - **A guide to converting an Astro site to the CMS,** step by step, for people and for coding agents: `docs/converting-a-template.md`.
 - **Fixed: the starter's Features block took more than six points.** A list's limit is now kept with what it holds.

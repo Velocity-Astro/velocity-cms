@@ -1,6 +1,7 @@
 import type { LiveLoader } from 'astro/loaders';
 import { isLiveType, type ContentTypeDef, type Entry } from '@velocity-astro/cms-core';
 import { sharedConnection, SITE, type ConnectionOptions } from './connection.js';
+import { siteCacheTag } from './hosted.js';
 import { isPreview, withPreviewDraft } from './preview.js';
 
 export interface CmsLiveLoaderOptions extends ConnectionOptions {
@@ -17,10 +18,13 @@ export interface CmsCollectionFilter {
   readonly locale?: string;
 }
 
-/** The cache tag every page showing entries of a type carries. Publishing clears it. */
+/**
+ * The cache tag every page showing entries of a type carries, for a site that clears pages of one
+ * type itself. A publish clears the site's own tag (`siteCacheTag`), which every hint carries too.
+ */
 export const typeTag = (typeKey: string): string => `cms:${typeKey}`;
 
-/** The cache tag for one entry, for pages that show only that entry. */
+/** The cache tag for one entry, for pages that show only that entry. Like `typeTag`, for a site's own use. */
 export const entryTag = (typeKey: string, id: string): string => `cms:${typeKey}:${id}`;
 
 const PAGE_SIZE = 500;
@@ -43,7 +47,8 @@ export function invalidateLiveContent(): void {
  * change shows as soon as the page's cache is cleared instead of after a rebuild.
  *
  * Each entry comes back with cache tags. Pass an entry to `Astro.cache.set()` and the page is
- * cached under those tags; clearing `typeTag('listings')` on publish refreshes every such page.
+ * cached under those tags: the site's own (`siteCacheTag`), which every publish clears, so the page
+ * is fresh at once, and the type's and the entry's, for a site that clears them itself.
  *
  * ```ts
  * // src/live.config.ts
@@ -64,7 +69,8 @@ export function cmsLiveLoader(
     return {
       id,
       data: { ...shown.data, slug: shown.slug, locale: shown.locale },
-      cacheHint: { tags: [tag, entryTag(options.type, id)], lastModified: new Date(entry.updatedAt) },
+      // The site's tag first: a publish clears it, on a server of one site or of many.
+      cacheHint: { tags: [siteCacheTag(), tag, entryTag(options.type, id)], lastModified: new Date(entry.updatedAt) },
     };
   };
 
@@ -76,7 +82,7 @@ export function cmsLiveLoader(
         const { cms } = await sharedConnection(options);
         const type = await cms.schema.getByKey(options.type);
         // An archived type has no pages: its entries are kept, and shown to nobody.
-        if (!isLiveType(type)) return { entries: [], cacheHint: { tags: [tag] } };
+        if (!isLiveType(type)) return { entries: [], cacheHint: { tags: [siteCacheTag(), tag] } };
         const entries = [];
         for (let offset = 0; ; offset += PAGE_SIZE) {
           const page = await cms.content.find(SITE, {
@@ -89,7 +95,7 @@ export function cmsLiveLoader(
           entries.push(...page.items.map((entry) => toLive(cms, type, entry)));
           if (offset + page.items.length >= page.total || page.items.length === 0) break;
         }
-        return { entries, cacheHint: { tags: [tag] } };
+        return { entries, cacheHint: { tags: [siteCacheTag(), tag] } };
       } catch (error) {
         return { error: error instanceof Error ? error : new Error(String(error)) };
       }
