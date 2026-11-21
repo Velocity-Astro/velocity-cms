@@ -52,3 +52,18 @@ it('shows what went wrong and tries again when asked', async () => {
   await user.click(screen.getByRole('button', { name: 'Try again' }));
   expect(await screen.findByRole('grid', { name: 'Recent changes' })).toBeTruthy();
 });
+
+it('leads straight to the home page, with its page given the whole window', async () => {
+  const user = userEvent.setup();
+  const pages = { id: 'type-pages', key: 'pages', kind: 'collection' as const, label: { en: 'Pages' }, urlPattern: '/[...slug]', titlePath: ['f-page-title'], fields: [{ id: 'f-page-title', key: 'title', type: 'text', label: { en: 'Title' }, required: true, translated: false, options: {} }] };
+  const home = { id: 'h', typeId: 'type-pages', locale: 'en', translationGroup: 'h', slug: 'index', status: 'draft' as const, data: { 'f-page-title': 'Homes for sale and for rent' }, revision: 1, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
+  renderApp('/', { ...signedIn, contentTypes: [...sampleContentTypes, pages], entries: [...sampleEntries(), home] });
+  await user.click(await screen.findByRole('button', { name: 'Edit the home page' }));
+  expect(await screen.findByRole('heading', { level: 1, name: 'Homes for sale and for rent' })).toBeTruthy();
+});
+
+it('offers no way to a home page a site does not have', async () => {
+  renderApp('/', signedIn);
+  expect(await screen.findByRole('button', { name: 'View the site' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Edit the home page' })).toBeNull();
+});

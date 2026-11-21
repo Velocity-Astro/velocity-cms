@@ -85,7 +85,16 @@ const initials = (name: string) =>
 export function AppShell({ logo, siteName, siteDetail, navLabel, nav, skipLabel, account, children }: AppShellProps) {
   return (
     <div className={appShellClass}>
-      <a className={appShellSkipClass} href={`#${appShellMainId}`}>
+      <a
+        className={appShellSkipClass}
+        href={`#${appShellMainId}`}
+        // The link is followed here, not by the browser: a page with a base address would be sent
+        // to that address, off the screen the person is on.
+        onClick={(event) => {
+          event.preventDefault();
+          document.getElementById(appShellMainId)?.focus();
+        }}
+      >
         {skipLabel}
       </a>
       <aside className={appShellSidebarClass}>

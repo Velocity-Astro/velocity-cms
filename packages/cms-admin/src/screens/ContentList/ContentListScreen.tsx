@@ -14,6 +14,7 @@ import {
   type TableColumn,
   type TableRow,
 } from '@velocity-astro/cms-ui';
+import { HOME_SLUG, takesSlugPath, type Entry } from '@velocity-astro/cms-core';
 import { FileQuestion, Inbox, Plus, SearchX } from 'lucide-react';
 import { useState } from 'react';
 import { Navigate, useParams } from 'react-router';
@@ -87,8 +88,10 @@ export function ContentListScreen() {
     const entry = groups[0]?.primary;
     return <Navigate to={entry ? paths.entry(type.key, entry.id) : paths.newEntry(type.key)} replace />;
   }
+  // The page at the top of the site is what people look for first, whatever its title says.
+  const isHome = (entry: Entry) => takesSlugPath(type) && entry.slug === HOME_SLUG;
   const words = query.trim().toLowerCase();
-  const shown = groups.filter(({ primary, versions }) => {
+  const shown = [...groups.filter(({ primary }) => isHome(primary)), ...groups.filter(({ primary }) => !isHome(primary))].filter(({ primary, versions }) => {
     if (!SHOWN[filter](entryState(primary))) return false;
     if (words === '') return true;
     return versions.some((entry) => `${entryTitle(type, entry.data) ?? ''} ${entry.slug}`.toLowerCase().includes(words));
@@ -119,7 +122,10 @@ export function ContentListScreen() {
           <Inline gap={3}>
             {hasPictures && <Thumbnail {...withSrc(pictures.get(entryImage(type, primary.data) ?? ''))} />}
             <Stack gap={0}>
-              <Text weight="semibold">{entryTitle(type, primary.data) ?? messages.contentList.untitled}</Text>
+              <Inline gap={2}>
+                <Text weight="semibold">{entryTitle(type, primary.data) ?? messages.contentList.untitled}</Text>
+                {isHome(primary) && <Tag tone="info">{messages.contentList.homePage}</Tag>}
+              </Inline>
               <Text size="sm" tone="muted" mono>
                 {entryAddress(type, primary) ?? primary.slug}
               </Text>

@@ -2,7 +2,7 @@ import { EmptyState, Link } from '@velocity-astro/cms-ui';
 import { isTrashed } from '@velocity-astro/cms-core';
 import { FileQuestion, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { Navigate, useParams } from 'react-router';
+import { Navigate, useLocation, useParams } from 'react-router';
 import { useGo } from '../../app/use-go.js';
 import { NEW_ENTRY, paths } from '../../app/paths.js';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
@@ -17,6 +17,8 @@ export function EntryEditorScreen() {
   const messages = useMessages();
   const locale = useLocale();
   const go = useGo();
+  // What the address says beside the entry (the page having the whole window) goes along to its other language.
+  const { search } = useLocation();
   const { typeKey = '', entryId = NEW_ENTRY } = useParams();
   const isNew = entryId === NEW_ENTRY;
   const types = useContentTypes();
@@ -88,11 +90,11 @@ export function EntryEditorScreen() {
               // Always in the same order, whichever was saved last.
               .sort((a, b) => a.locale.localeCompare(b.locale))
       }
-      onSwitch={(id) => go(paths.entry(type.key, id))}
+      onSwitch={(id) => go(`${paths.entry(type.key, id)}${search}`)}
       onTrashed={() => go(paths.contentList(type.key))}
       onCreated={(created) => {
         setCreatedId(created.id);
-        go(paths.entry(type.key, created.id), { replace: true, viewTransition: false });
+        go(`${paths.entry(type.key, created.id)}${search}`, { replace: true, viewTransition: false });
       }}
     />
   );

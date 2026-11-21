@@ -58,6 +58,16 @@ it('offers a way past the navigation as the first thing the keyboard reaches', a
   expect(skip.getAttribute('href')).toBe(`#${screen.getByRole('main').id}`);
 });
 
+it('moves the keyboard to the main area from the skip link, and leaves the address alone', async () => {
+  const user = userEvent.setup();
+  render(example);
+  const before = window.location.href;
+  await user.tab();
+  await user.keyboard('{Enter}');
+  expect(document.activeElement).toBe(screen.getByRole('main'));
+  expect(window.location.href).toBe(before);
+});
+
 it('shows who is signed in, with their initials, and opens their menu', async () => {
   const user = userEvent.setup();
   render(example);

@@ -152,3 +152,27 @@ it('keeps the shape of the screen while the entries are on the way, and says so 
   expect(await screen.findByRole('grid', { name: 'Listings' })).toBeTruthy();
   expect(screen.queryByRole('status')).toBeNull();
 });
+
+it('lists every entry of a type, however many there are', { timeout: 30_000 }, async () => {
+  const first = sampleEntries().find((entry) => entry.published === undefined);
+  if (!first) throw new Error('No sample draft.');
+  // More than the server hands over in one answer.
+  const many = Array.from({ length: 230 }, (_, index) => ({ ...first, id: `many-${index}`, translationGroup: `many-${index}`, slug: `many-${index}` }));
+  renderApp('/content/listings', { ...signedIn, entries: many });
+  expect(await screen.findByText('230 entries', undefined, { timeout: 15_000 })).toBeTruthy();
+  const table = screen.getByRole('grid', { name: 'Listings' });
+  expect(within(table).getAllByRole('row')).toHaveLength(231);
+});
+
+it('puts the home page first and says which it is', async () => {
+  const [, ...others] = sampleContentTypes;
+  const pages = { id: 'type-pages', key: 'pages', kind: 'collection' as const, label: { en: 'Pages' }, urlPattern: '/[...slug]', titlePath: ['f-page-title'], fields: [{ id: 'f-page-title', key: 'title', type: 'text', label: { en: 'Title' }, required: true, translated: false, options: {} }] };
+  const page = (id: string, slug: string, title: string, updatedAt: string) => ({ id, typeId: 'type-pages', locale: 'en', translationGroup: id, slug, status: 'draft' as const, data: { 'f-page-title': title }, revision: 1, createdAt: updatedAt, updatedAt });
+  renderApp('/content/pages', { ...signedIn, contentTypes: [pages, ...others], entries: [page('h', 'index', 'Homes for sale and for rent', '2026-01-01T00:00:00.000Z'), page('a', 'about', 'About us', '2026-02-01T00:00:00.000Z')] });
+  const table = await screen.findByRole('grid', { name: 'Pages' });
+  const [, home, about] = within(table).getAllByRole('row');
+  expect(home?.textContent).toContain('Homes for sale and for rent');
+  expect(home?.textContent).toContain('Home page');
+  expect(about?.textContent).toContain('About us');
+  expect(about?.textContent).not.toContain('Home page');
+});
