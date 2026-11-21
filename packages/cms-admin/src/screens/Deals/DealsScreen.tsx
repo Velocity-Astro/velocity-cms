@@ -1,10 +1,10 @@
 import type { Deal, Pipeline } from '@velocity-astro/cms-core';
-import { Board, Box, Button, EmptyState, Grid, Link, PageHeader, Stack, Stat, toast, type BoardColumn } from '@velocity-astro/cms-ui';
+import { Board, Box, Button, EmptyState, Grid, Link, Meter, PageHeader, Stack, Stat, toast, type BoardColumn } from '@velocity-astro/cms-ui';
 import { HandCoins, ListPlus } from 'lucide-react';
 import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { paths } from '../../app/paths.js';
-import { useContacts, useDealLists, useForecast, usePipeline, useSession, useTeam, useUpdateDeal } from '../../client/queries.js';
+import { useContacts, useDealLists, useForecast, usePipeline, useSession, useTeam, useUpdateDeal, useWholeDealLists } from '../../client/queries.js';
 import { CustomFieldsDialog } from '../../fields/CustomFieldsDialog.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 import { STAGE_TONE, dayText, useMoney, useStageName } from '../Contacts/pipeline.js';
@@ -108,6 +108,7 @@ function DealBoard({ pipeline }: { readonly pipeline: Pipeline }) {
         <Stat label={messages.deals.forecast} value={money(standing.weighted)} detail={messages.deals.forecastDetail} />
         <Stat label={messages.deals.won} value={money(standing.won)} detail={messages.deals.wonDetail} />
       </Grid>
+      {pipeline.monthlyTarget !== undefined && <MonthTarget pipeline={pipeline} target={pipeline.monthlyTarget} />}
       <Board
         label={messages.deals.board}
         columns={columns}
@@ -128,5 +129,33 @@ function DealBoard({ pipeline }: { readonly pipeline: Pipeline }) {
       />
       {open && <DealDialog deal={open} contact={{ id: open.contactId }} pipeline={pipeline} team={team.data ?? []} onClose={() => setOpen(null)} />}
     </>
+  );
+}
+
+/**
+ * How close this month is to the pipeline's monthly target: the worth of the deals that reached a
+ * won stage since the month began, by this browser's calendar.
+ */
+function MonthTarget({ pipeline, target }: { readonly pipeline: Pipeline; readonly target: number }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const money = useMoney(pipeline.currency);
+  const won = useWholeDealLists(pipeline.stages.filter((stage) => stage.kind === 'won').map((stage) => stage.id));
+  const failed = won.find((list) => list.isError);
+  if (failed) return <ErrorState error={failed.error} onRetry={() => void failed.refetch()} />;
+  if (won.some((list) => list.isPending)) return <LoadingState shape="summary" />;
+
+  const now = new Date();
+  const monthStarts = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const thisMonth = won
+    .flatMap((list) => list.data?.items ?? [])
+    .filter((deal) => deal.closedAt !== undefined && new Date(deal.closedAt).getTime() >= monthStarts)
+    .reduce((sum, deal) => sum + deal.value, 0);
+  const month = new Intl.DateTimeFormat(locale, { month: 'long' }).format(now);
+  const share = new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }).format(thisMonth / target);
+  return (
+    <Box surface="card" border radius="lg" padding={5}>
+      <Meter label={messages.deals.targetLabel(month)} value={thisMonth} max={target} valueText={messages.deals.targetProgress(money(thisMonth), money(target), share)} />
+    </Box>
   );
 }

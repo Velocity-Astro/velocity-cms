@@ -797,7 +797,7 @@ export function pipelineStoreContract(name: string, create: () => Promise<Pipeli
     it('answers null until a pipeline is saved, gives it back as saved, and refuses a save from an old revision', async () => {
       const store = await create();
       expect(await store.get()).toBeNull();
-      const first: Pipeline = { stages: [{ id: 'new', kind: 'open', chance: 10 }, { id: 's1', label: 'Viewing booked', kind: 'open' }, { id: 'won', kind: 'won' }], currency: 'EUR', assignTo: ['u1', 'u2'], revision: 1 };
+      const first: Pipeline = { stages: [{ id: 'new', kind: 'open', chance: 10 }, { id: 's1', label: 'Viewing booked', kind: 'open' }, { id: 'won', kind: 'won' }], currency: 'EUR', assignTo: ['u1', 'u2'], monthlyTarget: 20000, revision: 1 };
       await expect(store.save(first, 1)).rejects.toBeInstanceOf(ConflictError);
       expect(await store.save(first, null)).toEqual(first);
       expect(await store.get()).toEqual(first);

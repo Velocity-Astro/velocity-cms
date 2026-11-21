@@ -512,6 +512,17 @@ export function useDealLists(queries: readonly DealListQuery[]) {
   return useQueries({ queries: queries.map((query) => ({ queryKey: keys.dealList(query), queryFn: () => client.listDeals(query) })) });
 }
 
+/** Every deal of each stage, read to the end, asked for together: the won deals a monthly target is measured by. */
+export function useWholeDealLists(stages: readonly string[]) {
+  const client = useClient();
+  return useQueries({
+    queries: stages.map((stage) => {
+      const query: DealListQuery = { stage, limit: MOST };
+      return { queryKey: keys.dealList(query), queryFn: () => whole(query, (asked) => client.listDeals(asked)) };
+    }),
+  });
+}
+
 export function useForecast() {
   const client = useClient();
   return useQuery({ queryKey: keys.forecast, queryFn: () => client.getForecast() });

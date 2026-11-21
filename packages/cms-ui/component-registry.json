@@ -167,6 +167,15 @@
       "uses": []
     },
     {
+      "name": "Meter",
+      "layer": "component",
+      "group": "Data",
+      "description": "How far something is toward a whole, as a bar in the brand's colour with its words above it.",
+      "example": "<Meter label=\"November target\" value={13800} max={20000} valueText=\"69% of $20,000\" />",
+      "useInstead": "Spinner or LoadingState for something still loading.",
+      "uses": []
+    },
+    {
       "name": "Stat",
       "layer": "component",
       "group": "Data",

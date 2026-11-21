@@ -29,6 +29,7 @@ export function StagesDialog({ pipeline, team, onClose }: { readonly pipeline: P
   const [stages, setStages] = useState<readonly Draft[]>(() => pipeline.stages.map((stage) => ({ row: stage.id, id: stage.id, label: stage.label ?? '', kind: stage.kind, chance: stage.chance ?? 50 })));
   const [currency, setCurrency] = useState(pipeline.currency ?? 'USD');
   const [assignTo, setAssignTo] = useState<readonly string[]>(pipeline.assignTo ?? []);
+  const [monthlyTarget, setMonthlyTarget] = useState<number | null>(pipeline.monthlyTarget ?? null);
   const [problems, setProblems] = useState<Readonly<Record<string, string>>>({});
 
   const change = (row: string, changes: Partial<Draft>) => setStages(stages.map((stage) => (stage.row === row ? { ...stage, ...changes } : stage)));
@@ -40,6 +41,8 @@ export function StagesDialog({ pipeline, team, onClose }: { readonly pipeline: P
         currency,
         // Someone who left is dropped from the list rather than refused.
         assignTo: assignTo.filter((id) => team.some((member) => member.id === id)),
+        // Emptied, there is no target.
+        monthlyTarget,
         expectedRevision: pipeline.revision,
       },
       {
@@ -143,6 +146,15 @@ export function StagesDialog({ pipeline, team, onClose }: { readonly pipeline: P
               onChange={setCurrency}
               autoComplete="off"
               {...(problems['currency'] !== undefined && { errorMessage: problems['currency'] })}
+            />
+            <NumberField
+              label={messages.contacts.monthlyTarget}
+              description={messages.contacts.monthlyTargetHelp}
+              value={monthlyTarget}
+              onChange={(value) => setMonthlyTarget(value === null || Number.isNaN(value) ? null : value)}
+              minValue={1}
+              isInteger
+              {...(problems['monthlyTarget'] !== undefined && { errorMessage: problems['monthlyTarget'] })}
             />
             {team.length > 0 && (
               <Fieldset legend={messages.contacts.assignTo} description={messages.contacts.assignToHelp}>

@@ -269,6 +269,17 @@ describe('the pipeline', () => {
     expect((await cms.contacts.create(editor, { email: 'li@example.com' })).stage).toBe('contacted');
   });
 
+  it('keeps a monthly target until it is changed or cleared, and refuses one that is not a whole number above 0', async () => {
+    const stages = [{ id: 'new', kind: 'open' as const }, { id: 'won', kind: 'won' as const }];
+    const targeted = await cms.pipeline.save(editor, { stages, monthlyTarget: 20000, expectedRevision: 0 });
+    expect(targeted.monthlyTarget).toBe(20000);
+    expect((await cms.pipeline.save(editor, { stages, expectedRevision: 1 })).monthlyTarget).toBe(20000);
+    for (const wrong of [0, -5, 12.5]) {
+      expect(await issuesOf(cms.pipeline.save(editor, { stages, monthlyTarget: wrong, expectedRevision: 2 }))).toEqual([['monthlyTarget', 'Give a target as a whole number above 0, or leave it empty for none.']]);
+    }
+    expect(await cms.pipeline.save(editor, { stages, monthlyTarget: null, expectedRevision: 2 })).not.toHaveProperty('monthlyTarget');
+  });
+
   it('refuses stages that cannot work, naming each, and is closed to an author', async () => {
     expect(await issuesOf(cms.pipeline.save(editor, { stages: [], expectedRevision: 0 }))).toEqual([['stages', 'A pipeline needs at least one stage.']]);
     expect(

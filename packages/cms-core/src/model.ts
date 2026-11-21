@@ -427,6 +427,8 @@ export interface Pipeline {
    * contacts. One id gives every new contact to that person. Left out or empty, nobody.
    */
   readonly assignTo?: readonly string[];
+  /** What the team means to win in a month, in whole units of the currency. Left out, no target. */
+  readonly monthlyTarget?: number;
   /** 0 for the pipeline the CMS comes with, before anyone changed it; then up by one on every save. */
   readonly revision: number;
 }

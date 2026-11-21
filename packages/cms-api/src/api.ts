@@ -193,6 +193,7 @@ const pipelineChanges = z.strictObject({
   stages: z.array(z.strictObject({ id: z.string().optional(), label: z.string().optional(), kind: z.enum(['open', 'won', 'lost']), chance: z.number().optional() })).max(50),
   currency: z.string().max(10).optional(),
   assignTo: z.array(z.string()).max(100).optional(),
+  monthlyTarget: z.number().nullable().optional(),
   expectedRevision: z.number().int().min(0),
 });
 const dealSubject = z.strictObject({ typeId: z.string().max(100), entry: z.string().max(100) });

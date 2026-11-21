@@ -21,6 +21,8 @@ export interface PipelineChanges {
   readonly currency?: string;
   /** Who new contacts from forms are given to. Left out, it stays as it is; empty, nobody. */
   readonly assignTo?: readonly string[];
+  /** What the team means to win in a month. Left out, it stays as it is; `null`, there is none. */
+  readonly monthlyTarget?: number | null;
   /** The revision the editor loaded. */
   readonly expectedRevision: number;
 }
@@ -43,6 +45,8 @@ export const DEFAULT_CURRENCY = 'USD';
 export const chanceOf = (stage: PipelineStage): number => (stage.kind === 'won' ? 1 : stage.kind === 'lost' ? 0 : (stage.chance ?? 50) / 100);
 
 export const MAX_STAGES = 12;
+/** The largest monthly target, as for a deal's worth. */
+export const MAX_MONTHLY_TARGET = 1_000_000_000_000;
 export const MAX_STAGE_LABEL_LENGTH = 40;
 const KINDS: readonly StageKind[] = ['open', 'won', 'lost'];
 
@@ -112,11 +116,21 @@ export class PipelineService {
       const may = (id: string) => members.some((member) => member.id === id && this.access.can({ kind: 'user', id, role: member.role }, 'contact:read'));
       if (!assignTo.every(may)) issues.push({ path: ['assignTo'], message: 'Choose people on the team who may read contacts.' });
     }
+    const monthlyTarget = changes.monthlyTarget === undefined ? current.monthlyTarget : (changes.monthlyTarget ?? undefined);
+    if (monthlyTarget !== undefined && !(Number.isInteger(monthlyTarget) && monthlyTarget > 0 && monthlyTarget <= MAX_MONTHLY_TARGET)) {
+      issues.push({ path: ['monthlyTarget'], message: 'Give a target as a whole number above 0, or leave it empty for none.' });
+    }
     if (issues.length > 0) throw new ValidationError(issues.length === 1 ? 'One stage needs another look.' : `${issues.length} things about the stages need another look.`, issues);
     const first = stages[0];
     if (!first) throw new ConflictError('A pipeline needs at least one stage.');
     const pipeline = await this.store.save(
-      { stages, ...(currency !== undefined && { currency }), ...(assignTo !== undefined && assignTo.length > 0 && { assignTo }), revision: current.revision + 1 },
+      {
+        stages,
+        ...(currency !== undefined && { currency }),
+        ...(assignTo !== undefined && assignTo.length > 0 && { assignTo }),
+        ...(monthlyTarget !== undefined && { monthlyTarget }),
+        revision: current.revision + 1,
+      },
       current.revision === 0 ? null : current.revision,
     );
     for (const stage of current.stages) {

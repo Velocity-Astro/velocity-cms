@@ -134,3 +134,32 @@ it('offers nothing about the site while no content type takes deals', async () =
   const dialog = within(await screen.findByRole('dialog', { name: 'New deal' }));
   expect(dialog.queryByRole('button', { name: /On the site, it is about/ })).toBeNull();
 });
+
+it('shows how close this month is to the monthly target, counting only what was won this month', async () => {
+  const user = userEvent.setup();
+  // Begun where nothing asks for the pipeline, so the deals screen reads it as it is after this.
+  const { client } = renderApp('/trash', signedIn());
+  await screen.findByRole('heading', { level: 1, name: 'Trash' });
+  const [ana] = (await client.listContacts({ search: 'ana' })).items;
+  if (!ana) throw new Error('No contact for Ana');
+  const pipeline = await client.getPipeline();
+  await client.savePipeline({ stages: pipeline.stages, monthlyTarget: 20000, expectedRevision: pipeline.revision });
+  await client.createDeal({ contactId: ana.id, title: 'Rental on Mesa Verde', value: 5000, stage: 'won' });
+  await client.createDeal({ contactId: ana.id, title: 'Sale of 18 Alder Court', value: 400000, stage: 'qualified' });
+  await user.click(screen.getByRole('link', { name: 'Deals' }));
+  const month = new Intl.DateTimeFormat('en', { month: 'long' }).format(new Date());
+  const meter = await screen.findByRole('meter', { name: `${month} target` });
+  expect(meter.getAttribute('aria-valuetext')).toBe('$5,000 of $20,000 · 25%');
+});
+
+it('shows no target when the pipeline has none', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/contacts', signedIn());
+  await screen.findByRole('row', { name: /Ana Ruiz/ });
+  const [ana] = (await client.listContacts({ search: 'ana' })).items;
+  if (!ana) throw new Error('No contact for Ana');
+  await client.createDeal({ contactId: ana.id, title: 'Rental on Mesa Verde', value: 5000, stage: 'won' });
+  await user.click(screen.getByRole('link', { name: 'Deals' }));
+  expect(await screen.findByText('Forecast')).toBeTruthy();
+  expect(screen.queryByRole('meter')).toBeNull();
+});

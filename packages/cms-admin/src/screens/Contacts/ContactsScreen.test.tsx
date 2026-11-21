@@ -173,6 +173,24 @@ it('sets each open stage\'s chance, the currency and who new contacts go to', as
   expect(saved.stages[0]).toMatchObject({ id: 'new', chance: 25 });
 });
 
+it('sets a monthly target for the deals, and clears it when emptied', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/contacts?view=board', signedIn());
+  await screen.findByRole('group', { name: 'Pipeline' });
+  await user.click(screen.getByRole('button', { name: 'Edit stages' }));
+  const dialog = within(await screen.findByRole('dialog', { name: 'Stages' }));
+  await user.type(dialog.getByRole('textbox', { name: /^Monthly target/ }), '20000');
+  await user.click(dialog.getByRole('button', { name: 'Save stages' }));
+  expect(await screen.findByText('Stages saved')).toBeTruthy();
+  expect((await client.getPipeline()).monthlyTarget).toBe(20000);
+
+  await user.click(screen.getByRole('button', { name: 'Edit stages' }));
+  const again = within(await screen.findByRole('dialog', { name: 'Stages' }));
+  await user.clear(again.getByRole('textbox', { name: /^Monthly target/ }));
+  await user.click(again.getByRole('button', { name: 'Save stages' }));
+  await waitFor(async () => expect((await client.getPipeline()).monthlyTarget).toBeUndefined());
+});
+
 it('brings in a file of contacts: the columns are matched, and what came of each row is said', async () => {
   const user = userEvent.setup();
   const { client } = renderApp('/contacts', signedIn());

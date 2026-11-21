@@ -352,6 +352,12 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       expect((await client.getContact(ana.id)).stage).toBe('new');
       await expect(client.savePipeline({ stages: [], expectedRevision: 1 })).rejects.toMatchObject({ code: 'validation_failed' });
       await expect(client.savePipeline({ stages: [{ id: 'new', kind: 'open' }], expectedRevision: 0 })).rejects.toMatchObject({ code: 'conflict' });
+      // A monthly target is a whole number above 0, kept until it is changed or cleared.
+      const targeted = await client.savePipeline({ stages: saved.stages, monthlyTarget: 20000, expectedRevision: saved.revision });
+      expect(targeted.monthlyTarget).toBe(20000);
+      expect((await client.savePipeline({ stages: targeted.stages, expectedRevision: targeted.revision })).monthlyTarget).toBe(20000);
+      await expect(client.savePipeline({ stages: targeted.stages, monthlyTarget: 12.5, expectedRevision: targeted.revision + 1 })).rejects.toMatchObject({ code: 'validation_failed' });
+      expect((await client.savePipeline({ stages: targeted.stages, monthlyTarget: null, expectedRevision: targeted.revision + 1 })).monthlyTarget).toBeUndefined();
     });
 
     it('keeps deals for a contact, forecasts them by stage, and gives new contacts to whoever the pipeline names', async () => {
