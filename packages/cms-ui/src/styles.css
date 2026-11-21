@@ -296,6 +296,81 @@
     motion-fade-in var(--motion-slow) var(--motion-ease) var(--motion-slow) backwards,
     motion-breathe var(--motion-loop) ease-in-out infinite;
 }
+/*
+ * The mark while the editor opens (LoadingMark): each facet arrives from its own side in grey and
+ * takes its colour, the top first, holds, fades, and assembles again until the editor is there.
+ * Someone who asks for less motion sees the whole mark, still.
+ */
+@keyframes motion-mark-arrive {
+  0% {
+    opacity: 0;
+    transform: translate(var(--mark-from-x), var(--mark-from-y));
+  }
+  22%,
+  82% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+}
+@keyframes motion-mark-colour {
+  0%,
+  30% {
+    opacity: 0;
+  }
+  46%,
+  100% {
+    opacity: 1;
+  }
+}
+@utility motion-mark-top {
+  --mark-from-x: 0px;
+  --mark-from-y: -18px;
+  transform-box: fill-box;
+  animation: motion-mark-arrive var(--motion-mark) var(--motion-ease-enter) infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+@utility motion-mark-left {
+  --mark-from-x: -18px;
+  --mark-from-y: 10px;
+  transform-box: fill-box;
+  animation: motion-mark-arrive var(--motion-mark) var(--motion-ease-enter) 140ms infinite backwards;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+@utility motion-mark-right {
+  --mark-from-x: 18px;
+  --mark-from-y: 10px;
+  transform-box: fill-box;
+  animation: motion-mark-arrive var(--motion-mark) var(--motion-ease-enter) 280ms infinite backwards;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+@utility motion-mark-colour-top {
+  animation: motion-mark-colour var(--motion-mark) var(--motion-ease) infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+@utility motion-mark-colour-left {
+  animation: motion-mark-colour var(--motion-mark) var(--motion-ease) 140ms infinite backwards;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+@utility motion-mark-colour-right {
+  animation: motion-mark-colour var(--motion-mark) var(--motion-ease) 280ms infinite backwards;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
 /* A control that gives a little under a press. */
 @utility motion-press {
   transition-property:

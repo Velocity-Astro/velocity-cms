@@ -459,6 +459,15 @@
       "uses": []
     },
     {
+      "name": "LoadingMark",
+      "layer": "component",
+      "group": "Status",
+      "description": "The whole screen while the app opens: the Velocity mark in the middle, its facets arriving in grey and taking their colour.",
+      "example": "<LoadingMark label=\"Opening the editor\" />",
+      "useInstead": "LoadingState with a shape where the screen's layout is known; Spinner for a part of a screen.",
+      "uses": []
+    },
+    {
       "name": "AuthShell",
       "layer": "pattern",
       "group": "Page",

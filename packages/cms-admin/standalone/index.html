@@ -6,24 +6,49 @@
     <meta name="robots" content="noindex, nofollow" />
     <!--velocity-cms-->
     <title>Editor</title>
-    <!-- What is seen while the editor's script is on its way: the frame's two surfaces and a sign that it is coming, in place of a blank page. The editor draws over it. -->
+    <!--
+      What is seen from the first byte of the page: the Velocity mark in the middle, its facets arriving
+      in grey and taking their colour, as LoadingMark draws it. It stays over the editor until the first
+      screen is drawn (src/lib/boot.ts), so it is one animation to the end, then fades.
+    -->
     <style>
-      .cms-boot { position: fixed; inset: 0; display: flex; background: var(--gray-50); }
-      .cms-boot-side { width: 15rem; flex-shrink: 0; }
-      .cms-boot-screen { flex: 1; margin: 0.5rem; display: grid; place-items: center; border-radius: 1rem; border: 1px solid var(--gray-200); background: var(--gray-0); }
-      .cms-boot-sign { width: 1.5rem; height: 1.5rem; border-radius: 9999px; border: 2px solid var(--gray-200); border-top-color: var(--gray-500); animation: cms-boot-turn 0.8s linear infinite; }
-      @keyframes cms-boot-turn { to { transform: rotate(360deg); } }
-      @media (max-width: 47.99rem) { .cms-boot-side { display: none; } }
-      @media (prefers-reduced-motion: reduce) { .cms-boot-sign { animation-duration: 2.4s; } }
+      .cms-boot { position: fixed; inset: 0; z-index: 2147483000; display: grid; place-items: center; background: var(--background, #fff); transition: opacity 300ms ease; }
+      .cms-boot[data-ending="true"] { opacity: 0; pointer-events: none; }
+      .cms-boot svg { width: 4rem; height: auto; overflow: visible; }
+      .cms-boot .grey { fill: var(--border, #e5e5e5); }
+      .cms-boot .top { fill: var(--brand-fill, #ee4000); }
+      .cms-boot .body { fill: var(--foreground, #171717); }
+      .cms-boot g { transform-box: fill-box; animation: cms-boot-arrive 2800ms cubic-bezier(0.16, 1, 0.3, 1) infinite backwards; }
+      .cms-boot .colour { animation: cms-boot-colour 2800ms cubic-bezier(0.2, 0, 0, 1) infinite backwards; }
+      .cms-boot .p1 { --x: 0px; --y: -18px; }
+      .cms-boot .p2, .cms-boot .p2 .colour { --x: -18px; --y: 10px; animation-delay: 140ms; }
+      .cms-boot .p3, .cms-boot .p3 .colour { --x: 18px; --y: 10px; animation-delay: 280ms; }
+      @keyframes cms-boot-arrive {
+        0% { opacity: 0; transform: translate(var(--x), var(--y)); }
+        22%, 82% { opacity: 1; transform: translate(0, 0); }
+        100% { opacity: 0; transform: translate(0, 0); }
+      }
+      @keyframes cms-boot-colour { 0%, 30% { opacity: 0; } 46%, 100% { opacity: 1; } }
       @media (prefers-color-scheme: dark) {
-        .cms-boot { background: var(--gray-900); }
-        .cms-boot-screen { border-color: var(--gray-800); background: var(--gray-950); }
-        .cms-boot-sign { border-color: var(--gray-800); border-top-color: var(--gray-400); }
+        .cms-boot { background: var(--gray-950, #0a0a0a); }
+        .cms-boot .grey { fill: var(--gray-800, #262626); }
+        .cms-boot .body { fill: var(--gray-50, #fafafa); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .cms-boot g, .cms-boot .colour { animation: none; }
+        .cms-boot { transition: none; }
       }
     </style>
   </head>
   <body>
-    <div id="root"><div class="cms-boot" aria-hidden="true"><div class="cms-boot-side"></div><div class="cms-boot-screen"><div class="cms-boot-sign"></div></div></div></div>
+    <div id="cms-boot" class="cms-boot" aria-hidden="true">
+      <svg viewBox="0 0 90 101">
+        <g class="p1"><path class="grey" d="M35.1288 23.8398L45.1667 49.4151L56.2482 23.8398H87.1082C86.5647 23.3764 85.9776 22.9637 85.3616 22.5944L48.6165 0.704798C46.377 -0.0699896 43.4273 -0.439281 41.2675 0.842377L3.36286 23.3692C3.13819 23.5067 2.92801 23.666 2.72508 23.8326H35.1288V23.8398Z" /><path class="colour top" d="M35.1288 23.8398L45.1667 49.4151L56.2482 23.8398H87.1082C86.5647 23.3764 85.9776 22.9637 85.3616 22.5944L48.6165 0.704798C46.377 -0.0699896 43.4273 -0.439281 41.2675 0.842377L3.36286 23.3692C3.13819 23.5067 2.92801 23.666 2.72508 23.8326H35.1288V23.8398Z" /></g>
+        <g class="p2"><path class="grey" d="M0.144951 28.8578C0.079723 29.2851 0.0434853 29.7123 0.0434853 30.1323L0 72.036C0 76.1778 1.95684 78.3936 5.26172 80.3631L39.4919 100.703L0.144951 28.8578Z" /><path class="colour body" d="M0.144951 28.8578C0.079723 29.2851 0.0434853 29.7123 0.0434853 30.1323L0 72.036C0 76.1778 1.95684 78.3936 5.26172 80.3631L39.4919 100.703L0.144951 28.8578Z" /></g>
+        <g class="p3"><path class="grey" d="M89.9203 28.7058L50.0588 101L86.6661 79.1539C88.7027 77.9374 90 75.0265 90 72.6442L89.9783 29.6037C89.9783 29.2923 89.9493 28.9954 89.913 28.6985L89.9203 28.7058Z" /><path class="colour body" d="M89.9203 28.7058L50.0588 101L86.6661 79.1539C88.7027 77.9374 90 75.0265 90 72.6442L89.9783 29.6037C89.9783 29.2923 89.9493 28.9954 89.913 28.6985L89.9203 28.7058Z" /></g>
+      </svg>
+    </div>
+    <div id="root"></div>
     <script type="module" src="../src/standalone/main.tsx"></script>
   </body>
 </html>

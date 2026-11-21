@@ -151,7 +151,8 @@ it('shows labels in the language asked for', async () => {
 
 it('keeps the shape of the screen while the entries are on the way, and says so to screen readers', async () => {
   renderApp('/content/listings', { ...signedIn, delay: 150 });
-  expect((await screen.findByRole('status')).textContent).toBe('Loading');
+  // The editor opens on the mark first; then the list keeps its shape while its entries come.
+  expect((await screen.findByText('Loading')).closest('[role="status"]')).not.toBeNull();
   expect(await screen.findByRole('grid', { name: 'Listings' })).toBeTruthy();
   expect(screen.queryByRole('status')).toBeNull();
 });

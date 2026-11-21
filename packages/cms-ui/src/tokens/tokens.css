@@ -237,6 +237,8 @@
   --motion-slower: 350ms;
   /* One turn of something that repeats while it waits. */
   --motion-loop: 1600ms;
+  /* One turn of the mark that shows while the editor opens (`motion-mark-*`). */
+  --motion-mark: 2800ms;
   --motion-ease: cubic-bezier(0.2, 0, 0, 1);
   /* Arriving: quick at first, then settling. Leaving: gathering speed on the way out. */
   --motion-ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
