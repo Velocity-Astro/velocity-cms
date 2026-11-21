@@ -143,6 +143,11 @@ export interface FieldControl {
    */
   readonly swatches?: (field: FieldDef, value: unknown, controlFor: ControlFor) => readonly SwatchPlace[];
   /**
+   * Its value is one of the site's looks that a person sets (a colour, a font). On a page kept in the
+   * settings, such a field is part of the theme the visual editor tries beside a page (`ThemeCard`).
+   */
+  readonly isLook?: boolean;
+  /**
    * Where a value of this kind holds sections of its own: the columns of a row. The field that
    * holds the page answers to the page for those too. A control that holds other fields asks theirs.
    */

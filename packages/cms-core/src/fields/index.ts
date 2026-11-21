@@ -179,6 +179,52 @@ export class SelectField extends FieldType<string, { choices: string[]; labels?:
   }
 }
 
+/** A hex colour: `#rgb` or `#rrggbb`, what a colour picker hands back. */
+const HEX_COLOUR = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+/** Whether a value is a colour a `color` field holds. */
+export function isHexColour(value: unknown): value is string {
+  return typeof value === 'string' && HEX_COLOUR.test(value);
+}
+
+/**
+ * A colour of the site's theme that a person sets, such as the brand colour: a hex colour and
+ * nothing else, so a template can put it in a style without it ever being an address or more CSS.
+ * The template decides where it is used, and what goes with it (the text on it, its shades).
+ */
+export class ColorField extends FieldType<string, { presets?: string[] | undefined }> {
+  readonly type = 'color';
+  readonly editor = 'color-picker';
+  readonly options = z.object({
+    /** Colours to suggest, a press away, as hex colours: the template's own palette. At most 12. */
+    presets: z.array(z.string().refine(isHexColour, 'A suggested colour is a hex colour, such as #1f3a5f.')).max(12).optional(),
+  });
+
+  schema() {
+    return z.string().refine(isHexColour, 'Type a hex colour, such as #1f3a5f.');
+  }
+}
+
+/**
+ * One of the fonts a template offers for a part of the site, such as its headings. What is
+ * stored is the font's name among `choices`; the template loads the font and decides where it
+ * goes, so only fonts it has can be chosen.
+ */
+export class FontField extends FieldType<string, { choices: string[]; labels?: Record<string, Record<string, string>> | undefined }> {
+  readonly type = 'font';
+  readonly editor = 'font-picker';
+  readonly options = z.object({
+    /** The fonts that can be chosen, by the names the template knows them by: `['inter', 'fraunces']`. */
+    choices: z.array(z.string()).min(1),
+    /** What the editor calls each font, per language: `{ fraunces: { en: 'Fraunces' } }`. */
+    labels: z.record(z.string(), z.record(z.string(), z.string())).optional(),
+  });
+
+  schema({ choices }: { choices: string[] }) {
+    return z.enum(choices as [string, ...string[]]);
+  }
+}
+
 /**
  * A link to an entry of another content type, such as a listing's agent.
  *
@@ -354,6 +400,8 @@ export function createFieldRegistry(): Registry<FieldType> {
     .register(new EmailField())
     .register(new PhoneField())
     .register(new SelectField())
+    .register(new ColorField())
+    .register(new FontField())
     .register(new ReferenceField())
     .register(new ImageField())
     .register(new RichTextField())

@@ -12,7 +12,9 @@ const long = (key, label, extra = {}) => text(key, label, { ...extra, options: {
 const rich = field('richtext');
 const link = field('link');
 const group = (key, label, fields) => field('group')(key, label, { options: { fields } });
-const list = (key, label, of, extra = {}) => field('list')(key, label, { ...extra, options: { of: { type: of.type, options: of.options ?? {} } } });
+// How many items a list takes (`min`, `max`) belongs with what it holds, in its options.
+const list = (key, label, of, { min, max, ...extra } = {}) =>
+  field('list')(key, label, { ...extra, options: { of: { type: of.type, options: of.options ?? {} }, ...(min !== undefined && { min }), ...(max !== undefined && { max }) } });
 const block = (key, label, description, icon, fields) => ({ key, label: en(label), description: en(description), icon, group: 'Sections', fields });
 const section = (key, label, fields, aside = false) => ({ key, label: en(label), fields, ...(aside && { aside }) });
 
@@ -79,7 +81,21 @@ const navigation = {
   fields: [list('header', 'Header links', menuLink, { help: 'The links across the top of every page, in order.' })],
 };
 
-export const model = [pages, posts, navigation];
+// The site's look, set in the editor (Settings, and Theme in the visual editor, where a change shows on the
+// page at once). The layout turns these into CSS variables; what is left empty keeps the stylesheet's own.
+const fonts = { system: en('System'), serif: en('Serif'), rounded: en('Rounded') };
+const theme = {
+  key: 'theme',
+  kind: 'single',
+  inSettings: true,
+  label: en('Theme'),
+  fields: [
+    field('color')('brand', 'Brand colour', { help: 'Buttons, links and the band of colour.', translated: false, options: { presets: ['#2f4bd8', '#0f766e', '#c2410c', '#7c3aed', '#be123c', '#16181d'] } }),
+    field('font')('headings', 'Headings font', { translated: false, options: { choices: Object.keys(fonts), labels: fonts } }),
+  ],
+};
+
+export const model = [pages, posts, navigation, theme];
 
 export const forms = [
   {

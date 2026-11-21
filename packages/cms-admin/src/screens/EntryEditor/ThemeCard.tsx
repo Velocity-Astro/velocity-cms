@@ -31,7 +31,11 @@ export function useSiteLooks(locale: string | undefined): readonly SiteLook[] {
     const entries = [...(lists[at]?.data?.items ?? [])].sort((a, b) => a.locale.localeCompare(b.locale));
     const entry = entries.find((candidate) => candidate.locale === locale) ?? entries[0];
     if (!entry) return [];
-    const fields = liveFields(type.fields).filter((field) => (controlFor(field.type)?.swatches?.(field, entry.data[field.id], controlFor) ?? []).length > 0);
+    // A choice among the template's named looks (swatches), or a colour or font a person sets.
+    const fields = liveFields(type.fields).filter((field) => {
+      const control = controlFor(field.type);
+      return control?.isLook === true || (control?.swatches?.(field, entry.data[field.id], controlFor) ?? []).length > 0;
+    });
     return fields.length > 0 ? [{ type, entry, fields }] : [];
   });
 }

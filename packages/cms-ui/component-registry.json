@@ -105,6 +105,15 @@
       "uses": []
     },
     {
+      "name": "ColorPicker",
+      "layer": "component",
+      "group": "Forms",
+      "description": "A colour, typed as a hex colour or chosen in an area of shades and a slider of hues, or from suggested ones.",
+      "example": "<ColorPicker label=\"Brand colour\" pickLabel=\"Choose a colour\" hueLabel=\"Hue\" value={colour} onChange={setColour} />",
+      "useInstead": "Segmented with swatches for a choice among a template's named looks.",
+      "uses": []
+    },
+    {
       "name": "Select",
       "layer": "component",
       "group": "Forms",

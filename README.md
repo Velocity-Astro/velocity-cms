@@ -45,7 +45,7 @@ In an Astro site with a server adapter:
 npx velocity-cms init you@example.com "Your Name"
 ```
 
-It installs the CMS, writes a secret to `.env`, keeps it out of git, adds `velocityCms()` to the Astro config and makes you the owner. It prints a link that signs you in at `/admin`. It can be run again and changes nothing that is there. What a site then needs is what the starter has: a description of its content (`cms/model.mjs`), a route that draws pages, and a component for each kind of section. The [docs](https://docs.deployvelocity.com/cms/install/) walk through each.
+It installs the CMS, writes a secret to `.env`, keeps it out of git, adds `velocityCms()` to the Astro config and makes you the owner. It prints a link that signs you in at `/admin`. It can be run again and changes nothing that is there. What a site then needs is what the starter has: a description of its content (`cms/model.mjs`), a route that draws pages, and a component for each kind of section. The [docs](https://docs.deployvelocity.com/cms/install/) walk through each, and [Converting a template](docs/converting-a-template.md) takes an existing Astro site there step by step, for a person or a coding agent.
 
 A deployed site needs `VELOCITY_CMS_SECRET` and its address (`site` in the Astro config, or `VELOCITY_CMS_ORIGIN`) on the host, and a database: a file on a machine that keeps its disk, or a hosted libSQL database (`VELOCITY_CMS_DATABASE_URL`, `VELOCITY_CMS_DATABASE_TOKEN`) anywhere else. Node on a server and Vercel are tried. Netlify and Cloudflare are not yet.
 

@@ -594,6 +594,34 @@ it('tries the site\'s theme on the page from the visual editor, and publishes it
   expect(within(screen.getByRole('radiogroup', { name: 'Brand color' })).getByRole('radio', { name: 'Clay' }).getAttribute('aria-checked')).toBe('true');
 });
 
+it('tries a colour and a font of the theme on the page as they are set, and keeps nothing until published', async () => {
+  const user = userEvent.setup();
+  const colour: FieldDef = { id: 'f-set-colour', key: 'brand', type: 'color', label: { en: 'Brand colour' }, required: false, translated: false, options: { presets: ['#1f3a5f', '#c2410c'] } };
+  const font: FieldDef = { ...colour, id: 'f-set-font', key: 'headings', type: 'font', label: { en: 'Headings font' }, options: { choices: ['inter', 'fraunces'], labels: { fraunces: { en: 'Fraunces' }, inter: { en: 'Inter' } } } };
+  const settings = { id: 'type-settings', key: 'settings', kind: 'single' as const, label: { en: 'Business details' }, inSettings: true as const, fields: [colour, font] };
+  const kept = { ...samplePage(), id: 'set1', typeId: 'type-settings', translationGroup: 'set1', slug: 'settings', data: { 'f-set-colour': '#1f3a5f', 'f-set-font': 'inter' } };
+  const { client } = renderApp('/content/pages/p1', { user: sampleUser, contentTypes: [...sampleContentTypes, samplePagesType, settings], entries: [...sampleEntries(), samplePage(), kept] });
+  await frame();
+  await user.click(await screen.findByRole('button', { name: 'Visual editor' }));
+  await user.click(await screen.findByRole('button', { name: 'More actions' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Theme' }));
+
+  const card = within(await screen.findByRole('region', { name: 'Site theme' }));
+  const field = card.getByRole('textbox', { name: 'Brand colour' });
+  await user.clear(field);
+  await user.type(field, '#C2410C');
+  await user.tab();
+  expect((draft() as { with?: unknown }).with).toEqual([{ id: 'set1', data: { 'f-set-colour': '#c2410c', 'f-set-font': 'inter' } }]);
+  await user.click(card.getByRole('button', { name: /Headings font/ }));
+  await user.click(await screen.findByRole('option', { name: 'Fraunces' }));
+  expect((draft() as { with?: unknown }).with).toEqual([{ id: 'set1', data: { 'f-set-colour': '#c2410c', 'f-set-font': 'fraunces' } }]);
+  expect((await client.getEntry('set1')).data).toEqual({ 'f-set-colour': '#1f3a5f', 'f-set-font': 'inter' });
+
+  await user.click(card.getByRole('button', { name: 'Publish theme' }));
+  expect(await screen.findByText('Theme published')).toBeTruthy();
+  expect((await client.getEntry('set1')).published?.data).toEqual({ 'f-set-colour': '#c2410c', 'f-set-font': 'fraunces' });
+});
+
 it('offers no theme where the settings have no looks to choose', async () => {
   const user = userEvent.setup();
   renderApp('/content/pages/p1', site());

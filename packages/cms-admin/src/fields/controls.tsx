@@ -1,5 +1,5 @@
 import { fromPlainText, isSwatchColour, liveFields, type FieldDef, type RichText } from '@velocity-astro/cms-core';
-import { DateField, Fieldset, NumberField, Repeater, SectionList, Segmented, Select, Skeleton, SkeletonGroup, Stack, Switch, Text, TextArea, TextField } from '@velocity-astro/cms-ui';
+import { ColorPicker, DateField, Fieldset, NumberField, Repeater, SectionList, Segmented, Select, Skeleton, SkeletonGroup, Stack, Switch, Text, TextArea, TextField } from '@velocity-astro/cms-ui';
 import { Copy, Trash2 } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
 import { useContentTypes, useEntries, useForms } from '../client/queries.js';
@@ -159,6 +159,50 @@ function SelectControl({ field, label, help, isLabelHidden = false, value, onCha
       {...(help !== undefined && { description: help })}
       options={choices.map((choice) => ({ id: choice, label: choiceName(field, choice, locale) }))}
       placeholder={messages.editor.choose}
+      onChange={onChange}
+      isRequired={field.required}
+      {...(typeof value === 'string' && { value })}
+      {...(problem !== undefined && { errorMessage: problem })}
+    />
+  );
+}
+
+/** A colour of the site's theme, typed or picked, with the template's own palette a press away. */
+function ColorControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {
+  const messages = useMessages();
+  const presets = Array.isArray(field.options['presets']) ? field.options['presets'].filter((preset): preset is string => typeof preset === 'string') : [];
+  return (
+    <ColorPicker
+      label={label}
+      isLabelHidden={isLabelHidden}
+      pickLabel={messages.editor.pickColour(label)}
+      hueLabel={messages.editor.hue}
+      {...(presets.length > 0 && { presets, presetsLabel: messages.editor.suggestedColours })}
+      {...(typeof value === 'string' && { value })}
+      onChange={onChange}
+      isRequired={field.required}
+      {...(help !== undefined && { description: help })}
+      {...(problem !== undefined && { errorMessage: problem })}
+    />
+  );
+}
+
+function ColorSummary({ value }: FieldSummaryProps) {
+  return <Text size="sm">{typeof value === 'string' ? value.toUpperCase() : ''}</Text>;
+}
+
+/** One of the fonts the template offers, by its name. The page beside the form shows it as it is chosen. */
+function FontControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const choices = Array.isArray(field.options['choices']) ? field.options['choices'].filter((choice) => typeof choice === 'string') : [];
+  return (
+    <Select
+      label={label}
+      isLabelHidden={isLabelHidden}
+      {...(help !== undefined && { description: help })}
+      options={choices.map((choice) => ({ id: choice, label: choiceName(field, choice, locale) }))}
+      placeholder={messages.editor.chooseFont}
       onChange={onChange}
       isRequired={field.required}
       {...(typeof value === 'string' && { value })}
@@ -549,6 +593,8 @@ export function createFieldControls(): FieldControls {
     .register({ type: 'date-picker', Component: DateControl, width: 'compact' })
     .register({ type: 'switch', Component: SwitchControl })
     .register({ type: 'select', Component: SelectControl, width: 'compact', Summary: SelectSummary, swatches: selectSwatches })
+    .register({ type: 'color-picker', Component: ColorControl, width: 'compact', Summary: ColorSummary, isLook: true })
+    .register({ type: 'font-picker', Component: FontControl, width: 'compact', Summary: SelectSummary, isLook: true })
     .register({ type: 'reference', Component: ReferenceControl, width: 'compact' })
     .register({ type: 'form-picker', Component: FormControl, width: 'compact' })
     .register({ type: 'link', Component: LinkControl, links: linkLinks })
