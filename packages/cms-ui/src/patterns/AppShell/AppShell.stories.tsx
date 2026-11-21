@@ -1,8 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { FileText, House, Image, LogOut, MapPin, Plus, Settings, Users } from 'lucide-react';
+import { FileText, House, Image, Layers, LogOut, MapPin, Plus, Settings, Users } from 'lucide-react';
 import { Box } from '../../components/Box/index.js';
 import { Button } from '../../components/Button/index.js';
-import { Logo } from '../../components/Logo/index.js';
 import { Stack } from '../../components/Stack/index.js';
 import { Table } from '../../components/Table/index.js';
 import { Tag } from '../../components/Tag/index.js';
@@ -34,27 +33,43 @@ const meta = {
   component: AppShell,
   parameters: { layout: 'fullscreen' },
   args: {
-    logo: <Logo label="Velocity" />,
+    logoLabel: 'Velocity',
     siteName: 'Lakeshore Realty',
-    siteDetail: 'Real estate template',
+    siteDetail: 'lakeshore.example',
     navLabel: 'Main',
     menuLabel: 'Open the menu',
     skipLabel: 'Skip to content',
+    search: { label: 'Search, jump to or create anything', shortcut: '⌘K', onPress: () => undefined },
+    actions: <Button icon={Plus}>Create</Button>,
     nav: [
       { id: 'top', items: [{ id: 'home', label: 'Home', href: '#home', icon: House }] },
       {
-        id: 'content',
-        label: 'Content',
+        id: 'site',
         items: [
-          { id: 'listings', label: 'Listings', href: '#listings', icon: FileText, isCurrent: true },
-          { id: 'neighborhoods', label: 'Neighborhoods', href: '#neighborhoods', icon: MapPin },
+          {
+            id: 'content',
+            label: 'Content',
+            href: '#listings',
+            icon: Layers,
+            isCurrent: true,
+            children: [
+              {
+                id: 'collections',
+                label: 'Collections',
+                items: [
+                  { id: 'listings', label: 'Listings', href: '#listings', icon: FileText, isCurrent: true, count: '24' },
+                  { id: 'neighborhoods', label: 'Neighborhoods', href: '#neighborhoods', icon: MapPin, count: '9' },
+                ],
+              },
+            ],
+          },
+          { id: 'media', label: 'Media', href: '#media', icon: Image },
         ],
       },
       {
-        id: 'site',
-        label: 'Site',
+        id: 'admin',
+        place: 'end',
         items: [
-          { id: 'media', label: 'Media', href: '#media', icon: Image },
           { id: 'team', label: 'Team', href: '#team', icon: Users },
           { id: 'settings', label: 'Settings', href: '#settings', icon: Settings },
         ],

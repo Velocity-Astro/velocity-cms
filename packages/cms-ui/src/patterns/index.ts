@@ -13,3 +13,6 @@ export * from './Board/index.js';
 export * from './SectionList/index.js';
 export * from './PagePreview/index.js';
 export * from './Workbench/index.js';
+export * from './CommandPalette/index.js';
+export * from './Welcome/index.js';
+export * from './SiteWindow/index.js';

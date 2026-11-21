@@ -220,6 +220,11 @@
   --type-2xl-leading: 2rem;
   --type-3xl: 1.875rem;
   --type-3xl-leading: 2.125rem;
+  /* The greeting at the top of Home, the one large line of the editor. */
+  --type-4xl: 2.25rem;
+  --type-4xl-leading: 2.5rem;
+  --type-5xl: 3rem;
+  --type-5xl-leading: 3.25rem;
 
   /* Motion: short, and off entirely for people who ask for less. */
   --motion-fast: 100ms;
@@ -236,7 +241,16 @@
 
   /* The height of a pane that stays in view beside a form: the window less the frame, the bar
      at the top of the screen and the space around the pane. */
-  --pane-height: calc(100dvh - 8.5rem);
+  --pane-height: calc(100dvh - 11rem);
+
+  /* The rail: the dark strip of the editor's sections down the side of the window. It is dark in
+     both themes, so these hold for light and dark alike (see .dark below for its ground). */
+  --rail: var(--gray-950);
+  --rail-foreground: var(--gray-50);  /* 19.3:1 on the rail */
+  --rail-muted: var(--gray-400);      /*  6.0:1 on the rail */
+  --rail-hover: oklch(100% 0 0 / 0.08);
+  --rail-current: oklch(100% 0 0 / 0.14);
+  --rail-border: oklch(100% 0 0 / 0.12);
 
   /* Layering: the only stacking levels there are. */
   --layer-raised: 10;
@@ -246,6 +260,12 @@
 
   /* The veil over the page behind a dialog. */
   --scrim: oklch(0 0 0 / 0.5);
+}
+
+/* In the dark theme the rail sits a step below the page, so it still reads as its own strip. After
+   the block above: both are as specific, so the later one wins. */
+.dark {
+  --rail: oklch(7% 0 0);
 }
 
 @media (prefers-reduced-motion: reduce) {

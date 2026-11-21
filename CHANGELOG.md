@@ -4,6 +4,9 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **A new frame for the editor.** The sidebar is now a slim dark rail of sections (Home, Content, Media, then Forms, Contacts and Deals, with People, Plugins and Settings at the bottom), each with its name in a tooltip. Content opens a column that lists every kind of content, the content types and the trash; a plugin's screens are listed the same way under Plugins. A bar across the top holds the site's name and address, the search, and a Create button for a new entry of any type.
+- **Home says what is waiting.** The greeting counts the drafts and unpublished changes, with a button that carries on with the latest one. Beside it is the home page as visitors see it now, which opens the visual editor. Owners and editors also see what is new from the forms and what the open deals are worth. The "Add new" buttons moved to Create in the bar.
+- **Search, jump to or create from anywhere.** Ctrl or Command with K, or the search in the bar, opens a window that finds any place in the editor, or a new entry of any type, as you type.
 - **Moving a section shows where it goes.** Dragging a section of a page by its bar now lays the page's sections out by name, one short row each: the one held follows the pointer and a thick line shows where it will land. The bar also has a Reorder button that opens the same list to stay, where a section is dragged or sent a place earlier or later until Done.
 
 ## 0.1.0-beta.7

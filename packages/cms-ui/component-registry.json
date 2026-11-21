@@ -338,13 +338,42 @@
       ]
     },
     {
+      "name": "CommandPalette",
+      "layer": "pattern",
+      "group": "Overlays",
+      "description": "A window to find anything by typing and go there: a box, and under it the matches in groups.",
+      "example": "<CommandPalette isOpen={isOpen} onOpenChange={setOpen} label=\"Search and commands\" placeholder=\"Search, jump to or create anything\" emptyText=\"Nothing matches that.\" groups={groups} onAction={run} />",
+      "useInstead": "SearchField to narrow down one list on a screen.",
+      "uses": []
+    },
+    {
+      "name": "Welcome",
+      "layer": "pattern",
+      "group": "Page",
+      "description": "The top of a screen that greets the person: what matters now in large words, one phrase set apart, what to do first, and the site beside it.",
+      "example": "<Welcome eyebrow=\"Saturday, 21 November\" title=\"Good morning, Dana. 3 drafts are waiting.\" highlight=\"3 drafts\" actions={actions} aside={preview} />",
+      "useInstead": "PageHeader for the top of every other screen.",
+      "uses": []
+    },
+    {
+      "name": "SiteWindow",
+      "layer": "pattern",
+      "group": "Page",
+      "description": "A page of the site in a small browser window, as visitors see it now. The whole card is one link.",
+      "example": "<SiteWindow address=\"lakeshore.example\" src=\"/\" title=\"The home page\" label=\"Edit the home page\" meta=\"Published 3 days ago\" onPress={edit} />",
+      "useInstead": "PagePreview to see and work on a draft.",
+      "uses": []
+    },
+    {
       "name": "AppShell",
       "layer": "pattern",
       "group": "Page",
-      "description": "The frame around every screen: the sidebar with its navigation, and the main area.",
-      "example": "<AppShell siteName=\"Lakeshore Realty\" navLabel=\"Main\" skipLabel=\"Skip to content\" nav={groups} account={account}>…</AppShell>",
+      "description": "The frame around every screen: the rail of sections, the current section's places beside it, the bar with the search, and the main area.",
+      "example": "<AppShell logoLabel=\"Velocity\" siteName=\"Lakeshore Realty\" navLabel=\"Main\" skipLabel=\"Skip to content\" search={search} nav={groups} account={account}>…</AppShell>",
       "uses": [
-        "Menu"
+        "Logo",
+        "Menu",
+        "Tooltip"
       ]
     },
     {

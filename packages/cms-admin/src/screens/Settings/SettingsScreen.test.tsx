@@ -225,8 +225,9 @@ const business = (changes: object = {}) => site({ contentTypes: [...sampleConten
 it('keeps a page of the settings as their first tab, out of the content, with one field for the name', async () => {
   const user = userEvent.setup();
   const { client } = renderApp('/', business());
+  // One way to it in the menu, and no second field for what the site is called: not with the content.
+  await user.click(await screen.findByRole('link', { name: 'Content' }));
   await screen.findByRole('link', { name: 'Listings' });
-  // One way to it in the menu, and no second field for what the site is called.
   expect(screen.queryByRole('link', { name: 'Business details' })).toBeNull();
   await user.click(screen.getByRole('link', { name: 'Settings' }));
   expect((await screen.findByRole('tab', { name: 'Business details' })).getAttribute('aria-selected')).toBe('true');

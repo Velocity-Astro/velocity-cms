@@ -1,1 +1,1 @@
-export { AppShell, type AppShellNavItem, type AppShellProps } from './AppShell.js';
+export { AppShell, type AppShellAccount, type AppShellNavGroup, type AppShellNavItem, type AppShellProps, type AppShellSearch } from './AppShell.js';

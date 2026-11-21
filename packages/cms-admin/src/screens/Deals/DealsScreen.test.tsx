@@ -118,7 +118,8 @@ it('says which listing a deal is about, shows it on the board and lists the deal
   const board = within(await screen.findByRole('region', { name: 'New' }));
   expect(await board.findByText('18 Alder Court')).toBeTruthy();
 
-  await user.click(screen.getByRole('link', { name: 'Listings' }));
+  await user.click(screen.getByRole('link', { name: 'Content' }));
+  await user.click(await screen.findByRole('link', { name: 'Listings' }));
   await user.click(await screen.findByRole('row', { name: /18 Alder Court/ }));
   const deals = within(await screen.findByRole('region', { name: 'Deals about this' }));
   expect(await deals.findByRole('row', { name: /18 Alder Court, to Ana/ })).toBeTruthy();

@@ -8,12 +8,15 @@ import { sampleContentTypes, sampleEntries, sampleUser } from '../../testing/sam
 
 const signedIn = { user: sampleUser, contentTypes: sampleContentTypes, entries: sampleEntries() };
 
-it('has every type in the navigation, after Home, then content types and people for an owner', async () => {
+it('has the sections on the rail, and every type in the column of Content, with the content types and the trash', async () => {
   renderApp('/content/agents', signedIn);
   expect(await screen.findByRole('heading', { level: 1, name: 'Agents' })).toBeTruthy();
-  const nav = screen.getByRole('navigation', { name: 'Main' });
-  expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Home', 'Agents', 'Listings', 'Media', 'Forms', 'Contacts', 'Deals', 'Content types', 'People', 'Settings', 'Trash', 'Manage plugins']);
-  expect(within(nav).getByRole('link', { name: 'Agents' }).getAttribute('aria-current')).toBe('page');
+  const rail = screen.getByRole('navigation', { name: 'Main' });
+  expect(within(rail).getAllByRole('link').map((link) => link.textContent)).toEqual(['Home', 'Content', 'Media', 'Forms', 'Contacts', 'Deals', 'People', 'Plugins', 'Settings']);
+  expect(within(rail).getByRole('link', { name: 'Content' }).getAttribute('aria-current')).toBe('page');
+  const content = screen.getByRole('navigation', { name: 'Content' });
+  expect(within(content).getAllByRole('link').map((link) => link.textContent)).toEqual(['Agents', 'Listings', 'Content types', 'Trash']);
+  expect(within(content).getByRole('link', { name: 'Agents' }).getAttribute('aria-current')).toBe('page');
 });
 
 it('lists a type\'s entries, newest first, with a title, a state and when each was updated', async () => {

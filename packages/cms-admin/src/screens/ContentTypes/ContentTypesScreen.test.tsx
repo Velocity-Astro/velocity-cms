@@ -19,10 +19,13 @@ it('lists every content type with its key, how many fields it has and where its 
 it('is reached from the sidebar by an owner, and not offered to anyone else', async () => {
   const user = userEvent.setup();
   const { unmount } = renderApp('/', signedIn);
+  // With the content: the rail's Content, then its column.
+  await user.click(await screen.findByRole('link', { name: 'Content' }));
   await user.click(await screen.findByRole('link', { name: 'Content types' }));
   expect(await screen.findByRole('heading', { level: 1, name: 'Content types' })).toBeTruthy();
   unmount();
   renderApp('/', { ...signedIn, user: { ...sampleUser, role: 'editor' } });
+  await user.click(await screen.findByRole('link', { name: 'Content' }));
   await screen.findByRole('link', { name: 'Listings' });
   expect(screen.queryByRole('link', { name: 'Content types' })).toBeNull();
 });
@@ -90,6 +93,7 @@ it('starts a single page, which is opened straight from the sidebar and has one 
 
   // Coming back opens that same entry, not a second one.
   await user.click(screen.getByRole('link', { name: 'Home' }));
+  await user.click(await screen.findByRole('link', { name: 'Content' }));
   await user.click(await screen.findByRole('link', { name: 'About' }));
   expect(((await screen.findByRole('textbox', { name: /^Story/ })) as HTMLTextAreaElement).value).toBe('Founded in 1998.');
   expect(screen.queryByRole('button', { name: 'About' })).toBeNull();

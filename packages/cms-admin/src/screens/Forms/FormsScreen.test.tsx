@@ -16,7 +16,7 @@ it('is reached from the sidebar by an owner or an editor, and not offered to an 
   expect(await screen.findByRole('heading', { level: 1, name: 'Forms' })).toBeTruthy();
   unmount();
   renderApp('/', signedIn('author'));
-  await screen.findByRole('link', { name: 'Listings' });
+  await screen.findByRole('link', { name: 'Content' });
   expect(screen.queryByRole('link', { name: 'Forms' })).toBeNull();
 });
 
