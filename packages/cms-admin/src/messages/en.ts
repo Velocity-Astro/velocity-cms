@@ -109,6 +109,12 @@ export const en = {
     noTypesDescription: 'A content type describes one kind of content, such as listings or blog posts.',
     typeNotFoundTitle: 'This content type does not exist',
     typeNotFoundDescription: 'It may have been renamed or removed.',
+    peekLabel: 'The chosen entry',
+    peekPage: (title: string) => `${title}, as visitors see it`,
+    peekView: 'View on the site',
+    peekNotLive: 'Not on the site yet. Publish it to see its page here.',
+    peekVisual: 'Edit visually',
+    peekOpen: 'Open',
   },
   schedule: {
     title: 'Schedule',

@@ -18,4 +18,5 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+export const Small: Story = { args: { size: 'sm', label: 'View on the site' } };
 export const ToTheSite: Story = { args: { meta: 'Not published yet', label: 'Open the site' } };

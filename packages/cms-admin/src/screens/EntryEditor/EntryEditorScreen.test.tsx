@@ -26,7 +26,7 @@ afterEach(() => act(() => dismissToasts()));
 it('opens an entry from the list, with each value in the control its field type asks for', async () => {
   const user = userEvent.setup();
   renderApp('/content/listings', signedIn());
-  await user.click(await screen.findByRole('rowheader', { name: /^6214 Lakeshore Drive/ }));
+  await user.dblClick(await screen.findByRole('rowheader', { name: /^6214 Lakeshore Drive/ }));
 
   expect(await screen.findByRole('heading', { level: 1, name: '6214 Lakeshore Drive' })).toBeTruthy();
   expect((await field('Title')).value).toBe('6214 Lakeshore Drive');

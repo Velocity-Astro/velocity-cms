@@ -13,6 +13,11 @@ The whole card is one link.
 - Editing a page, or a preview of what has not been published: use `PagePreview`, which shows the draft and can be worked on.
 - A picture of something that is not a page of the site.
 
+## Sizes
+
+`md`, beside the greeting on Home, shows the page at half its size. `sm` fits a narrow column, such as the details of an entry
+beside its list, and shows it at a fifth.
+
 ## Accessibility
 
 The page inside cannot be pressed or reached by the keyboard, and screen readers skip it: the card's one link, at its foot, is

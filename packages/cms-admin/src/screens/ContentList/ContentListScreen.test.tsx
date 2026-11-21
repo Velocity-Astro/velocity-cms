@@ -146,7 +146,7 @@ it('says so when signing out fails, and stays signed in', async () => {
 it('shows labels in the language asked for', async () => {
   render(<AdminApp client={new MemoryAdminClient(signedIn)} siteName="Lakeshore" locale="es-ES" initialPath="/content/listings" />);
   expect(await screen.findByRole('heading', { level: 1, name: 'Propiedades' })).toBeTruthy();
-  expect(await screen.findByText('hace 2 horas')).toBeTruthy();
+  expect(await within(await screen.findByRole('grid', { name: 'Propiedades' })).findByText('hace 2 horas')).toBeTruthy();
 });
 
 it('keeps the shape of the screen while the entries are on the way, and says so to screen readers', async () => {
@@ -178,4 +178,30 @@ it('puts the home page first and says which it is', async () => {
   expect(home?.textContent).toContain('Home page');
   expect(about?.textContent).toContain('About us');
   expect(about?.textContent).not.toContain('Home page');
+});
+
+it('shows the chosen entry beside the list, and opens it on a second press', async () => {
+  const user = userEvent.setup();
+  renderApp('/content/listings', signedIn);
+  const table = await screen.findByRole('grid', { name: 'Listings' });
+  // The first is chosen until another is.
+  const peek = () => within(screen.getByRole('complementary', { name: 'The chosen entry' }));
+  expect(peek().getByRole('heading', { name: '6214 Lakeshore Drive' })).toBeTruthy();
+  expect(peek().getByTitle('6214 Lakeshore Drive, as visitors see it').getAttribute('src')).toBe('/listings/6214-lakeshore-drive/');
+
+  await user.click(within(table).getByRole('row', { name: /18 Alder Court/ }));
+  expect(peek().getByRole('heading', { name: '18 Alder Court' })).toBeTruthy();
+  expect(peek().getByText('Not on the site yet. Publish it to see its page here.')).toBeTruthy();
+  expect(screen.getByRole('heading', { level: 1, name: 'Listings' })).toBeTruthy();
+
+  await user.click(peek().getByRole('button', { name: 'Open' }));
+  expect(await screen.findByRole('heading', { level: 1, name: '18 Alder Court' })).toBeTruthy();
+});
+
+it('opens an entry from the list with Enter or a double click', async () => {
+  const user = userEvent.setup();
+  renderApp('/content/listings', signedIn);
+  const table = await screen.findByRole('grid', { name: 'Listings' });
+  await user.dblClick(within(table).getByRole('row', { name: /907 Mesa Verde Lane/ }));
+  expect(await screen.findByRole('heading', { level: 1, name: '907 Mesa Verde Lane' })).toBeTruthy();
 });
