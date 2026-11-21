@@ -607,6 +607,18 @@ export function previewBridge(page: Window & typeof globalThis): void {
     return svg;
   };
   const FONT = 'system-ui, sans-serif';
+  /** Where what a site keeps at the top of its window ends (a header that stays as the page scrolls), or 0. */
+  const kept = (): number => {
+    if (typeof doc.elementFromPoint !== 'function') return 0;
+    for (let element = doc.elementFromPoint(page.innerWidth / 2, 2); element && element !== doc.body && element !== doc.documentElement; element = element.parentElement) {
+      const position = page.getComputedStyle(element).position;
+      if (position !== 'fixed' && position !== 'sticky') continue;
+      const rect = element.getBoundingClientRect();
+      // Only a strip at the top counts: something that covers the window is no header.
+      return rect.top <= 2 && rect.bottom < page.innerHeight / 3 ? rect.bottom : 0;
+    }
+    return 0;
+  };
   const bar = grows(doc.createElement('div'));
   bar.setAttribute('data-cms-tools', '');
   Object.assign(bar.style, {
@@ -1195,12 +1207,13 @@ export function previewBridge(page: Window & typeof globalThis): void {
       button.style.opacity = able[action] ? '1' : '0.4';
       button.style.cursor = able[action] ? 'pointer' : 'default';
     }
-    // At the section's top corner, and at the top of the page while the section's own top is above it.
+    // At the section's top corner, and at the top of the page while the section's own top is above it:
+    // under what the site keeps there, so the bar never covers the site's own header.
     sorter.title = word(tools.labels['reorder']);
     sorter.style.display = word(about.list) === '' && pageOrder().length > 1 ? 'grid' : 'none';
     more.title = word(tools.labels['addAfter']);
     more.style.display = about.add === true ? 'grid' : 'none';
-    Object.assign(bar.style, { display: 'flex', top: at(Math.min(Math.max(rect.top, 0) + 12 * grow, Math.max(rect.bottom - 44 * grow, 0))), left: 'auto', right: at(Math.max(page.innerWidth - rect.right, 0) + 12 * grow) });
+    Object.assign(bar.style, { display: 'flex', top: at(Math.min(Math.max(rect.top, kept()) + 12 * grow, Math.max(rect.bottom - 44 * grow, 0))), left: 'auto', right: at(Math.max(page.innerWidth - rect.right, 0) + 12 * grow) });
     // A bar wider than the room to its left (a narrow column) starts at the page's edge instead.
     if (bar.offsetWidth > 0 && bar.getBoundingClientRect().left < 4) Object.assign(bar.style, { left: at(4), right: 'auto' });
     for (const [action, edge] of [['addBefore', rect.top], ['addAfter', rect.bottom]] as const) {
@@ -1364,13 +1377,14 @@ export function previewBridge(page: Window & typeof globalThis): void {
   const stack = doc.createElement('div');
   stack.setAttribute('data-cms-stack', '');
   Object.assign(stack.style, { position: 'absolute', inset: '0', display: 'none', overflow: 'hidden', background: 'rgb(14 14 16 / 0.82)', backdropFilter: 'blur(6px)', color: '#fff', font: `500 14px/1 ${FONT}`, pointerEvents: 'auto', userSelect: 'none' });
-  const column = doc.createElement('div');
+  // The rows are as large on the person's screen as the bar is, so their places are counted in their own size.
+  const column = grows(doc.createElement('div'));
   Object.assign(column.style, { position: 'absolute', top: '0', left: '50%', width: 'min(26rem, calc(100% - 32px))' });
   stack.append(column);
   layer.append(stack);
   const headOf = (now: Stack): number => (now.stays ? 56 : 0);
   /** Which row the held one would land before: as many as there are rows for after the last. */
-  const landing = (now: Stack): number => Math.min(Math.max(Math.round((now.y - shift - headOf(now)) / STEP), 0), now.order.length);
+  const landing = (now: Stack): number => Math.min(Math.max(Math.round(((now.y - shift) / grow - headOf(now)) / STEP), 0), now.order.length);
   const drawStack = (): void => {
     const now = stacked;
     stack.style.display = now ? 'block' : 'none';
@@ -1380,7 +1394,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
     const own = now.held === null ? -1 : now.order.indexOf(now.held);
     const to = landing(now);
     column.replaceChildren();
-    Object.assign(column.style, { height: `${head + now.order.length * STEP}px`, transform: `translate(-50%, ${shift}px)` });
+    Object.assign(column.style, { height: `${head + now.order.length * STEP}px`, transform: `translate(-50%, ${shift / grow}px)` });
     if (now.stays) {
       const top = doc.createElement('div');
       Object.assign(top.style, { position: 'absolute', top: '0', left: '0', right: '0', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', font: `600 15px/1 ${FONT}` });
@@ -1449,7 +1463,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
     }
     const ghost = doc.createElement('div');
     ghost.setAttribute('data-cms-stack-held', now.held);
-    Object.assign(ghost.style, rowLook, { top: `${now.y - shift - ROW / 2}px`, left: '40px', right: '-40px', background: ACCENT, color: ACCENT_INK, font: `600 14px/1 ${FONT}`, boxShadow: '0 12px 32px rgb(0 0 0 / 0.45)', transform: 'rotate(-1deg)', pointerEvents: 'none', cursor: 'grabbing' });
+    Object.assign(ghost.style, rowLook, { top: `${(now.y - shift) / grow - ROW / 2}px`, left: '40px', right: '-40px', background: ACCENT, color: ACCENT_INK, font: `600 14px/1 ${FONT}`, boxShadow: '0 12px 32px rgb(0 0 0 / 0.45)', transform: 'rotate(-1deg)', pointerEvents: 'none', cursor: 'grabbing' });
     const held = doc.createElement('span');
     held.textContent = stackWords.names[now.held] ?? '';
     Object.assign(held.style, { flex: '1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
@@ -1494,9 +1508,9 @@ export function previewBridge(page: Window & typeof globalThis): void {
     if (order.length < 2) return;
     wordsNow();
     stacked = { order, stays, held, from: y, y, moved: held !== null };
-    const total = headOf(stacked) + order.length * STEP;
+    const total = (headOf(stacked) + order.length * STEP) * grow;
     // Opened by a drag, the held section's own row is under the pointer; opened from the bar, the rows are in the middle.
-    shift = held === null ? Math.max((page.innerHeight - total) / 2, 24) : y - (order.indexOf(held) * STEP + ROW / 2);
+    shift = held === null ? Math.max((page.innerHeight - total) / 2, 24) : y - (order.indexOf(held) * STEP + ROW / 2) * grow;
     tooled = null;
     forget();
     draw();
@@ -1507,7 +1521,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
   const creepStack = (): void => {
     const now = stacked;
     if (!now || now.held === null) return;
-    const total = headOf(now) + now.order.length * STEP;
+    const total = (headOf(now) + now.order.length * STEP) * grow;
     const by = now.y < 72 && shift < 24 ? 12 : now.y > page.innerHeight - 72 && shift + total > page.innerHeight - 24 ? -12 : 0;
     if (by !== 0 && now.moved) {
       shift += by;
@@ -1564,7 +1578,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
       const now = stacked;
       if (!now) return;
       event.preventDefault();
-      const total = headOf(now) + now.order.length * STEP;
+      const total = (headOf(now) + now.order.length * STEP) * grow;
       shift = Math.min(Math.max(shift - event.deltaY, Math.min(page.innerHeight - total - 24, 24)), 24);
       drawStack();
     },
@@ -1581,7 +1595,7 @@ export function previewBridge(page: Window & typeof globalThis): void {
       const order = was.order as string[];
       if (order.length > 1) {
         stacked = { order, stays: true, held: null, from: 0, y: 0, moved: false };
-        shift = Math.max((page.innerHeight - (56 + order.length * STEP)) / 2, 24);
+        shift = Math.max((page.innerHeight - (56 + order.length * STEP) * grow) / 2, 24);
         drawStack();
       }
     }

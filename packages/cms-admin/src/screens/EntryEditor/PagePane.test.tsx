@@ -508,8 +508,9 @@ it('shows a section\'s background as swatches, in the form and on its bar on the
   await say({ source: 'velocity-cms', type: 'ready' });
   type Told = { type: string; sections?: Record<string, { swatches?: unknown }> };
   const told = () => post.mock.calls.map(([message]) => message as Told).filter((message) => message.type === 'tools').at(-1);
+  // Nobody chose a look yet, so the first is the one in use and is marked.
   expect(told()?.sections?.['s1']?.swatches).toEqual([
-    { field: 'tone', name: 'Background', choices: [{ value: 'default', name: 'White', colour: '#ffffff' }, { value: 'secondary', name: 'Warm stone', colour: '#f4f1ec' }] },
+    { field: 'tone', name: 'Background', chosen: 'default', choices: [{ value: 'default', name: 'White', colour: '#ffffff' }, { value: 'secondary', name: 'Warm stone', colour: '#f4f1ec' }] },
   ]);
   expect(told()?.sections?.['s2']?.swatches).toEqual([]);
   const held = () => (draft().data['f-body'] as BlockValue[])[0]?.data['bf-hero-tone'];

@@ -122,7 +122,7 @@ export const en = {
   history: {
     title: 'History',
     close: 'Close',
-    help: 'Every save, the latest first. Bringing a version back makes a new save: nothing is lost, and the site changes only when you publish.',
+    help: 'Every save, the latest first. Saves made in one go are shown as one. Bringing a version back makes a new save: nothing is lost, and the site changes only when you publish.',
     saveFirst: 'Save or undo what you have typed before bringing a version back.',
     current: 'Now',
     onSite: 'On the site',
@@ -132,6 +132,9 @@ export const en = {
     published: 'Published',
     unpublished: 'Taken off the site',
     saved: 'Saved',
+    sitting: (count: number) => `${count} saves in one go`,
+    showEach: 'Show each',
+    showAsOne: 'Show as one',
     bringBack: 'Bring back this version',
     broughtBack: (when: string) => `Version from ${when} brought back`,
     broughtBackDescription: 'It is the working version now. Publish it to put it on the site.',

@@ -18,7 +18,7 @@ const isSection = (value: unknown): value is BlockValue =>
 
 /**
  * A few of a section's own words: the first line of text it holds, in the order of its fields.
- * `isWords` leaves out the fields that hold a choice or a figure, which say nothing about it.
+ * `isWords` leaves out the fields that hold a choice, a figure or a picture's name, which say nothing about it.
  */
 function summaryOf(block: BlockDef, section: BlockValue, isWords: (field: FieldDef) => boolean): string | undefined {
   for (const field of liveFields(block.fields)) {
@@ -483,7 +483,7 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
           const inner = block ? liveFields(block.fields) : [];
           const prefix = `${path}.${index}.`;
           const found = [...problems.keys()].filter((key) => key.startsWith(prefix)).length;
-          const summary = block ? summaryOf(block, section, (inner) => controlFor(inner.type)?.width !== 'compact') : undefined;
+          const summary = block ? summaryOf(block, section, (inner) => controlFor(inner.type)?.width !== 'compact' && controlFor(inner.type)?.pictures === undefined) : undefined;
           const hidden = section.hidden === true;
           return {
             id: section.id,
