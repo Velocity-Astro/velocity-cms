@@ -1,7 +1,7 @@
 import type { ContentTypeDef, Entry, EntryData, FieldDef } from '@velocity-astro/cms-core';
 import { HOME_SLUG, SLUG_PATH, isSlug, isSlugPath, liveFields, takesSlugPath } from '@velocity-astro/cms-core';
 import { Box, Button, Card, ConfirmDialog, Form, IconButton, Menu, SaveBar, Segmented, Split, Stack, Tag, Text, TextField, Workbench, toast } from '@velocity-astro/cms-ui';
-import { CalendarClock, Copy, Ellipsis, ExternalLink, EyeOff, History, Palette, PanelLeftClose, PanelLeftOpen, Redo2, Trash2, Undo2 } from 'lucide-react';
+import { CalendarClock, Copy, Ellipsis, ExternalLink, Eye, EyeOff, History, Palette, PanelLeftClose, PanelLeftOpen, Redo2, Trash2, Undo2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { paths } from '../../app/paths.js';
@@ -18,6 +18,7 @@ import { slugify } from '../../lib/slug.js';
 import { useHistory } from '../../lib/use-history.js';
 import { useLeaveGuard } from '../../lib/use-leave-guard.js';
 import { useSaveKey } from '../../lib/use-save-key.js';
+import { NARROW, useNarrow } from '../../lib/use-narrow.js';
 import { useUndoKeys } from '../../lib/use-undo-keys.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 import { PluginBoundary } from '../../plugins/PluginBoundary.js';
@@ -37,8 +38,6 @@ const NO_PROBLEMS: ReadonlyMap<string, string> = new Map();
 /** How the address says the page has the whole window. */
 const VIEW = 'view';
 const VISUAL = 'visual';
-/** A window narrower than this, in pixels, is taken to be a phone. */
-const NARROW = 640;
 /** How long after the last change the draft is saved by itself, in milliseconds. */
 export const AUTOSAVE_PAUSE_MS = 2500;
 
@@ -346,7 +345,12 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   // What fewer people come for sits behind one button, so the bar keeps to the main steps.
   // Where visitors read this entry today, when it is published and has a page of its own.
   const liveAddress = entry?.status === 'published' ? entryAddress(type, { locale: entry.locale, slug: entry.slug, data: entry.data }) : null;
+  // A type whose entries only show on other pages has nothing of its own to preview.
+  const hasPage = type.urlPattern !== undefined || Object.keys(type.localizedUrlPatterns ?? {}).length > 0;
+  // On a phone the bar keeps to what is pressed most: the rest is behind the one button.
+  const isPhone = useNarrow();
   const more = [
+    ...(isPhone && hasPage ? [{ id: 'preview', label: messages.editor.preview, icon: Eye }] : []),
     ...(liveAddress !== null ? [{ id: 'view', label: messages.editor.viewOnSite, icon: ExternalLink }] : []),
     ...(entry?.status === 'published' ? [{ id: 'unpublish', label: messages.editor.unpublish, icon: EyeOff }] : []),
     // A single page is its type's one entry: there is no second, and it is taken off the site, not thrown away.
@@ -365,8 +369,6 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
     if (isDeep && slug === HOME_SLUG) return messages.editor.slugHomeDescription(pattern.replace(slugName, ''));
     return (isDeep ? messages.editor.slugPathDescription : messages.editor.slugDescription)(pattern.replace(slugName, slug === '' ? '…' : slug));
   };
-  // A type whose entries only show on other pages has nothing of its own to preview.
-  const hasPage = type.urlPattern !== undefined || Object.keys(type.localizedUrlPatterns ?? {}).length > 0;
 
   const changeField = (field: FieldDef, value: unknown) => {
     history.set((current) => withValue(current, field.id, value), field.id);
@@ -456,10 +458,10 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
         <Menu
           trigger={<IconButton label={messages.editor.more} icon={Ellipsis} isDisabled={isBusy} />}
           actions={more}
-          onAction={(id) => (id === 'view' ? openSite(liveAddress ?? '/') : id === 'schedule' ? setScheduling(true) : id === 'history' ? setShowingHistory(true) : id === 'trash' ? setConfirmingTrash(true) : id === 'duplicate' && entry ? void makeCopy(entry.id) : setConfirmingUnpublish(true))}
+          onAction={(id) => (id === 'preview' ? void preview() : id === 'view' ? openSite(liveAddress ?? '/') : id === 'schedule' ? setScheduling(true) : id === 'history' ? setShowingHistory(true) : id === 'trash' ? setConfirmingTrash(true) : id === 'duplicate' && entry ? void makeCopy(entry.id) : setConfirmingUnpublish(true))}
         />
       )}
-      {hasPage && (
+      {hasPage && !isPhone && (
         <Button variant="ghost" isDisabled={isBusy} isPending={running === 'preview'} onPress={() => void preview()}>
           {messages.editor.preview}
         </Button>
@@ -508,8 +510,19 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
                           icon={isFormAway ? PanelLeftOpen : PanelLeftClose}
                           onPress={() => setFormAway(!isFormAway)}
                         />
-                        <PageWidths width={pageWidth} onChange={setPageWidth} />
-                        {canTheme && (
+                        {/* A phone tries the page as a phone, and has no room to try another. */}
+                        {!isPhone && <PageWidths width={pageWidth} onChange={setPageWidth} />}
+                        {canTheme && isPhone && (
+                          <IconButton
+                            label={messages.editor.theme}
+                            icon={Palette}
+                            onPress={() => {
+                              if (!isThemeShown) setFormAway(false);
+                              setThemeShown(!isThemeShown);
+                            }}
+                          />
+                        )}
+                        {canTheme && !isPhone && (
                           <Button
                             variant="ghost"
                             icon={Palette}

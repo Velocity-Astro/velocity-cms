@@ -120,10 +120,17 @@ function swatchesOf(field: FieldDef): readonly { readonly value: string; readonl
   return found.length === choices.length ? found : [];
 }
 
+/**
+ * The swatch to mark. A section nobody chose a look for is drawn in the first, by the rule that a
+ * template's first choice is what it shows by itself, so that one is marked and none is left bare.
+ */
+const shownSwatch = (choices: readonly { readonly value: string }[], value: unknown): string | undefined =>
+  typeof value === 'string' && choices.some((choice) => choice.value === value) ? value : choices[0]?.value;
+
 const selectSwatches = (field: FieldDef, value: unknown): readonly SwatchPlace[] => {
   const choices = swatchesOf(field);
   if (choices.length === 0) return [];
-  return [{ place: '', field, choices: choices.map((choice) => ({ ...choice, name: (locale: string) => choiceName(field, choice.value, locale) })), chosen: typeof value === 'string' ? value : undefined, put: (chosen) => chosen }];
+  return [{ place: '', field, choices: choices.map((choice) => ({ ...choice, name: (locale: string) => choiceName(field, choice.value, locale) })), chosen: shownSwatch(choices, value), put: (chosen) => chosen }];
 };
 
 function SelectControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {
@@ -139,7 +146,7 @@ function SelectControl({ field, label, help, isLabelHidden = false, value, onCha
         isLabelShown={!isLabelHidden}
         {...(help !== undefined && { description: help })}
         options={swatches.map((choice) => ({ id: choice.value, label: choiceName(field, choice.value, locale), swatch: choice.colour }))}
-        selected={typeof value === 'string' ? value : ''}
+        selected={shownSwatch(swatches, value) ?? ''}
         onChange={onChange}
         {...(problem !== undefined && { errorMessage: problem })}
       />

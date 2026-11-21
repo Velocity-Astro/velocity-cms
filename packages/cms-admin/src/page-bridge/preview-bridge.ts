@@ -606,6 +606,18 @@ export function previewBridge(page: Window & typeof globalThis): void {
     return svg;
   };
   const FONT = 'system-ui, sans-serif';
+  /** Where what a site keeps at the top of its window ends (a header that stays as the page scrolls), or 0. */
+  const kept = (): number => {
+    if (typeof doc.elementFromPoint !== 'function') return 0;
+    for (let element = doc.elementFromPoint(page.innerWidth / 2, 2); element && element !== doc.body && element !== doc.documentElement; element = element.parentElement) {
+      const position = page.getComputedStyle(element).position;
+      if (position !== 'fixed' && position !== 'sticky') continue;
+      const rect = element.getBoundingClientRect();
+      // Only a strip at the top counts: something that covers the window is no header.
+      return rect.top <= 2 && rect.bottom < page.innerHeight / 3 ? rect.bottom : 0;
+    }
+    return 0;
+  };
   const bar = grows(doc.createElement('div'));
   bar.setAttribute('data-cms-tools', '');
   Object.assign(bar.style, {
@@ -1184,10 +1196,11 @@ export function previewBridge(page: Window & typeof globalThis): void {
       button.style.opacity = able[action] ? '1' : '0.4';
       button.style.cursor = able[action] ? 'pointer' : 'default';
     }
-    // At the section's top corner, and at the top of the page while the section's own top is above it.
+    // At the section's top corner, and at the top of the page while the section's own top is above it:
+    // under what the site keeps there, so the bar never covers the site's own header.
     more.title = word(tools.labels['addAfter']);
     more.style.display = about.add === true ? 'grid' : 'none';
-    Object.assign(bar.style, { display: 'flex', top: at(Math.min(Math.max(rect.top, 0) + 12 * grow, Math.max(rect.bottom - 44 * grow, 0))), left: 'auto', right: at(Math.max(page.innerWidth - rect.right, 0) + 12 * grow) });
+    Object.assign(bar.style, { display: 'flex', top: at(Math.min(Math.max(rect.top, kept()) + 12 * grow, Math.max(rect.bottom - 44 * grow, 0))), left: 'auto', right: at(Math.max(page.innerWidth - rect.right, 0) + 12 * grow) });
     // A bar wider than the room to its left (a narrow column) starts at the page's edge instead.
     if (bar.offsetWidth > 0 && bar.getBoundingClientRect().left < 4) Object.assign(bar.style, { left: at(4), right: 'auto' });
     for (const [action, edge] of [['addBefore', rect.top], ['addAfter', rect.bottom]] as const) {
