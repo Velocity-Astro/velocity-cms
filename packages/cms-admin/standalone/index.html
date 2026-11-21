@@ -6,9 +6,24 @@
     <meta name="robots" content="noindex, nofollow" />
     <!--velocity-cms-->
     <title>Editor</title>
+    <!-- What is seen while the editor's script is on its way: the frame's two surfaces and a sign that it is coming, in place of a blank page. The editor draws over it. -->
+    <style>
+      .cms-boot { position: fixed; inset: 0; display: flex; background: var(--gray-50); }
+      .cms-boot-side { width: 15rem; flex-shrink: 0; }
+      .cms-boot-screen { flex: 1; margin: 0.5rem; display: grid; place-items: center; border-radius: 1rem; border: 1px solid var(--gray-200); background: var(--gray-0); }
+      .cms-boot-sign { width: 1.5rem; height: 1.5rem; border-radius: 9999px; border: 2px solid var(--gray-200); border-top-color: var(--gray-500); animation: cms-boot-turn 0.8s linear infinite; }
+      @keyframes cms-boot-turn { to { transform: rotate(360deg); } }
+      @media (max-width: 47.99rem) { .cms-boot-side { display: none; } }
+      @media (prefers-reduced-motion: reduce) { .cms-boot-sign { animation-duration: 2.4s; } }
+      @media (prefers-color-scheme: dark) {
+        .cms-boot { background: var(--gray-900); }
+        .cms-boot-screen { border-color: var(--gray-800); background: var(--gray-950); }
+        .cms-boot-sign { border-color: var(--gray-800); border-top-color: var(--gray-400); }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div class="cms-boot" aria-hidden="true"><div class="cms-boot-side"></div><div class="cms-boot-screen"><div class="cms-boot-sign"></div></div></div></div>
     <script type="module" src="../src/standalone/main.tsx"></script>
   </body>
 </html>

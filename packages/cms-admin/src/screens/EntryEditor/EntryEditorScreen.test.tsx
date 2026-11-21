@@ -648,3 +648,36 @@ it('takes a change back and makes it again, with the buttons and with the keys',
   expect((await field('Title')).value).toBe('6214 Lakeshore Drive East');
   expect(undo).toHaveProperty('disabled', false);
 });
+
+it('saves the draft by itself once the typing pauses, and publishes nothing', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/content/listings/e1', signedIn());
+  const update = vi.spyOn(client, 'updateEntry');
+  await user.type(await field('Title'), ' East');
+  expect(saveBar().getByText('Unsaved changes')).toBeTruthy();
+  expect(update).not.toHaveBeenCalled();
+
+  await waitFor(() => expect(saveBar().getByText(/^Saved /)).toBeTruthy(), { timeout: 6000 });
+  expect(update).toHaveBeenCalledTimes(1);
+  const kept = await client.getEntry('e1');
+  expect(Object.values(kept.data)).toContain('6214 Lakeshore Drive East');
+  expect(Object.values(kept.published?.data ?? {})).not.toContain('6214 Lakeshore Drive East');
+  // It works in silence: the bar says so, and no message is shown.
+  expect(screen.queryByText('Draft saved')).toBeNull();
+  // What was typed can still be taken back.
+  expect(screen.getByRole('button', { name: 'Undo' })).toHaveProperty('disabled', false);
+}, 10_000);
+
+it('says so in the bar when the draft could not be saved by itself, keeps what was typed, and does not try for ever', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/content/listings/e1', signedIn());
+  const update = vi.spyOn(client, 'updateEntry').mockRejectedValue(new Error('No connection'));
+  await user.type(await field('Title'), ' East');
+  await waitFor(() => expect(saveBar().getByText('Not saved. Press "Save draft" to see why.')).toBeTruthy(), { timeout: 6000 });
+  expect((await field('Title')).value).toBe('6214 Lakeshore Drive East');
+  await new Promise((done) => setTimeout(done, 3000));
+  expect(update).toHaveBeenCalledTimes(1);
+  // The button says why.
+  await user.click(screen.getByRole('button', { name: 'Save draft' }));
+  expect(await screen.findByText('No connection')).toBeTruthy();
+}, 15_000);

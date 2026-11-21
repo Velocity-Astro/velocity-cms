@@ -54,6 +54,11 @@ export interface PagePaneProps {
   readonly also?: readonly { readonly id: string; readonly data: EntryData }[];
 }
 
+/** How long a link to the page is used, in milliseconds, before a newer one to the same page takes its place. A link lasts an hour. */
+const LINK_KEPT_MS = 20 * 60_000;
+/** The page a link leads to, without what proves the link. */
+const pageOf = (path: string) => path.split('?')[0];
+
 /**
  * The entry's page beside its form, drawn by the site from what the form holds now. Nothing is
  * saved to show it: the draft goes with the request for the page and is kept nowhere.
@@ -62,6 +67,13 @@ export function PagePane({ entry, data, title, width, onWidthChange, isWhole, on
   const messages = useMessages();
   const focus = usePageFocus();
   const link = usePagePreview(entry?.id, entry?.revision);
+  // Every save brings a new link, nearly always to the page already shown. The page is drawn again
+  // for it only when it leads somewhere else, or when the link in use is getting old.
+  const [shown, setShown] = useState<{ readonly path: string; readonly at: number } | null>(null);
+  const offered = link.data?.path;
+  if (offered !== undefined && offered !== shown?.path && (shown === null || pageOf(offered) !== pageOf(shown.path) || Date.now() - shown.at > LINK_KEPT_MS)) {
+    setShown({ path: offered, at: Date.now() });
+  }
   // Where a link in text written on the page should lead, while the person is asked.
   const [asked, setAsked] = useState<{ readonly href: string; readonly typed: string; readonly answer: (href: string | null) => void } | null>(null);
   const shownAsked = useLast(asked);
@@ -83,7 +95,7 @@ export function PagePane({ entry, data, title, width, onWidthChange, isWhole, on
     <>
       <PagePreview
         label={messages.editor.pageFrame(title)}
-        {...(entry !== null && link.data && { address: link.data.path })}
+        {...(entry !== null && shown !== null && { address: shown.path })}
         draft={entry === null ? '' : JSON.stringify({ id: entry.id, data, ...(also.length > 0 && { with: also }) })}
         width={width}
         isBare={isWhole}

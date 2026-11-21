@@ -4,6 +4,11 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- The editor shows its frame and a sign that it is loading while its script is on its way, in place of a blank page.
+- A button pressed on the page (move, copy, remove, a swatch, undo) shows its result about half a second sooner.
+- On Home, a single page such as Navigation is listed by its name, not as "Untitled".
+- **The draft saves itself.** A few seconds after the typing pauses, in the form or on the page, an entry's draft is saved to the site and the bar says "Saved". Nothing is published by it. If it cannot be saved the bar says so, what was typed stays, and "Save draft" says why. A new entry is still made with "Save draft".
+- Fixed: the page beside the form was taken away and drawn again after every save.
 - The editor works on a phone and a tablet: the menu opens from a button at the top, and every screen's header, buttons and columns fold to fit.
 - "Desktop" beside the form and in the visual editor shows the desktop page, whole and smaller, instead of whatever layout fits the pane. The buttons on the page stay their own size. On a phone the page is tried as a phone shows it.
 - **Home leads to the home page.** The editor's first screen has "Edit the home page", which opens the page at the top of the site in the visual editor, and "View the site". In a list of pages the home page comes first and is marked "Home page", whatever its title says. An entry's menu has "View on the site" once it is published.
