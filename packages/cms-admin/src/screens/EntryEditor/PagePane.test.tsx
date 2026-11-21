@@ -671,3 +671,18 @@ it('opens an inner section pressed on the page, inside the section that holds it
   await say({ source: 'velocity-cms', type: 'section', id: 'n1', field: 'words' });
   expect((await screen.findByRole<HTMLInputElement>('textbox', { name: 'Note' })).value).toBe('First note');
 });
+
+it('keeps the page it shows through a save: the frame stays, and is not asked for again over a new link to the same page', async () => {
+  const { client } = renderApp('/content/pages/p1', site());
+  const page = await frame();
+  await say({ source: 'velocity-cms', type: 'ready' });
+  const asked = vi.spyOn(client, 'previewEntry');
+  await say({ source: 'velocity-cms', type: 'words', id: 's1', field: 'title', words: 'Saved from the page' });
+  await say({ source: 'velocity-cms', type: 'save' });
+  expect(await screen.findByText('Draft saved')).toBeTruthy();
+  // The save brought a new link, and the page already shown is left alone.
+  await waitFor(() => expect(asked).toHaveBeenCalled());
+  await new Promise((done) => setTimeout(done, 700));
+  expect(await frame()).toBe(page);
+  expect(submit).toHaveBeenCalledOnce();
+});

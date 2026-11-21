@@ -739,6 +739,8 @@ export function usePagePreview(id: string | undefined, saved: number | undefined
     queryKey: ['page-preview', id, saved] as const,
     queryFn: () => client.previewEntry(id ?? ''),
     enabled: id !== undefined,
+    // The link in use stays while the next is on its way, so the page is never taken away over a save.
+    placeholderData: (previous) => previous,
     staleTime: PREVIEW_REFRESH,
     refetchInterval: PREVIEW_REFRESH,
     retry: false,

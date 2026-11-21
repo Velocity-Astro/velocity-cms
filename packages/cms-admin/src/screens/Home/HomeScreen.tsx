@@ -67,7 +67,8 @@ export function HomeScreen({ siteName }: HomeScreenProps) {
     return {
       id: entry.id,
       cells: {
-        title: <Text weight="semibold">{entryTitle(type, entry.data) ?? messages.contentList.untitled}</Text>,
+        // A single page is its type's one entry, and is called what the type is.
+        title: <Text weight="semibold">{type.kind === 'single' ? localized(type.label, locale) : (entryTitle(type, entry.data) ?? messages.contentList.untitled)}</Text>,
         type: <Text tone="secondary">{localized(type.label, locale)}</Text>,
         status: <Tag tone={STATE_TONE[state]}>{messages.status[state]}</Tag>,
         updated: (

@@ -2,7 +2,7 @@ import type { ContentTypeDef, Entry, EntryData, FieldDef } from '@velocity-astro
 import { HOME_SLUG, SLUG_PATH, isSlug, isSlugPath, liveFields, takesSlugPath } from '@velocity-astro/cms-core';
 import { Box, Button, Card, ConfirmDialog, Form, IconButton, Menu, SaveBar, Segmented, Split, Stack, Tag, Text, TextField, Workbench, toast } from '@velocity-astro/cms-ui';
 import { CalendarClock, Copy, Ellipsis, ExternalLink, EyeOff, History, Palette, PanelLeftClose, PanelLeftOpen, Redo2, Trash2, Undo2 } from 'lucide-react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { paths } from '../../app/paths.js';
 import { AdminRequestError } from '../../client/errors.js';
@@ -39,6 +39,8 @@ const VIEW = 'view';
 const VISUAL = 'visual';
 /** A window narrower than this, in pixels, is taken to be a phone. */
 const NARROW = 640;
+/** How long after the last change the draft is saved by itself, in milliseconds. */
+export const AUTOSAVE_PAUSE_MS = 2500;
 
 export interface EntryFormProps {
   readonly type: ContentTypeDef;
@@ -82,6 +84,8 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   const [slugProblem, setSlugProblem] = useState<string | null>(null);
   const [problems, setProblems] = useState(NO_PROBLEMS);
   const [running, setRunning] = useState<Action | null>(null);
+  // Counts the saves made by themselves, so what was typed during one is saved after it.
+  const [autosaveTurn, setAutosaveTurn] = useState(0);
   const [isConfirmingUnpublish, setConfirmingUnpublish] = useState(false);
   const [isConfirmingTrash, setConfirmingTrash] = useState(false);
   const [isShowingHistory, setShowingHistory] = useState(false);
@@ -141,6 +145,52 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   const hasTyped = entry === null ? typedSlug !== null || Object.keys(data).length > 0 : hasChanges;
   const guard = useLeaveGuard((hasTyped || themed.length > 0) && running === null);
 
+  // The draft saves itself once the typing pauses, so a closed tab or a lost connection costs a few
+  // seconds at most. Only a saved entry does: a new one is made when its person says so. Nothing is
+  // published by it, and it says nothing when it works: the bar does.
+  const revision = useRef(entry?.revision ?? 0);
+  revision.current = Math.max(revision.current, entry?.revision ?? 0);
+  const autosave = useRef<{ readonly data: EntryData; readonly slug: string; readonly done: Promise<Entry | null> } | null>(null);
+  const autosaved = useRef<{ readonly data: EntryData; readonly slug: string } | null>(null);
+  const held = useRef(data);
+  held.current = data;
+  const [autosaveFailed, setAutosaveFailed] = useState(false);
+  const settleNow = history.settle;
+  useEffect(() => {
+    if (entry === null || !hasChanges || running !== null || !slugFits) return;
+    // What was tried is not tried again until something changes: a refusal would be met for ever.
+    if (autosaved.current?.data === data && autosaved.current.slug === slug) return;
+    const waiting = setTimeout(() => {
+      if (autosave.current !== null) return;
+      const sent = { data, slug };
+      autosaved.current = sent;
+      const done = keep(entry.id, slug, data).then(
+        (kept) => {
+          setAutosaveFailed(false);
+          // What the server made of it is taken only if nothing was typed meanwhile.
+          if (held.current === sent.data) {
+            // And only where it differs: the same words again would draw the page again under the caret.
+            if (!sameData(kept.data, sent.data)) settleNow(kept.data);
+            setTypedSlug(null);
+          }
+          return kept;
+        },
+        () => {
+          // Quietly: the bar says it is not saved, and "Save draft" says why.
+          setAutosaveFailed(true);
+          return null;
+        },
+      );
+      autosave.current = { ...sent, done };
+      void done.finally(() => {
+        autosave.current = null;
+        setAutosaveTurn((turn) => turn + 1);
+      });
+    }, AUTOSAVE_PAUSE_MS);
+    return () => clearTimeout(waiting);
+    // `keep` and the entry are read as they are when the pause ends.
+  }, [data, slug, hasChanges, running, slugFits, entry?.id, autosaveTurn]);
+
   /** Shows why the server refused: on the fields when it named them, and always in a message. */
   function report(what: string, error: unknown) {
     const issues = error instanceof AdminRequestError ? error.issues : [];
@@ -161,8 +211,20 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
       onCreated(created);
       return created;
     }
-    if (!hasChanges) return entry;
-    return update.mutateAsync({ id: entry.id, changes: { slug, data, expectedRevision: entry.revision } });
+    // A save made by itself may be on its way: it is waited for, and is the save when it sent just this.
+    const before = autosave.current;
+    if (before !== null) {
+      const kept = await before.done;
+      if (kept !== null && before.data === data && before.slug === slug) return kept;
+    } else if (!hasChanges) return entry;
+    return keep(entry.id, slug, data);
+  }
+
+  /** Sends the working version to the server, as a save after the last one this form made. */
+  async function keep(id: string, slugNow: string, dataNow: EntryData): Promise<Entry> {
+    const kept = await update.mutateAsync({ id, changes: { slug: slugNow, data: dataNow, expectedRevision: revision.current } });
+    revision.current = Math.max(revision.current, kept.revision);
+    return kept;
   }
 
   async function run(action: 'save' | 'publish') {
@@ -347,7 +409,9 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
     entry === null
       ? messages.editor.notSavedYet
       : hasChanges
-        ? messages.editor.unsavedChanges
+        ? autosaveFailed
+          ? messages.editor.notAutosaved
+          : messages.editor.unsavedChanges
         : entry.publishAt !== undefined
           ? messages.editor.goesOut(scheduledFor(entry.publishAt, locale))
           : messages.editor.saved(relativeTime(entry.updatedAt, locale));

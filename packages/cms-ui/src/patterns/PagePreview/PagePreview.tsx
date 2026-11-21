@@ -163,6 +163,8 @@ export function PagePreview({ label, address, draft, note, toolbar, action, empt
   });
   // When words were last typed on the page, and whether the page lacks a change made in the form.
   const typedAt = useRef(0);
+  // When a button of the page's own tools was last pressed there.
+  const pressedAt = useRef(0);
   const isBehind = useRef(false);
 
   // When a section was last asked to be shown, and when the draft last changed. A page drawn again
@@ -187,6 +189,12 @@ export function PagePreview({ label, address, draft, note, toolbar, action, empt
     // Words typed on the page are on the page already: drawing it again would take the caret away.
     if (Date.now() - typedAt.current < OWN && !isBehind.current) return;
     isBehind.current = true;
+    // A button pressed on the page is one change, made: there is no typing to wait out.
+    if (Date.now() - pressedAt.current < TOGETHER * 5) {
+      pressedAt.current = 0;
+      send();
+      return;
+    }
     const waiting = setTimeout(send, PAUSE);
     return () => clearTimeout(waiting);
   }, [address, draft]);
@@ -248,6 +256,7 @@ export function PagePreview({ label, address, draft, note, toolbar, action, empt
         typedAt.current = Date.now();
         latest.current.onWords?.(said.id, said.field, said.words);
       }
+      if (said.type === 'act' || said.type === 'move' || said.type === 'item' || said.type === 'swatch' || said.type === 'undo' || said.type === 'redo') pressedAt.current = Date.now();
       if (said.type === 'act' && typeof said.id === 'string') {
         const action = ACTIONS.find((candidate) => candidate === said.action);
         if (action) latest.current.onSectionAction?.(said.id, action);

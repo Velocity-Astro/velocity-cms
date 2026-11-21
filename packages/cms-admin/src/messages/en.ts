@@ -298,6 +298,7 @@ export const en = {
     notPreviewed: 'No preview',
     notSavedYet: 'Not saved yet',
     unsavedChanges: 'Unsaved changes',
+    notAutosaved: 'Not saved. Press "Save draft" to see why.',
     saved: (when: string) => `Saved ${when}`,
     draftSaved: 'Draft saved',
     draftSavedDescription: 'Visitors do not see it until you publish.',

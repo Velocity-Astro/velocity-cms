@@ -218,3 +218,11 @@ it('shows a page wider than its pane smaller and whole, at the width of the scre
   expect(post).toHaveBeenLastCalledWith({ source: 'velocity-cms', type: 'zoom', scale: 1 }, window.location.origin);
   vi.unstubAllGlobals();
 });
+
+it('draws the page at once after a button pressed on the page, with no typing to wait out', () => {
+  const { rerender } = render(example());
+  expect(submit).toHaveBeenCalledTimes(1);
+  say({ source: 'velocity-cms', type: 'act', id: 's1', action: 'down' });
+  rerender(example({ draft: '{"id":"p1","data":{"moved":true}}' }));
+  expect(submit).toHaveBeenCalledTimes(2);
+});
