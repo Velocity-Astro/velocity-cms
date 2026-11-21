@@ -162,6 +162,33 @@ it('gives the page the whole window, and brings the form back for what cannot be
   expect((draft().data['f-body'] as { data: Record<string, unknown> }[])[0]?.data['bf-hero-title']).toBe('Typed in the window');
 });
 
+it('keeps the whole window through a reload, and the browser\'s way back leads to the form', async () => {
+  const user = userEvent.setup();
+  // The address says which of the two it is, so it opens that way.
+  renderApp('/content/pages/p1?view=visual', site());
+  const bar = within(await screen.findByRole('region', { name: 'Save and publish' }));
+  expect(await bar.findByRole('button', { name: 'Back to the form' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Visual editor' })).toBeNull();
+  await user.click(bar.getByRole('button', { name: 'Back to the form' }));
+  expect(await screen.findByRole('button', { name: 'Visual editor' })).toBeTruthy();
+});
+
+it('saves the draft when the keys that save are pressed, in the form and on the page', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/content/pages/p1', site());
+  await frame();
+  await say({ source: 'velocity-cms', type: 'ready' });
+  await say({ source: 'velocity-cms', type: 'words', id: 's1', field: 'title', words: 'Saved from the page' });
+  await say({ source: 'velocity-cms', type: 'save' });
+  expect(await screen.findByText('Draft saved')).toBeTruthy();
+  expect(((await client.getEntry('p1')).data['f-body'] as { data: Record<string, unknown> }[])[0]?.data['bf-hero-title']).toBe('Saved from the page');
+
+  await user.click(await screen.findByRole('button', { name: /^Text/ }));
+  await user.type(screen.getByRole('textbox', { name: 'Words' }), 'Saved from the form');
+  await user.keyboard('{Control>}s{/Control}');
+  await waitFor(async () => expect(((await client.getEntry('p1')).data['f-body'] as { data: Record<string, unknown> }[])[1]?.data['bf-text-body']).toBe('Saved from the form'));
+});
+
 it('does on the form what a section\'s bar on the page asks for', async () => {
   const user = userEvent.setup();
   renderApp('/content/pages/p1', site());

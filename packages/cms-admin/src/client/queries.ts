@@ -61,7 +61,9 @@ export function createQueryCache(): QueryClient {
   const client = new QueryClient({
     queryCache: new QueryCache({ onError: signedOut }),
     mutationCache: new MutationCache({ onError: signedOut }),
-    defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+    // A request is always tried, connection or not: one held back until the connection returns
+    // shows a spinner with no end, where a failure says what happened and offers another try.
+    defaultOptions: { queries: { retry: false, staleTime: 30_000, networkMode: 'always' }, mutations: { networkMode: 'always' } },
   });
   return client;
 }
@@ -179,16 +181,37 @@ export function useArrangeFields() {
   });
 }
 
+/** The most the server hands over in one answer. A list asked for with this limit is meant whole. */
+const MOST = 200;
+/** A stop for a list that never ends, far past what a screen can show. */
+const WHOLE_STOPS_AT = 10_000;
+
+/**
+ * A list read to its end. A screen that asks for the most the server gives in one answer means
+ * the whole list, so the answers that follow are read too: a list never stops short in silence.
+ */
+async function whole<T, Q extends { readonly limit?: number; readonly offset?: number }>(query: Q, list: (query: Q) => Promise<Page<T>>): Promise<Page<T>> {
+  const first = await list(query);
+  if (query.limit !== MOST || query.offset !== undefined) return first;
+  const items = [...first.items];
+  while (items.length < first.total && items.length < WHOLE_STOPS_AT) {
+    const next = await list({ ...query, offset: items.length });
+    if (next.items.length === 0) break;
+    items.push(...next.items);
+  }
+  return { items, total: first.total };
+}
+
 export function useEntries(query: EntryListQuery) {
   const client = useClient();
-  return useQuery({ queryKey: keys.entries(query), queryFn: () => client.listEntries(query) });
+  return useQuery({ queryKey: keys.entries(query), queryFn: () => whole(query, (asked) => client.listEntries(asked)) });
 }
 
 /** The entries of several content types at once, one request each, sharing the lists' cache. */
 export function useEntriesOfTypes(queries: readonly EntryListQuery[]) {
   const client = useClient();
   return useQueries({
-    queries: queries.map((query) => ({ queryKey: keys.entries(query), queryFn: () => client.listEntries(query) })),
+    queries: queries.map((query) => ({ queryKey: keys.entries(query), queryFn: () => whole(query, (asked) => client.listEntries(asked)) })),
   });
 }
 
@@ -286,7 +309,7 @@ export function useUnpublishEntry() {
 /** The entries in the trash. Kept with the lists, so whatever changes an entry refreshes it. */
 export function useTrash() {
   const client = useClient();
-  return useQuery({ queryKey: keys.trash, queryFn: () => client.listTrash({ limit: 200 }) });
+  return useQuery({ queryKey: keys.trash, queryFn: () => whole({ limit: MOST }, (asked) => client.listTrash(asked)) });
 }
 
 export function useDuplicateEntry() {
@@ -401,7 +424,7 @@ export function useDeleteForm() {
 /** What a form was sent. `isAsked` is false for someone who may not read submissions. */
 export function useSubmissions(query: SubmissionListQuery, isAsked = true) {
   const client = useClient();
-  return useQuery({ queryKey: keys.submissionList(query), queryFn: () => client.listSubmissions(query), enabled: isAsked });
+  return useQuery({ queryKey: keys.submissionList(query), queryFn: () => whole(query, (asked) => client.listSubmissions(asked)), enabled: isAsked });
 }
 
 export function useSubmissionCounts(formId: string, isAsked = true) {
@@ -454,7 +477,7 @@ export function useForgetSender() {
 /** The people who wrote to the site. What was on screen stays while the next search is on its way. */
 export function useContacts(query: ContactListQuery = {}) {
   const client = useClient();
-  return useQuery({ queryKey: keys.contactList(query), queryFn: () => client.listContacts(query), placeholderData: (previous) => previous });
+  return useQuery({ queryKey: keys.contactList(query), queryFn: () => whole(query, (asked) => client.listContacts(asked)), placeholderData: (previous) => previous });
 }
 
 /** One list of contacts per query, asked for together: the columns of the board. */
@@ -480,7 +503,7 @@ export function useMoveContact() {
 
 export function useDeals(query: DealListQuery = {}) {
   const client = useClient();
-  return useQuery({ queryKey: keys.dealList(query), queryFn: () => client.listDeals(query), placeholderData: (previous) => previous });
+  return useQuery({ queryKey: keys.dealList(query), queryFn: () => whole(query, (asked) => client.listDeals(asked)), placeholderData: (previous) => previous });
 }
 
 /** One list of deals per query, asked for together: the columns of the board. */

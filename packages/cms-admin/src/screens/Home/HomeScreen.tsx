@@ -1,12 +1,13 @@
 import { Box, Button, EmptyState, Grid, Heading, Inline, PageHeader, Stack, Stat, Table, Tag, Text, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
-import type { ContentTypeDef, Entry } from '@velocity-astro/cms-core';
-import { Inbox, Plus, Shapes } from 'lucide-react';
+import { HOME_SLUG, takesSlugPath, type ContentTypeDef, type Entry } from '@velocity-astro/cms-core';
+import { ExternalLink, Inbox, PencilLine, Plus, Shapes } from 'lucide-react';
 import { useGo } from '../../app/use-go.js';
 import { paths } from '../../app/paths.js';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { useContentTypes, useEntriesOfTypes, useSession } from '../../client/queries.js';
 import { entryState, entryTitle, groupTranslations, localized, type EntryState } from '../../lib/content.js';
 import { dayPart } from '../../lib/day-part.js';
+import { openSite } from '../../lib/open-site.js';
 import { relativeTime } from '../../lib/relative-time.js';
 import { FollowUps } from './FollowUps.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
@@ -77,6 +78,8 @@ export function HomeScreen({ siteName }: HomeScreenProps) {
       },
     };
   });
+  // The page at the top of the site: what most people come to the editor to change.
+  const home = all.find(({ type, entry }) => takesSlugPath(type) && entry.slug === HOME_SLUG);
   const typeOf = new Map(recent.map(({ type, entry }) => [entry.id, type.key]));
 
   return (
@@ -95,6 +98,19 @@ export function HomeScreen({ siteName }: HomeScreenProps) {
               <Stat label={messages.home.drafts} value={count((state) => state === 'draft')} detail={messages.home.draftsDetail} />
               <Stat label={messages.home.changed} value={count((state) => state === 'unpublishedChanges')} detail={messages.home.changedDetail} />
             </Grid>
+            <Stack gap={3}>
+              <Heading level={2}>{messages.home.siteTitle}</Heading>
+              <Inline gap={2} wrap>
+                {home && (
+                  <Button icon={PencilLine} onPress={() => go(paths.visualEntry(home.type.key, home.entry.id))}>
+                    {messages.home.editHome}
+                  </Button>
+                )}
+                <Button variant="secondary" icon={ExternalLink} onPress={() => openSite()}>
+                  {messages.home.viewSite}
+                </Button>
+              </Inline>
+            </Stack>
             <Stack gap={3}>
               <Heading level={2}>{messages.home.addTitle}</Heading>
               <Inline gap={2} wrap>

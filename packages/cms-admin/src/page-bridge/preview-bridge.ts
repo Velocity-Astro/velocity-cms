@@ -547,6 +547,18 @@ export function previewBridge(page: Window & typeof globalThis): void {
     true,
   );
 
+  // Saving is the form's too: the page says the keys were pressed, and the browser's own answer
+  // to them (saving the page as a file) is stopped. What is being typed is already in the form.
+  doc.addEventListener(
+    'keydown',
+    (event) => {
+      if (event.isComposing || event.altKey || event.shiftKey || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 's') return;
+      event.preventDefault();
+      say({ type: 'save' });
+    },
+    true,
+  );
+
   // Tools.
   interface Tools {
     readonly labels: Record<string, unknown>;

@@ -35,5 +35,7 @@ export const paths = {
     `/types/${encodeURIComponent(typeKey)}${within.length > 0 ? `?${new URLSearchParams(within.map((id) => [WITHIN, id]))}` : ''}`,
   contentList: (typeKey: string) => `/content/${encodeURIComponent(typeKey)}`,
   entry: (typeKey: string, entryId: string) => `/content/${encodeURIComponent(typeKey)}/${encodeURIComponent(entryId)}`,
+  /** An entry with its page given the whole window: the visual editor. */
+  visualEntry: (typeKey: string, entryId: string) => `/content/${encodeURIComponent(typeKey)}/${encodeURIComponent(entryId)}?view=visual`,
   newEntry: (typeKey: string) => `/content/${encodeURIComponent(typeKey)}/${NEW_ENTRY}`,
 } as const;

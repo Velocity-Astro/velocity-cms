@@ -1,20 +1,23 @@
 import type { ContentTypeDef, Entry, EntryData, FieldDef } from '@velocity-astro/cms-core';
 import { HOME_SLUG, SLUG_PATH, isSlug, isSlugPath, liveFields, takesSlugPath } from '@velocity-astro/cms-core';
 import { Box, Button, Card, ConfirmDialog, Form, IconButton, Menu, SaveBar, Segmented, Split, Stack, Tag, Text, TextField, Workbench, toast } from '@velocity-astro/cms-ui';
-import { CalendarClock, Copy, Ellipsis, EyeOff, History, Palette, PanelLeftClose, PanelLeftOpen, Redo2, Trash2, Undo2 } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { CalendarClock, Copy, Ellipsis, ExternalLink, EyeOff, History, Palette, PanelLeftClose, PanelLeftOpen, Redo2, Trash2, Undo2 } from 'lucide-react';
+import { useCallback, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router';
 import { paths } from '../../app/paths.js';
 import { AdminRequestError } from '../../client/errors.js';
 import { useCreateEntry, useDuplicateEntry, useSession, usePreviewEntry, usePublishEntry, useTrashEntry, useUnpublishEntry, useUpdateEntry } from '../../client/queries.js';
 import { HistoryDialog } from './HistoryDialog.js';
 import { ScheduleDialog, scheduledFor } from './ScheduleDialog.js';
 import { FieldGrid, PageFocusProvider, useControlFor } from '../../fields/index.js';
-import { entryState, entryTitle, languageName, localized, sameData, withValue, type EntryState } from '../../lib/content.js';
+import { entryAddress, entryState, entryTitle, languageName, localized, sameData, withValue, type EntryState } from '../../lib/content.js';
 import { openPreviewTab } from '../../lib/preview-tab.js';
+import { openSite } from '../../lib/open-site.js';
 import { relativeTime } from '../../lib/relative-time.js';
 import { slugify } from '../../lib/slug.js';
 import { useHistory } from '../../lib/use-history.js';
 import { useLeaveGuard } from '../../lib/use-leave-guard.js';
+import { useSaveKey } from '../../lib/use-save-key.js';
 import { useUndoKeys } from '../../lib/use-undo-keys.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 import { PluginBoundary } from '../../plugins/PluginBoundary.js';
@@ -31,6 +34,9 @@ const STATE_TONE = { draft: 'neutral', scheduled: 'info', published: 'success', 
 type Action = 'save' | 'publish' | 'unpublish' | 'preview' | 'trash' | 'duplicate';
 
 const NO_PROBLEMS: ReadonlyMap<string, string> = new Map();
+/** How the address says the page has the whole window. */
+const VIEW = 'view';
+const VISUAL = 'visual';
 
 export interface EntryFormProps {
   readonly type: ContentTypeDef;
@@ -79,7 +85,36 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   const [isShowingHistory, setShowingHistory] = useState(false);
   const [isScheduling, setScheduling] = useState(false);
   // The visual editor: the page has the whole window, and the form is a panel at its side.
-  const [isVisual, setVisual] = useState(false);
+  // Which of the two is part of the address, so a reload keeps it, the browser's way back leads
+  // from the page to the form, and the entry's other language opens the same way.
+  const [address, setAddress] = useSearchParams();
+  const navigate = useNavigate();
+  const isVisual = address.get(VIEW) === VISUAL;
+  const openedHere = useRef(false);
+  const setVisual = (to: boolean) => {
+    if (to === isVisual) return;
+    if (to) {
+      openedHere.current = true;
+      setAddress((before) => {
+        const next = new URLSearchParams(before);
+        next.set(VIEW, VISUAL);
+        return next;
+      });
+    } else if (openedHere.current) {
+      // Opened from the form on this screen: the way back is the browser's own.
+      openedHere.current = false;
+      void navigate(-1);
+    } else {
+      setAddress(
+        (before) => {
+          const next = new URLSearchParams(before);
+          next.delete(VIEW);
+          return next;
+        },
+        { replace: true },
+      );
+    }
+  };
   const [isFormAway, setFormAway] = useState(true);
   const [pageWidth, setPageWidth] = useState<PageWidth>('full');
   // The site's theme, tried on the page beside the form: what is chosen and not published, and whether its card is in view.
@@ -225,6 +260,11 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   }
 
   const isBusy = running !== null;
+  // The keys people save with everywhere else save the draft here, from the form and from the page.
+  const saveNow = () => {
+    if (!isBusy && hasChanges) void run('save');
+  };
+  useSaveKey(saveNow);
   // The theme is the whole site's, so choosing it is for those who may publish.
   const canTheme = looks.length > 0 && session.data !== null && session.data !== undefined && session.data.role !== 'author';
   // A step back or forward changes what the form holds, so what the server said of it no longer applies.
@@ -239,7 +279,10 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   }, [stepForward]);
   useUndoKeys(undo, redo);
   // What fewer people come for sits behind one button, so the bar keeps to the main steps.
+  // Where visitors read this entry today, when it is published and has a page of its own.
+  const liveAddress = entry?.status === 'published' ? entryAddress(type, { locale: entry.locale, slug: entry.slug, data: entry.data }) : null;
   const more = [
+    ...(liveAddress !== null ? [{ id: 'view', label: messages.editor.viewOnSite, icon: ExternalLink }] : []),
     ...(entry?.status === 'published' ? [{ id: 'unpublish', label: messages.editor.unpublish, icon: EyeOff }] : []),
     // A single page is its type's one entry: there is no second, and it is taken off the site, not thrown away.
     // Setting a time is a publishing decision, which an author cannot make.
@@ -346,7 +389,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
         <Menu
           trigger={<IconButton label={messages.editor.more} icon={Ellipsis} isDisabled={isBusy} />}
           actions={more}
-          onAction={(id) => (id === 'schedule' ? setScheduling(true) : id === 'history' ? setShowingHistory(true) : id === 'trash' ? setConfirmingTrash(true) : id === 'duplicate' && entry ? void makeCopy(entry.id) : setConfirmingUnpublish(true))}
+          onAction={(id) => (id === 'view' ? openSite(liveAddress ?? '/') : id === 'schedule' ? setScheduling(true) : id === 'history' ? setShowingHistory(true) : id === 'trash' ? setConfirmingTrash(true) : id === 'duplicate' && entry ? void makeCopy(entry.id) : setConfirmingUnpublish(true))}
         />
       )}
       {hasPage && (
@@ -432,6 +475,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
                     also={themed}
                     onUndo={undo}
                     onRedo={redo}
+                    onSave={saveNow}
                   />
                 }
               >

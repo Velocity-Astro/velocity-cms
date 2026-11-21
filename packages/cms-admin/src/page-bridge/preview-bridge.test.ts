@@ -771,6 +771,16 @@ const keys = (target: Element | Document, key: string, held: { ctrlKey?: boolean
 };
 const asked = () => (said as [{ type: string }, string][]).map(([message]) => message.type).filter((type) => type === 'undo' || type === 'redo');
 
+it('says when the keys that save are pressed, and stops the browser saving the page as a file', () => {
+  const saves = () => (said as [{ type: string }, string][]).filter(([message]) => message.type === 'save').length;
+  expect(keys(page.document.body, 's').defaultPrevented).toBe(true);
+  expect(keys(page.document.body, 'S', { ctrlKey: true }).defaultPrevented).toBe(true);
+  expect(saves()).toBe(2);
+  // With Shift it is another key, and the browser's.
+  expect(keys(page.document.body, 's', { metaKey: true, shiftKey: true }).defaultPrevented).toBe(false);
+  expect(saves()).toBe(2);
+});
+
 it('says when the keys for undo and redo are pressed, and takes nothing back itself', () => {
   expect(keys(page.document.body, 'z').defaultPrevented).toBe(true);
   keys(page.document.body, 'z', { metaKey: true, shiftKey: true });
