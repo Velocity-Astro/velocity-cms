@@ -14,6 +14,10 @@ export interface AddressedVersion {
 export const urlPatternFor = (type: Pick<ContentTypeDef, 'urlPattern' | 'localizedUrlPatterns'>, locale: string, defaultLocale: string): string | undefined =>
   locale === defaultLocale ? type.urlPattern : type.localizedUrlPatterns?.[locale];
 
+/** Whether a type's entries have pages of their own on the site: an address pattern in some language. Menus and settings have none. */
+export const hasOwnPages = (type: Pick<ContentTypeDef, 'urlPattern' | 'localizedUrlPatterns'>): boolean =>
+  type.urlPattern !== undefined || Object.keys(type.localizedUrlPatterns ?? {}).length > 0;
+
 /**
  * Where an entry's own page is on the site, as a path that ends in a slash: `/listings/oak-lane/`.
  *

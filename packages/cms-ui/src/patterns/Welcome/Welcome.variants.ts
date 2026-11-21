@@ -3,8 +3,8 @@ export const welcomeInnerClass = 'mx-auto flex max-w-7xl flex-wrap items-center 
 export const welcomeTextClass = 'flex min-w-0 flex-1 basis-96 flex-col gap-4';
 export const welcomeEyebrowClass = 'text-xs font-semibold tracking-widest text-foreground-subtle uppercase';
 export const welcomeTitleClass = 'max-w-2xl font-display text-4xl font-bold tracking-tight text-balance text-foreground md:text-5xl';
-/** The one phrase that matters on the screen, on the brand's colour: the only orange there. */
-export const welcomeMarkClass = 'rounded-md bg-brand-fill px-1.5 text-brand-ink box-decoration-clone';
+/** The one phrase that matters on the screen, in the brand's colour, as a site's own hero sets its words apart: the only orange there. */
+export const welcomeMarkClass = 'bg-transparent text-brand-text';
 export const welcomeDescriptionClass = 'max-w-xl text-lg text-foreground-muted';
 export const welcomeActionsClass = 'flex flex-wrap gap-2 pt-2';
 /** On a phone the words come first and alone: what stands beside them would push the screen's content far down. */

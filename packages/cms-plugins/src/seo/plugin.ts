@@ -1,4 +1,4 @@
-import { ValidationError, definePlugin, liveFields, type ContentTypeDef, type Entry, type PluginContext } from '@velocity-astro/cms-core';
+import { ValidationError, definePlugin, hasOwnPages, liveFields, type ContentTypeDef, type Entry, type PluginContext } from '@velocity-astro/cms-core';
 import { analyse, type SeoConfig, type SeoOverrides } from './analyse.js';
 import { seoEditor, type SeoFinding } from './editor.js';
 
@@ -149,7 +149,8 @@ export const seo = definePlugin({
       const items: SeoFinding[] = [];
       const written = await cms.store.list(WRITTEN);
       let checked = 0;
-      for (const type of await cms.schema.list()) {
+      // Only what has a page of its own is found by a search engine: menus and settings are left out.
+      for (const type of (await cms.schema.list()).filter(hasOwnPages)) {
         const { items: entries } = await cms.content.find(actor, { typeId: type.id, order: 'updated', limit: REVIEWED_PER_TYPE });
         for (const entry of entries) {
           checked += 1;

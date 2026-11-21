@@ -8,9 +8,9 @@ const signedIn = { user: sampleUser, contentTypes: sampleContentTypes, entries: 
 
 it('greets the person and counts where the content stands', async () => {
   renderApp('/', signedIn);
-  // Home opens on its greeting, with what is waiting set apart: two drafts and one entry with changes.
+  // Home opens on its greeting, the person's name set apart, and what is waiting: two drafts and one entry with changes.
   const headline = await screen.findByRole('heading', { level: 1, name: /^Good (morning|afternoon|evening), Dana\. 3 drafts are waiting\.$/ });
-  expect(headline.querySelector('mark')?.textContent).toBe('3 drafts');
+  expect(headline.querySelector('mark')?.textContent).toBe('Dana');
   // Its bar holds no title of its own, so the greeting is the screen's one heading.
   expect(within(screen.getByRole('banner')).queryByRole('heading')).toBeNull();
   expect(within(await screen.findByRole('group', { name: 'Published' })).getByText('2')).toBeTruthy();
@@ -72,7 +72,7 @@ it('says everything is published when nothing is waiting', async () => {
   const published = sampleEntries().filter((entry) => entry.status === 'published' && entry.published?.revision === entry.revision);
   renderApp('/', { ...signedIn, entries: published });
   const headline = await screen.findByRole('heading', { level: 1, name: /Everything is published\.$/ });
-  expect(headline.querySelector('mark')).toBeNull();
+  expect(headline.querySelector('mark')?.textContent).toBe('Dana');
 });
 
 it('says so when nothing has been written yet', async () => {

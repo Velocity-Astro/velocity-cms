@@ -389,7 +389,7 @@
       "layer": "pattern",
       "group": "Page",
       "description": "The top of a screen that greets the person: what matters now in large words, one phrase set apart, what to do first, and the site beside it.",
-      "example": "<Welcome eyebrow=\"Saturday, 21 November\" title=\"Good morning, Dana. 3 drafts are waiting.\" highlight=\"3 drafts\" actions={actions} aside={preview} />",
+      "example": "<Welcome eyebrow=\"Saturday, 21 November\" title=\"Good morning, Dana. 3 drafts are waiting.\" highlight=\"Dana\" actions={actions} aside={preview} />",
       "useInstead": "PageHeader for the top of every other screen.",
       "uses": []
     },

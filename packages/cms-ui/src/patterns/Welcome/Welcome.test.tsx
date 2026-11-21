@@ -11,6 +11,13 @@ it('is the screen\'s heading, with the highlighted words marked where they appea
   expect(screen.getByText('Two are new.')).toBeTruthy();
 });
 
+it('marks the words where they stand whole, so a name is not found inside another word', () => {
+  const { container } = render(<Welcome title="Good afternoon, No." highlight="No" />);
+  expect(container.querySelector('mark')?.textContent).toBe('No');
+  expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Good afternoon, No.');
+  expect(container.querySelector('mark')?.previousSibling?.textContent).toBe('Good afternoon, ');
+});
+
 it('marks nothing when the words are not in the title, or there are none', () => {
   const { container, rerender } = render(<Welcome title="Everything is published." highlight="3 drafts" />);
   expect(container.querySelector('mark')).toBeNull();

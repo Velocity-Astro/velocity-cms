@@ -103,6 +103,8 @@
   --accent: var(--brand-500);
   --accent-hover: var(--brand-600);
   --accent-light: var(--brand-100);
+  /* The brand as words: a heading's set-apart phrase. Over 4.5:1 on the page in both themes. */
+  --brand-text: var(--brand-600);
 
   --muted: var(--gray-100);
   --muted-foreground: var(--gray-500);     /*  5.5:1 on white — WCAG AA  */
@@ -176,6 +178,7 @@
   --ring: var(--gray-0);
 
   --accent-light: var(--brand-900);
+  --brand-text: var(--brand-400);
 
   /* Light red with dark text: 7:1 as a button, and over 6.7:1 as text on dark surfaces. */
   --destructive: oklch(72% 0.17 25);

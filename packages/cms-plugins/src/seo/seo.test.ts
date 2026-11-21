@@ -19,6 +19,7 @@ beforeEach(async () => {
     key: 'listings',
     kind: 'collection',
     label: { en: 'Listings' },
+    urlPattern: '/listings/[slug]',
     fields: [
       { key: 'title', type: 'text', label: { en: 'Title' }, required: true },
       { key: 'description', type: 'text', label: { en: 'Description' } },
@@ -82,6 +83,8 @@ describe('the SEO plugin', () => {
     await settings({ titleSuffix: ' | Lakeshore', maxDescription: 120 });
     await cms.content.create(owner, { typeId: listings.id, locale: 'en', slug: 'farmhouse', data: { [id(listings, 'title')]: 'Farmhouse' } });
     await cms.content.create(owner, { typeId: listings.id, locale: 'en', slug: 'cottage', data: { [id(listings, 'title')]: 'Cottage', [id(listings, 'description')]: 'By the lake.' } });
+    // Notes have no page of their own, so no search engine finds one: the review leaves them out.
+    await cms.content.create(owner, { typeId: notes.id, locale: 'en', slug: 'a-note', data: {} });
 
     const call = (path: string, actor = owner) => cms.plugins.call(actor, 'seo', 'GET', path, { query: {}, body: undefined });
     expect(await call('/config')).toEqual({ titleSuffix: ' | Lakeshore', descriptionKeys: ['description', 'summary', 'excerpt', 'intro'], maxTitle: 60, maxDescription: 120, requireDescription: false });

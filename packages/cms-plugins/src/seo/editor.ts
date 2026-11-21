@@ -12,7 +12,7 @@ export interface SeoFinding {
 }
 
 /**
- * The SEO plugin's part of the editor: a search preview beside every entry, and a screen that
+ * The SEO plugin's part of the editor: a search preview beside every entry that has a page of its own, and a screen that
  * lists what needs attention across the site.
  *
  * This function is sent to the browser as text (see `plugin.ts`), so it must stand alone: it may
@@ -214,6 +214,6 @@ export function seoEditor({ React, ui, client, links, register }: PluginEditorAp
     });
   }
 
-  register.entryPanel({ id: 'preview', title: 'Search preview', Component: SearchPreview });
+  register.entryPanel({ id: 'preview', title: 'Search preview', pagesOnly: true, Component: SearchPreview });
   register.screen({ id: 'review', label: 'SEO', description: 'Titles and descriptions that search engines will show, and which entries still need one.', Component: ReviewScreen });
 }

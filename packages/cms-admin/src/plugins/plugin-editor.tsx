@@ -43,6 +43,8 @@ export interface PluginEntryPanel {
   readonly title: string;
   /** The content types it shows on, by key. Left out, it shows on every entry. */
   readonly types?: readonly string[];
+  /** Shows only on entries that have a page of their own on the site, never on a menu or the settings. */
+  readonly pagesOnly?: boolean;
   readonly Component: ComponentType<PluginEntryPanelProps>;
 }
 
