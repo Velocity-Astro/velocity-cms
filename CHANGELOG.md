@@ -4,6 +4,9 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- History shows saves made in one go as one row that opens, so the saves a draft makes by itself do not bury the ones that matter.
+- On a phone the visual editor's bar is shorter: the widths are left out, and Preview is under the button for more.
+- A section's background shows which swatch is in use before anyone has chosen one, a section's summary no longer shows a picture's file name, and the bar on a section stays under a site's own header.
 - The editor shows its frame and a sign that it is loading while its script is on its way, in place of a blank page.
 - A button pressed on the page (move, copy, remove, a swatch, undo) shows its result about half a second sooner.
 - On Home, a single page such as Navigation is listed by its name, not as "Untitled".
