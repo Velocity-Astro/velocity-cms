@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- The editor works on a phone and a tablet: the menu opens from a button at the top, and every screen's header, buttons and columns fold to fit.
+- "Desktop" beside the form and in the visual editor shows the desktop page, whole and smaller, instead of whatever layout fits the pane. The buttons on the page stay their own size. On a phone the page is tried as a phone shows it.
 - **Home leads to the home page.** The editor's first screen has "Edit the home page", which opens the page at the top of the site in the visual editor, and "View the site". In a list of pages the home page comes first and is marked "Home page", whatever its title says. An entry's menu has "View on the site" once it is published.
 - **The visual editor is part of the address.** A reload stays in it, the browser's Back button leads from it to the form, and the entry's other language opens the same way. Before, a reload dropped to the form and Back left the entry.
 - **Ctrl or Command with S saves the draft**, from the form and from the page, in place of the browser's own "save this page as a file".

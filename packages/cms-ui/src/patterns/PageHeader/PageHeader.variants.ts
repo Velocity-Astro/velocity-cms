@@ -1,2 +1,3 @@
-export const pageHeaderClass = 'flex items-start justify-between gap-6';
-export const pageHeaderActionsClass = 'flex shrink-0 items-center gap-2';
+/** The actions go under the title when the window has no room for them beside it. */
+export const pageHeaderClass = 'flex flex-wrap items-start justify-between gap-x-6 gap-y-4';
+export const pageHeaderActionsClass = 'flex max-w-full shrink-0 flex-wrap items-center gap-2';

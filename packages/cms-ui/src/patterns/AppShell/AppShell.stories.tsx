@@ -38,6 +38,7 @@ const meta = {
     siteName: 'Lakeshore Realty',
     siteDetail: 'Real estate template',
     navLabel: 'Main',
+    menuLabel: 'Open the menu',
     skipLabel: 'Skip to content',
     nav: [
       { id: 'top', items: [{ id: 'home', label: 'Home', href: '#home', icon: House }] },

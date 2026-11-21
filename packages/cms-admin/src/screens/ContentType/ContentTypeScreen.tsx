@@ -162,7 +162,7 @@ function TypeBuilder({ type, holders, fields }: TypeBuilderProps) {
               title={name}
               description={[messages.builder.keyIs(type.key), type.urlPattern ?? messages.builder.noAddress].join(' · ')}
               actions={
-                <Inline gap={2}>
+                <Inline gap={2} wrap>
                   <Button variant="ghost" icon={Archive} onPress={() => setArchiving(true)}>
                     {messages.builder.archive}
                   </Button>

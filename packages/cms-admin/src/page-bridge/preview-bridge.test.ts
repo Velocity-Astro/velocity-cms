@@ -949,3 +949,17 @@ it('comes back where it was when it is drawn again: by the section that was in t
   expect(scrollTo).toHaveBeenCalledWith({ top: 1100, behavior: 'instant' });
 
 });
+
+it('draws its tools larger when the page is shown smaller, so they are the size they always are', () => {
+  hear({ source: 'velocity-cms', type: 'tools', ...TOOLS });
+  hear({ source: 'velocity-cms', type: 'zoom', scale: 0.5 });
+  pointAt('h1');
+  expect($('[data-cms-tools]').style.getPropertyValue('zoom')).toBe('2');
+  // Back at its own size, they are as they were.
+  hear({ source: 'velocity-cms', type: 'zoom', scale: 1 });
+  expect($('[data-cms-tools]').style.getPropertyValue('zoom')).toBe('');
+  // A size that makes no sense is not taken.
+  hear({ source: 'velocity-cms', type: 'zoom', scale: 'huge' });
+  hear({ source: 'velocity-cms', type: 'zoom', scale: 0 });
+  expect($('[data-cms-tools]').style.getPropertyValue('zoom')).toBe('');
+});

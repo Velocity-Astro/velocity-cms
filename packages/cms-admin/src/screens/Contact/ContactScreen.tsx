@@ -87,7 +87,7 @@ function ContactPage({ contact }: { readonly contact: Contact }) {
             title={name}
             {...(contact.name !== undefined && { description: contact.email })}
             actions={
-              <Inline gap={2}>
+              <Inline gap={2} wrap>
                 <Button variant="ghost" icon={UserX} onPress={() => setErasing(true)}>
                   {messages.contacts.erase}
                 </Button>

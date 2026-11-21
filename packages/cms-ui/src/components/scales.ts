@@ -39,7 +39,8 @@ export const paddingX = {
   6: 'px-6',
   8: 'px-8',
   10: 'px-10',
-  12: 'px-12',
+  // A screen's own gutter, which a narrow window cannot spare.
+  12: 'px-4 md:px-12',
 } as const;
 
 export const paddingY = {
@@ -51,7 +52,8 @@ export const paddingY = {
   5: 'py-5',
   6: 'py-6',
   8: 'py-8',
-  10: 'py-10',
+  // A screen's own gutter, which a narrow window cannot spare.
+  10: 'py-6 md:py-10',
   12: 'py-12',
 } as const;
 

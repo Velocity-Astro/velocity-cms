@@ -22,7 +22,7 @@ export const workbenchBodyVariants = cva('flex', {
   defaultVariants: { view: 'beside' },
 });
 
-/** Whole, the form is a panel at the side that scrolls by itself, and slides away to leave the pane the window. */
+/** Whole, the form is a panel at the side that scrolls by itself, and slides away to leave the pane the window. On a phone it is as wide as the window, so away it is simply gone. */
 export const workbenchFormVariants = cva('flex min-w-0 flex-col gap-6', {
   variants: {
     view: {
@@ -31,7 +31,7 @@ export const workbenchFormVariants = cva('flex min-w-0 flex-col gap-6', {
     },
     isAway: { true: '', false: '' },
   },
-  compoundVariants: [{ view: 'whole', isAway: true, class: '-ml-128 invisible' }],
+  compoundVariants: [{ view: 'whole', isAway: true, class: 'invisible max-md:hidden md:-ml-128' }],
   defaultVariants: { view: 'beside', isAway: false },
 });
 

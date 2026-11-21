@@ -1,14 +1,32 @@
 import { cva } from 'class-variance-authority';
 
 /** The page is one quiet surface: the sidebar is part of it, and the screen sits on it in a panel. */
-export const appShellClass = 'flex h-dvh overflow-hidden bg-background-secondary text-foreground';
+/**
+ * From `md` up the navigation is a sidebar beside the screen. On a narrower window (a phone, a
+ * tablet held upright) it is behind a button in a bar across the top, so the screen has the width.
+ */
+export const appShellClass = 'flex h-dvh flex-col overflow-hidden bg-background-secondary text-foreground md:flex-row';
+
+/** The bar across the top of a narrow window: the button that opens the navigation, and the site's name. */
+export const appShellTopClass = 'flex shrink-0 items-center gap-2 px-2 py-1.5 md:hidden';
+export const appShellTopBrandClass = 'flex min-w-0 items-center gap-2';
+export const appShellMenuButtonClass = [
+  'flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-foreground transition-colors motion-fast',
+  'outline-none data-hovered:bg-background-tertiary data-pressed:bg-background-tertiary data-focus-visible:ring-2 data-focus-visible:ring-ring',
+].join(' ');
+/** The navigation of a narrow window: a panel that slides in from the edge the button is on. */
+export const appShellDrawerOverlayClass = 'fixed inset-0 layer-overlay flex bg-scrim motion-scrim';
+export const appShellDrawerClass = 'h-full w-72 max-w-full border-r border-border bg-background-secondary shadow-xl outline-none motion-sheet-start';
+export const appShellDrawerContentClass = 'flex h-full flex-col px-3 py-5 outline-none';
+/** The size of the icon on the button that opens the navigation, in pixels. */
+export const appShellMenuIconSize = 20;
 
 export const appShellSkipClass = [
   'sr-only layer-toast rounded-md bg-primary px-4 py-2 text-base font-medium text-primary-foreground',
   'focus:not-sr-only focus:fixed focus:top-2 focus:left-2',
 ].join(' ');
 
-export const appShellSidebarClass = 'flex w-60 shrink-0 flex-col px-3 py-5';
+export const appShellSidebarClass = 'hidden w-60 shrink-0 flex-col px-3 py-5 md:flex';
 export const appShellBrandClass = 'flex items-center gap-2.5 px-2.5 pb-4';
 export const appShellBrandTextClass = 'min-w-0';
 export const appShellBrandNameClass = 'truncate text-base font-bold text-foreground';
@@ -48,7 +66,8 @@ export const appShellAccountDetailClass = 'truncate text-xs text-foreground-mute
  * get) scrolls with it. Without it such an element is placed against the page and makes the page
  * itself scroll far past the frame.
  */
-export const appShellMainClass = 'relative my-2 mr-2 min-w-0 flex-1 overflow-auto rounded-2xl border border-border bg-background shadow-sm outline-none';
+export const appShellMainClass =
+  'relative min-h-0 min-w-0 flex-1 overflow-auto border-t border-border bg-background outline-none md:my-2 md:mr-2 md:rounded-2xl md:border md:shadow-sm';
 
 /** The id of the main area, which the skip link jumps to. */
 export const appShellMainId = 'main';

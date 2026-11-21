@@ -198,3 +198,23 @@ it('says which swatch of a section was pressed on the page', () => {
   say({ source: 'velocity-cms', type: 'swatch', id: 's1', field: 'tone' });
   expect(onSectionSwatch.mock.calls).toEqual([['s1', 'tone', 'secondary']]);
 });
+
+it('shows a page wider than its pane smaller and whole, at the width of the screen it is tried on', () => {
+  // The pane has 640 of the 1280 a desktop takes.
+  vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(640);
+  vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(500);
+  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
+  const { rerender } = render(example());
+  expect(frame().style.width).toBe('1280px');
+  expect(frame().style.height).toBe('1000px');
+  expect(frame().style.transform).toBe('scale(0.5)');
+  // The page is told, each time it is drawn, so its tools stay the size they are.
+  const post = vi.spyOn(frame().contentWindow as Window, 'postMessage').mockImplementation(() => undefined);
+  say({ source: 'velocity-cms', type: 'ready' });
+  expect(post).toHaveBeenCalledWith({ source: 'velocity-cms', type: 'zoom', scale: 0.5 }, window.location.origin);
+  // A screen the pane has room for is shown at its own size.
+  rerender(example({ width: 'phone' }));
+  expect(frame().style.width).toBe('');
+  expect(post).toHaveBeenLastCalledWith({ source: 'velocity-cms', type: 'zoom', scale: 1 }, window.location.origin);
+  vi.unstubAllGlobals();
+});

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
   pagePreviewBarClass,
@@ -6,7 +6,8 @@ import {
   pagePreviewEmptyClass,
   pagePreviewFrameVariants,
   pagePreviewNoteClass,
-  pagePreviewStageClass,
+  pagePreviewStageVariants,
+  pagePreviewWidths,
   type PagePreviewVariants,
 } from './PagePreview.variants.js';
 
@@ -18,6 +19,8 @@ const SOURCE = 'velocity-cms';
 const OWN = 250;
 /** How close a change of the draft and a section asked for must be to be one act, such as a section moved, in milliseconds. */
 const TOGETHER = 100;
+/** How much of a screen's width a pane must have for the page to be shown at the pane's own width. */
+const NEARLY = 0.9;
 
 interface Said {
   readonly source?: unknown;
@@ -188,6 +191,37 @@ export function PagePreview({ label, address, draft, note, toolbar, action, empt
     return () => clearTimeout(waiting);
   }, [address, draft]);
 
+  // The page is drawn at the width of the screen it is tried on, whatever room the pane has: one
+  // wider than the pane is shown smaller, whole, never as the narrower layout that would fit.
+  const stage = useRef<HTMLDivElement>(null);
+  const [room, setRoom] = useState<{ readonly width: number; readonly height: number } | null>(null);
+  useEffect(() => {
+    const element = stage.current;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+    const measure = () => setRoom({ width: element.clientWidth, height: element.clientHeight });
+    const watching = new ResizeObserver(measure);
+    watching.observe(element);
+    measure();
+    return () => watching.disconnect();
+  }, [address === undefined]);
+  const wanted = pagePreviewWidths[width ?? 'full'];
+  // A pane nearly as wide shows the page at its own width instead: a little narrower reads better than a little smaller.
+  const fits = room === null || room.width <= 0 || room.width >= wanted * NEARLY;
+  const scale = fits ? 1 : room.width / wanted;
+  const isFitted = scale < 1;
+  // A page takes itself to be shown at its own size, so it is told only when that is not so, or no longer so.
+  const told = useRef(1);
+  const zoom = (to: number) => {
+    if (to === told.current) return;
+    told.current = to;
+    frame.current?.contentWindow?.postMessage({ source: SOURCE, type: 'zoom', scale: to }, window.location.origin);
+  };
+  const scaleNow = useRef(scale);
+  useEffect(() => {
+    scaleNow.current = scale;
+    zoom(scale);
+  }, [scale]);
+
   const show = (id: string | undefined, still = false) => {
     if (id !== undefined) frame.current?.contentWindow?.postMessage({ source: SOURCE, type: 'show', id, ...(still && { still }) }, window.location.origin);
   };
@@ -252,6 +286,8 @@ export function PagePreview({ label, address, draft, note, toolbar, action, empt
       }
       if (said.type === 'save') latest.current.onSave?.();
       if (said.type === 'ready') {
+        told.current = 1;
+        zoom(scaleNow.current);
         tell(latest.current.places);
         offer(latest.current.offered);
         // Outlined again, and brought into view only on the first page or when the change that drew this one asked for it.
@@ -279,7 +315,7 @@ export function PagePreview({ label, address, draft, note, toolbar, action, empt
           {toolbar}
         </div>
       )}
-      <div className={pagePreviewStageClass}>
+      <div ref={stage} className={pagePreviewStageVariants({ isFitted })}>
         {address === undefined ? (
           <p className={pagePreviewEmptyClass}>{emptyText}</p>
         ) : (
@@ -291,7 +327,14 @@ export function PagePreview({ label, address, draft, note, toolbar, action, empt
               </form>,
               document.body,
             )}
-            <iframe ref={frame} name={name} title={label} className={pagePreviewFrameVariants({ width })} />
+            <iframe
+              ref={frame}
+              name={name}
+              title={label}
+              className={pagePreviewFrameVariants({ width, isFitted })}
+              // Measured, so it cannot be a class: the page's true width, shown smaller to fit the pane.
+              {...(isFitted && room !== null && { style: { width: `${wanted}px`, height: `${room.height / scale}px`, transform: `scale(${scale})` } })}
+            />
           </>
         )}
       </div>

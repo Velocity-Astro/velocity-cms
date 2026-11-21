@@ -116,7 +116,7 @@ function ContactList() {
           title={messages.contacts.title}
           description={messages.contacts.description}
           actions={
-            <Inline gap={2}>
+            <Inline gap={2} wrap>
               <Segmented
                 label={messages.contacts.view}
                 options={[
@@ -138,8 +138,8 @@ function ContactList() {
         />
         <Stack gap={2}>
           <SearchField label={messages.contacts.search} placeholder={messages.contacts.searchPlaceholder} value={words} onChange={setWords} clearLabel={messages.contacts.clearSearch} />
-          <Inline gap={3} align="end" justify="between">
-            <Inline gap={3} align="end">
+          <Inline gap={3} align="end" justify="between" wrap>
+            <Inline gap={3} align="end" wrap>
               {view === 'list' && (
                 <Select
                   label={messages.contacts.filterStage}
