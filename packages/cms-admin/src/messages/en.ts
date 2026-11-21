@@ -187,6 +187,8 @@ export const en = {
     pageDuplicate: 'Duplicate',
     pageRemove: 'Remove',
     pageAdd: 'Add section',
+    pageReorder: 'Reorder sections',
+    pageReorderDone: 'Done',
     pageAddBefore: 'Add a section above',
     pageAddAfter: 'Add a section below',
     pagePicture: 'Change image',

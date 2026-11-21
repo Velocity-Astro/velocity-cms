@@ -452,19 +452,30 @@ const stacked = () => {
 const mouse = (type: string, target: Element | Document, clientY: number) => target.dispatchEvent(new page.MouseEvent(type, { bubbles: true, cancelable: true, clientY, button: 0 }));
 const moves = () => (said as [{ type: string; id: string; before: string | null }, string][]).map(([message]) => message).filter((message) => message.type === 'move');
 
-it('drags a section by its bar, shows where it would land, and says so when it is let go', () => {
+const rows = () => [...page.document.querySelectorAll<HTMLElement>('[data-cms-stack-row]')].map((row) => row.getAttribute('data-cms-stack-row'));
+
+it('drags a section of the page among the page\'s sections by name, shows where it would land, and says so when it is let go', () => {
   stacked();
   pointAt('[data-cms-section="a"] h2');
   mouse('mousedown', $('[data-cms-tool="drag"]'), 20);
+  expect($('[data-cms-stack]').style.display).toBe('none');
   mouse('mousemove', page.document, 260);
-  // Past the middle of the last section: after it.
-  expect($('[data-cms-drop]').style.display).toBe('block');
-  expect($('[data-cms-drop]').style.top).toBe('300px');
-  mouse('mousemove', page.document, 220);
-  expect($('[data-cms-drop]').style.top).toBe('200px');
-  mouse('mouseup', page.document, 220);
+  // The page gives way to its sections, one row each, and the held one is under the pointer.
+  expect($('[data-cms-stack]').style.display).toBe('block');
+  expect(rows()).toEqual(['a', 'b', 'c']);
+  expect($('[data-cms-stack-held]').textContent).toBe('Part');
+  // Where it is already, there is no line.
+  expect(page.document.querySelector('[data-cms-stack-line]')).toBeNull();
+  // A row is 50 down from the one before: nearly three rows down is after the last.
+  mouse('mousemove', page.document, 400);
+  expect($('[data-cms-stack-line]').getAttribute('data-cms-stack-line')).toBe('3');
+  mouse('mousemove', page.document, 360);
+  expect($('[data-cms-stack-line]').getAttribute('data-cms-stack-line')).toBe('2');
+  mouse('mouseup', page.document, 360);
   expect(moves()).toEqual([{ source: 'velocity-cms', type: 'move', id: 'a', before: 'c' }]);
-  expect($('[data-cms-drop]').style.display).toBe('none');
+  // The rows stay in their new order until the page drawn from it takes their place.
+  expect(rows()).toEqual(['b', 'a', 'c']);
+  expect(page.document.querySelector('[data-cms-stack-held]')).toBeNull();
   // The page itself is as it was: the editor moves the section.
   expect([...page.document.querySelectorAll<HTMLElement>('[data-cms-section]')].map((section) => section.dataset['cmsSection'])).toEqual(['a', 'b', 'c']);
 });
@@ -474,16 +485,53 @@ it('moves nothing for a press that was only a press, a drop where the section al
   pointAt('[data-cms-section="b"] h2');
   mouse('mousedown', $('[data-cms-tool="drag"]'), 120);
   mouse('mouseup', page.document, 121);
+  expect($('[data-cms-stack]').style.display).toBe('none');
   mouse('mousedown', $('[data-cms-tool="drag"]'), 120);
-  mouse('mousemove', page.document, 160);
-  expect($('[data-cms-drop]').style.display).toBe('none');
-  mouse('mouseup', page.document, 160);
+  mouse('mousemove', page.document, 130);
+  mouse('mousemove', page.document, 140);
+  expect($('[data-cms-stack]').style.display).toBe('block');
+  mouse('mouseup', page.document, 140);
+  expect($('[data-cms-stack]').style.display).toBe('none');
+  pointAt('[data-cms-section="b"] h2');
   mouse('mousedown', $('[data-cms-tool="drag"]'), 120);
-  mouse('mousemove', page.document, 10);
-  expect($('[data-cms-drop]').style.display).toBe('block');
+  mouse('mousemove', page.document, 130);
+  mouse('mousemove', page.document, 60);
+  expect($('[data-cms-stack-line]').getAttribute('data-cms-stack-line')).toBe('0');
   page.document.dispatchEvent(new page.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-  mouse('mouseup', page.document, 10);
+  expect($('[data-cms-stack]').style.display).toBe('none');
+  mouse('mouseup', page.document, 60);
   expect(moves()).toEqual([]);
+});
+
+it('opens the page\'s sections by name from the bar, where one is sent a place earlier or later, and stays open until Done', () => {
+  stacked();
+  hear({ source: 'velocity-cms', type: 'tools', labels: { ...TOOLS.labels, reorder: 'Reorder sections', done: 'Done' }, sections: { a: { name: 'Hero' }, b: { name: 'Team' }, c: { name: 'Contact' } } });
+  pointAt('[data-cms-section="b"] h2');
+  expect(toolOf('reorder').title).toBe('Reorder sections');
+  toolOf('reorder').click();
+  expect($('[data-cms-stack]').style.display).toBe('block');
+  expect([...page.document.querySelectorAll('[data-cms-stack-row]')].map((row) => row.textContent)).toEqual(['1Hero', '2Team', '3Contact']);
+  const nudge = (id: string, way: string) => $(`[data-cms-stack-row="${id}"] [data-cms-stack-nudge="${way}"]`) as HTMLButtonElement;
+  // The first goes no earlier.
+  expect(nudge('a', 'up').disabled).toBe(true);
+  nudge('a', 'up').click();
+  nudge('a', 'down').click();
+  nudge('c', 'up').click();
+  expect(moves()).toEqual([
+    { source: 'velocity-cms', type: 'move', id: 'a', before: 'c' },
+    { source: 'velocity-cms', type: 'move', id: 'c', before: 'a' },
+  ]);
+  expect(rows()).toEqual(['b', 'c', 'a']);
+  expect($('[data-cms-stack]').style.display).toBe('block');
+  // A row is dragged too.
+  mouse('mousedown', $('[data-cms-stack-row="b"]'), 100);
+  mouse('mousemove', page.document, 110);
+  mouse('mousemove', page.document, 2000);
+  mouse('mouseup', page.document, 2000);
+  expect(moves().at(-1)).toEqual({ source: 'velocity-cms', type: 'move', id: 'b', before: null });
+  expect(rows()).toEqual(['c', 'a', 'b']);
+  $('[data-cms-stack-done]').click();
+  expect($('[data-cms-stack]').style.display).toBe('none');
 });
 
 const PICTURES = `

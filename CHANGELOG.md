@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **Moving a section shows where it goes.** Dragging a section of a page by its bar now lays the page's sections out by name, one short row each: the one held follows the pointer and a thick line shows where it will land. The bar also has a Reorder button that opens the same list to stay, where a section is dragged or sent a place earlier or later until Done.
+
 ## 0.1.0-beta.7
 
 - **Fixed: `velocity-cms init` kept the whole `cms` folder out of git.** A site's own files there, such as `cms/model.mjs`, were never committed. It now leaves out only the database (`/cms/data.db*`) and uploads (`/cms/media/`). A site set up earlier has `/cms/` in its `.gitignore`: replace that line with those two.
