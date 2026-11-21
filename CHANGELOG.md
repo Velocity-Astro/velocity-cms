@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+## 0.1.0-beta.7
+
 - **Fixed: `velocity-cms init` kept the whole `cms` folder out of git.** A site's own files there, such as `cms/model.mjs`, were never committed. It now leaves out only the database (`/cms/data.db*`) and uploads (`/cms/media/`). A site set up earlier has `/cms/` in its `.gitignore`: replace that line with those two.
 - `velocity-cms init` says how to start the site with the site's own package manager (`pnpm dev`, `yarn dev`), not always `npm run dev`.
 - History shows saves made in one go as one row that opens, so the saves a draft makes by itself do not bury the ones that matter.
