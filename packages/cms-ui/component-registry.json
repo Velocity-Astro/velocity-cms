@@ -365,6 +365,15 @@
       "uses": []
     },
     {
+      "name": "Outline",
+      "layer": "pattern",
+      "group": "Navigation",
+      "description": "The parts of something long, by name and in order, with the current one marked. Choosing one goes to it.",
+      "example": "<Outline title=\"Sections\" items={sections} currentId={current} onChoose={goTo} emptyText=\"No sections yet.\" />",
+      "useInstead": "SectionList to put sections in order and edit them.",
+      "uses": []
+    },
+    {
       "name": "AppShell",
       "layer": "pattern",
       "group": "Page",

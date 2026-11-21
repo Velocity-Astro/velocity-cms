@@ -22,16 +22,19 @@ export const workbenchBodyVariants = cva('flex', {
   defaultVariants: { view: 'beside' },
 });
 
-/** Whole, the form is a panel at the side that scrolls by itself, and slides away to leave the pane the window. On a phone it is as wide as the window, so away it is simply gone. */
+/**
+ * Whole, the form is a panel on the right that scrolls by itself, where what is chosen on the page is edited, and slides away to
+ * leave the pane the window. On a phone it is as wide as the window, so away it is simply gone.
+ */
 export const workbenchFormVariants = cva('flex min-w-0 flex-col gap-6', {
   variants: {
     view: {
       beside: 'xl:w-lg xl:shrink-0',
-      whole: 'w-lg max-w-full shrink-0 overflow-auto border-r border-border bg-background p-4 transition-all motion-slide',
+      whole: 'order-last w-lg max-w-full shrink-0 overflow-auto border-l border-border bg-background p-4 transition-all motion-slide',
     },
     isAway: { true: '', false: '' },
   },
-  compoundVariants: [{ view: 'whole', isAway: true, class: 'invisible max-md:hidden md:-ml-128' }],
+  compoundVariants: [{ view: 'whole', isAway: true, class: 'invisible max-md:hidden md:-mr-128' }],
   defaultVariants: { view: 'beside', isAway: false },
 });
 
@@ -45,5 +48,8 @@ export const workbenchPaneVariants = cva('min-w-0', {
   },
   defaultVariants: { view: 'beside' },
 });
+
+/** Whole, the way around what is made, on the left: from `lg` up, where there is room for three columns. */
+export const workbenchOutlineClass = 'hidden w-60 shrink-0 flex-col overflow-auto border-r border-border bg-background p-3 lg:flex';
 
 export type WorkbenchVariants = VariantProps<typeof workbenchVariants>;

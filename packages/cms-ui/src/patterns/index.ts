@@ -16,3 +16,4 @@ export * from './Workbench/index.js';
 export * from './CommandPalette/index.js';
 export * from './Welcome/index.js';
 export * from './SiteWindow/index.js';
+export * from './Outline/index.js';
