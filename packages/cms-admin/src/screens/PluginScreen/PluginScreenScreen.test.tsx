@@ -60,11 +60,16 @@ it('gives a plugin\'s screen a place in the sidebar, and lets it talk to its own
   const user = userEvent.setup();
   renderApp('/', site({ plugins: [counter()] }), editors);
 
+  // The rail's Plugins opens the first screen a plugin added.
+  await user.click(await screen.findByRole('link', { name: 'Plugins' }));
+  expect(await screen.findByRole('heading', { level: 1, name: 'Counter' })).toBeTruthy();
   await user.click(await screen.findByRole('link', { name: 'Counter' }));
   expect(await screen.findByRole('heading', { level: 1, name: 'Counter' })).toBeTruthy();
-  // Plugins have a section of their own in the menu, after the site's: their screens, then the way to manage them.
-  const links = within(screen.getByRole('navigation', { name: 'Main' })).getAllByRole('link').map((link) => link.textContent);
-  expect(links.slice(-4)).toEqual(['Trash', 'Counter', 'Broken screen', 'Manage plugins']);
+  // Plugins have a section of their own on the rail: their screens, then the way to manage them, in its column.
+  const rail = within(screen.getByRole('navigation', { name: 'Main' })).getAllByRole('link').map((link) => link.textContent);
+  expect(rail.slice(-2)).toEqual(['Plugins', 'Settings']);
+  const links = within(screen.getByRole('navigation', { name: 'Plugins' })).getAllByRole('link').map((link) => link.textContent);
+  expect(links).toEqual(['Counter', 'Broken screen', 'Manage plugins']);
   expect(screen.getByText('How many times the button was pressed.')).toBeTruthy();
   expect(await screen.findByText('Counted 0')).toBeTruthy();
 

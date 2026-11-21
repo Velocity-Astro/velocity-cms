@@ -61,6 +61,25 @@ it('keeps the form and the pane as they are when it takes the whole window and g
   expect(screen.getByRole('button', { name: 'In the form' })).toBe(form);
 });
 
+it('shows the outline on the left only when it has the whole window, and keeps the form as it is', () => {
+  const withOutline = (view: 'beside' | 'whole') => (
+    <Workbench paneLabel="The page" view={view} outline={<p>Every section</p>} outlineLabel="Sections of the page" pane={<p>What it makes</p>}>
+      <button type="button">In the form</button>
+    </Workbench>
+  );
+  const { rerender } = render(withOutline('beside'));
+  const form = screen.getByRole('button', { name: 'In the form' });
+  expect(screen.queryByRole('complementary', { name: 'Sections of the page' })).toBeNull();
+  rerender(withOutline('whole'));
+  const outline = screen.getByRole('complementary', { name: 'Sections of the page' });
+  expect(within(outline).getByText('Every section')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'In the form' })).toBe(form);
+  // The outline comes before the page, from left to right.
+  expect(outline.compareDocumentPosition(screen.getByRole('region', { name: 'The page' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  rerender(withOutline('beside'));
+  expect(screen.getByRole('button', { name: 'In the form' })).toBe(form);
+});
+
 it('keeps the keyboard inside while it has the whole window', async () => {
   const user = userEvent.setup();
   render(whole(false));

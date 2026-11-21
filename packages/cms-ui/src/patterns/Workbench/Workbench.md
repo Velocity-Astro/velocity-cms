@@ -22,8 +22,9 @@ page, so the keyboard and screen readers reach it first; the pane is a named reg
 ## The whole window
 
 `view="whole"` gives the two the whole window, over the editor's frame: `bar` across the top (a
-`SaveBar` with `across="window"`), the pane filling the rest, and the form a panel at the side
-that scrolls by itself. `isFormAway` slides the panel away so the pane has everything. Going from
+`SaveBar` with `across="window"`), `outline` on the left from `lg` up (an `Outline` of the page's
+sections, named by `outlineLabel`), the pane in the middle, and the form a panel on the right
+that scrolls by itself, where what is chosen is edited. `isFormAway` slides the panel away so the pane has everything. Going from
 one view to the other keeps the form and the pane as they are: nothing typed is lost and the pane
 is not made again. While it has the window, the keyboard stays inside it. Always give `bar` a way
 back.

@@ -18,6 +18,8 @@ it('lists what is in the trash with its kind, and restores an entry as a draft, 
   const user = userEvent.setup();
   const { client } = renderApp('/', signedIn());
   await client.trashEntry('e1');
+  // The trash is kept with the content: the rail's Content, then its column.
+  await user.click(await screen.findByRole('link', { name: 'Content' }));
   await user.click(await screen.findByRole('link', { name: 'Trash' }));
   const table = within(await screen.findByRole('grid', { name: 'Trash' }));
   const row = within(table.getByRole('row', { name: /6214 Lakeshore Drive/ }));
@@ -35,6 +37,8 @@ it('deletes for good only after asking', async () => {
   const user = userEvent.setup();
   const { client } = renderApp('/', signedIn('editor'));
   await client.trashEntry('e1');
+  // The trash is kept with the content: the rail's Content, then its column.
+  await user.click(await screen.findByRole('link', { name: 'Content' }));
   await user.click(await screen.findByRole('link', { name: 'Trash' }));
   await user.click(await screen.findByRole('button', { name: 'Delete 6214 Lakeshore Drive for good' }));
   const dialog = within(await screen.findByRole('alertdialog', { name: 'Delete 6214 Lakeshore Drive for good?' }));
@@ -53,6 +57,8 @@ it('lets an author restore, but not delete for good', async () => {
   const user = userEvent.setup();
   const { client } = renderApp('/', signedIn('author'));
   await client.trashEntry('e2');
+  // The trash is kept with the content: the rail's Content, then its column.
+  await user.click(await screen.findByRole('link', { name: 'Content' }));
   await user.click(await screen.findByRole('link', { name: 'Trash' }));
   expect(await screen.findByRole('button', { name: /^Restore / })).toBeTruthy();
   expect(screen.queryByRole('button', { name: /for good$/ })).toBeNull();
@@ -63,6 +69,8 @@ it('says why when an entry cannot be restored, and keeps it in the trash', async
   const { client } = renderApp('/', signedIn());
   const gone = await client.trashEntry('e2');
   await client.createEntry({ type: 'listings', slug: gone.slug, data: {} });
+  // The trash is kept with the content: the rail's Content, then its column.
+  await user.click(await screen.findByRole('link', { name: 'Content' }));
   await user.click(await screen.findByRole('link', { name: 'Trash' }));
   await user.click(await screen.findByRole('button', { name: /^Restore / }));
   expect(await screen.findByText('Not restored')).toBeTruthy();

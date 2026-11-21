@@ -8,7 +8,9 @@ const signedIn = { user: sampleUser, contentTypes: sampleContentTypes, entries: 
 
 it('greets the person and counts where the content stands', async () => {
   renderApp('/', signedIn);
-  expect(await screen.findByRole('heading', { level: 1, name: /^Good (morning|afternoon|evening), Dana$/ })).toBeTruthy();
+  // What is waiting is set apart in the headline: two drafts and one entry with changes not on the site.
+  const headline = await screen.findByRole('heading', { level: 1, name: /^Good (morning|afternoon|evening), Dana\. 3 drafts are waiting\.$/ });
+  expect(headline.querySelector('mark')?.textContent).toBe('3 drafts');
   expect(within(await screen.findByRole('group', { name: 'Published' })).getByText('2')).toBeTruthy();
   expect(within(screen.getByRole('group', { name: 'Drafts' })).getByText('2')).toBeTruthy();
   expect(within(screen.getByRole('group', { name: 'Unpublished changes' })).getByText('1')).toBeTruthy();
@@ -28,12 +30,35 @@ it('lists the latest changes across every type, newest first, and opens one', as
   expect(await screen.findByRole('heading', { level: 1, name: '18 Alder Court' })).toBeTruthy();
 });
 
-it('starts a new entry of a type from its button', async () => {
+it('carries on with the latest entry that is waiting', async () => {
   const user = userEvent.setup();
   renderApp('/', signedIn);
-  await user.click(await screen.findByRole('button', { name: 'Agents' }));
-  expect(await screen.findByRole('region', { name: 'Save and publish' })).toBeTruthy();
-  expect(within(screen.getByRole('region', { name: 'Save and publish' })).getByRole('link', { name: 'Agents' })).toBeTruthy();
+  await user.click(await screen.findByRole('button', { name: 'Continue “18 Alder Court”' }));
+  expect(await screen.findByRole('heading', { level: 1, name: '18 Alder Court' })).toBeTruthy();
+});
+
+it('shows the site as visitors see it, beside the greeting', async () => {
+  renderApp('/', signedIn);
+  const frame = (await screen.findByTitle('The home page of Lakeshore Realty, as visitors see it')) as HTMLIFrameElement;
+  expect(frame.getAttribute('src')).toBe('/');
+  expect(screen.getByRole('link', { name: 'Open the site' })).toBeTruthy();
+});
+
+it('says what came in from the forms, and what the open deals are worth, to those who may read them', async () => {
+  const { unmount } = renderApp('/', signedIn);
+  const inbox = within(await screen.findByRole('region', { name: 'Inbox' }));
+  expect(inbox.getByRole('link', { name: 'All forms' })).toBeTruthy();
+  unmount();
+  renderApp('/', { ...signedIn, user: { ...sampleUser, role: 'author' } });
+  await screen.findByRole('grid', { name: 'Recent changes' });
+  expect(screen.queryByRole('region', { name: 'Inbox' })).toBeNull();
+});
+
+it('says everything is published when nothing is waiting', async () => {
+  const published = sampleEntries().filter((entry) => entry.status === 'published' && entry.published?.revision === entry.revision);
+  renderApp('/', { ...signedIn, entries: published });
+  const headline = await screen.findByRole('heading', { level: 1, name: /Everything is published\.$/ });
+  expect(headline.querySelector('mark')).toBeNull();
 });
 
 it('says so when nothing has been written yet', async () => {

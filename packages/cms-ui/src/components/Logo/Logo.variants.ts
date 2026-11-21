@@ -13,6 +13,15 @@ export const logoVariants = cva('shrink-0', {
 
 /** The top of the mark is the brand colour; the rest follows the text, so it works in the dark. */
 export const logoAccentClass = 'fill-brand-fill';
-export const logoBodyClass = 'fill-foreground';
+/** The rest of the mark: the text's colour on the page, light on the rail, which is dark in both themes. */
+export const logoBodyVariants = cva('', {
+  variants: {
+    tone: {
+      default: 'fill-foreground',
+      rail: 'fill-rail-foreground',
+    },
+  },
+  defaultVariants: { tone: 'default' },
+});
 
-export type LogoVariants = VariantProps<typeof logoVariants>;
+export type LogoVariants = VariantProps<typeof logoVariants> & VariantProps<typeof logoBodyVariants>;

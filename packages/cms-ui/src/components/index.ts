@@ -35,3 +35,4 @@ export * from './Thumbnail/index.js';
 export * from './Toast/index.js';
 export * from './Tooltip/index.js';
 export type { Space } from './scales.js';
+export * from './Meter/index.js';

@@ -1,7 +1,13 @@
 # AppShell
 
-The frame around every screen of the editor: a sidebar with the site's name, the navigation in named groups and the signed-in person,
-and the main area the screen is drawn in. It owns the page's only `main` and `nav` landmarks.
+The frame around every screen of the editor. Down the side, a dark rail of the editor's sections, each an icon with its name in a
+tooltip, and the signed-in person at the bottom. Beside it, when the current section holds places of its own (each kind of content
+under "Content"), a column that lists them under the section's name. Across the top, a bar with the site's name, the search and
+the one or two things a person does from anywhere. Under it, the main area the screen is drawn in.
+
+It owns the page's only `main` landmark, and its navigation: `Main` for the rail, and one named after the section for its column.
+
+On a narrow window the rail and the column are behind a button in the bar: a panel lists every section with its places under it.
 
 ## Use it for
 
@@ -9,30 +15,44 @@ and the main area the screen is drawn in. It owns the page's only `main` and `na
 
 ## Don't use it for
 
-- Screens before sign-in. They have no navigation.
-- A second level of navigation inside a screen: use `Tabs`.
+- Screens before sign-in. They have no navigation: use `AuthShell`.
+- A second level of navigation inside one screen: use `Tabs`. A section's places (`children`) are for places with addresses of their own.
 
 ## Accessibility
 
 The first thing a keyboard reaches is a link that jumps past the navigation to the main area.
-The current screen's link is marked for screen readers, not only by its colour.
+A section on the rail shows only its icon, so its name is its link's words for screen readers and shows in a tooltip on hover and focus.
+The current section and place are marked for screen readers, not only by their colour.
+The search button names its shortcut but does not listen for it: the app does, so the keys work wherever the person is.
 
 ## Example
 
 ```tsx
 <AppShell
-  logo={<Logo label="Velocity" />}
+  logoLabel="Velocity"
   siteName="Lakeshore Realty"
-  siteDetail="Real estate template"
+  siteDetail="lakeshore.example"
   navLabel="Main"
+  menuLabel="Open the menu"
   skipLabel="Skip to content"
+  search={{ label: 'Search, jump to or create anything', shortcut: '⌘K', onPress: openSearch }}
+  actions={<Button icon={Plus}>Create</Button>}
   nav={[
     { id: 'top', items: [{ id: 'home', label: 'Home', href: '/admin', icon: House }] },
     {
-      id: 'content',
-      label: 'Content',
-      items: [{ id: 'listings', label: 'Listings', href: '/admin/content/listings', icon: Building2, isCurrent: true }],
+      id: 'site',
+      items: [
+        {
+          id: 'content',
+          label: 'Content',
+          href: '/admin/content/listings',
+          icon: Layers,
+          isCurrent: true,
+          children: [{ id: 'types', label: 'Collections', items: [{ id: 'listings', label: 'Listings', href: '/admin/content/listings', isCurrent: true, count: '24' }] }],
+        },
+      ],
     },
+    { id: 'admin', place: 'end', items: [{ id: 'settings', label: 'Settings', href: '/admin/settings', icon: Settings }] },
   ]}
   account={{ name: 'Dana Whitfield', detail: 'Owner', label: 'Account', actions: [{ id: 'sign-out', label: 'Sign out' }], onAction }}
 >

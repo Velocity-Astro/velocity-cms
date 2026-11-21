@@ -1,37 +1,61 @@
-import { ChevronsUpDown, Menu as MenuIcon, type LucideIcon } from 'lucide-react';
+import { ChevronsUpDown, Menu as MenuIcon, Search, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button as AriaButton, Dialog as AriaDialog, DialogTrigger, Link, Modal, ModalOverlay } from 'react-aria-components';
+import { Logo } from '../../components/Logo/index.js';
 import { Menu, type MenuAction } from '../../components/Menu/index.js';
+import { Tooltip } from '../../components/Tooltip/index.js';
 import {
-  appShellAccountAvatarClass,
-  appShellAccountClass,
-  appShellAccountLabelClass,
   appShellAccountDetailClass,
   appShellAccountIconSize,
   appShellAccountNameClass,
   appShellAccountTextClass,
-  appShellBrandClass,
-  appShellBrandDetailClass,
-  appShellBrandNameClass,
-  appShellBrandTextClass,
+  appShellBarActionsClass,
+  appShellBarClass,
+  appShellBarLogoClass,
+  appShellBarSiteClass,
+  appShellBarSiteDetailClass,
+  appShellBarSiteNameClass,
+  appShellBarSiteTextClass,
+  appShellBarSpacerClass,
   appShellClass,
+  appShellColumnClass,
+  appShellDrawerAccountClass,
+  appShellDrawerAvatarClass,
+  appShellDrawerChildrenClass,
   appShellDrawerClass,
   appShellDrawerContentClass,
+  appShellDrawerFooterClass,
+  appShellDrawerNavClass,
   appShellDrawerOverlayClass,
-  appShellFooterClass,
   appShellGroupLabelClass,
+  appShellHiddenClass,
   appShellMainClass,
   appShellMainId,
   appShellMenuButtonClass,
   appShellMenuIconSize,
-  appShellNavClass,
+  appShellNavCountClass,
   appShellNavIconSize,
+  appShellNavLabelClass,
   appShellNavLinkVariants,
   appShellNavListClass,
-  appShellSidebarClass,
+  appShellRailAccountClass,
+  appShellRailAvatarClass,
+  appShellRailBadgeClass,
+  appShellRailClass,
+  appShellRailGroupVariants,
+  appShellRailIconSize,
+  appShellRailLabelClass,
+  appShellRailLinkVariants,
+  appShellRailListClass,
+  appShellRailLogoClass,
+  appShellRailNavClass,
+  appShellSearchClass,
+  appShellSearchIconSize,
+  appShellSearchLabelClass,
+  appShellSearchShortcutClass,
+  appShellSectionClass,
+  appShellSectionTitleClass,
   appShellSkipClass,
-  appShellTopBrandClass,
-  appShellTopClass,
 } from './AppShell.variants.js';
 
 export interface AppShellNavItem {
@@ -41,12 +65,21 @@ export interface AppShellNavItem {
   readonly icon?: LucideIcon;
   /** The screen being shown is this one, or inside it. */
   readonly isCurrent?: boolean;
+  /** A short number beside it: how many it holds, or how many are new. */
+  readonly count?: string;
+  /**
+   * The places inside a section, such as each kind of content under "Content". While the section is
+   * the current one they are listed in a column beside the rail, under the section's name.
+   */
+  readonly children?: readonly AppShellNavGroup[];
 }
 
 export interface AppShellNavGroup {
   readonly id: string;
   /** A small heading over the group, such as "Content". The first group usually has none. */
   readonly label?: string;
+  /** `end` puts the group at the bottom of the rail: the sections a person visits least. */
+  readonly place?: 'start' | 'end';
   readonly items: readonly AppShellNavItem[];
 }
 
@@ -61,21 +94,34 @@ export interface AppShellAccount {
   readonly onAction: (id: string) => void;
 }
 
+export interface AppShellSearch {
+  /** What the button says and is called: "Search, jump to or create…". */
+  readonly label: string;
+  /** The keys that open it too, as they are shown: "⌘K". */
+  readonly shortcut?: string;
+  readonly onPress: () => void;
+}
+
 export interface AppShellProps {
-  /** The mark at the top of the sidebar: a `Logo`. */
-  readonly logo?: ReactNode;
-  /** The site's name, at the top of the sidebar. */
+  /** What the mark at the top of the rail stands for, such as "Velocity", for screen readers. */
+  readonly logoLabel: string;
+  /** The site's name, at the start of the bar. */
   readonly siteName: string;
-  /** Under the site's name: its template, or its address. */
+  /** Under the site's name: its address, or its template. */
   readonly siteDetail?: string;
   /** Names the navigation for screen readers, such as "Main". */
   readonly navLabel: string;
+  /** The sections of the rail, in groups. A section may hold places of its own (`children`). */
   readonly nav: readonly AppShellNavGroup[];
   /** The name of the button that opens the navigation on a narrow window, such as "Open the menu". */
   readonly menuLabel: string;
   /** The words of the link that jumps past the navigation, such as "Skip to content". */
   readonly skipLabel: string;
-  /** The signed-in person, at the bottom of the sidebar, with their menu. */
+  /** The button in the middle of the bar that opens the search. */
+  readonly search?: AppShellSearch;
+  /** At the end of the bar: the one or two things a person does from anywhere, such as a `Button` that creates. */
+  readonly actions?: ReactNode;
+  /** The signed-in person, at the bottom of the rail, with their menu. */
   readonly account?: AppShellAccount;
   /** The screen. */
   readonly children: ReactNode;
@@ -90,63 +136,54 @@ const initials = (name: string) =>
     .map((word) => word.charAt(0).toUpperCase())
     .join('');
 
-/** The frame around every screen: the sidebar with its navigation, and the main area. */
-export function AppShell({ logo, siteName, siteDetail, navLabel, nav, menuLabel, skipLabel, account, children }: AppShellProps) {
-  /** The navigation and the account, as the sidebar holds them and as the panel of a narrow window does. There a link also closes the panel. */
-  const navigation = (close?: () => void) => (
-    <>
-      <div className={appShellBrandClass}>
-        {logo}
-        <div className={appShellBrandTextClass}>
-          <div className={appShellBrandNameClass}>{siteName}</div>
-          {siteDetail !== undefined && <div className={appShellBrandDetailClass}>{siteDetail}</div>}
-        </div>
-      </div>
-      <nav aria-label={navLabel} className={appShellNavClass}>
-        {nav.map((group) => (
-          <div key={group.id} role="group" {...(group.label !== undefined && { 'aria-label': group.label })}>
-            {group.label !== undefined && (
-              <div aria-hidden className={appShellGroupLabelClass}>
-                {group.label}
-              </div>
-            )}
-            <ul className={appShellNavListClass}>
-              {group.items.map(({ id, label, href, icon: Icon, isCurrent = false }) => (
-                <li key={id}>
-                  <Link className={appShellNavLinkVariants({ isCurrent })} href={href} {...(isCurrent && { 'aria-current': 'page' })} {...(close && { onPress: close })}>
-                    {Icon && <Icon aria-hidden size={appShellNavIconSize} />}
-                    {label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </nav>
-      {account !== undefined && (
-        <div className={appShellFooterClass}>
-          <Menu
-            placement="top start"
-            actions={account.actions}
-            onAction={account.onAction}
-            trigger={
-              <AriaButton className={appShellAccountClass}>
-                <span className={appShellAccountLabelClass}>{account.label}</span>
-                <span aria-hidden className={appShellAccountAvatarClass}>
-                  {initials(account.name)}
-                </span>
-                <span className={appShellAccountTextClass}>
-                  <span className={appShellAccountNameClass}>{account.name}</span>
-                  {account.detail !== undefined && <span className={appShellAccountDetailClass}>{account.detail}</span>}
-                </span>
-                <ChevronsUpDown aria-hidden size={appShellAccountIconSize} />
-              </AriaButton>
-            }
-          />
+/** One place in a list with its words showing: the column beside the rail, and the panel of a narrow window. */
+function PlaceLink({ item, onPress }: { readonly item: AppShellNavItem; readonly onPress: (() => void) | undefined }) {
+  const { label, href, icon: Icon, isCurrent = false, count } = item;
+  return (
+    <Link className={appShellNavLinkVariants({ isCurrent })} href={href} {...(isCurrent && { 'aria-current': 'page' })} {...(onPress && { onPress })}>
+      {Icon && <Icon aria-hidden size={appShellNavIconSize} />}
+      <span className={appShellNavLabelClass}>{label}</span>
+      {count !== undefined && <span className={appShellNavCountClass}>{count}</span>}
+    </Link>
+  );
+}
+
+/** Groups of places, each under its small heading. */
+function PlaceGroups({ groups, onPress }: { readonly groups: readonly AppShellNavGroup[]; readonly onPress?: () => void }) {
+  return groups.map((group) => (
+    <div key={group.id} role="group" {...(group.label !== undefined && { 'aria-label': group.label })}>
+      {group.label !== undefined && (
+        <div aria-hidden className={appShellGroupLabelClass}>
+          {group.label}
         </div>
       )}
+      <ul className={appShellNavListClass}>
+        {group.items.map((item) => (
+          <li key={item.id}>
+            <PlaceLink item={item} onPress={onPress} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  ));
+}
+
+/**
+ * The frame around every screen: the rail of sections, the places of the current section beside it,
+ * the bar across the top with the search, and the main area.
+ */
+export function AppShell({ logoLabel, siteName, siteDetail, navLabel, nav, menuLabel, skipLabel, search, actions, account, children }: AppShellProps) {
+  const current = nav.flatMap((group) => group.items).find((item) => item.isCurrent === true && (item.children?.length ?? 0) > 0);
+
+  const accountWords = account !== undefined && (
+    <>
+      <span className={appShellHiddenClass}>{account.label}</span>
+      <span aria-hidden className={appShellRailAvatarClass}>
+        {initials(account.name)}
+      </span>
     </>
   );
+
   return (
     <div className={appShellClass}>
       <a
@@ -161,28 +198,153 @@ export function AppShell({ logo, siteName, siteDetail, navLabel, nav, menuLabel,
       >
         {skipLabel}
       </a>
-      <div className={appShellTopClass}>
-        <DialogTrigger>
-          <AriaButton aria-label={menuLabel} className={appShellMenuButtonClass}>
-            <MenuIcon aria-hidden size={appShellMenuIconSize} />
-          </AriaButton>
-          <ModalOverlay isDismissable className={appShellDrawerOverlayClass}>
-            <Modal className={appShellDrawerClass}>
-              <AriaDialog aria-label={menuLabel} className={appShellDrawerContentClass}>
-                {({ close }) => navigation(close)}
-              </AriaDialog>
-            </Modal>
-          </ModalOverlay>
-        </DialogTrigger>
-        <div aria-hidden className={appShellTopBrandClass}>
-          {logo}
-          <div className={appShellBrandNameClass}>{siteName}</div>
+
+      <aside className={appShellRailClass}>
+        <div className={appShellRailLogoClass}>
+          <Logo label={logoLabel} tone="rail" />
         </div>
+        <nav aria-label={navLabel} className={appShellRailNavClass}>
+          {nav.map((group) => (
+            <div key={group.id} role="group" className={appShellRailGroupVariants({ place: group.place })} {...(group.label !== undefined && { 'aria-label': group.label })}>
+              <ul className={appShellRailListClass}>
+                {group.items.map(({ id, label, href, icon: Icon, isCurrent = false, count }) => (
+                  <li key={id}>
+                    <Tooltip content={label} placement="right">
+                      <Link className={appShellRailLinkVariants({ isCurrent })} href={href} {...(isCurrent && { 'aria-current': 'page' })}>
+                        {Icon && <Icon aria-hidden size={appShellRailIconSize} />}
+                        <span className={appShellRailLabelClass}>{label}</span>
+                        {count !== undefined && (
+                          <span aria-hidden className={appShellRailBadgeClass}>
+                            {count}
+                          </span>
+                        )}
+                      </Link>
+                    </Tooltip>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </nav>
+        {account !== undefined && (
+          <Menu
+            placement="top start"
+            actions={account.actions}
+            onAction={account.onAction}
+            trigger={
+              <AriaButton className={appShellRailAccountClass}>
+                {accountWords}
+                <span className={appShellHiddenClass}>
+                  <span>{account.name}</span>
+                  {account.detail !== undefined && <span>{account.detail}</span>}
+                </span>
+              </AriaButton>
+            }
+          />
+        )}
+      </aside>
+
+      {current?.children !== undefined && (
+        <nav aria-label={current.label} className={appShellSectionClass}>
+          <div aria-hidden className={appShellSectionTitleClass}>
+            {current.label}
+          </div>
+          <PlaceGroups groups={current.children} />
+        </nav>
+      )}
+
+      <div className={appShellColumnClass}>
+        <header className={appShellBarClass}>
+          <DialogTrigger>
+            <AriaButton aria-label={menuLabel} className={appShellMenuButtonClass}>
+              <MenuIcon aria-hidden size={appShellMenuIconSize} />
+            </AriaButton>
+            <ModalOverlay isDismissable className={appShellDrawerOverlayClass}>
+              <Modal className={appShellDrawerClass}>
+                <AriaDialog aria-label={menuLabel} className={appShellDrawerContentClass}>
+                  {({ close }) => (
+                    <>
+                      <nav aria-label={navLabel} className={appShellDrawerNavClass}>
+                        {nav.map((group) => (
+                          <div key={group.id} role="group" {...(group.label !== undefined && { 'aria-label': group.label })}>
+                            {group.label !== undefined && (
+                              <div aria-hidden className={appShellGroupLabelClass}>
+                                {group.label}
+                              </div>
+                            )}
+                            <ul className={appShellNavListClass}>
+                              {group.items.map((item) => (
+                                <li key={item.id}>
+                                  <PlaceLink item={item} onPress={close} />
+                                  {item.children !== undefined && item.children.length > 0 && (
+                                    <div className={appShellDrawerChildrenClass}>
+                                      <PlaceGroups groups={item.children} onPress={close} />
+                                    </div>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </nav>
+                      {account !== undefined && (
+                        <div className={appShellDrawerFooterClass}>
+                          <Menu
+                            placement="top start"
+                            actions={account.actions}
+                            onAction={account.onAction}
+                            trigger={
+                              <AriaButton className={appShellDrawerAccountClass}>
+                                <span className={appShellHiddenClass}>{account.label}</span>
+                                <span aria-hidden className={appShellDrawerAvatarClass}>
+                                  {initials(account.name)}
+                                </span>
+                                <span className={appShellAccountTextClass}>
+                                  <span className={appShellAccountNameClass}>{account.name}</span>
+                                  {account.detail !== undefined && <span className={appShellAccountDetailClass}>{account.detail}</span>}
+                                </span>
+                                <ChevronsUpDown aria-hidden size={appShellAccountIconSize} />
+                              </AriaButton>
+                            }
+                          />
+                        </div>
+                      )}
+                    </>
+                  )}
+                </AriaDialog>
+              </Modal>
+            </ModalOverlay>
+          </DialogTrigger>
+          <div className={appShellBarSiteClass}>
+            <span className={appShellBarLogoClass}>
+              <Logo label={logoLabel} size="sm" />
+            </span>
+            <div className={appShellBarSiteTextClass}>
+              <span className={appShellBarSiteNameClass}>{siteName}</span>
+              {siteDetail !== undefined && <span className={appShellBarSiteDetailClass}>{siteDetail}</span>}
+            </div>
+          </div>
+          <span aria-hidden className={appShellBarSpacerClass} />
+          {search !== undefined && (
+            <AriaButton className={appShellSearchClass} onPress={search.onPress}>
+              <Search aria-hidden size={appShellSearchIconSize} />
+              <span className={appShellSearchLabelClass}>
+                {search.label}
+              </span>
+              {search.shortcut !== undefined && (
+                <kbd aria-hidden className={appShellSearchShortcutClass}>
+                  {search.shortcut}
+                </kbd>
+              )}
+            </AriaButton>
+          )}
+          <span aria-hidden className={appShellBarSpacerClass} />
+          {actions !== undefined && <div className={appShellBarActionsClass}>{actions}</div>}
+        </header>
+        <main id={appShellMainId} tabIndex={-1} className={appShellMainClass}>
+          {children}
+        </main>
       </div>
-      <aside className={appShellSidebarClass}>{navigation()}</aside>
-      <main id={appShellMainId} tabIndex={-1} className={appShellMainClass}>
-        {children}
-      </main>
     </div>
   );
 }

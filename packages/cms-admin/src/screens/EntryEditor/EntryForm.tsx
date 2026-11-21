@@ -1,7 +1,7 @@
 import type { ContentTypeDef, Entry, EntryData, FieldDef } from '@velocity-astro/cms-core';
 import { HOME_SLUG, SLUG_PATH, isSlug, isSlugPath, liveFields, takesSlugPath } from '@velocity-astro/cms-core';
 import { Box, Button, Card, ConfirmDialog, Form, IconButton, Menu, SaveBar, Segmented, Split, Stack, Tag, Text, TextField, Workbench, toast } from '@velocity-astro/cms-ui';
-import { CalendarClock, Copy, Ellipsis, ExternalLink, Eye, EyeOff, History, Palette, PanelLeftClose, PanelLeftOpen, Redo2, Trash2, Undo2 } from 'lucide-react';
+import { CalendarClock, Copy, Ellipsis, ExternalLink, Eye, EyeOff, History, Palette, PanelRightClose, PanelRightOpen, Redo2, Trash2, Undo2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { paths } from '../../app/paths.js';
@@ -25,6 +25,7 @@ import { PluginBoundary } from '../../plugins/PluginBoundary.js';
 import { usePluginExtensions } from '../../plugins/plugin-editor.js';
 import { EntryDeals } from './EntryDeals.js';
 import { PagePane, PageWidths, type PageWidth } from './PagePane.js';
+import { SectionOutline } from './SectionOutline.js';
 import { ThemeCard, themeTried, useSiteLooks, type ThemeDraft } from './ThemeCard.js';
 
 const STATE_TONE = { draft: 'neutral', scheduled: 'info', published: 'success', unpublishedChanges: 'warning' } as const satisfies Record<
@@ -496,6 +497,8 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
                 paneLabel={messages.editor.pagePane}
                 view={isVisual ? 'whole' : 'beside'}
                 isFormAway={isFormAway}
+                outline={<SectionOutline onChosen={() => setFormAway(false)} />}
+                outlineLabel={messages.editor.outlineLabel}
                 bar={
                   <SaveBar
                     across="window"
@@ -507,7 +510,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
                       <>
                         <IconButton
                           label={isFormAway ? messages.editor.visualShowForm : messages.editor.visualHideForm}
-                          icon={isFormAway ? PanelLeftOpen : PanelLeftClose}
+                          icon={isFormAway ? PanelRightOpen : PanelRightClose}
                           onPress={() => setFormAway(!isFormAway)}
                         />
                         {/* A phone tries the page as a phone, and has no room to try another. */}

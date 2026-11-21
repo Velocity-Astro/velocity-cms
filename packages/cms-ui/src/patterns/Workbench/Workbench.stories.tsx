@@ -3,6 +3,7 @@ import { Button } from '../../components/Button/index.js';
 import { Card } from '../../components/Card/index.js';
 import { Text } from '../../components/Text/index.js';
 import { TextField } from '../../components/TextField/index.js';
+import { Outline } from '../Outline/index.js';
 import { Workbench } from './Workbench.js';
 
 const meta = {
@@ -36,8 +37,21 @@ export const Default: Story = {};
 
 const bar = <Button variant="secondary">Back to the form</Button>;
 
-/** With the whole window: the bar across the top, the form a panel at the side. */
-export const Whole: Story = { tags: ['!autodocs'], args: { view: 'whole', bar } };
+const outline = (
+  <Outline
+    title="Sections"
+    emptyText="No sections yet."
+    currentId="s1"
+    onChoose={() => undefined}
+    items={[
+      { id: 's1', label: 'Page opening' },
+      { id: 's2', label: 'Text' },
+    ]}
+  />
+);
+
+/** With the whole window: the bar across the top, the outline on the left, the form a panel on the right. */
+export const Whole: Story = { tags: ['!autodocs'], args: { view: 'whole', bar, outline, outlineLabel: 'Sections of the page' } };
 
 /** The panel put away, so the pane has everything. */
 export const WholeWithTheFormAway: Story = { tags: ['!autodocs'], args: { view: 'whole', bar, isFormAway: true } };

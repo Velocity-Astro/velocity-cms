@@ -162,6 +162,24 @@ it('gives the page the whole window, and brings the form back for what cannot be
   expect((draft().data['f-body'] as { data: Record<string, unknown> }[])[0]?.data['bf-hero-title']).toBe('Typed in the window');
 });
 
+it('lists the page\'s sections beside it in the visual editor, and goes to the one chosen', async () => {
+  const user = userEvent.setup();
+  renderApp('/content/pages/p1?view=visual', site());
+  const bar = within(await screen.findByRole('region', { name: 'Save and publish' }));
+  const outline = within(await screen.findByRole('complementary', { name: 'Sections of the page' }));
+  const list = await outline.findByRole('listbox', { name: 'Sections' });
+  await waitFor(() => expect(within(list).getAllByRole('option').map((option) => option.textContent)).toEqual(['Page opening', 'Text', 'Map']));
+  // The form starts put away, and comes back with the section chosen open in it.
+  expect(bar.getByRole('button', { name: 'Show the form' })).toBeTruthy();
+  await user.click(within(list).getByRole('option', { name: 'Text' }));
+  expect(await bar.findByRole('button', { name: 'Hide the form' })).toBeTruthy();
+  expect(within(list).getByRole('option', { name: 'Text' }).getAttribute('aria-selected')).toBe('true');
+  // A section pressed on the page is marked in the outline too.
+  await say({ source: 'velocity-cms', type: 'ready' });
+  await say({ source: 'velocity-cms', type: 'section', id: 's1' });
+  await waitFor(() => expect(within(list).getByRole('option', { name: 'Page opening' }).getAttribute('aria-selected')).toBe('true'));
+});
+
 it('keeps the whole window through a reload, and the browser\'s way back leads to the form', async () => {
   const user = userEvent.setup();
   // The address says which of the two it is, so it opens that way.
