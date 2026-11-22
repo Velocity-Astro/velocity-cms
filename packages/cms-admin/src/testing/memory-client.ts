@@ -62,8 +62,9 @@ import {
   InMemoryMediaStore,
   InMemorySchemaRepository,
 } from '@velocity-astro/cms-core/in-memory';
-import type { AdminClient, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from '../client/admin-client.js';
+import type { AccessToken, AdminClient, MadeAccessToken, NewAccessToken, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from '../client/admin-client.js';
 import { MemoryPeople } from './memory-people.js';
+import { MemoryTokens } from './memory-tokens.js';
 import { MemoryChallengeRoom, MemoryMailRoom, MemoryStorageRoom } from './memory-mail.js';
 import { AdminRequestError, type RequestErrorCode } from '../client/errors.js';
 
@@ -147,6 +148,7 @@ export class MemoryAdminClient implements AdminClient {
   /** The challenge service: never reached, and the checks of the keys asked for are counted. */
   readonly challenge = new MemoryChallengeRoom();
   readonly #people: MemoryPeople;
+  readonly #tokens: MemoryTokens;
   /** Settles once the content given to the constructor is in place. Every request waits for it. */
   readonly #ready: Promise<void>;
   readonly #delay: number;
@@ -160,6 +162,7 @@ export class MemoryAdminClient implements AdminClient {
     this.#delay = options.delay ?? 0;
     this.#shown = options.showUploads === true ? new Map() : null;
     this.#people = new MemoryPeople(options.people ?? (options.user ? [options.user] : []));
+    this.#tokens = new MemoryTokens(this.#people);
     const types = new InMemorySchemaRepository();
     const entries = new InMemoryEntryRepository();
     const storage = { files: new InMemoryMediaRepository(), store: new InMemoryMediaStore() };
@@ -568,6 +571,18 @@ export class MemoryAdminClient implements AdminClient {
 
   removePerson(id: string): Promise<void> {
     return this.#request((actor) => this.#people.remove(actor, id));
+  }
+
+  listTokens(): Promise<readonly AccessToken[]> {
+    return this.#request((actor) => this.#tokens.listTokens(actor));
+  }
+
+  createToken(token: NewAccessToken): Promise<MadeAccessToken> {
+    return this.#request((actor) => this.#tokens.createToken(actor, token));
+  }
+
+  revokeToken(id: string): Promise<void> {
+    return this.#request((actor) => this.#tokens.revokeToken(actor, id));
   }
 
   /** The name of every passkey the person has, in the order they were added. */

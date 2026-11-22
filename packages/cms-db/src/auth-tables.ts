@@ -102,3 +102,29 @@ export const authPasskey = sqliteTable(
   },
   (table) => [index('auth_passkey_user_id').on(table.userId), index('auth_passkey_credential_id').on(table.credentialID)],
 );
+
+/**
+ * Access tokens: how an agent, a script or the `velocity-cms` command reaches the API without a
+ * browser. Only a hash of each is kept; the token itself is shown once, when it is made. A token
+ * acts as an editor or an author, publishes and reads personal data only when its owner allowed
+ * it, and stops working when it ends, when it is taken away, or when the person who made it can
+ * no longer manage people. One made from the command line belongs to nobody (`user_id` is null).
+ */
+export const authToken = sqliteTable(
+  'auth_token',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    hash: text('hash').notNull().unique(),
+    /** The token's last four characters, so a person can tell one from another. */
+    hint: text('hint').notNull(),
+    role: text('role').notNull(),
+    canPublish: integer('can_publish', { mode: 'boolean' }).default(false).notNull(),
+    personalData: integer('personal_data', { mode: 'boolean' }).default(false).notNull(),
+    userId: text('user_id').references(() => authUser.id, { onDelete: 'cascade' }),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+    lastUsedAt: integer('last_used_at', { mode: 'timestamp_ms' }),
+    createdAt: createdAt(),
+  },
+  (table) => [index('auth_token_user_id').on(table.userId)],
+);

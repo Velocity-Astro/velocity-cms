@@ -1,6 +1,6 @@
 import { MutationCache, QueryCache, QueryClient, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FormsSettingsChanges, GeneralSettingsChanges, EmailSettingsChanges, StorageSettingsChanges, ContactImportReport, ContactImportRow, ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, DealChanges, NewDeal, Page, PipelineChanges, CustomFieldsChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity-astro/cms-core';
-import type { ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, ImageList, NewEntry, NewPerson, NewType, NewTypeField, SubmissionListQuery } from './admin-client.js';
+import type { ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, ImageList, NewAccessToken, NewEntry, NewPerson, NewType, NewTypeField, SubmissionListQuery } from './admin-client.js';
 import { AdminRequestError } from './errors.js';
 import { useClient } from './client-context.js';
 
@@ -15,6 +15,7 @@ const keys = {
   fieldTypes: ['field-types'] as const,
   images: ['images'] as const,
   people: ['people'] as const,
+  tokens: ['tokens'] as const,
   passkeys: ['passkeys'] as const,
   plugins: ['plugins'] as const,
   pluginEditors: ['plugin-editors'] as const,
@@ -793,6 +794,27 @@ export function useChangePersonRole() {
 export function useRemovePerson() {
   const client = useClient();
   return useMutation({ mutationFn: (id: string) => client.removePerson(id), onSuccess: usePeopleChanged() });
+}
+
+export function useTokens() {
+  const client = useClient();
+  return useQuery({ queryKey: keys.tokens, queryFn: () => client.listTokens() });
+}
+
+/** What every change to the access tokens does afterwards: read the list again. */
+function useTokensChanged() {
+  const cache = useQueryClient();
+  return () => void cache.invalidateQueries({ queryKey: keys.tokens });
+}
+
+export function useCreateToken() {
+  const client = useClient();
+  return useMutation({ mutationFn: (token: NewAccessToken) => client.createToken(token), onSuccess: useTokensChanged() });
+}
+
+export function useRevokeToken() {
+  const client = useClient();
+  return useMutation({ mutationFn: (id: string) => client.revokeToken(id), onSuccess: useTokensChanged() });
 }
 
 export function usePlugins() {

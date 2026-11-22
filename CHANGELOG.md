@@ -4,6 +4,12 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **Rules and skills for AI coding agents.** `velocity-cms init` now writes `.agents/cms.md`, the CMS's rules for an agent changing a site, and nine `cms-*` skills (add the CMS to a site, add a content type, a section, a form or a plugin, connect a page, import content, set up the CRM, deploy) in `.agents/skills/` and `.claude/skills/`, and points `AGENTS.md` at them. `velocity-cms agents` brings them up to date after an upgrade and leaves the site's own skills alone.
+- **`velocity-cms check`** looks at a site the way a reviewer would: pages that read the CMS but are built ahead of time (directly or through their layout), a block with no component or a component with no block, a section that offers a form and never draws one, reading around the helpers, a missing secret, adapter, address or cache tag, `.env` in git, and old agent rules. Each finding names the file, the rule and the fix, and an error exits with 1.
+- **Access tokens.** An owner makes one under Settings, Access tokens, or with `velocity-cms token "<what it is for>" --save`. A token acts as an editor or an author, writes drafts unless it may publish, sees contacts and submissions only when allowed, lasts up to a year and can be taken away at once. Only a hash of it is kept.
+- **Content from the command line:** `velocity-cms types`, `entries`, `entry`, `create`, `update`, `publish`, `sections`, `upload`, `forms`, `submissions`, `pipeline`, `export`, and `import` from a JSON file, a Markdown file or a folder of them (front matter by field key, the text into the formatted text field, local pictures uploaded, old slugs kept).
+- **An MCP server on every site,** at `/api/cms/mcp` with a token, and `velocity-cms mcp` for an agent on the same computer. Its tools read and write entries by field key, build pages from the sections the template allows (add, change, move and remove a section, refusing a block, a field or a look the template does not have), publish, schedule, preview, and work with forms, contacts, the pipeline and deals when the token may. Formatted text can be written as `{ "markdown": "..." }`.
+
 ## 0.1.0-beta.10
 
 - **The editor opens on the Velocity mark.** In place of a small spinner in the corner, the mark sits in the middle of the screen, its three facets arriving in grey and taking their colour, from the first moment the page arrives until the editor's first screen is ready, then it fades. People who ask for less motion see the mark still.

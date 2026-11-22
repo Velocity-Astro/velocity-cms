@@ -26,6 +26,7 @@ The demo is a real estate site on the CMS, with one click into its editor. Every
 | **Plugins** | A plugin API with settings, secrets and retried background work. Five come with it, off until an owner switches one on: SEO, Webhooks, and the experimental Mailchimp, Slack and HubSpot. |
 | **People** | Sign-in by email link or passkey, no passwords. Owner, editor and author roles. Invitations. |
 | **Editor** | A home that says what is waiting, one bar at the top of every screen, search with Ctrl or Command and K, light and dark, and a layout that fits a phone. |
+| **AI agents** | Rules and skills for coding agents, installed into every site and kept to the CMS's version. A `check` command that names each rule a site breaks and how to fix it. Access tokens, content commands and an MCP server that builds pages from the template's own sections. |
 | **Site** | Live pages from a cache that a publish clears. Search and the sitemap follow. A fully static build is an option. |
 
 ## A look around
@@ -52,6 +53,15 @@ npx velocity-cms init you@example.com "Your Name"
 It installs the CMS, writes a secret to `.env`, keeps it out of git, adds `velocityCms()` to the Astro config and makes you the owner. It prints a link that signs you in at `/admin`. It can be run again and changes nothing that is there. What a site then needs is what the starter has: a description of its content (`cms/model.mjs`), a route that draws pages, and a component for each kind of section. The [docs](https://docs.deployvelocity.com/cms/install/) walk through each, and [Converting a template](docs/converting-a-template.md) takes an existing Astro site there step by step, for a person or a coding agent.
 
 A deployed site needs `VELOCITY_CMS_SECRET` and its address (`site` in the Astro config, or `VELOCITY_CMS_ORIGIN`) on the host, and a database: a file on a machine that keeps its disk, or a hosted libSQL database (`VELOCITY_CMS_DATABASE_URL`, `VELOCITY_CMS_DATABASE_TOKEN`) anywhere else. Node on a server and Vercel are tried. Netlify and Cloudflare are not yet.
+
+## Working with an AI agent
+
+`init` writes the CMS's rules for coding agents (`.agents/cms.md`) and nine skills (`cms-add-section`, `cms-add-form`, `cms-import-content` and the rest) into the site, in both `.agents/skills/` and `.claude/skills/`, and points `AGENTS.md` at them. `npx velocity-cms agents` brings them up to date after an upgrade, and `npx velocity-cms check` names every rule the site breaks, the file, and the fix.
+
+To let an agent work with the content itself, make an access token in the editor (Settings, Access tokens) or with `npx velocity-cms token "Claude on my laptop" --save`. A token acts as an editor or an author, writes drafts unless it may publish, and sees contacts and submissions only when it is allowed personal data. Then:
+
+- `npx velocity-cms entries pages`, `create`, `update`, `publish`, `import`, `export` and `upload` work over the site's API, on this computer or the live site.
+- Every site serves an MCP server at `/api/cms/mcp`, for an agent that speaks HTTP with the token as a bearer. `npx velocity-cms mcp` is the same server on standard input and output. Its tools build a page only from the sections the template allows, with their own fields and named looks, so an agent cannot make a page the template does not draw.
 
 ## Run the starter
 

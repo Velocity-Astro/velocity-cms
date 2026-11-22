@@ -1,4 +1,4 @@
-export { AccessControl, ROLES, type Actor, type Permission, type Role } from './access.js';
+export { AccessControl, ROLES, TOKEN_ROLES, permissionsOf, tokenPermissions, type Actor, type Permission, type Role, type TokenAllowances } from './access.js';
 export { createCms, type Cms, type CmsOptions } from './cms.js';
 export {
   CmsError,
@@ -43,6 +43,7 @@ export {
   fromPlainText,
   isEmptyRichText,
   isSafeLink,
+  richTextFromMarkdown,
   richTextHtml,
   richTextParagraphs,
   richTextSchema,
@@ -179,7 +180,7 @@ export {
 } from './plugin.js';
 export { HOME_SLUG, MAX_SLUG_LENGTH, MAX_SLUG_PARTS, SLUG_PATH_NAME, isSlug, isSlugPath, takesSlugPath } from './slug.js';
 export { MARK_CLOSE, MARK_OPEN, escapeHtml, markedExcerpt, searchWords } from './search-text.js';
-export { buildFieldsSchema, toPublicData, toStoredData, validateData } from './schema-builder.js';
+export { buildFieldsSchema, fromStoredData, toPublicData, toStoredData, validateData } from './schema-builder.js';
 export {
   ContentService,
   SLUG_PATH,

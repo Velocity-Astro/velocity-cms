@@ -92,6 +92,7 @@ export class EditorHost {
       cms,
       authenticator: this.auth,
       people: this.auth,
+      tokens: this.auth,
       basePath: apiPath,
       ...(options.onFault && { onFault: options.onFault }),
     });

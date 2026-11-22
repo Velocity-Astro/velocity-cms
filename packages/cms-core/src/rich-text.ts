@@ -139,3 +139,100 @@ export function richTextParagraphs(text: RichText): string[] {
 
 /** Whether there is anything to read in it. */
 export const isEmptyRichText = (text: RichText): boolean => richTextParagraphs(text).length === 0;
+
+/**
+ * Markdown, as an agent, an import or a person writes it, turned into formatted text. Only what
+ * the format keeps is read: paragraphs, headings (`#` to `###`, kept at level 2 or 3), quotes,
+ * bulleted and numbered lists (nested by indenting), bold, italics and links. Anything else is
+ * kept as its words, except pictures, which formatted text cannot hold and are left out. A link
+ * that is not safe keeps its words and loses the link.
+ */
+export function richTextFromMarkdown(markdown: string): RichText {
+  return { type: 'doc', content: markdownBlocks(markdown.replace(/\r\n?/g, '\n').split('\n')) };
+}
+
+const LIST_ITEM = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
+
+function markdownBlocks(lines: readonly string[]): RichTextBlock[] {
+  const blocks: RichTextBlock[] = [];
+  let paragraph: string[] = [];
+  const flush = () => {
+    const text = paragraph.join('\n').trim();
+    const content = text === '' ? [] : markdownInline(text);
+    if (content.length > 0) blocks.push({ type: 'paragraph', content });
+    paragraph = [];
+  };
+  for (let at = 0; at < lines.length; at++) {
+    const line = lines[at] ?? '';
+    const heading = /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
+    if (line.trim() === '') {
+      flush();
+    } else if (heading) {
+      flush();
+      blocks.push({ type: 'heading', attrs: { level: (heading[1]?.length ?? 2) >= 3 ? 3 : 2 }, content: markdownInline(heading[2] ?? '') });
+    } else if (/^\s*>/.test(line)) {
+      flush();
+      const quoted: string[] = [];
+      while (at < lines.length && /^\s*>/.test(lines[at] ?? '')) quoted.push((lines[at++] ?? '').replace(/^\s*>\s?/, ''));
+      at--;
+      blocks.push({ type: 'blockquote', content: markdownBlocks(quoted) });
+    } else if (LIST_ITEM.test(line)) {
+      flush();
+      const taken: string[] = [];
+      while (at < lines.length && (LIST_ITEM.test(lines[at] ?? '') || /^\s{2,}\S/.test(lines[at] ?? ''))) taken.push(lines[at++] ?? '');
+      at--;
+      blocks.push(markdownList(taken));
+    } else if (/^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
+      flush();
+    } else {
+      paragraph.push(line);
+    }
+  }
+  flush();
+  return blocks;
+}
+
+function markdownList(lines: readonly string[]): RichTextBlock {
+  const first = LIST_ITEM.exec(lines[0] ?? '');
+  const indent = first?.[1]?.length ?? 0;
+  const ordered = /\d/.test(first?.[2] ?? '');
+  const items: { text: string; inner: string[] }[] = [];
+  for (const line of lines) {
+    const item = LIST_ITEM.exec(line);
+    if (item && (item[1]?.length ?? 0) <= indent) items.push({ text: item[3] ?? '', inner: [] });
+    else items.at(-1)?.inner.push(line.slice(Math.min(indent + 2, line.length - line.trimStart().length)));
+  }
+  return {
+    type: ordered ? 'orderedList' : 'bulletList',
+    content: items.map(({ text, inner }) => ({ type: 'listItem', content: [{ type: 'paragraph', content: markdownInline(text) }, ...markdownBlocks(inner)] })),
+  };
+}
+
+function markdownInline(text: string): RichTextInline[] {
+  const parts: RichTextInline[] = [];
+  const add = (words: string, marks: readonly RichTextMark[]) => {
+    const lines = words.split('\n');
+    lines.forEach((line, index) => {
+      if (index > 0) parts.push({ type: 'hardBreak' });
+      if (line !== '') parts.push(marks.length > 0 ? { type: 'text', text: line, marks } : { type: 'text', text: line });
+    });
+  };
+  const walk = (rest: string, marks: readonly RichTextMark[]) => {
+    const pattern = /!\[[^\]]*\]\([^)]*\)|\[([^\]]+)\]\(([^)\s]+)\)|\*\*(.+?)\*\*|__(.+?)__|\*(.+?)\*|_(.+?)_|`([^`]+)`/;
+    while (rest !== '') {
+      const found = pattern.exec(rest);
+      if (!found) return add(rest, marks);
+      add(rest.slice(0, found.index), marks);
+      const [, label, href, strong, strongToo, em, emToo, code] = found;
+      if (found[0].startsWith('![')) {
+        // A picture has no place in formatted text: it is left out, and an import says so.
+      } else if (label !== undefined && href !== undefined) walk(label, isSafeLink(href) ? [...marks, { type: 'link', attrs: { href } }] : marks);
+      else if (strong !== undefined || strongToo !== undefined) walk(strong ?? strongToo ?? '', [...marks, { type: 'bold' }]);
+      else if (em !== undefined || emToo !== undefined) walk(em ?? emToo ?? '', [...marks, { type: 'italic' }]);
+      else add(code ?? '', marks);
+      rest = rest.slice(found.index + found[0].length);
+    }
+  };
+  walk(text, []);
+  return parts;
+}

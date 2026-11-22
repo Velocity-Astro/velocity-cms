@@ -428,6 +428,18 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       expect(await client.listPeople()).toHaveLength(1);
     });
 
+    it('makes access tokens for agents, shows each once, lists them and takes them away', async () => {
+      expect(await client.listTokens()).toEqual([]);
+      const { token, secret } = await client.createToken({ name: 'Claude', role: 'editor', publish: false, personalData: false, days: 30 });
+      expect(secret).toMatch(/^vcms_/);
+      expect(token).toMatchObject({ name: 'Claude', role: 'editor', publish: false, personalData: false, hint: secret.slice(-4), madeBy: 'Dana' });
+      expect(await client.listTokens()).toEqual([token]);
+      await expect(client.createToken({ name: 'All', role: 'owner', publish: true, personalData: true, days: 30 })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['role'] }] });
+      await client.revokeToken(token.id);
+      expect(await client.listTokens()).toEqual([]);
+      await expect(client.revokeToken(token.id)).rejects.toMatchObject({ code: 'not_found' });
+    });
+
     it('lists the site\'s plugins with how each is doing', async () => {
       expect(await client.listPlugins()).toEqual([]);
       const withPlugins = await make({

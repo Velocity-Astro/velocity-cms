@@ -2,14 +2,18 @@ import type { Cms, FormsSettingsChanges, EmailSettingsChanges, StorageSettingsCh
 import { z } from 'zod';
 import type { ApiSession, Authenticator } from './authenticator.js';
 import { ApiError, errorResponse, isFault, json } from './http.js';
+import { McpEndpoint } from './mcp.js';
 import type { People } from './people.js';
 import { Router } from './router.js';
+import type { Tokens } from './tokens.js';
 
 export interface CmsApiOptions {
   readonly cms: Cms;
   readonly authenticator: Authenticator;
   /** Who can sign in. Without it the API has nothing under `/people`. */
   readonly people?: People;
+  /** Access tokens for agents and scripts. Without it the API has nothing under `/tokens`. */
+  readonly tokens?: Tokens;
   /** Where the API is mounted on the site. Defaults to `/api/cms`. */
   readonly basePath?: string;
   /** The language an entry is written in when the request names none. Defaults to `en`. */
@@ -57,6 +61,7 @@ const pluginSwitch = z.strictObject({ enabled: z.boolean() });
 const pluginValues = z.strictObject({ values: z.record(z.string(), z.unknown()) });
 // A secret to save, or `null` to take the saved one away.
 const pluginSecret = z.strictObject({ value: z.string().nullable() });
+const newToken = z.strictObject({ name: z.string().max(200), role: z.string(), publish: z.boolean(), personalData: z.boolean(), days: z.number().int() });
 const newPerson = z.strictObject({ email: z.string(), name: z.string(), role: z.string() });
 const roleChange = z.strictObject({ role: z.string() });
 const words = z.record(z.string(), z.string());
@@ -536,6 +541,30 @@ export class CmsApi {
         await contacts.deleteNote(actor(call), param(call, 'id'), param(call, 'note'));
         return json({});
       });
+
+    // The Model Context Protocol, for AI agents: the same services, as tools. See `mcp.ts`.
+    const mcp = new McpEndpoint({ cms: options.cms, defaultLocale });
+    this.#router.add('POST', '/mcp', async (call) => {
+      const who = actor(call);
+      const answer = await mcp.handle(who, await this.#body(call.request));
+      return answer === null ? new Response(null, { status: 202, headers: { 'cache-control': 'no-store' } }) : json(answer);
+    });
+
+    const { tokens } = options;
+    if (tokens) {
+      this.#router
+        .add('GET', '/tokens', async (call) => json({ items: await tokens.listTokens(actor(call)) }))
+        .add('POST', '/tokens', async (call) => {
+          const who = actor(call);
+          const { role, ...token } = parse(newToken, await this.#body(call.request));
+          // Which roles a token may take is the tokens' to say, in their own words.
+          return json(await tokens.createToken(who, { ...token, role: role as Role }), 201);
+        })
+        .add('DELETE', '/tokens/:id', async (call) => {
+          await tokens.revokeToken(actor(call), param(call, 'id'));
+          return json({});
+        });
+    }
 
     const { people } = options;
     if (people) {
