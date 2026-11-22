@@ -1,6 +1,6 @@
 import { MutationCache, QueryCache, QueryClient, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FormsSettingsChanges, GeneralSettingsChanges, EmailSettingsChanges, StorageSettingsChanges, ContactImportReport, ContactImportRow, ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, DealChanges, NewDeal, Page, PipelineChanges, CustomFieldsChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity-astro/cms-core';
-import type { ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, ImageList, NewAccessToken, NewEntry, NewPerson, NewType, NewTypeField, SubmissionListQuery } from './admin-client.js';
+import type { ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, ImageList, NewAccessToken, NewEntry, NewPerson, Profile, ProfileChanges, NewType, NewTypeField, SubmissionListQuery } from './admin-client.js';
 import { AdminRequestError } from './errors.js';
 import { useClient } from './client-context.js';
 
@@ -15,6 +15,8 @@ const keys = {
   fieldTypes: ['field-types'] as const,
   images: ['images'] as const,
   people: ['people'] as const,
+  profile: ['profile'] as const,
+  justUploaded: ['just-uploaded'] as const,
   tokens: ['tokens'] as const,
   passkeys: ['passkeys'] as const,
   plugins: ['plugins'] as const,
@@ -269,8 +271,24 @@ export function useUploadImage() {
       cache.setQueryData<ImageList>(keys.images, (list) =>
         list ? { ...list, items: [...list.items, image].sort((a, b) => a.name.localeCompare(b.name)) } : list,
       );
+      cache.setQueryData<readonly string[]>(keys.justUploaded, (names = []) => [image.name, ...names.filter((name) => name !== image.name)]);
     },
   });
+}
+
+/**
+ * The names of the images uploaded since the editor opened, latest first, so every library can
+ * mark them. They are kept in this tab only, and go when it closes.
+ */
+export function useJustUploaded(): ReadonlySet<string> {
+  const cache = useQueryClient();
+  const names = useQuery({
+    queryKey: keys.justUploaded,
+    queryFn: () => cache.getQueryData<readonly string[]>(keys.justUploaded) ?? [],
+    initialData: [] as readonly string[],
+    staleTime: Infinity,
+  });
+  return new Set(names.data);
 }
 
 /** One entry. Not fetched while `id` is `null`, which is how a new entry's screen asks. */
@@ -810,6 +828,50 @@ export function useInvitePerson() {
 export function useChangePersonRole() {
   const client = useClient();
   return useMutation({ mutationFn: ({ id, role }: { id: string; role: Role }) => client.changePersonRole(id, role), onSuccess: usePeopleChanged() });
+}
+
+export function useRenamePerson() {
+  const cache = useQueryClient();
+  const client = useClient();
+  return useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) => client.renamePerson(id, name),
+    onSuccess: () => {
+      void cache.invalidateQueries({ queryKey: keys.people });
+      // Someone renamed may be the person signed in.
+      void cache.invalidateQueries({ queryKey: keys.session });
+      void cache.invalidateQueries({ queryKey: keys.profile });
+    },
+  });
+}
+
+export function useProfile() {
+  const client = useClient();
+  return useQuery({ queryKey: keys.profile, queryFn: () => client.getProfile() });
+}
+
+/** What every change to the person's own profile does afterwards: show it here, in the frame and on People. */
+function useProfileChanged() {
+  const cache = useQueryClient();
+  return (profile: Profile) => {
+    cache.setQueryData(keys.profile, profile);
+    cache.setQueryData(keys.session, profile);
+    void cache.invalidateQueries({ queryKey: keys.people });
+  };
+}
+
+export function useSaveProfile() {
+  const client = useClient();
+  return useMutation({ mutationFn: (changes: ProfileChanges) => client.saveProfile(changes), onSuccess: useProfileChanged() });
+}
+
+export function useAskEmailChange() {
+  const client = useClient();
+  return useMutation({ mutationFn: (email: string) => client.askEmailChange(email) });
+}
+
+export function useConfirmEmailChange() {
+  const client = useClient();
+  return useMutation({ mutationFn: (token: string) => client.confirmEmailChange(token), onSuccess: useProfileChanged() });
 }
 
 export function useRemovePerson() {

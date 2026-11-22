@@ -1,3 +1,4 @@
+import type { MailBrand } from '@velocity-astro/cms-auth';
 import { FORM_CHALLENGE_FIELD, type ChallengeCheck } from './challenge.js';
 import { NotFoundError, ValidationError, liveFields, type Cms, type DealSubject, type FormDef, type LocalizedText, type Submission } from '@velocity-astro/cms-core';
 
@@ -9,6 +10,9 @@ export const FORM_LOCALE_FIELD = '_locale';
 export const FORM_ABOUT_FIELD = '_about';
 /** Holds the challenge's site key, so the form's script draws the challenge in a template that knows nothing of it. */
 export const FORM_CHALLENGE_KEY_FIELD = '_challenge';
+
+/** Where the editor is served, for the link to a form's submissions in its notice. */
+const ADMIN_PATH = '/admin';
 
 /** The largest post a form may send: plenty for words, far too little to fill a disk. */
 export const MAX_FORM_POST_BYTES = 64 * 1024;
@@ -63,6 +67,10 @@ export interface SubmissionNotice {
   readonly page?: string;
   /** The sender's email, so that a reply to the notice goes to them. */
   readonly replyTo?: string;
+  /** Where the form's submissions are read in the editor. */
+  readonly inbox?: string;
+  /** How the site looks, where the host knows. */
+  readonly brand?: MailBrand;
 }
 
 /** Delivers notices of submissions. A site's mailer that has this method is used for them. */
@@ -230,6 +238,7 @@ export class FormPosts {
       answers,
       ...(submission.page !== undefined && { page: `${origin}${submission.page}` }),
       ...(submission.email !== undefined && { replyTo: submission.email }),
+      inbox: `${origin}${ADMIN_PATH}/forms/${encodeURIComponent(form.id)}`,
     };
     for (const to of form.notify) {
       // The fault is told without the notice: a log is not the place for what a visitor wrote.

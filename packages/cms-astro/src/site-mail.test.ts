@@ -109,3 +109,41 @@ it('calls the site what an owner called it, in every email, and by its own name 
   await mail.sendTest(test);
   expect(sent.map((one) => one.subject)).toEqual(['Your sign-in link for Lakeshore', 'Your sign-in link for Oakhaven Homes', 'New message: Contact on Oakhaven Homes', 'Email works for Oakhaven Homes']);
 });
+
+it('sends a bare address under the sender name an owner saved, else the site\'s name, and keeps a name the server gives', async () => {
+  const bare = site({ env: { VELOCITY_CMS_RESEND_API_KEY: 're_server', VELOCITY_CMS_EMAIL_FROM: 'cms@lakeshore.example' } });
+  await bare.mail.sendSignInLink(signIn);
+  expect(bare.sent.at(-1)?.from).toBe('"Lakeshore" <cms@lakeshore.example>');
+  expect(bare.mail.namesSender()).toBeNull();
+  await bare.cms.settings.saveEmail(owner, { senderName: 'Lakeshore Realty', expectedRevision: 0 });
+  await bare.mail.sendSignInLink(signIn);
+  expect(bare.sent.at(-1)?.from).toBe('"Lakeshore Realty" <cms@lakeshore.example>');
+
+  const named = site({ env: { VELOCITY_CMS_RESEND_API_KEY: 're_server', VELOCITY_CMS_EMAIL_FROM: 'Front desk <cms@lakeshore.example>' } });
+  await named.cms.settings.saveEmail(owner, { senderName: 'Ignored', expectedRevision: 0 });
+  await named.mail.sendSignInLink(signIn);
+  expect(named.sent.at(-1)?.from).toBe('Front desk <cms@lakeshore.example>');
+  expect(named.mail.namesSender()).toBe('server');
+
+  const editor = site();
+  await expect(editor.cms.settings.saveEmail(owner, { from: 'cms@lakeshore.example', senderName: 'Lakeshore "Realty"', apiKey: 're_editor', expectedRevision: 0 })).rejects.toMatchObject({ code: 'validation_failed' });
+  await editor.cms.settings.saveEmail(owner, { from: 'Old <cms@lakeshore.example>', senderName: 'Lakeshore Realty', apiKey: 're_editor', expectedRevision: 0 });
+  await editor.mail.sendSignInLink(signIn);
+  expect(editor.sent.at(-1)?.from).toBe('"Lakeshore Realty" <cms@lakeshore.example>');
+  expect(site({ own: new MemoryMailer() }).mail.namesSender()).toBe('code');
+});
+
+it('dresses every email in the site\'s look: its logo as a PNG from its own address, its colour and its address', async () => {
+  const cms = createCms({ entries: new InMemoryEntryRepository(), types: new InMemorySchemaRepository(), secret: 's'.repeat(32) });
+  const own = new MemoryMailer();
+  const mail = new SiteMail({ settings: cms.settings, own, fallback: new MemoryMailer(), origin: 'https://lakeshore.example', brand: async () => ({ logo: 'logo mark', color: '#0a7cff' }) });
+  await mail.sendSignInLink(signIn);
+  expect(own.sent[0]?.brand).toEqual({ url: 'https://lakeshore.example', logo: 'https://lakeshore.example/cms-mail/logo%20mark.png', color: '#0a7cff' });
+  await mail.sendEmailChange({ email: 'new@example.com', name: 'Dana', url: 'https://lakeshore.example/admin/profile?email=x', expiresInMinutes: 30, siteName: 'Lakeshore' });
+  expect(own.emailChanges[0]?.brand?.color).toBe('#0a7cff');
+
+  // A look that cannot be read leaves the email as it was.
+  const plain = new MemoryMailer();
+  await new SiteMail({ settings: cms.settings, own: plain, fallback: new MemoryMailer(), brand: () => Promise.reject(new Error('x')) }).sendSignInLink(signIn);
+  expect(plain.sent[0]).not.toHaveProperty('brand');
+});

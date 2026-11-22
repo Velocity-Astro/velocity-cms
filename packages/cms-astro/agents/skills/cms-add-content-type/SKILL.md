@@ -43,7 +43,8 @@ export const model = [/* ...the others, */ caseStudies];
   "fix" it: that is a new field, and the old content is hidden. Never remove a field to change
   its type; add a new key.
 - A type people enquire about takes `forDeals: true`. A single page of site settings takes
-  `inSettings: true` (and `siteNameField` for the field that holds the site's name).
+  `inSettings: true` (with `siteNameField` for the field that holds the site's name, and
+  `brandFields: { logo, logoDark, color }` for its logo and brand colour, which its emails wear).
 
 ## 2. Apply it
 

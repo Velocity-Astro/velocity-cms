@@ -1,4 +1,5 @@
-import type { InvitationMail, Mailer, SignInMail } from '@velocity-astro/cms-auth';
+import type { EmailChangeMail, InvitationMail, MailBrand, Mailer, SignInMail } from '@velocity-astro/cms-auth';
+import { renderEmail } from './email-layout.js';
 import type { NoticeMailer, SubmissionNotice } from './form-post.js';
 
 /** The words of the emails. Give your own to send them in another language. */
@@ -21,6 +22,31 @@ export interface MailWords {
   readonly testSubject?: (siteName: string) => string;
   readonly testGreeting?: (name: string) => string;
   readonly testBody?: (siteName: string) => string;
+  /**
+   * The heading of each email, the line an inbox shows beside the subject, and why the address
+   * was sent it, at its foot. Left out, these are in English.
+   */
+  readonly signInHeading?: (siteName: string) => string;
+  readonly signInPreview?: (minutes: number) => string;
+  readonly signInReason?: (siteName: string) => string;
+  readonly invitationHeading?: (siteName: string) => string;
+  /** The heading when whoever invited them is known. */
+  readonly invitationHeadingBy?: (inviter: string, siteName: string) => string;
+  readonly invitationPreview?: (siteName: string) => string;
+  readonly invitationReason?: (siteName: string) => string;
+  readonly noticeHeading?: (formName: string) => string;
+  readonly noticeButton?: string;
+  readonly noticeReason?: (formName: string) => string;
+  readonly emailChangeSubject?: (siteName: string) => string;
+  readonly emailChangeHeading?: string;
+  readonly emailChangeBody?: (siteName: string, minutes: number) => string;
+  readonly emailChangeButton?: string;
+  readonly emailChangeIgnore?: string;
+  readonly emailChangeReason?: (siteName: string) => string;
+  readonly testHeading?: string;
+  readonly testReason?: (siteName: string) => string;
+  /** Under a button, for a client that shows none. */
+  readonly buttonFallback?: string;
 }
 
 export const englishMailWords: MailWords = {
@@ -41,6 +67,25 @@ export const englishMailWords: MailWords = {
   testSubject: (siteName) => `Email works for ${siteName}`,
   testGreeting: (name) => `Hi ${name},`,
   testBody: (siteName) => `This is a test from ${siteName}. If you are reading it, sign-in links, invitations and notices from forms will arrive too.`,
+  signInHeading: (siteName) => `Sign in to ${siteName}`,
+  signInPreview: (minutes) => `Your link works once, for ${minutes} minutes.`,
+  signInReason: (siteName) => `You got this email because a sign-in link for ${siteName} was asked for with this address.`,
+  invitationHeading: (siteName) => `You're invited to edit ${siteName}`,
+  invitationHeadingBy: (inviter, siteName) => `${inviter} invited you to edit ${siteName}`,
+  invitationPreview: (siteName) => `Open the editor of ${siteName} and ask for your sign-in link.`,
+  invitationReason: (siteName) => `You got this email because an owner of ${siteName} invited this address to edit it.`,
+  noticeHeading: (formName) => `New message from "${formName}"`,
+  noticeButton: 'Open in the editor',
+  noticeReason: (formName) => `You got this email because this address is told of what is sent with the form "${formName}".`,
+  emailChangeSubject: (siteName) => `Confirm your new email address for ${siteName}`,
+  emailChangeHeading: 'Confirm your new address',
+  emailChangeBody: (siteName, minutes) => `You asked to sign in to ${siteName} with this address. Open the link below while signed in to the editor to make it yours. It works once, for ${minutes} minutes.`,
+  emailChangeButton: 'Confirm this address',
+  emailChangeIgnore: 'If you did not ask for this, ignore this email: nothing changes until the link is opened.',
+  emailChangeReason: (siteName) => `You got this email because this address was given as a new one on a profile in ${siteName}.`,
+  testHeading: 'Email is working',
+  testReason: (siteName) => `You got this email because you asked for a test in the settings of ${siteName}.`,
+  buttonFallback: 'If the button does not work, copy this address into your browser:',
 };
 
 export interface ResendMailerOptions {
@@ -58,6 +103,7 @@ export interface TestMail {
   readonly email: string;
   readonly name: string;
   readonly siteName: string;
+  readonly brand?: MailBrand;
 }
 
 /** The provider answered and refused. `status` is its answer; the message holds its own words, for the server's log. */
@@ -68,30 +114,6 @@ export class MailRefusedError extends Error {
   ) {
     super(`Resend refused an email (${status}). ${detail}`);
   }
-}
-
-const escaped = (text: string) => text.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`);
-
-/** Paragraphs and nothing else. */
-function plain(...paragraphs: string[]): { html: string; text: string } {
-  const html = `<div style="max-width:480px;margin:0 auto;padding:32px 16px">${paragraphs.map((words) => `<p style="margin:0 0 16px;font:16px/1.5 system-ui,sans-serif;color:#1a1a1a">${escaped(words)}</p>`).join('')}</div>`;
-  return { html, text: paragraphs.join('\n\n') };
-}
-
-/** One paragraph of greeting, one of explanation, one button, and the address in full under it. */
-function layout(greeting: string, body: string, button: string, url: string, note?: string): { html: string; text: string } {
-  const paragraph = (words: string) => `<p style="margin:0 0 16px;font:16px/1.5 system-ui,sans-serif;color:#1a1a1a">${escaped(words)}</p>`;
-  const html = [
-    '<div style="max-width:480px;margin:0 auto;padding:32px 16px">',
-    paragraph(greeting),
-    paragraph(body),
-    `<p style="margin:0 0 24px"><a href="${escaped(url)}" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#111;color:#fff;font:600 16px system-ui,sans-serif;text-decoration:none">${escaped(button)}</a></p>`,
-    `<p style="margin:0 0 16px;font:13px/1.5 system-ui,sans-serif;color:#666;word-break:break-all">${escaped(url)}</p>`,
-    note === undefined ? '' : `<p style="margin:0;font:13px/1.5 system-ui,sans-serif;color:#666">${escaped(note)}</p>`,
-    '</div>',
-  ].join('');
-  const text = [greeting, body, url, ...(note === undefined ? [] : [note])].join('\n\n');
-  return { html, text };
 }
 
 /**
@@ -108,48 +130,106 @@ export class ResendMailer implements Mailer, NoticeMailer {
   }
 
   sendSignInLink(mail: SignInMail): Promise<void> {
-    const words = this.#words;
+    const words = { ...englishMailWords, ...this.#words };
+    const subject = words.signInSubject(mail.siteName);
     return this.#send(
       mail.email,
-      words.signInSubject(mail.siteName),
-      layout(words.signInGreeting(mail.name), words.signInBody(mail.siteName, mail.expiresInMinutes), words.signInButton, mail.url, words.signInIgnore),
+      subject,
+      renderEmail({
+        siteName: mail.siteName,
+        brand: mail.brand,
+        subject,
+        preview: words.signInPreview?.(mail.expiresInMinutes) ?? '',
+        heading: words.signInHeading?.(mail.siteName) ?? subject,
+        paragraphs: [words.signInGreeting(mail.name), words.signInBody(mail.siteName, mail.expiresInMinutes)],
+        button: { label: words.signInButton, url: mail.url, fallback: words.buttonFallback },
+        notes: [words.signInIgnore],
+        reason: words.signInReason?.(mail.siteName) ?? '',
+      }),
     );
   }
 
   sendInvitation(mail: InvitationMail): Promise<void> {
-    const words = this.#words;
+    const words = { ...englishMailWords, ...this.#words };
+    const subject = words.invitationSubject(mail.siteName);
     return this.#send(
       mail.email,
-      words.invitationSubject(mail.siteName),
-      layout(words.invitationGreeting(mail.name), words.invitationBody(mail.siteName, mail.email), words.invitationButton, mail.url),
+      subject,
+      renderEmail({
+        siteName: mail.siteName,
+        brand: mail.brand,
+        subject,
+        preview: words.invitationPreview?.(mail.siteName) ?? '',
+        heading: (mail.invitedBy !== undefined ? words.invitationHeadingBy?.(mail.invitedBy, mail.siteName) : undefined) ?? words.invitationHeading?.(mail.siteName) ?? subject,
+        paragraphs: [words.invitationGreeting(mail.name), words.invitationBody(mail.siteName, mail.email)],
+        button: { label: words.invitationButton, url: mail.url, fallback: words.buttonFallback },
+        reason: words.invitationReason?.(mail.siteName) ?? '',
+      }),
+    );
+  }
+
+  sendEmailChange(mail: EmailChangeMail): Promise<void> {
+    const words = { ...englishMailWords, ...this.#words };
+    const subject = words.emailChangeSubject?.(mail.siteName) ?? mail.siteName;
+    const body = words.emailChangeBody?.(mail.siteName, mail.expiresInMinutes) ?? '';
+    return this.#send(
+      mail.email,
+      subject,
+      renderEmail({
+        siteName: mail.siteName,
+        brand: mail.brand,
+        subject,
+        preview: body,
+        heading: words.emailChangeHeading ?? subject,
+        paragraphs: [words.signInGreeting(mail.name), body],
+        button: { label: words.emailChangeButton ?? subject, url: mail.url, fallback: words.buttonFallback },
+        notes: words.emailChangeIgnore === undefined ? [] : [words.emailChangeIgnore],
+        reason: words.emailChangeReason?.(mail.siteName) ?? '',
+      }),
     );
   }
 
   /** One email that says the settings work. It carries no link and no secret. */
   sendTest(mail: TestMail): Promise<void> {
     const words = { ...englishMailWords, ...this.#words };
-    return this.#send(mail.email, words.testSubject?.(mail.siteName) ?? mail.siteName, plain(words.testGreeting?.(mail.name) ?? '', words.testBody?.(mail.siteName) ?? ''));
+    const subject = words.testSubject?.(mail.siteName) ?? mail.siteName;
+    const body = words.testBody?.(mail.siteName) ?? '';
+    return this.#send(
+      mail.email,
+      subject,
+      renderEmail({
+        siteName: mail.siteName,
+        brand: mail.brand,
+        subject,
+        preview: body,
+        heading: words.testHeading ?? subject,
+        paragraphs: [words.testGreeting?.(mail.name) ?? '', body].filter((words) => words !== ''),
+        reason: words.testReason?.(mail.siteName) ?? '',
+      }),
+    );
   }
 
   sendSubmissionNotice(mail: SubmissionNotice): Promise<void> {
     const words = { ...englishMailWords, ...this.#words };
+    const subject = words.noticeSubject?.(mail.formName, mail.siteName) ?? mail.formName;
     const intro = words.noticeIntro?.(mail.formName, mail.siteName) ?? '';
     const from = mail.page === undefined ? undefined : `${words.noticeSentFrom ?? ''} ${mail.page}`;
     const note = mail.replyTo === undefined ? undefined : words.noticeReply;
-    const line = (style: string, text: string) => `<p style="margin:0 0 ${style}">${escaped(text).replace(/\n/g, '<br>')}</p>`;
-    // Everything a visitor wrote is escaped, and shown as text: a notice never carries their markup or links.
-    const html = [
-      '<div style="max-width:480px;margin:0 auto;padding:32px 16px">',
-      line('24px;font:16px/1.5 system-ui,sans-serif;color:#1a1a1a', intro),
-      ...mail.answers.flatMap((answer) => [
-        line('2px;font:600 13px/1.5 system-ui,sans-serif;color:#666', answer.label),
-        line('16px;font:16px/1.5 system-ui,sans-serif;color:#1a1a1a', answer.value),
-      ]),
-      ...[from, note].flatMap((text) => (text === undefined ? [] : [line('8px;font:13px/1.5 system-ui,sans-serif;color:#666;word-break:break-all', text)])),
-      '</div>',
-    ].join('');
-    const text = [intro, ...mail.answers.map((answer) => `${answer.label}:\n${answer.value}`), ...(from === undefined ? [] : [from]), ...(note === undefined ? [] : [note])].join('\n\n');
-    return this.#send(mail.to, words.noticeSubject?.(mail.formName, mail.siteName) ?? mail.formName, { html, text }, mail.replyTo);
+    // Everything a visitor wrote is escaped and shown as text by the layout: a notice never
+    // carries their markup or a link of theirs.
+    const email = renderEmail({
+      siteName: mail.siteName,
+      brand: mail.brand,
+      subject,
+      preview: intro,
+      heading: words.noticeHeading?.(mail.formName) ?? subject,
+      paragraphs: [intro],
+      details: mail.answers,
+      ...(mail.inbox !== undefined && words.noticeButton !== undefined && { button: { label: words.noticeButton, url: mail.inbox } }),
+      notes: [from, note].filter((text) => text !== undefined),
+      reason: words.noticeReason?.(mail.formName) ?? '',
+    });
+    return this.#send(mail.to, subject, email, mail.replyTo);
   }
 
   async #send(to: string, subject: string, body: { html: string; text: string }, replyTo?: string): Promise<void> {

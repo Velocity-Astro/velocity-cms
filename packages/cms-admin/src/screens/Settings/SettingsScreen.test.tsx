@@ -25,7 +25,8 @@ it('sets email up from the menu: a key that is never shown again, a sender, and 
   expect(email.getByRole('link', { name: /Open your API keys at Resend/ }).getAttribute('href')).toBe('https://resend.com/api-keys');
 
   await user.type(email.getByLabelText(/^API key/), 're_live_123');
-  await user.type(email.getByRole('textbox', { name: /^Sender/ }), 'Lakeshore <hello@lakeshore.example>');
+  await user.type(email.getByRole('textbox', { name: /^Sender name/ }), 'Lakeshore');
+  await user.type(email.getByRole('textbox', { name: /^Sender address/ }), 'hello@lakeshore.example');
   await user.click(email.getByRole('button', { name: 'Save email settings' }));
   expect(await screen.findByText('Email settings saved')).toBeTruthy();
   expect(await email.findByText('Sending')).toBeTruthy();
@@ -33,7 +34,8 @@ it('sets email up from the menu: a key that is never shown again, a sender, and 
   expect(email.queryByLabelText(/^API key/)).toBeNull();
   expect(email.getByText(/A key is saved/)).toBeTruthy();
   expect(document.body.innerHTML).not.toContain('re_live_123');
-  expect(await client.getEmailSettings()).toMatchObject({ from: 'Lakeshore <hello@lakeshore.example>', hasKey: true, sending: true });
+  expect(await client.getEmailSettings()).toMatchObject({ from: 'hello@lakeshore.example', senderName: 'Lakeshore', hasKey: true, sending: true });
+  expect(email.getByText(/Emails wear your site's logo and brand colour/)).toBeTruthy();
 
   expect(email.getByText(`A test goes to you, at ${sampleUser.email}, and to nobody else.`)).toBeTruthy();
   await user.click(email.getByRole('button', { name: 'Send a test email' }));
@@ -46,13 +48,13 @@ it('puts what the server says on the field it is about, keeps what was typed, an
   const { client } = renderApp('/settings/email', site());
   const email = await card();
   await user.type(email.getByLabelText(/^API key/), 're_live_123');
-  await user.type(email.getByRole('textbox', { name: /^Sender/ }), 'nobody');
+  await user.type(email.getByRole('textbox', { name: /^Sender address/ }), 'nobody');
   await user.click(email.getByRole('button', { name: 'Save email settings' }));
   expect(await email.findByText(/Give an address such as hello@example.com/)).toBeTruthy();
   expect(await screen.findByText('Email settings not saved')).toBeTruthy();
   expect(email.getByLabelText(/^API key/)).toHaveProperty('value', 're_live_123');
 
-  await user.type(email.getByRole('textbox', { name: /^Sender/ }), '@lakeshore.example');
+  await user.type(email.getByRole('textbox', { name: /^Sender address/ }), '@lakeshore.example');
   await user.click(email.getByRole('button', { name: 'Save email settings' }));
   expect(await email.findByText('Sending')).toBeTruthy();
   client.mail.refuseWith = 'Resend did not accept the API key (401). Check that it was pasted whole.';
@@ -89,13 +91,25 @@ it('replaces a saved key, and stops sending only after asking', async () => {
   expect(await client.getEmailSettings()).toMatchObject({ hasKey: false, from: 'hello@lakeshore.example' });
 });
 
-it('says so when the server or the site\'s code decides, and offers no fields', async () => {
-  renderApp('/settings/email', site({ emailFixedBy: 'server' }));
+it('says so when the server or the site\'s code decides, and offers only the sender\'s name where the server leaves it open', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/settings/email', site({ emailFixedBy: 'server' }));
   const email = await card();
   expect(email.getByText('Set on the server')).toBeTruthy();
   expect(email.getByText(/VELOCITY_CMS_RESEND_API_KEY/)).toBeTruthy();
-  expect(email.queryByRole('textbox', { name: /^Sender/ })).toBeNull();
+  expect(email.queryByRole('textbox', { name: /^Sender address/ })).toBeNull();
   expect(email.getByRole('button', { name: 'Send a test email' })).toHaveProperty('disabled', false);
+  await user.type(email.getByRole('textbox', { name: /^Sender name/ }), 'Lakeshore Realty');
+  await user.click(email.getByRole('button', { name: 'Save sender name' }));
+  expect(await screen.findByText('Email settings saved')).toBeTruthy();
+  expect(await client.getEmailSettings()).toMatchObject({ senderName: 'Lakeshore Realty', from: '' });
+});
+
+it('offers no field at all when the site\'s code sends its own email', async () => {
+  renderApp('/settings/email', site({ emailFixedBy: 'code' }));
+  const email = await card();
+  expect(email.getByText('Set in the site\'s code')).toBeTruthy();
+  expect(email.queryByRole('textbox')).toBeNull();
 });
 
 it('names a bucket for uploads under Storage, tests it, and never shows the secret key again', async () => {

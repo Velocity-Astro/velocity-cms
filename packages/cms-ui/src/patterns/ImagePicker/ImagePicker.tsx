@@ -3,8 +3,10 @@ import { useId, useState } from 'react';
 import { FileTrigger, ListBox, ListBoxItem } from 'react-aria-components';
 import { Button } from '../../components/Button/index.js';
 import { Dialog } from '../../components/Dialog/index.js';
+import { SearchField } from '../../components/SearchField/index.js';
 import {
-  imagePickerChoiceClass,
+  imagePickerBadgeClass,
+  imagePickerChoiceVariants,
   imagePickerChoiceImageClass,
   imagePickerChoiceNameClass,
   imagePickerChoicesClass,
@@ -18,6 +20,7 @@ import {
   imagePickerPlaceholderIconClass,
   imagePickerRequiredMarkClass,
   imagePickerRowClass,
+  imagePickerSearchClass,
   imagePickerThumbClass,
   imagePickerUploadClass,
   imagePickerUploadErrorClass,
@@ -29,6 +32,8 @@ export interface PickableImage {
   readonly name: string;
   /** Where a small copy of it loads from. */
   readonly url: string;
+  /** Marks an image to notice, such as "Just uploaded". */
+  readonly badge?: string;
 }
 
 export interface ImagePickerProps {
@@ -73,6 +78,11 @@ export interface ImagePickerProps {
    * image from somewhere other than the field, such as the page the image is shown on.
    */
   readonly window?: { readonly isOpen: boolean; readonly onOpenChange: (isOpen: boolean) => void };
+  /**
+   * Given, the window has a search that finds images by name: its label, the words in it while
+   * it is empty, its clear button's name, and what is shown when nothing matches.
+   */
+  readonly search?: { readonly label: string; readonly placeholder: string; readonly clearLabel: string; readonly noMatchesText: string };
 }
 
 /** The kinds of file the file chooser offers. What a file really is, the server decides. */
@@ -99,7 +109,11 @@ export function ImagePicker({
   uploadHint,
   uploadError,
   window: held,
+  search,
 }: ImagePickerProps) {
+  const [query, setQuery] = useState('');
+  const words = query.trim().toLowerCase();
+  const found = words === '' ? images : images.filter((image) => image.name.toLowerCase().includes(words));
   const labelId = useId();
   const [isOwnOpen, setOwnOpen] = useState(false);
   const isOpen = held ? held.isOpen : isOwnOpen;
@@ -136,6 +150,11 @@ export function ImagePicker({
           )}
         </div>
       )}
+      {search && images.length > 0 && (
+        <div className={imagePickerSearchClass}>
+          <SearchField label={search.label} placeholder={search.placeholder} clearLabel={search.clearLabel} value={query} onChange={setQuery} />
+        </div>
+      )}
       <ListBox
         aria-label={dialogTitle}
         layout="grid"
@@ -147,12 +166,18 @@ export function ImagePicker({
           if (typeof name === 'string') onChange(name);
           setOpen(false);
         }}
-        renderEmptyState={() => <p className={imagePickerEmptyClass}>{emptyText}</p>}
+        renderEmptyState={() => <p className={imagePickerEmptyClass}>{images.length > 0 && search ? search.noMatchesText : emptyText}</p>}
         className={imagePickerChoicesClass}
       >
-        {images.map((image) => (
-          <ListBoxItem key={image.name} id={image.name} textValue={image.name} className={imagePickerChoiceClass}>
+        {found.map((image) => (
+          <ListBoxItem
+            key={image.name}
+            id={image.name}
+            textValue={image.badge === undefined ? image.name : `${image.name}, ${image.badge}`}
+            className={imagePickerChoiceVariants({ isMarked: image.badge !== undefined })}
+          >
             <img src={image.url} alt="" loading="lazy" className={imagePickerChoiceImageClass} />
+            {image.badge !== undefined && <span className={imagePickerBadgeClass}>{image.badge}</span>}
             <span className={imagePickerChoiceNameClass}>{image.name}</span>
           </ListBoxItem>
         ))}

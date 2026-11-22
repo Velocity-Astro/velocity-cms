@@ -7,6 +7,17 @@ export interface SessionUser {
   readonly name: string;
   /** What they may do. The screens use it to leave out what the server would refuse anyway. */
   readonly role: Role;
+  /** Their photo, as a small image in a `data:` address, where they added one. */
+  readonly image?: string;
+}
+
+/** The signed-in person's own details, which they change on their profile. */
+export type Profile = SessionUser;
+
+export interface ProfileChanges {
+  readonly name?: string;
+  /** A small photo as a `data:` address, or `null` to take it away. Left out, it stays. */
+  readonly image?: string | null;
 }
 
 /** Someone who can sign in to the editor. */
@@ -345,6 +356,16 @@ export interface AdminClient {
   changePersonRole(id: string, role: Role): Promise<Person>;
   /** Takes away someone's access at once. Refused for yourself and for the last owner. */
   removePerson(id: string): Promise<void>;
+  /** Changes what someone is called. Owners only. */
+  renamePerson(id: string, name: string): Promise<Person>;
+  /** The signed-in person's own details. */
+  getProfile(): Promise<Profile>;
+  /** Changes the signed-in person's own name or photo. */
+  saveProfile(changes: ProfileChanges): Promise<Profile>;
+  /** Emails a link to a new address. Nothing changes until it is opened. */
+  askEmailChange(email: string): Promise<void>;
+  /** Uses the token of that link: the new address becomes the person's. */
+  confirmEmailChange(token: string): Promise<Profile>;
   /** The access tokens that have not ended, newest first. Owners only. */
   listTokens(): Promise<readonly AccessToken[]>;
   /** Makes an access token. The answer holds the token, which is never shown again. Owners only. */

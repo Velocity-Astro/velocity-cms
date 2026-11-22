@@ -73,6 +73,16 @@ export class SharpImageOptimizer implements ImageOptimizer {
     return open().rotate().resize({ width, withoutEnlargement: true }).webp({ quality: PHOTO_QUALITY, effort: EFFORT }).toBuffer();
   }
 
+  /**
+   * The image as a PNG at most `height` pixels tall, for an email: drawings in SVG are drawn,
+   * see-through parts stay see-through. `null` where the library cannot be loaded.
+   */
+  async png(bytes: Uint8Array, height: number): Promise<Uint8Array | null> {
+    const library = await this.#library();
+    if (!library) return null;
+    return library(bytes, { limitInputPixels: MAX_PIXELS, density: 300 }).resize({ height, withoutEnlargement: false, fit: 'inside', width: height * 8 }).png({ compressionLevel: 9 }).toBuffer();
+  }
+
   /** The library, loaded the first time an image arrives, or `null` on a machine that has none. */
   #library(): Promise<Sharp | null> {
     const load = this.#options.load ?? (async (): Promise<Sharp> => (await import('sharp')).default);

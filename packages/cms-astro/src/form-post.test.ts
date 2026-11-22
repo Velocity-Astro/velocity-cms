@@ -309,7 +309,8 @@ describe('notices', () => {
     const [mail] = mails;
     expect(mail).toMatchObject({ to: ['office@example.com'], subject: 'New message: Contact us on Lakeshore', reply_to: 'ana@example.com' });
     expect(mail?.html).toContain('Line one<br>&#60;a href=');
-    expect(mail?.html).not.toContain('<a href');
+    expect(mail?.html).not.toContain('<a href="https://spam.example');
+    expect(mail?.html).not.toContain('<a href="mailto:');
     expect(mail?.text).toContain('Message:\nLine one');
     expect(mail?.text).toContain(`Sent from ${ORIGIN}/contact/`);
   });

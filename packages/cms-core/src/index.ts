@@ -114,6 +114,7 @@ export {
   type PublishedVersion,
   type Revision,
   type SiteImage,
+  type BrandPaths,
   type Timestamp,
 } from './model.js';
 export type {
@@ -200,13 +201,13 @@ export {
   type MediaStorage,
   type NewUpload,
 } from './services/media-service.js';
-export { SchemaService, type ContentTypeChanges, type FieldArrangement, type FieldChanges, type FieldPlace, type NewContentType, type NewSection } from './services/schema-service.js';
+export { SchemaService, type BrandFields, type ContentTypeChanges, type FieldArrangement, type FieldChanges, type FieldPlace, type NewContentType, type NewSection } from './services/schema-service.js';
 export type { NewField } from './define-fields.js';
 export { FormService, MAX_FORM_FIELDS, MAX_RETENTION_DAYS, type FormChanges, type FormContactKeys, type NewForm } from './services/form-service.js';
 export { SubmissionService, MAX_ANSWER_LENGTH, type SenderBook, type SubmissionSource } from './services/submission-service.js';
 export { DealService, MAX_DEAL_TITLE_LENGTH, MAX_DEAL_VALUE, type DealChanges, type DealSubjects, type NewDeal } from './services/deal-service.js';
 export { CustomFieldsService, CUSTOM_FIELDS_OF, MAX_CUSTOM_FIELDS, type CustomFieldInput, type CustomFieldsChanges, type CustomFieldsOf } from './services/custom-fields-service.js';
-export { SettingsService, siteNameFrom, EMAIL_PROVIDERS, MAX_EMAIL_FROM_LENGTH, MAX_EMAIL_KEY_LENGTH, senderFrom, storageEndpointFrom, MAX_STORAGE_FIELD_LENGTH, MAX_SITE_NAME_LENGTH, DEFAULT_FORM_POSTS_PER_ADDRESS, MAX_FORM_POSTS_PER_ADDRESS, MAX_CHALLENGE_KEY_LENGTH, type FormsSettingsChanges, type EmailSettingsChanges, type StorageSettingsChanges, type GeneralSettingsChanges, type SiteNaming } from './services/settings-service.js';
+export { SettingsService, siteNameFrom, EMAIL_PROVIDERS, MAX_EMAIL_FROM_LENGTH, MAX_EMAIL_KEY_LENGTH, MAX_SENDER_NAME_LENGTH, senderFrom, senderNameFrom, storageEndpointFrom, MAX_STORAGE_FIELD_LENGTH, MAX_SITE_NAME_LENGTH, DEFAULT_FORM_POSTS_PER_ADDRESS, MAX_FORM_POSTS_PER_ADDRESS, MAX_CHALLENGE_KEY_LENGTH, type FormsSettingsChanges, type EmailSettingsChanges, type StorageSettingsChanges, type GeneralSettingsChanges, type SiteNaming } from './services/settings-service.js';
 export { SecretSeal, type Sealed } from './seal.js';
 export { PipelineService, DEFAULT_CURRENCY, chanceOf, DEFAULT_STAGES, MAX_STAGES, MAX_STAGE_LABEL_LENGTH, MAX_MONTHLY_TARGET, type PipelineChanges, type StageInput } from './services/pipeline-service.js';
 export { ContactService, MAX_CONTACT_NAME_LENGTH, MAX_IMPORT_ROWS, MAX_NOTE_LENGTH, type ContactChanges, type ContactImportReport, type ContactImportRow, type NewContact } from './services/contact-service.js';

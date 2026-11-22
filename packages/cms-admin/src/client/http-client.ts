@@ -1,5 +1,5 @@
 import { readImage, type FormsSettings, type FormsSettingsChanges, type GeneralSettings, type GeneralSettingsChanges, type EmailSettings, type EmailSettingsChanges, type StorageSettings, type StorageSettingsChanges, type ContactImportReport, type ContactImportRow, type CustomFields, type CustomFieldsChanges, type Contact, type ContactChanges, type Deal, type DealChanges, type Forecast, type NewDeal, type Pipeline, type PipelineChanges, type TeamMember, type ContactNote, type NewContact, type TimelineItem, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PluginSettings, type PluginTask, type PluginEditorInfo, type PluginRouteMethod, type EntryData, type FormChanges, type FormDef, type NewForm, type PreviewLink, type Revision, type SiteImage, type Submission, type SubmissionStatus } from '@velocity-astro/cms-core';
-import type { AccessToken, AdminClient, MadeAccessToken, NewAccessToken, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from './admin-client.js';
+import type { AccessToken, AdminClient, MadeAccessToken, NewAccessToken, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, Profile, ProfileChanges, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from './admin-client.js';
 import { AdminRequestError, type RequestErrorCode, type RequestIssue } from './errors.js';
 
 /**
@@ -412,6 +412,26 @@ export class HttpAdminClient implements AdminClient {
 
   changePersonRole(id: string, role: Role): Promise<Person> {
     return this.#send('PATCH', `/people/${encodeURIComponent(id)}`, { role });
+  }
+
+  renamePerson(id: string, name: string): Promise<Person> {
+    return this.#send('PATCH', `/people/${encodeURIComponent(id)}`, { name });
+  }
+
+  getProfile(): Promise<Profile> {
+    return this.#get('/profile');
+  }
+
+  saveProfile(changes: ProfileChanges): Promise<Profile> {
+    return this.#send('PATCH', '/profile', changes);
+  }
+
+  async askEmailChange(email: string): Promise<void> {
+    await this.#send('POST', '/profile/email', { email });
+  }
+
+  confirmEmailChange(token: string): Promise<Profile> {
+    return this.#send('POST', '/profile/email/confirm', { token });
   }
 
   async removePerson(id: string): Promise<void> {

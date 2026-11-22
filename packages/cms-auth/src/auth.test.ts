@@ -135,6 +135,72 @@ describe('changing and removing people', () => {
   });
 });
 
+describe('names and profiles', () => {
+  const photo = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAwS2OUAAAAABJRU5ErkJggg==';
+
+  it('lets an owner rename someone, and the invitation names who sent it', async () => {
+    const first = await auth.invite(owner, { email: 'first@example.com', name: 'Maya', role: 'owner' });
+    const asMaya: Actor = { kind: 'user', id: first.id, role: 'owner' };
+    const dana = await auth.invite(asMaya, { email: 'dana@example.com', name: 'Dana', role: 'editor' });
+    expect(mailer.invitations.at(-1)).toMatchObject({ email: 'dana@example.com', invitedBy: 'Maya' });
+    expect(await auth.rename(owner, dana.id, '  Dana   Whitfield ')).toMatchObject({ id: dana.id, name: 'Dana Whitfield' });
+    await expect(auth.rename(owner, dana.id, '<b>x</b>')).rejects.toMatchObject({ code: 'validation_failed' });
+    await expect(auth.rename({ kind: 'user', id: dana.id, role: 'editor' }, dana.id, 'Me')).rejects.toMatchObject({ code: 'forbidden' });
+  });
+
+  it('keeps each person\'s own name and photo, which the session then carries', async () => {
+    const dana = await auth.invite(owner, { email: 'dana@example.com', name: 'Dana', role: 'author' });
+    const asDana: Actor = { kind: 'user', id: dana.id, role: 'author' };
+    expect(await auth.profile(asDana)).toEqual({ id: dana.id, email: 'dana@example.com', name: 'Dana', role: 'author' });
+    expect(await auth.updateProfile(asDana, { name: 'Dana W.', image: photo })).toMatchObject({ name: 'Dana W.', image: photo });
+    const { cookie } = await open(await auth.createSignInLink('dana@example.com'));
+    expect((await auth.authenticate(withCookie(cookie)))?.user).toMatchObject({ name: 'Dana W.', image: photo });
+    expect(await auth.updateProfile(asDana, { image: null })).not.toHaveProperty('image');
+    // Checked by what it holds: a PNG's bytes called a JPEG, or anything else, is refused.
+    await expect(auth.updateProfile(asDana, { image: photo.replace('image/png', 'image/jpeg') })).rejects.toMatchObject({ issues: [{ path: ['image'] }] });
+    await expect(auth.updateProfile(asDana, { image: 'data:image/svg+xml;base64,PHN2Zz4=' })).rejects.toMatchObject({ issues: [{ path: ['image'] }] });
+    await expect(auth.profile({ kind: 'agent', id: 't1', role: 'editor' } as unknown as Actor)).rejects.toMatchObject({ code: 'forbidden' });
+  });
+
+  it('changes an address only once a link sent to it is opened by the same person', async () => {
+    const dana = await auth.invite(owner, { email: 'dana@example.com', name: 'Dana', role: 'editor' });
+    const ben = await auth.invite(owner, { email: 'ben@example.com', name: 'Ben', role: 'editor' });
+    const asDana: Actor = { kind: 'user', id: dana.id, role: 'editor' };
+    await expect(auth.askEmailChange(asDana, 'ben@example.com')).rejects.toMatchObject({ code: 'conflict' });
+    await expect(auth.askEmailChange(asDana, 'nope')).rejects.toMatchObject({ code: 'validation_failed' });
+    await auth.askEmailChange(asDana, ' Dana@New.Example ');
+    const mail = mailer.emailChanges.at(-1);
+    expect(mail).toMatchObject({ email: 'dana@new.example', name: 'Dana', expiresInMinutes: 30 });
+    const token = new URL(mail?.url ?? '').searchParams.get('email') ?? '';
+    expect(mail?.url.startsWith(`${ORIGIN}/admin/profile?email=`)).toBe(true);
+    expect((await auth.profile(asDana)).email).toBe('dana@example.com');
+    // Someone else holding the link changes nothing.
+    await expect(auth.confirmEmailChange({ kind: 'user', id: ben.id, role: 'editor' }, token)).rejects.toMatchObject({ code: 'conflict' });
+    expect(await auth.confirmEmailChange(asDana, token)).toMatchObject({ email: 'dana@new.example' });
+    await expect(auth.confirmEmailChange(asDana, token)).rejects.toMatchObject({ code: 'conflict' });
+    // The new address is the one a sign-in link goes to.
+    await askForLink('dana@new.example');
+    expect(mailer.sent.at(-1)?.email).toBe('dana@new.example');
+  });
+
+  it('works only the latest link, and none after half an hour', async () => {
+    const dana = await auth.invite(owner, { email: 'dana@example.com', name: 'Dana', role: 'editor' });
+    const asDana: Actor = { kind: 'user', id: dana.id, role: 'editor' };
+    await auth.askEmailChange(asDana, 'one@example.com');
+    const first = new URL(mailer.emailChanges.at(-1)?.url ?? '').searchParams.get('email') ?? '';
+    await auth.askEmailChange(asDana, 'two@example.com');
+    await expect(auth.confirmEmailChange(asDana, first)).rejects.toMatchObject({ code: 'conflict' });
+    const second = new URL(mailer.emailChanges.at(-1)?.url ?? '').searchParams.get('email') ?? '';
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.now() + 31 * 60_000);
+    try {
+      await expect(auth.confirmEmailChange(asDana, second)).rejects.toMatchObject({ code: 'conflict' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe('signing in by email link', () => {
   beforeEach(async () => {
     await auth.invite(owner, { email: 'dana@example.com', name: 'Dana', role: 'editor' });

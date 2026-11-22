@@ -24,3 +24,12 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 export const Empty: Story = { args: { items: [] } };
+/** One just uploaded: marked, and outlined in the brand's colour. */
+export const Marked: Story = {
+  args: {
+    items: [
+      { id: 'new-porch', name: 'new-porch', url: picture('#c9b6a7'), note: '1600 × 900', badge: 'Just uploaded' },
+      { id: 'porch', name: 'porch', url: picture('#b9c4b1'), note: '1600 × 900' },
+    ],
+  },
+};

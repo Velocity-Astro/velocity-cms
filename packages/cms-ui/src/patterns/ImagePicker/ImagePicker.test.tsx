@@ -164,3 +164,29 @@ it('draws only the window when it is given one to open and close, and asks to cl
   expect(onChange).toHaveBeenCalledWith('kitchen');
   expect(onOpenChange).toHaveBeenCalledWith(false);
 });
+
+it('finds images by name when it is given a search, and marks the one to notice', async () => {
+  const user = userEvent.setup();
+  render(
+    <ImagePicker
+      label="Cover photo"
+      value={null}
+      images={[{ name: 'porch', url: images[0]?.url ?? '', badge: 'Just uploaded' }, { name: 'kitchen', url: images[1]?.url ?? '' }]}
+      onChange={() => undefined}
+      chooseLabel="Choose a photo"
+      changeLabel="Change"
+      noneText="No photo chosen"
+      dialogTitle="Choose a photo"
+      closeLabel="Close"
+      emptyText="No photos yet"
+      search={{ label: 'Search photos', placeholder: 'Search by name', clearLabel: 'Clear search', noMatchesText: 'No photos match.' }}
+    />,
+  );
+  await user.click(screen.getByRole('button', { name: 'Choose a photo' }));
+  const window = within(await screen.findByRole('dialog', { name: 'Choose a photo' }));
+  expect(window.getByRole('option', { name: /porch/ }).textContent).toContain('Just uploaded');
+  await user.type(window.getByRole('searchbox', { name: 'Search photos' }), 'kit');
+  expect(window.getAllByRole('option').map((option) => option.textContent)).toEqual(['kitchen']);
+  await user.type(window.getByRole('searchbox', { name: 'Search photos' }), 'zzz');
+  expect(window.getByText('No photos match.')).toBeTruthy();
+});

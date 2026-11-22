@@ -176,6 +176,15 @@
       "uses": []
     },
     {
+      "name": "Avatar",
+      "layer": "component",
+      "group": "Data",
+      "description": "A person's photo in a circle, or their initials where they have none. Decoration only: their name is written beside it.",
+      "example": "<Avatar name={person.name} src={person.image} />",
+      "useInstead": "Thumbnail for a picture of a thing.",
+      "uses": []
+    },
+    {
       "name": "BarChart",
       "layer": "component",
       "group": "Data",
@@ -281,7 +290,7 @@
       "description": "Shows the image a field holds and lets a person choose another from the site's images, or upload a new one, in a window.",
       "example": "<ImagePicker label=\"Cover photo\" value={photo} images={images} onChange={setPhoto} chooseLabel=\"Choose a photo\" changeLabel=\"Change\" noneText=\"No photo chosen\" dialogTitle=\"Choose a photo\" closeLabel=\"Close\" emptyText=\"No photos yet\" />",
       "useInstead": "Select to choose from a short list of words.",
-      "uses": ["Button", "Dialog"]
+      "uses": ["Button", "Dialog", "SearchField"]
     },
     {
       "name": "Split",

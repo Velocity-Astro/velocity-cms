@@ -243,6 +243,12 @@ export interface MailRoom {
    * way every email is sent now. One that cannot be sent is thrown with words for that person.
    */
   sendTest(actor: Actor): Promise<void>;
+  /**
+   * Who decides the name emails come from when the editor's settings do not: the site's code or
+   * its host, which send their own way, or the server, whose sender already names someone.
+   * `null`, or left out, when the editor's sender name is used.
+   */
+  namesSender?(): MailFixedBy | null;
 }
 
 /** How the site's uploads are kept, which only its host knows. The host hands one over with `settings.useStorage`. */

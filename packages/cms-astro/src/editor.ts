@@ -1,5 +1,5 @@
 import { CmsApi } from '@velocity-astro/cms-api';
-import { CmsAuth, type InvitationMail, type Mailer, type SignInMail } from '@velocity-astro/cms-auth';
+import { CmsAuth, type EmailChangeMail, type InvitationMail, type Mailer, type SignInMail } from '@velocity-astro/cms-auth';
 import { pageAddress, type ContentTypeDef, type Entry, type ImageLibrary } from '@velocity-astro/cms-core';
 import { AdminFiles, builtEditorDirectory } from './admin-files.js';
 import { SITE, type Connection } from './connection.js';
@@ -44,6 +44,10 @@ export class LogMailer implements Mailer {
 
   async sendInvitation(mail: InvitationMail): Promise<void> {
     this.log(`[velocity-cms] ${mail.name} (${mail.email}) was invited. No email was sent: tell them to sign in at ${mail.url}`);
+  }
+
+  async sendEmailChange(mail: EmailChangeMail): Promise<void> {
+    this.log(`[velocity-cms] Link to confirm the new address ${mail.email} (works once, for ${mail.expiresInMinutes} minutes): ${mail.url}`);
   }
 }
 
@@ -92,6 +96,7 @@ export class EditorHost {
       cms,
       authenticator: this.auth,
       people: this.auth,
+      profiles: this.auth,
       tokens: this.auth,
       basePath: apiPath,
       ...(options.onFault && { onFault: options.onFault }),

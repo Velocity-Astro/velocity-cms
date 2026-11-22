@@ -40,7 +40,7 @@ export async function createHttpServer(seed: AdminClientSeed, user: SessionUser)
   await seedForms(cms, seed.forms, seed.submissions);
   await cms.plugins.load(seed.plugins ?? []);
   const passkeys: { id: string; name: string }[] = [];
-  const api = new CmsApi({ cms, authenticator, people, tokens: new MemoryTokens(people) });
+  const api = new CmsApi({ cms, authenticator, people, profiles: people, tokens: new MemoryTokens(people) });
   const requests: Request[] = [];
   const client = new HttpAdminClient({
     auth: {

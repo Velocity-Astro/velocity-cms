@@ -8,6 +8,13 @@ import { useEmailSettings, useSaveEmailSettings, useSendTestEmail, useSession } 
 import { useMessages } from '../../messages/messages-context.js';
 
 const NO_PROBLEMS: Readonly<Record<string, string>> = {};
+
+/** A sender kept as `Name <address>`, in its two parts. */
+const NAMED = /^\s*"?([^<>"]*?)"?\s*<([^<>]+)>\s*$/;
+const partsOf = (from: string): { name: string; address: string } => {
+  const named = NAMED.exec(from);
+  return named ? { name: named[1]?.trim() ?? '', address: named[2]?.trim() ?? '' } : { name: '', address: from.trim() };
+};
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /** How the site's email is sent: the service, its key and the sender, with a test to see that it works. */
@@ -29,26 +36,30 @@ function EmailCard({ settings }: { readonly settings: EmailSettings }) {
   const save = useSaveEmailSettings();
   const test = useSendTestEmail();
   const [provider, setProvider] = useState<EmailProvider>(settings.provider);
-  const [from, setFrom] = useState(settings.from);
+  const kept = partsOf(settings.from);
+  const keptName = settings.senderName !== '' ? settings.senderName : kept.name;
+  const [from, setFrom] = useState(kept.address);
+  const [senderName, setSenderName] = useState(keptName);
   const [key, setKey] = useState('');
   const [replacing, setReplacing] = useState(false);
   const [stopping, setStopping] = useState(false);
   const [problems, setProblems] = useState(NO_PROBLEMS);
 
   const typesKey = !settings.hasKey || replacing;
-  const changed = from.trim() !== settings.from || provider !== settings.provider || (typesKey && key.trim() !== '');
+  const changed = from.trim() !== kept.address || senderName.trim() !== keptName || provider !== settings.provider || (typesKey && key.trim() !== '');
   const address = session.data?.email ?? '';
 
   const send = () => {
     setProblems(NO_PROBLEMS);
     save.mutate(
-      { provider, from, ...(typesKey && key.trim() !== '' && { apiKey: key }), expectedRevision: settings.revision },
+      { provider, from, senderName, ...(typesKey && key.trim() !== '' && { apiKey: key }), expectedRevision: settings.revision },
       {
         onSuccess: (saved) => {
           // What was typed is not kept on the screen once it is saved.
           setKey('');
           setReplacing(false);
-          setFrom(saved.from);
+          setFrom(partsOf(saved.from).address);
+          setSenderName(saved.senderName);
           toast({ title: words.saved, ...(saved.sending && !settings.sending && { description: words.savedDescription }), tone: 'success' });
         },
         onError: (error) => {
@@ -88,11 +99,56 @@ function EmailCard({ settings }: { readonly settings: EmailSettings }) {
   const state =
     settings.fixedBy !== undefined ? <Tag tone="info">{words.states[settings.fixedBy]}</Tag> : settings.sending ? <Tag tone="success">{words.states.sending}</Tag> : <Tag tone="warning">{words.states.off}</Tag>;
 
+  const saveName = () => {
+    setProblems(NO_PROBLEMS);
+    save.mutate(
+      { senderName, expectedRevision: settings.revision },
+      {
+        onSuccess: (saved) => {
+          setSenderName(saved.senderName);
+          toast({ title: words.saved, tone: 'success' });
+        },
+        onError: (error) => {
+          const issues = error instanceof AdminRequestError ? error.issues : [];
+          setProblems(Object.fromEntries(issues.map((issue) => [String(issue.path[0] ?? 'senderName'), issue.message])));
+          toast({ title: words.notSaved, description: messageOf(error), tone: 'danger' });
+        },
+      },
+    );
+  };
+
+  const nameField = (
+    <TextField
+      label={words.senderName}
+      value={senderName}
+      onChange={setSenderName}
+      autoComplete="off"
+      description={words.senderNameHelp}
+      {...(problems['senderName'] !== undefined && { errorMessage: problems['senderName'] })}
+    />
+  );
+
   if (settings.fixedBy !== undefined) {
     return (
       <Card title={words.title} description={words.description} actions={state}>
         <Stack gap={4}>
           <Text>{words.fixed[settings.fixedBy]}</Text>
+          {settings.fixedBy === 'server' &&
+            (settings.senderNameFixedBy === undefined ? (
+              <Form onSubmit={saveName}>
+                {nameField}
+                <Inline gap={3}>
+                  <Button type="submit" variant="secondary" isPending={save.isPending} isDisabled={senderName.trim() === settings.senderName}>
+                    {words.saveSenderName}
+                  </Button>
+                </Inline>
+              </Form>
+            ) : (
+              <Text tone="secondary">{words.senderNameFixed}</Text>
+            ))}
+          <Text size="sm" tone="muted">
+            {words.look}
+          </Text>
           {settings.canTest && (
             <Stack gap={2}>
               <Inline gap={3}>{testButton}</Inline>
@@ -158,6 +214,7 @@ function EmailCard({ settings }: { readonly settings: EmailSettings }) {
             </Inline>
           </Stack>
         )}
+        {nameField}
         <TextField
           label={words.from}
           value={from}
@@ -182,6 +239,9 @@ function EmailCard({ settings }: { readonly settings: EmailSettings }) {
             {settings.canTest && changed ? words.testAfterSave : words.testHelp(address)}
           </Text>
         </Stack>
+        <Text size="sm" tone="muted">
+          {words.look}
+        </Text>
       </Form>
       <ConfirmDialog
         isOpen={stopping}

@@ -83,6 +83,8 @@ export interface ContentTypeDef {
    * What is published there is the name the editor and the site's emails use.
    */
   readonly siteNamePath?: readonly string[];
+  /** The fields of such a page that hold the site's logo and colour, which its emails wear. */
+  readonly brandPaths?: BrandPaths;
   /**
    * Set when the type was archived: it is out of the editor and its pages are off the site. Its
    * fields and entries are kept as they were, so restoring it brings everything back.
@@ -254,6 +256,13 @@ export interface SiteImage {
   readonly size?: number;
   /** Where a browser can load a copy for a list of images, far lighter than the image itself. Set when the site can make one. */
   readonly thumbnail?: string;
+}
+
+/** Where a page of the settings keeps the site's look, each as field ids from the top down. */
+export interface BrandPaths {
+  readonly logo?: readonly string[];
+  readonly logoDark?: readonly string[];
+  readonly color?: readonly string[];
 }
 
 /** An image someone uploaded. The record says what the file is; the file itself is in a `MediaStore`. */
@@ -554,6 +563,10 @@ export interface EmailSettings {
   readonly provider: EmailProvider;
   /** Who the emails come from: `Lakeshore Realty <cms@lakeshore.example>`. Empty until someone says. */
   readonly from: string;
+  /** The name emails come from. Empty when emails are from the site's name. */
+  readonly senderName: string;
+  /** Set when something other than these settings decides the name emails come from. */
+  readonly senderNameFixedBy?: MailFixedBy;
   readonly hasKey: boolean;
   /** Set when something other than these settings decides how email is sent. They are kept, and unused. */
   readonly fixedBy?: MailFixedBy;

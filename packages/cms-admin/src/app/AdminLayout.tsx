@@ -1,5 +1,5 @@
 import { AppShell, LoadingMark, dismissToasts, toast, type AppShellNavGroup, type AppShellNavItem, type CommandItem } from '@velocity-astro/cms-ui';
-import { Blocks, Contact, HandCoins, House, Images, Inbox, KeyRound, Layers, LogOut, Plus, Puzzle, Settings, Shapes, Trash2, Users } from 'lucide-react';
+import { Blocks, Contact, HandCoins, House, Images, Inbox, KeyRound, Layers, LogOut, Plus, Puzzle, Settings, Shapes, Trash2, UserRound, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router';
 import { useGo } from './use-go.js';
@@ -177,12 +177,15 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
         account={{
           name: session.data.name,
           detail: session.data.email,
+          image: session.data.image,
           label: messages.app.accountMenu,
           actions: [
+            { id: 'profile', label: messages.app.profile, icon: UserRound },
             { id: 'passkey', label: messages.app.passkeys, icon: KeyRound },
             { id: 'sign-out', label: messages.app.signOut, icon: LogOut },
           ],
           onAction: (id) => {
+            if (id === 'profile') return go(paths.profile);
             if (id === 'passkey') return setShowingPasskeys(true);
             isSigningOut.current = true;
             signOut.mutate(undefined, {

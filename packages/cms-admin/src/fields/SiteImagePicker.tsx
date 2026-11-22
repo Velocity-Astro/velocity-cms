@@ -1,6 +1,7 @@
 import { ImagePicker, toast } from '@velocity-astro/cms-ui';
 import { useState } from 'react';
-import { useImages, useUploadImage, useUploadRules } from '../client/queries.js';
+import { useImages, useJustUploaded, useUploadImage, useUploadRules } from '../client/queries.js';
+import { NEWEST_FIRST, arrangeImages } from '../lib/arrange-images.js';
 import { prepareImage } from '../lib/prepare-image.js';
 import { smallOf } from '../lib/small-image.js';
 import { useMessages } from '../messages/messages-context.js';
@@ -30,6 +31,7 @@ export function SiteImagePicker({ label, isLabelHidden = false, help, problem, i
   const images = useImages();
   const rules = useUploadRules().data ?? null;
   const uploading = useUploadImage();
+  const fresh = useJustUploaded();
   const [notRead, setNotRead] = useState(false);
   const upload = async (file: File) => {
     setNotRead(false);
@@ -52,7 +54,12 @@ export function SiteImagePicker({ label, isLabelHidden = false, help, problem, i
       label={label}
       isLabelHidden={isLabelHidden}
       value={current}
-      images={(images.data ?? []).map((image) => ({ ...image, url: smallOf(image) }))}
+      images={arrangeImages(images.data ?? [], NEWEST_FIRST).map((image) => ({
+        name: image.name,
+        url: smallOf(image),
+        ...(fresh.has(image.name) && { badge: messages.media.justUploaded }),
+      }))}
+      search={{ label: messages.media.search, placeholder: messages.media.searchPlaceholder, clearLabel: messages.media.clearSearch, noMatchesText: messages.media.noMatches }}
       onChange={onChange}
       isRequired={isRequired}
       chooseLabel={messages.editor.imageChoose}

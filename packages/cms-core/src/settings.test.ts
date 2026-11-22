@@ -20,7 +20,7 @@ describe('SettingsService: email', () => {
     const store = new InMemorySettingsStore();
     const cms = site(SECRET, store);
     const saved = await cms.settings.saveEmail(owner, { from: 'hello@example.com', apiKey: ' re_live_123 ', expectedRevision: 0 });
-    expect(saved).toEqual({ provider: 'resend', from: 'hello@example.com', hasKey: true, sending: true, canTest: false, revision: 1 });
+    expect(saved).toEqual({ provider: 'resend', from: 'hello@example.com', senderName: '', hasKey: true, sending: true, canTest: false, revision: 1 });
     expect(JSON.stringify(await store.get('email'))).not.toContain('re_live_123');
     expect(await cms.settings.mailAccount()).toEqual({ provider: 'resend', apiKey: 're_live_123', from: 'hello@example.com' });
     // Another secret opens nothing: the key is asked for again rather than sent wrong.
@@ -69,7 +69,7 @@ describe('SettingsService: email', () => {
     const tested: string[] = [];
     let fixed: 'server' | null = 'server';
     cms.settings.useMail({ fixedBy: () => fixed, canTest: async () => true, sendTest: async (actor) => void tested.push(actor.id) });
-    expect(await cms.settings.email(owner)).toEqual({ provider: 'resend', from: '', hasKey: false, fixedBy: 'server', sending: true, canTest: true, revision: 0 });
+    expect(await cms.settings.email(owner)).toEqual({ provider: 'resend', from: '', senderName: '', hasKey: false, fixedBy: 'server', sending: true, canTest: true, revision: 0 });
     await cms.settings.testEmail(owner);
     expect(tested).toEqual(['u1']);
     fixed = null;

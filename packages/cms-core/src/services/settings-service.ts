@@ -10,8 +10,10 @@ import type { SecretSeal, Sealed } from '../seal.js';
 export interface EmailSettingsChanges {
   /** Left out, the provider stays as it is. */
   readonly provider?: EmailProvider;
-  /** Who the emails come from: an address, or a name and an address as `Name <address>`. */
-  readonly from: string;
+  /** Who the emails come from: an address, or a name and an address as `Name <address>`. Left out, it stays as it is. */
+  readonly from?: string;
+  /** The name emails come from. Empty for the site's name; left out, it stays as it is. */
+  readonly senderName?: string;
   /** The provider's key. Left out, the one that is saved stays; `null` takes it away. */
   readonly apiKey?: string | null;
   /** The revision the editor loaded. */
@@ -21,6 +23,17 @@ export interface EmailSettingsChanges {
 export const EMAIL_PROVIDERS: readonly EmailProvider[] = ['resend'];
 export const MAX_EMAIL_FROM_LENGTH = 200;
 export const MAX_EMAIL_KEY_LENGTH = 500;
+export const MAX_SENDER_NAME_LENGTH = 80;
+
+/**
+ * A sender's name as it is kept: words on one line with nothing an email header would read as
+ * its own (quotes, angle brackets, a new line). `''` for none, `null` when it cannot be a name.
+ */
+export function senderNameFrom(typed: string): string | null {
+  const name = typed.trim().replace(/\s+/g, ' ');
+  if (name.length > MAX_SENDER_NAME_LENGTH || /[\p{Cc}<>"\\]/u.test(name)) return null;
+  return name;
+}
 
 /** Where uploads are kept, as the editor sends it. */
 export interface StorageSettingsChanges {
@@ -153,6 +166,7 @@ export function senderFrom(typed: string): string | null {
 interface StoredEmail {
   readonly provider: EmailProvider;
   readonly from: string;
+  readonly name?: string;
   readonly key?: Sealed;
 }
 
@@ -200,16 +214,19 @@ export class SettingsService {
     const issues: ValidationIssue[] = [];
     const provider = changes.provider ?? current?.provider ?? 'resend';
     if (!EMAIL_PROVIDERS.includes(provider)) issues.push({ path: ['provider'], message: 'Choose one of the email services listed.' });
-    const from = changes.from.length > MAX_EMAIL_FROM_LENGTH ? null : senderFrom(changes.from);
+    // Left out, the sender stays as it is: the name alone can be saved where the server decides the rest.
+    const from = changes.from === undefined ? (current?.from ?? '') : changes.from.length > MAX_EMAIL_FROM_LENGTH ? null : senderFrom(changes.from);
     if (from === null) issues.push({ path: ['from'], message: 'Give an address such as hello@example.com, or a name with it: Lakeshore Realty <hello@example.com>.' });
+    const name = changes.senderName === undefined ? (current?.name ?? '') : senderNameFrom(changes.senderName);
+    if (name === null) issues.push({ path: ['senderName'], message: `Give a name of ${MAX_SENDER_NAME_LENGTH} characters at most, on one line, without quotes or angle brackets.` });
     const typedKey = typeof changes.apiKey === 'string' ? changes.apiKey.trim() : undefined;
     if (typedKey !== undefined && (typedKey === '' || typedKey.length > MAX_EMAIL_KEY_LENGTH || /\s/.test(typedKey))) {
       issues.push({ path: ['apiKey'], message: typedKey === '' ? 'Paste the API key.' : 'This does not look like an API key. Paste it as the email service shows it.' });
     }
-    if (issues.length > 0 || from === null) throw new ValidationError(issues.length === 1 ? 'One thing about the email settings needs another look.' : `${issues.length} things about the email settings need another look.`, issues);
+    if (issues.length > 0 || from === null || name === null) throw new ValidationError(issues.length === 1 ? 'One thing about the email settings needs another look.' : `${issues.length} things about the email settings need another look.`, issues);
 
     const key = changes.apiKey === null ? undefined : typedKey !== undefined ? await this.seal.seal(typedKey) : current?.key;
-    const next: StoredEmail = { provider, from, ...(key !== undefined && { key }) };
+    const next: StoredEmail = { provider, from, ...(name !== '' && { name }), ...(key !== undefined && { key }) };
     await this.store.save(EMAIL, next, revision + 1, kept === null ? null : revision);
     await this.events.emit('settings.saved', { area: 'email', actor });
     return this.#shown();
@@ -238,6 +255,16 @@ export class SettingsService {
     if (kept === null || !isStoredEmail(kept.value) || kept.value.from === '') return null;
     const apiKey = await this.seal.open(kept.value.key);
     return apiKey === undefined ? null : { provider: kept.value.provider, apiKey, from: kept.value.from };
+  }
+
+  /**
+   * The name an owner gave the sender of the site's emails, or `null` for none, when emails are
+   * from the site's name. No permission is asked: it is in the header of every email.
+   */
+  async senderName(): Promise<string | null> {
+    const kept = await this.store.get(EMAIL);
+    const name = kept !== null && isStoredEmail(kept.value) ? kept.value.name : undefined;
+    return name === undefined || name === '' ? null : name;
   }
 
   /** Tells the service what the site is called without a setting. A host calls it once it knows. */
@@ -465,10 +492,13 @@ export class SettingsService {
     // A key sealed with a secret the site no longer has is as good as none: it is asked for again.
     const hasKey = current?.key !== undefined && (await this.seal.open(current.key)) !== undefined;
     const fixedBy = this.#mail?.fixedBy() ?? null;
+    const namedBy = this.#mail?.namesSender?.() ?? null;
     const complete = hasKey && current.from !== '';
     return {
       provider: current?.provider ?? 'resend',
       from: current?.from ?? '',
+      senderName: current?.name ?? '',
+      ...(namedBy !== null && { senderNameFixedBy: namedBy }),
       hasKey,
       ...(fixedBy !== null && { fixedBy }),
       sending: fixedBy !== null || complete,

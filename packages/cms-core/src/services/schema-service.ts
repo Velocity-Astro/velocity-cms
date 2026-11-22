@@ -6,6 +6,7 @@ import type { FieldType } from '../field-type.js';
 import {
   isLiveType,
   liveFields,
+  type BrandPaths,
   type ContentTypeDef,
   type ContentTypeKind,
   type FieldDef,
@@ -38,6 +39,18 @@ export interface NewContentType {
   readonly inSettings?: boolean;
   /** The field of such a page that holds what the site is called, by key: `name`. */
   readonly siteNameField?: string;
+  /**
+   * The fields of such a page that say how the site looks, by key: its logo (an image field), a
+   * logo for dark backgrounds, and its colour (a colour field). The site's emails wear them.
+   */
+  readonly brandFields?: BrandFields;
+}
+
+/** The fields of a page of the settings that hold the site's look, by key. */
+export interface BrandFields {
+  readonly logo?: string;
+  readonly logoDark?: string;
+  readonly color?: string;
 }
 
 /** What can be changed about a content type itself. Its key stays: code and addresses use it. */
@@ -349,10 +362,13 @@ export class SchemaService {
 
   /** A type with a description applied to it: its fields, what entries are called by, and its layout. */
   private described(type: ContentTypeDef, input: NewContentType): ContentTypeDef {
-    const { titlePath: _title, list: _list, sections: _sections, urlPattern: _url, localizedUrlPatterns: _urls, forDeals, inSettings: wasInSettings, siteNamePath: _name, ...rest } = type;
+    const { titlePath: _title, list: _list, sections: _sections, urlPattern: _url, localizedUrlPatterns: _urls, forDeals, inSettings: wasInSettings, siteNamePath: _name, brandPaths: _brand, ...rest } = type;
     const inSettings = input.inSettings ?? wasInSettings === true;
     if ((inSettings || input.siteNameField !== undefined) && type.kind !== 'single') {
       throw new ValidationError(`Only a single page can be part of the settings, and "${type.key}" is a collection. Leave \`inSettings\` and \`siteNameField\` out of it.`, [{ path: ['inSettings'], message: 'Only a single page can be part of the settings.' }]);
+    }
+    if (input.brandFields !== undefined && !inSettings) {
+      throw new ValidationError(`"${type.key}" names the fields that hold the site's look, so it must be a single page that says \`inSettings: true\`.`, [{ path: ['brandFields'], message: 'Say `inSettings: true` as well.' }]);
     }
     if (input.siteNameField !== undefined && !inSettings) {
       throw new ValidationError(`"${type.key}" names the field that holds the site's name, so it must also say \`inSettings: true\`.`, [{ path: ['siteNameField'], message: 'Say `inSettings: true` as well.' }]);
@@ -382,7 +398,28 @@ export class SchemaService {
       ...((input.forDeals ?? forDeals === true) && { forDeals: true as const }),
       ...(inSettings && { inSettings: true as const }),
       ...(inSettings && input.siteNameField !== undefined && { siteNamePath: this.pathOf(live, input.siteNameField, 'the site name field') }),
+      ...(inSettings && input.brandFields !== undefined && { brandPaths: this.brandPaths(live, input.brandFields) }),
     };
+  }
+
+  /** Where the site's look is kept, checked to be an image for a logo and a colour for the colour. */
+  private brandPaths(fields: readonly FieldDef[], brand: BrandFields): BrandPaths {
+    const at = (key: string | undefined, what: string, type: string): string[] | undefined => {
+      if (key === undefined) return undefined;
+      const path = this.pathOf(fields, key, what);
+      let within = fields;
+      let field: FieldDef | undefined;
+      for (const id of path) {
+        field = within.find((candidate) => candidate.id === id);
+        within = field === undefined ? [] : liveFields(this.fields.get(field.type).inner(field.options));
+      }
+      if (field?.type !== type) throw new ValidationError(`${what[0]?.toUpperCase()}${what.slice(1)} "${key}" must be a field of type "${type}".`, [{ path: ['brandFields'], message: `Name a field of type "${type}".` }]);
+      return path;
+    };
+    const logo = at(brand.logo, 'the logo field', 'image');
+    const logoDark = at(brand.logoDark, 'the dark logo field', 'image');
+    const color = at(brand.color, 'the brand colour field', 'color');
+    return { ...(logo && { logo }), ...(logoDark && { logoDark }), ...(color && { color }) };
   }
 
   /** The ids along a dotted key path, such as `address.street`. */

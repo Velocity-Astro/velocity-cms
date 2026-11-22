@@ -58,7 +58,8 @@ export const appShellRailAccountClass = [
   'outline-none data-hovered:bg-rail-hover data-pressed:bg-rail-hover data-focus-visible:ring-2 data-focus-visible:ring-rail-foreground',
 ].join(' ');
 export const appShellRailAvatarClass =
-  'flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rail-current text-xs font-bold text-rail-foreground';
+  'flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-rail-current text-xs font-bold text-rail-foreground';
+export const appShellAvatarImageClass = 'h-full w-full object-cover';
 
 /* --- The column of a section's own places ------------------------------------ */
 
@@ -185,7 +186,7 @@ export const appShellDrawerAccountClass = [
   'outline-none data-hovered:bg-background-tertiary data-pressed:bg-background-tertiary data-focus-visible:ring-2 data-focus-visible:ring-ring',
 ].join(' ');
 export const appShellDrawerAvatarClass =
-  'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-background-tertiary text-xs font-semibold text-foreground';
+  'flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-background-tertiary text-xs font-semibold text-foreground';
 
 /* --- The account, as it is read ---------------------------------------------- */
 

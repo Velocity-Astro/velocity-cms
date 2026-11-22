@@ -34,6 +34,7 @@ export * from './RichTextEditor/index.js';
 export * from './TextArea/index.js';
 export * from './TextField/index.js';
 export * from './Thumbnail/index.js';
+export * from './Avatar/index.js';
 export * from './Toast/index.js';
 export * from './Tooltip/index.js';
 export type { Space } from './scales.js';
