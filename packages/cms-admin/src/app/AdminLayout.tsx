@@ -167,6 +167,8 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
         menuLabel={messages.app.openMenu}
         skipLabel={messages.app.skipToContent}
         nav={nav}
+        // Home opens on its own greeting and puts nothing in the bar, so it has none: the search is Ctrl or Command with K.
+        isBarHidden={location.pathname === paths.home}
         search={{
           label: messages.app.search,
           shortcut: hasCommandKey() ? messages.app.searchShortcutCommand : messages.app.searchShortcutControl,

@@ -35,8 +35,9 @@ const nav = (contentIsCurrent: boolean): AppShellNavGroup[] => [
 
 const chosen: string[] = [];
 const searched: string[] = [];
-const example = (contentIsCurrent = true) => (
+const example = (contentIsCurrent = true, isBarHidden = false) => (
   <AppShell
+    isBarHidden={isBarHidden}
     logoLabel="Velocity"
     siteName="Lakeshore Realty"
     siteDetail="lakeshore.example"
@@ -75,6 +76,22 @@ it('lists the places of the current section beside the rail, under its name', ()
 it('has no column of places when the current section holds none', () => {
   render(example(false));
   expect(screen.queryByRole('navigation', { name: 'Content' })).toBeNull();
+});
+
+it('keeps the places it held while its column closes, out of reach, so they slide away with it', () => {
+  const { rerender } = render(example());
+  rerender(example(false));
+  expect(screen.queryByRole('navigation', { name: 'Content' })).toBeNull();
+  const places = screen.getByRole('navigation', { name: 'Content', hidden: true });
+  expect(places.closest('[inert]')).not.toBeNull();
+  rerender(example());
+  expect(screen.getByRole('navigation', { name: 'Content' }).closest('[inert]')).toBeNull();
+});
+
+it('leaves the bar out from md up for a screen with nothing to put in it, and keeps it on a phone for the menu', () => {
+  render(example(true, true));
+  const bar = screen.getByRole('button', { name: 'Open the menu' }).closest('header');
+  expect(bar?.className).toContain('md:hidden');
 });
 
 it('marks the current section and place for screen readers', () => {

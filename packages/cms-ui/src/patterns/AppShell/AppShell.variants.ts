@@ -62,8 +62,25 @@ export const appShellRailAvatarClass =
 
 /* --- The column of a section's own places ------------------------------------ */
 
-/** On the rail's dark ground with no edge of its own, in the dark theme's colours whatever the editor's theme. */
-export const appShellSectionClass = 'dark hidden w-56 shrink-0 flex-col gap-5 overflow-y-auto px-3 py-5 text-foreground md:flex';
+/**
+ * On the rail's dark ground with no edge of its own, in the dark theme's colours whatever the editor's theme.
+ * It opens and closes by its width, so the panel beside it makes room as it slides out and takes the room back
+ * as it goes, and its places fade and slide in a little behind it. A person who asks for less motion sees it
+ * simply open and close.
+ */
+export const appShellSectionVariants = cva('dark hidden shrink-0 overflow-hidden text-foreground transition-all motion-slide view-shell-places md:flex', {
+  variants: {
+    isOpen: { true: 'w-56', false: 'w-0' },
+  },
+  defaultVariants: { isOpen: false },
+});
+/** What the column holds: as wide as the column open, so its words never wrap while it opens or closes. */
+export const appShellSectionNavVariants = cva('flex w-56 shrink-0 flex-col gap-5 overflow-y-auto px-3 py-5 transition-all motion-slide', {
+  variants: {
+    isOpen: { true: 'translate-x-0 opacity-100', false: '-translate-x-4 opacity-0' },
+  },
+  defaultVariants: { isOpen: false },
+});
 /** The site's name and address, at the top of a section's column and of a narrow window's panel. */
 export const appShellSiteClass = 'flex min-w-0 flex-col gap-0.5 px-2.5';
 export const appShellSiteNameClass = 'truncate text-base font-bold text-foreground';
@@ -93,12 +110,21 @@ export const appShellNavIconSize = 16;
 
 /** From `md` up, the panel: inset from the window's edges, its corners rounded, the dark ground showing around it. */
 export const appShellColumnClass =
-  'flex min-h-0 min-w-0 flex-1 flex-col md:my-2 md:mr-2 md:overflow-hidden md:rounded-2xl md:border md:border-border md:bg-card md:shadow-sm';
+  'flex min-h-0 min-w-0 flex-1 flex-col view-shell-panel md:my-2 md:mr-2 md:overflow-hidden md:rounded-2xl md:border md:border-border md:bg-card md:shadow-sm';
 /**
  * One bar on every screen, one row on every window: the menu (on a phone), the screen's header (its title,
  * state and buttons, which fold into a menu on a phone) and the search at the end.
  */
-export const appShellBarClass = 'flex min-h-14 shrink-0 items-center gap-2 border-b border-border bg-card px-3 md:min-h-16 md:gap-3 md:px-6';
+export const appShellBarVariants = cva('flex min-h-14 shrink-0 items-center gap-2 border-b border-border bg-card px-3 md:min-h-16 md:gap-3 md:px-6', {
+  variants: {
+    /**
+     * A screen with nothing for the bar (Home, which opens on its own greeting) has none from `md` up: the
+     * search is still a key away. A phone keeps it, since it holds the menu.
+     */
+    isHidden: { true: 'md:hidden', false: '' },
+  },
+  defaultVariants: { isHidden: false },
+});
 /** Where a screen's `PageHeader` or `SaveBar` is drawn. */
 export const appShellBarSlotClass = 'flex min-w-0 flex-1 items-center';
 
