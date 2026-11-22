@@ -1,6 +1,6 @@
 import { EditorContent, useEditor, useEditorState, type Editor, type JSONContent } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
-import { Bold, Heading2, Heading3, Italic, Link2, List, ListOrdered, TextQuote, type LucideIcon } from 'lucide-react';
+import { Bold, Code, Heading2, Heading3, Italic, Link2, List, ListOrdered, TextQuote, type LucideIcon } from 'lucide-react';
 import { Fragment, useEffect, useId, useRef, useState } from 'react';
 import { Dialog, DialogTrigger, Group, Popover, Separator, ToggleButton, Toolbar } from 'react-aria-components';
 import { Button } from '../Button/index.js';
@@ -36,6 +36,8 @@ export interface RichTextEditorWords {
   readonly toolbar: string;
   readonly bold: string;
   readonly italic: string;
+  /** Words set as code, such as `npm install`. */
+  readonly code: string;
   readonly heading: string;
   readonly subheading: string;
   readonly bulletList: string;
@@ -51,7 +53,7 @@ export interface RichTextEditorWords {
 }
 
 /** What the text may hold beyond paragraphs: each is a button of the toolbar, and what typing or pasting can make. */
-export type RichTextFormat = 'bold' | 'italic' | 'link' | 'headings' | 'lists' | 'quotes';
+export type RichTextFormat = 'bold' | 'italic' | 'code' | 'link' | 'headings' | 'lists' | 'quotes';
 
 export interface RichTextEditorProps {
   /** Always given. It is read out even when it is not shown. */
@@ -74,7 +76,7 @@ export interface RichTextEditorProps {
   readonly formats?: readonly RichTextFormat[];
 }
 
-const EVERY_FORMAT: readonly RichTextFormat[] = ['bold', 'italic', 'link', 'headings', 'lists', 'quotes'];
+const EVERY_FORMAT: readonly RichTextFormat[] = ['bold', 'italic', 'code', 'link', 'headings', 'lists', 'quotes'];
 
 const EMPTY: RichTextDocument = { type: 'doc', content: [{ type: 'paragraph' }] };
 const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
@@ -97,7 +99,7 @@ interface Node {
 }
 
 const NODE_FORMAT: Readonly<Record<string, RichTextFormat>> = { heading: 'headings', bulletList: 'lists', orderedList: 'lists', listItem: 'lists', blockquote: 'quotes' };
-const MARK_FORMAT: Readonly<Record<string, RichTextFormat>> = { bold: 'bold', italic: 'italic', link: 'link' };
+const MARK_FORMAT: Readonly<Record<string, RichTextFormat>> = { bold: 'bold', italic: 'italic', code: 'code', link: 'link' };
 
 /**
  * The text with only what the editor is built for. The editor drops a whole block it has no part
@@ -132,7 +134,7 @@ interface Tool {
   readonly run: (editor: Editor) => void;
 }
 
-/** Text with headings, lists, quotes, bold, italics and links, with its label, help and error. */
+/** Text with headings, lists, quotes, bold, italics, code and links, with its label, help and error. */
 export function RichTextEditor({ label, isLabelHidden = false, description, errorMessage, isRequired = false, value, onChange, words, formats = EVERY_FORMAT }: RichTextEditorProps) {
   const allows = (format: RichTextFormat) => formats.includes(format);
   // The formats decide which parts the editor is built from, so another set builds it anew.
@@ -159,7 +161,7 @@ export function RichTextEditor({ label, isLabelHidden = false, description, erro
         listItem: allows('lists') && {},
         listKeymap: allows('lists') && {},
         blockquote: allows('quotes') && {},
-        code: false,
+        code: allows('code') && {},
         codeBlock: false,
         strike: false,
         underline: false,
@@ -209,6 +211,7 @@ export function RichTextEditor({ label, isLabelHidden = false, description, erro
   const marks: Tool[] = ([
     { name: words.bold, format: 'bold', icon: Bold, isActive: (e) => e.isActive('bold'), run: (e) => e.chain().focus().toggleBold().run() },
     { name: words.italic, format: 'italic', icon: Italic, isActive: (e) => e.isActive('italic'), run: (e) => e.chain().focus().toggleItalic().run() },
+    { name: words.code, format: 'code', icon: Code, isActive: (e) => e.isActive('code'), run: (e) => e.chain().focus().toggleCode().run() },
   ] satisfies Tool[]).filter((tool) => allows(tool.format));
   const blocks: Tool[] = ([
     { name: words.heading, format: 'headings', icon: Heading2, isActive: (e) => e.isActive('heading', { level: 2 }), run: (e) => e.chain().focus().toggleHeading({ level: 2 }).run() },

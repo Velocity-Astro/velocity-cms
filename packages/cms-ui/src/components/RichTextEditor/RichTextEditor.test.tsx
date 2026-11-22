@@ -14,6 +14,7 @@ const words = {
   toolbar: 'Formatting',
   bold: 'Bold',
   italic: 'Italic',
+  code: 'Code',
   heading: 'Heading',
   subheading: 'Subheading',
   bulletList: 'Bulleted list',
