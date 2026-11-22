@@ -1,12 +1,14 @@
 import { cva } from 'class-variance-authority';
 
 /**
- * From `md` up the window has three parts side by side: the rail of sections, dark in both themes;
- * beside it, when the section being shown has places of its own, a column naming them; then the bar
- * across the top and the screen under it. On a narrower window (a phone, a tablet held upright)
- * the rail and the column are behind a button in the bar, so the screen has the width.
+ * From `md` up the window has three parts side by side: the rail of sections; beside it, when the
+ * section being shown has places of its own, a column naming them; then the bar across the top and
+ * the screen under it. The rail and the column sit on the rail's dark ground, which fills the window,
+ * and the bar and the screen in one rounded panel inset from its edges. On a narrower window (a phone,
+ * a tablet held upright) the rail and the column are behind a button in the bar, so the screen has
+ * the width.
  */
-export const appShellClass = 'flex h-dvh flex-col overflow-hidden bg-background text-foreground md:flex-row';
+export const appShellClass = 'flex h-dvh flex-col overflow-hidden bg-background text-foreground md:flex-row md:bg-rail';
 
 export const appShellSkipClass = [
   'sr-only layer-toast rounded-md bg-primary px-4 py-2 text-base font-medium text-primary-foreground',
@@ -60,7 +62,8 @@ export const appShellRailAvatarClass =
 
 /* --- The column of a section's own places ------------------------------------ */
 
-export const appShellSectionClass = 'hidden w-56 shrink-0 flex-col gap-5 overflow-y-auto border-r border-border bg-card px-3 py-5 md:flex';
+/** On the rail's dark ground with no edge of its own, in the dark theme's colours whatever the editor's theme. */
+export const appShellSectionClass = 'dark hidden w-56 shrink-0 flex-col gap-5 overflow-y-auto px-3 py-5 text-foreground md:flex';
 /** The site's name and address, at the top of a section's column and of a narrow window's panel. */
 export const appShellSiteClass = 'flex min-w-0 flex-col gap-0.5 px-2.5';
 export const appShellSiteNameClass = 'truncate text-base font-bold text-foreground';
@@ -88,7 +91,9 @@ export const appShellNavIconSize = 16;
 
 /* --- The bar across the top -------------------------------------------------- */
 
-export const appShellColumnClass = 'flex min-h-0 min-w-0 flex-1 flex-col';
+/** From `md` up, the panel: inset from the window's edges, its corners rounded, the dark ground showing around it. */
+export const appShellColumnClass =
+  'flex min-h-0 min-w-0 flex-1 flex-col md:my-2 md:mr-2 md:overflow-hidden md:rounded-2xl md:border md:border-border md:bg-card md:shadow-sm';
 /**
  * One bar on every screen, one row on every window: the menu (on a phone), the screen's header (its title,
  * state and buttons, which fold into a menu on a phone) and the search at the end.
