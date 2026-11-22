@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **Search finds your content and your contacts.** The editor's search (Ctrl or Command with K) looked only at the places of the menu. It now finds entries of every type by anything they hold, such as part of an address (`4405`) or a word in a section, in any order, and, for owners and editors, contacts by name, email or phone. A content list's own search box looks at everything an entry holds too, not only its title. `GET /api/cms/entries` takes `search`, and its `type` may be left out to look across every type.
+
 ## 0.1.0-beta.11
 
 - **The editor opens finished.** The Velocity mark now stays up until the first screen's content has arrived, so the editor goes from the mark straight to a full screen, never to a screen of grey shapes; those are left for moving between screens. The mark stands in a clearing of the grid with "Opening the editor" under it. Only a request that never answers is cut short, after ten seconds.

@@ -20,6 +20,12 @@ export interface EntryQuery {
   /** `true` for the entries in the trash and no others. Left out, the trash is left out. */
   readonly trashed?: boolean;
   /**
+   * Words to find, whatever their case, in the version being worked on: each word in its slug or
+   * in any text it holds, however deep (a field, a group, a list, a section), in any order. Ids
+   * that only tie the entry together (a section's `id` and `block`) are not looked in.
+   */
+  readonly search?: string;
+  /**
    * `created` (the default) is oldest first, which never reorders as people work. `updated` is
    * most recently saved first, which is what an editor's list shows.
    */

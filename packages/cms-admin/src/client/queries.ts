@@ -190,6 +190,9 @@ const WHOLE_STOPS_AT = 10_000;
  * A list read to its end. A screen that asks for the most the server gives in one answer means
  * the whole list, so the answers that follow are read too: a list never stops short in silence.
  */
+/** How many of each kind the search shows. */
+const FOUND_AT_MOST = 6;
+
 async function whole<T, Q extends { readonly limit?: number; readonly offset?: number }>(query: Q, list: (query: Q) => Promise<Page<T>>): Promise<Page<T>> {
   const first = await list(query);
   if (query.limit !== MOST || query.offset !== undefined) return first;
@@ -205,6 +208,16 @@ async function whole<T, Q extends { readonly limit?: number; readonly offset?: n
 export function useEntries(query: EntryListQuery) {
   const client = useClient();
   return useQuery({ queryKey: keys.entries(query), queryFn: () => whole(query, (asked) => client.listEntries(asked)) });
+}
+
+/**
+ * What the search finds of the site's content as it is typed: a few entries of any type, most
+ * recently saved first. What was on screen stays while the next answer is on its way.
+ */
+export function useFoundEntries(words: string, isWanted: boolean) {
+  const client = useClient();
+  const query: EntryListQuery = { search: words, limit: FOUND_AT_MOST };
+  return useQuery({ queryKey: keys.entries(query), queryFn: () => client.listEntries(query), enabled: isWanted && words !== '', placeholderData: (previous) => previous });
 }
 
 /** The entries of several content types at once, one request each, sharing the lists' cache. */
@@ -489,6 +502,13 @@ export function useForgetSender() {
 export function useContacts(query: ContactListQuery = {}) {
   const client = useClient();
   return useQuery({ queryKey: keys.contactList(query), queryFn: () => whole(query, (asked) => client.listContacts(asked)), placeholderData: (previous) => previous });
+}
+
+/** What the search finds of the people who wrote to the site as it is typed: a few contacts. */
+export function useFoundContacts(words: string, isWanted: boolean) {
+  const client = useClient();
+  const query: ContactListQuery = { search: words, limit: FOUND_AT_MOST };
+  return useQuery({ queryKey: keys.contactList(query), queryFn: () => client.listContacts(query), enabled: isWanted && words !== '', placeholderData: (previous) => previous });
 }
 
 /** One list of contacts per query, asked for together: the columns of the board. */

@@ -56,6 +56,36 @@ it('narrows what is shown as the person types, by words, detail and keywords', a
   expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Settings']);
 });
 
+it('shows what was found elsewhere as it is, and says what is typed', async () => {
+  const user = userEvent.setup();
+  const typed: string[] = [];
+  function Searching() {
+    const [words, setWords] = useState('');
+    const found: CommandGroup = { id: 'found', label: 'Content', isFound: true, items: words === '' ? [] : [{ id: 'e1', label: '4405 Lakeview Drive', detail: 'Listings' }] };
+    return (
+      <CommandPalette
+        isOpen
+        onOpenChange={() => undefined}
+        label="Search and commands"
+        placeholder="Search, jump to or create anything"
+        emptyText="Nothing matches that."
+        groups={[...groups, found]}
+        onAction={() => undefined}
+        onSearch={(next) => {
+          typed.push(next);
+          setWords(next);
+        }}
+      />
+    );
+  }
+  render(<Searching />);
+  // The address is not in the row's words the way it was typed, and it is shown all the same.
+  await user.keyboard('lakeview 4405');
+  expect(typed.at(-1)).toBe('lakeview 4405');
+  expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['4405 Lakeview DriveListings']);
+  expect(screen.getByText('Content')).toBeDefined();
+});
+
 it('says so when nothing matches', async () => {
   const user = userEvent.setup();
   render(<Example onAction={() => undefined} />);
