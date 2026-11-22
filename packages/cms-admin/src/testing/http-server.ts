@@ -12,6 +12,7 @@ import type { SessionUser } from '../client/admin-client.js';
 import { HttpAdminClient } from '../client/http-client.js';
 import { MemoryChallengeRoom, MemoryMailRoom, MemoryStorageRoom } from './memory-mail.js';
 import { MemoryPeople } from './memory-people.js';
+import { MemoryTokens } from './memory-tokens.js';
 import { seedForms } from './memory-client.js';
 import type { AdminClientSeed } from './admin-client-contract.js';
 
@@ -39,7 +40,7 @@ export async function createHttpServer(seed: AdminClientSeed, user: SessionUser)
   await seedForms(cms, seed.forms, seed.submissions);
   await cms.plugins.load(seed.plugins ?? []);
   const passkeys: { id: string; name: string }[] = [];
-  const api = new CmsApi({ cms, authenticator, people });
+  const api = new CmsApi({ cms, authenticator, people, tokens: new MemoryTokens(people) });
   const requests: Request[] = [];
   const client = new HttpAdminClient({
     auth: {
