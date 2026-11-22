@@ -3,7 +3,7 @@ import { defineFields, type NewField } from '../define-fields.js';
 import { FieldType, type DefineContext, type FieldContext } from '../field-type.js';
 import type { FieldDef } from '../model.js';
 import { Registry } from '../registry.js';
-import { fromPlainText, richTextHtml, richTextParagraphs, richTextSchema, type RichText } from '../rich-text.js';
+import { fromPlainText, limitRichText, RICH_TEXT_FORMATS, richTextHtml, richTextParagraphs, richTextSchema, type RichText, type RichTextFormat } from '../rich-text.js';
 import { buildFieldsSchema, toPublicData } from '../schema-builder.js';
 import { BlocksField } from './blocks.js';
 import { LinkField } from './link.js';
@@ -285,23 +285,42 @@ export interface PublicRichText {
   readonly paragraphs: readonly string[];
 }
 
+/** The settings of a rich text field. */
+export interface RichTextOptions {
+  /** What the field may hold beyond paragraphs. Left out, everything the format has. */
+  readonly formats?: readonly RichTextFormat[] | undefined;
+}
+
 /**
  * Text with headings, lists, bold, italics and links. Stored as a tree, never as HTML, and given
  * to the site as HTML made from that tree. A field that was plain text, or a list of
  * paragraphs, can be changed to this type: what is stored is read as paragraphs.
+ *
+ * A field shown in a tight spot of a design names the formats that spot was drawn for
+ * (`formats`): the editor offers only those, and anything else that reaches a save (pasted, or
+ * sent by a script) is turned into plain paragraphs, never refused, so no words are lost. What is
+ * handed to the site is limited the same way, for text saved before the field was.
  */
-export class RichTextField extends FieldType<RichText, NoOptions> {
+export class RichTextField extends FieldType<RichText, RichTextOptions> {
   readonly type = 'richtext';
   readonly editor = 'rich-text';
-  readonly options = noOptions;
+  readonly options = z.object({ formats: z.array(z.enum(RICH_TEXT_FORMATS)).optional() });
 
-  schema() {
-    return richTextSchema;
+  schema({ formats }: RichTextOptions) {
+    return formats === undefined ? richTextSchema : richTextSchema.transform((text) => limitRichText(text, formats));
   }
 
-  override toPublic(value: RichText | string | readonly string[]): PublicRichText {
+  override define(described: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> {
+    // Each format once, in the order the editor shows them.
+    const formats = described['formats'];
+    if (!Array.isArray(formats)) return described;
+    return { ...described, formats: RICH_TEXT_FORMATS.filter((format) => formats.includes(format)) };
+  }
+
+  override toPublic(value: RichText | string | readonly string[], { formats }: RichTextOptions): PublicRichText {
     // What was saved before the field became rich text is still plain.
-    const text = typeof value === 'string' || Array.isArray(value) ? fromPlainText(value as string | readonly string[]) : (value as RichText);
+    const stored = typeof value === 'string' || Array.isArray(value) ? fromPlainText(value as string | readonly string[]) : (value as RichText);
+    const text = limitRichText(stored, formats);
     return { html: richTextHtml(text), paragraphs: richTextParagraphs(text) };
   }
 }
