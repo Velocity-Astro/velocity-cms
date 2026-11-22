@@ -4,11 +4,14 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+## 0.1.0-beta.10
+
 - **The editor opens on the Velocity mark.** In place of a small spinner in the corner, the mark sits in the middle of the screen, its three facets arriving in grey and taking their colour, from the first moment the page arrives until the editor's first screen is ready, then it fades. People who ask for less motion see the mark still.
 - **The visual editor is cleaner.** No more dark band round every field of the form (it was the outline that marks a field pointed at on the page, drawn even when nothing was). The page sits in a darker well between the panels, and the edges that resize them are hairlines that show on hover.
 - **A small field takes the whole width of a narrow form.** A choice, a date or a number inside a section no longer squeezes into a third of the form beside the page, with its help wrapped into a thin column.
 - **The SEO plugin's search preview shows only on entries that have a page of their own.** Menus, the site's settings and its theme no longer get one, and its review leaves them out too. A plugin's panel can ask for the same with `pagesOnly: true` in `register.entryPanel`.
 - **Home greets you by name in the brand's colour,** as a site's own hero sets its words apart.
+
 ## 0.1.0-beta.9
 
 - **Fixed: a page kept through the live loader alone went stale after a publish.** What `cmsLiveLoader` hands out now carries the site's own cache tag, which every publish clears (each site's own on a host for many sites).
