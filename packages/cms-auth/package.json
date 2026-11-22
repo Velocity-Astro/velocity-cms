@@ -1,6 +1,6 @@
 {
   "name": "@velocity-astro/cms-auth",
-  "version": "0.1.0-beta.11",
+  "version": "0.1.0-beta.12",
   "description": "Sign-in for Velocity CMS: email links and passkeys, kept in the CMS's own database. No passwords and no outside account.",
   "type": "module",
   "license": "MIT",
