@@ -1,7 +1,7 @@
 # LoadingMark
 
-The whole screen while the app opens: the Velocity mark in the middle, quiet, on the page's own
-background. Its three facets arrive from their own sides in grey and take their colour, the orange top
+The whole screen while the app opens: the Velocity mark in the middle of a clearing in the grid,
+whose lines fade toward the edges, with what is happening under it in small words. Its three facets arrive from their own sides in grey and take their colour, the orange top
 first, then fade and assemble again until the app is there. The lower facets follow the text's colour, so
 the mark reads in both themes, and the orange is the one colour on the screen.
 
@@ -16,7 +16,7 @@ the mark reads in both themes, and the orange is the one colour on the screen.
 
 ## Accessibility
 
-It is a `status`, and screen readers hear its label. The mark itself is hidden from them. People who ask
+It is a `status`, and screen readers hear its label, which is also shown. The mark itself is hidden from them. People who ask
 for less motion see the whole mark, still.
 
 ## Example

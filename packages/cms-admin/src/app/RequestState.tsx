@@ -1,6 +1,7 @@
 import { Box, Button, Card, EmptyState, Grid, Inline, Skeleton, SkeletonGroup, Spinner, Stack } from '@velocity-astro/cms-ui';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { CircleAlert } from 'lucide-react';
+import { holdBootForScreen } from '../lib/boot.js';
 import { useMessages } from '../messages/messages-context.js';
 
 /**
@@ -101,6 +102,8 @@ const SHAPES: Readonly<Record<Exclude<LoadingShape, 'spinner'>, () => ReactNode>
 /** What a screen shows while its content is on the way: grey shapes laid out like the content. */
 export function LoadingState({ label, shape = 'page' }: LoadingStateProps) {
   const messages = useMessages();
+  // While the editor is opening, its mark stays up a moment longer instead of these shapes.
+  useEffect(holdBootForScreen, []);
   const words = label ?? messages.app.loading;
   if (shape === 'spinner') {
     return (
