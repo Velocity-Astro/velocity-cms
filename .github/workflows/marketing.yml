@@ -32,11 +32,6 @@ on:
       owner:
         description: Make this address an owner of the editor (left empty, the MARKETING_OWNER_EMAIL secret)
         default: ''
-  # While the site's move to the CMS is reviewed, every push to this branch deploys the preview.
-  # Remove this before the branch is merged.
-  push:
-    branches: [claude/project-thread-b2o7uw]
-    paths: ['.github/workflows/marketing.yml', '.github/scripts/marketing-site.sh', '.github/scripts/use-cms-checkout.mjs', 'packages/**']
 
 concurrency:
   group: marketing
@@ -52,7 +47,7 @@ jobs:
     timeout-minutes: 30
     env:
       TARGET: ${{ inputs.target || 'preview' }}
-      MARKETING_REF: ${{ inputs.marketing_ref || (github.event_name == 'push' && 'claude/project-thread-b2o7uw') || 'main' }}
+      MARKETING_REF: ${{ inputs.marketing_ref || 'main' }}
       PREVIEW_PROJECT: ${{ vars.MARKETING_PREVIEW_PROJECT || 'velocity-marketing-cms-preview' }}
       LIVE_DOMAIN: ${{ vars.MARKETING_DOMAIN || 'deployvelocity.com' }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
