@@ -2,6 +2,7 @@ import type { PluginInfo } from '@velocity-astro/cms-core';
 import { Box, Button, Card, EmptyState, Grid, PageHeader, Stack, Switch, Tag, Text, toast } from '@velocity-astro/cms-ui';
 import { ArrowRight, History, Puzzle, Settings2 } from 'lucide-react';
 import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { paths } from '../../app/paths.js';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { useGo } from '../../app/use-go.js';
@@ -26,7 +27,10 @@ export function PluginsScreen() {
   const setEnabled = useSetPluginEnabled();
   const go = useGo();
   const extensions = usePluginExtensions();
-  const [settingUp, setSettingUp] = useState<PluginInfo | null>(null);
+  // Which plugin's settings are open is part of the address, so the menu can lead straight to them.
+  const [address, setAddress] = useSearchParams();
+  const settingUp = (plugins.data ?? []).find((plugin) => plugin.hasSettings && plugin.name === address.get('settings')) ?? null;
+  const setSettingUp = (plugin: PluginInfo | null) => setAddress(plugin === null ? {} : { settings: plugin.name }, { replace: plugin === null });
   const [watching, setWatching] = useState<PluginInfo | null>(null);
 
   const flip = (plugin: PluginInfo, enabled: boolean) => {

@@ -119,6 +119,32 @@ it('draws a plugin\'s settings as a form, shows what the server says on each, an
   expect(Object.values(saved.values)).toEqual([' | Lakeshore', 160]);
 });
 
+it('puts each active plugin with settings in the menu, one press from its settings, and takes it out when switched off', async () => {
+  const user = userEvent.setup();
+  renderApp('/plugins', site({ plugins: [seo()] }));
+  const row = within(await screen.findByRole('region', { name: /SEO/ }));
+  // Not active yet, so not in the menu.
+  expect(screen.queryByRole('link', { name: 'SEO' })).toBeNull();
+
+  await user.click(row.getByRole('switch', { name: 'SEO is active' }));
+  await row.findByText('Active');
+  await user.click(await screen.findByRole('link', { name: 'SEO' }));
+  expect(await screen.findByRole('dialog', { name: 'SEO settings' })).toBeTruthy();
+  // The page behind the open dialog is hidden from the tree, so the menu is checked by hand.
+  expect(document.querySelector('a[href="/plugins?settings=seo"][aria-current="page"]')).toBeTruthy();
+  await user.keyboard('{Escape}');
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'SEO settings' })).toBeNull());
+  expect(screen.getByRole('link', { name: 'Manage plugins' }).getAttribute('aria-current')).toBe('page');
+
+  await user.click(row.getByRole('switch', { name: 'SEO is active' }));
+  await waitFor(() => expect(screen.queryByRole('link', { name: 'SEO' })).toBeNull());
+});
+
+it('opens a plugin\'s settings from its address', async () => {
+  renderApp('/plugins?settings=seo', site({ plugins: [seo()] }));
+  expect(await screen.findByRole('dialog', { name: 'SEO settings' })).toBeTruthy();
+});
+
 /** A plugin that asks for a key and sends things, as a connector would. */
 const mailer = (state: { works: boolean; add?: () => Promise<void> }) =>
   definePlugin({

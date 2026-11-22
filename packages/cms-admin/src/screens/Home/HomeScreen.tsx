@@ -80,8 +80,7 @@ export function HomeScreen({ siteName }: HomeScreenProps) {
   // The page at the top of the site: what most people come to the editor to change.
   const home = all.find(({ type, entry }) => takesSlugPath(type) && entry.slug === HOME_SLUG);
   const isCounted = !failed && !pending;
-  const greeting = session.data ? messages.home.greeting[dayPart()](session.data.name) : messages.app.home;
-  const homePublished = home?.entry.published?.at;
+    const homePublished = home?.entry.published?.at;
 
   const columns: TableColumn[] = [
     { id: 'title', label: messages.contentList.columnTitle },
@@ -111,12 +110,12 @@ export function HomeScreen({ siteName }: HomeScreenProps) {
 
   return (
     <>
-      {/* Home has no header in the bar: it opens on this greeting, the one large line of the editor. */}
+      {/* Home has no header in the bar: it opens on this greeting and the person's name, the one large line of the editor; what is waiting is the smaller line under it. */}
       <Welcome
         eyebrow={new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())}
-        title={isCounted ? messages.home.headline(greeting, waiting) : greeting}
-        {...(session.data && { highlight: session.data.name })}
-        description={messages.home.description(siteName)}
+        title={session.data ? messages.home.greeting[dayPart()] : messages.app.home}
+        {...(session.data && { name: session.data.name })}
+        description={isCounted ? messages.home.waiting(waiting, siteName) : messages.home.description(siteName)}
         actions={
           <>
             {carryOn && (

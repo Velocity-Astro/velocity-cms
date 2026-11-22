@@ -900,9 +900,10 @@ export function useRevokeToken() {
   return useMutation({ mutationFn: (id: string) => client.revokeToken(id), onSuccess: useTokensChanged() });
 }
 
-export function usePlugins() {
+/** Every plugin this site can use. Only owners may ask: anyone else passes `enabled: false`. */
+export function usePlugins(enabled = true) {
   const client = useClient();
-  return useQuery({ queryKey: keys.plugins, queryFn: () => client.listPlugins() });
+  return useQuery({ queryKey: keys.plugins, queryFn: () => client.listPlugins(), enabled });
 }
 
 /** The running plugins that add to the editor. Asked once someone is signed in. */

@@ -8,9 +8,10 @@ const signedIn = { user: sampleUser, contentTypes: sampleContentTypes, entries: 
 
 it('greets the person and counts where the content stands', async () => {
   renderApp('/', signedIn);
-  // Home opens on its greeting, the person's name set apart, and what is waiting: two drafts and one entry with changes.
-  const headline = await screen.findByRole('heading', { level: 1, name: /^Good (morning|afternoon|evening), Dana\. 3 drafts are waiting\.$/ });
+  // Home opens on its greeting and the person's name on a line of its own; what is waiting (two drafts and one entry with changes) is the smaller line under it.
+  const headline = await screen.findByRole('heading', { level: 1, name: /^Good (morning|afternoon|evening), Dana$/ });
   expect(headline.querySelector('mark')?.textContent).toBe('Dana');
+  expect((await screen.findByText('3 drafts are waiting. Here is where Lakeshore Realty stands.')).closest('h1')).toBeNull();
   // Its bar holds no title of its own, so the greeting is the screen's one heading.
   expect(within(screen.getByRole('banner')).queryByRole('heading')).toBeNull();
   expect(within(await screen.findByRole('group', { name: 'Published' })).getByText('2')).toBeTruthy();
@@ -71,8 +72,8 @@ it('says what came in from the forms, and what the open deals are worth, to thos
 it('says everything is published when nothing is waiting', async () => {
   const published = sampleEntries().filter((entry) => entry.status === 'published' && entry.published?.revision === entry.revision);
   renderApp('/', { ...signedIn, entries: published });
-  const headline = await screen.findByRole('heading', { level: 1, name: /Everything is published\.$/ });
-  expect(headline.querySelector('mark')?.textContent).toBe('Dana');
+  expect(await screen.findByText('Everything is published. Here is where Lakeshore Realty stands.')).toBeTruthy();
+  expect(screen.getByRole('heading', { level: 1 }).querySelector('mark')?.textContent).toBe('Dana');
 });
 
 it('says so when nothing has been written yet', async () => {

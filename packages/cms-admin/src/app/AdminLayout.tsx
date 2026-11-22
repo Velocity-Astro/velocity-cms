@@ -3,7 +3,7 @@ import { Blocks, Contact, HandCoins, House, Images, Inbox, KeyRound, Layers, Log
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router';
 import { useGo } from './use-go.js';
-import { useContentTypes, useSession, useSignOut } from '../client/queries.js';
+import { useContentTypes, usePlugins, useSession, useSignOut } from '../client/queries.js';
 import { localized } from '../lib/content.js';
 import { hasCommandKey, useCommandKey } from '../lib/use-command-key.js';
 import { typeIcon } from '../lib/type-icon.js';
@@ -49,6 +49,8 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
   // screen is drawn before a plugin's control for one of its fields is there.
   const hasPlugins = useLoadPluginEditors(isSignedIn);
   const { screens } = usePluginExtensions();
+  // Owners reach each active plugin's settings from the menu; only they may list the plugins.
+  const pluginList = usePlugins(session.data?.role === 'owner');
 
   // Until then the editor has no screen to draw: the mark, which keeps the page's own up over it.
   const isOpening = session.isPending || (isSignedIn && !hasPlugins);
@@ -90,13 +92,29 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
   };
 
   // Plugins have a section of their own: the screens they added, for everyone (what each may do
-  // there is the server's to say), then the way to manage them, for owners. With neither, there is no section.
+  // there is the server's to say), then, for owners, the settings of each active plugin that has
+  // no screen of its own, and the way to manage them. With none of these, there is no section.
+  const openSettings = location.pathname === paths.plugins ? new URLSearchParams(location.search).get('settings') : null;
+  const withScreens = new Set(screens.map((screen) => screen.plugin));
+  const settingsNav: AppShellNavItem[] =
+    role === 'owner'
+      ? (pluginList.data ?? [])
+          .filter((plugin) => plugin.status === 'on' && plugin.hasSettings && !withScreens.has(plugin.name))
+          .map((plugin) => ({
+            id: `plugin-settings:${plugin.name}`,
+            label: localized(plugin.label, locale),
+            href: paths.pluginSettings(plugin.name),
+            icon: Blocks,
+            isCurrent: openSettings === plugin.name,
+          }))
+      : [];
   const pluginNav: AppShellNavItem[] = [
     ...screens.map((screen) => {
       const href = paths.pluginScreen(screen.plugin, screen.id);
       return { id: `plugin:${screen.plugin}:${screen.id}`, label: screen.label, href, icon: Blocks, isCurrent: location.pathname === href };
     }),
-    ...(role === 'owner' ? [{ id: 'plugins', label: messages.app.plugins, href: paths.plugins, icon: Puzzle, isCurrent: location.pathname === paths.plugins }] : []),
+    ...settingsNav,
+    ...(role === 'owner' ? [{ id: 'plugins', label: messages.app.plugins, href: paths.plugins, icon: Puzzle, isCurrent: location.pathname === paths.plugins && openSettings === null }] : []),
   ];
   const plugins: AppShellNavItem[] =
     pluginNav.length === 0
@@ -105,10 +123,11 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
           {
             id: 'plugins',
             label: messages.app.pluginsGroup,
-            href: pluginNav[0]?.href ?? paths.plugins,
+            // A plugin's screen first; a plugin's settings are not where the section opens.
+            href: screens.length > 0 ? (pluginNav[0]?.href ?? paths.plugins) : paths.plugins,
             icon: Puzzle,
             isCurrent: location.pathname.startsWith('/plugins'),
-            ...(screens.length > 0 && { children: [{ id: 'plugins', items: pluginNav }] }),
+            ...(pluginNav.length > 1 && { children: [{ id: 'plugins', items: pluginNav }] }),
           },
         ];
 

@@ -6,7 +6,7 @@ import {
   welcomeDescriptionClass,
   welcomeEyebrowClass,
   welcomeInnerClass,
-  welcomeMarkClass,
+  welcomeNameClass,
   welcomeTextClass,
   welcomeTitleClass,
 } from './Welcome.variants.js';
@@ -14,11 +14,11 @@ import {
 export interface WelcomeProps {
   /** A few words over the title, such as today's date. */
   readonly eyebrow?: string;
-  /** The screen's one heading: "Good morning, Dana. 3 drafts are waiting." */
+  /** The screen's one heading, a greeting: "Good morning,". */
   readonly title: string;
-  /** Words inside the title to set apart, such as "3 drafts". Its first appearance is marked. */
-  readonly highlight?: string;
-  /** One or two sentences under the title. */
+  /** Who is greeted, on a line of its own under the title in the brand's colour, never broken across two. */
+  readonly name?: string;
+  /** One or two sentences under the title, in smaller words: what is waiting, where things stand. */
   readonly description?: string;
   /** What to do first: one main `Button` and one or two others. */
   readonly actions?: ReactNode;
@@ -26,34 +26,25 @@ export interface WelcomeProps {
   readonly aside?: ReactNode;
 }
 
-/** Where the words first stand whole in the title (a name "No" is not the end of "afternoon"), else where they first appear. */
-function placeOf(title: string, words: string): number {
-  const escaped = words.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const whole = new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'u').exec(title);
-  return whole ? whole.index : title.indexOf(words);
-}
-
-/** The title with the highlighted words marked, where they appear in it. */
-function marked(title: string, highlight: string | undefined): ReactNode {
-  const at = highlight === undefined || highlight === '' ? -1 : placeOf(title, highlight);
-  if (highlight === undefined || at < 0) return title;
-  return (
-    <>
-      {title.slice(0, at)}
-      <mark className={welcomeMarkClass}>{highlight}</mark>
-      {title.slice(at + highlight.length)}
-    </>
-  );
-}
-
-/** The top of a screen that greets the person: what matters now in large words, what to do about it, and the site beside it. */
-export function Welcome({ eyebrow, title, highlight, description, actions, aside }: WelcomeProps) {
+/** The top of a screen that greets the person: a greeting and their name in large words, what stands now under it, what to do about it, and the site beside it. */
+export function Welcome({ eyebrow, title, name, description, actions, aside }: WelcomeProps) {
+  const hasName = name !== undefined && name !== '';
   return (
     <section className={welcomeClass}>
       <div className={welcomeInnerClass}>
         <div className={welcomeTextClass}>
           {eyebrow !== undefined && <p className={welcomeEyebrowClass}>{eyebrow}</p>}
-          <h1 className={welcomeTitleClass}>{marked(title, highlight)}</h1>
+          <h1 className={welcomeTitleClass}>
+            {title}
+            {hasName && (
+              <>
+                {' '}
+                <mark className={welcomeNameClass} title={name}>
+                  {name}
+                </mark>
+              </>
+            )}
+          </h1>
           {description !== undefined && <p className={welcomeDescriptionClass}>{description}</p>}
           {actions !== undefined && <div className={welcomeActionsClass}>{actions}</div>}
         </div>

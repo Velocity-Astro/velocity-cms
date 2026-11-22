@@ -25,6 +25,8 @@ export const paths = {
   contact: (contactId: string) => `/contacts/${encodeURIComponent(contactId)}`,
   deals: '/deals',
   plugins: '/plugins',
+  /** The plugins, with one plugin's settings open. */
+  pluginSettings: (plugin: string) => `/plugins?settings=${encodeURIComponent(plugin)}`,
   /** A screen a plugin added. */
   pluginScreen: (plugin: string, screen: string) => `/plugins/${encodeURIComponent(plugin)}/${encodeURIComponent(screen)}`,
   /** The site's settings, at one of their parts. */

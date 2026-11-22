@@ -3,27 +3,22 @@ import { expect, it } from 'vitest';
 import { expectAccessible } from '../../testing/accessible.js';
 import { Welcome } from './Welcome.js';
 
-it('is the screen\'s heading, with the highlighted words marked where they appear', () => {
-  const { container } = render(<Welcome eyebrow="Saturday" title="Good morning, Dana. 3 drafts are waiting." highlight="3 drafts" description="Two are new." />);
-  expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Good morning, Dana. 3 drafts are waiting.');
-  expect(container.querySelector('mark')?.textContent).toBe('3 drafts');
+it('is the screen\'s heading: the greeting, then the name on its own line, marked', () => {
+  const { container } = render(<Welcome eyebrow="Saturday" title="Good morning," name="Dana Whitfield" description="3 drafts are waiting." />);
+  const heading = screen.getByRole('heading', { level: 1 });
+  expect(heading.textContent).toBe('Good morning, Dana Whitfield');
+  expect(container.querySelector('mark')?.textContent).toBe('Dana Whitfield');
   expect(screen.getByText('Saturday')).toBeTruthy();
-  expect(screen.getByText('Two are new.')).toBeTruthy();
+  // What is waiting is smaller words under the heading, not part of it.
+  expect(screen.getByText('3 drafts are waiting.').closest('h1')).toBeNull();
 });
 
-it('marks the words where they stand whole, so a name is not found inside another word', () => {
-  const { container } = render(<Welcome title="Good afternoon, No." highlight="No" />);
-  expect(container.querySelector('mark')?.textContent).toBe('No');
-  expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Good afternoon, No.');
-  expect(container.querySelector('mark')?.previousSibling?.textContent).toBe('Good afternoon, ');
-});
-
-it('marks nothing when the words are not in the title, or there are none', () => {
-  const { container, rerender } = render(<Welcome title="Everything is published." highlight="3 drafts" />);
+it('marks nothing when there is no name', () => {
+  const { container, rerender } = render(<Welcome title="Home" name="" />);
   expect(container.querySelector('mark')).toBeNull();
-  rerender(<Welcome title="Everything is published." />);
+  rerender(<Welcome title="Home" />);
   expect(container.querySelector('mark')).toBeNull();
-  expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Everything is published.');
+  expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Home');
 });
 
 it('holds what to do and what stands beside it', () => {
@@ -33,6 +28,6 @@ it('holds what to do and what stands beside it', () => {
 });
 
 it('has no accessibility violations', async () => {
-  const { container } = render(<Welcome eyebrow="Saturday" title="Good morning, Dana. 3 drafts are waiting." highlight="3 drafts" />);
+  const { container } = render(<Welcome eyebrow="Saturday" title="Good morning," name="Dana" description="3 drafts are waiting." />);
   await expectAccessible(container);
 });

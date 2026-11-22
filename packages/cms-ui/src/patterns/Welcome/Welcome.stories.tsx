@@ -9,9 +9,9 @@ const meta = {
   parameters: { layout: 'fullscreen' },
   args: {
     eyebrow: 'Saturday, 21 November',
-    title: 'Good morning, Dana. 3 drafts are waiting.',
-    highlight: 'Dana',
-    description: 'One has changes that are not on the site yet, and two people wrote in since yesterday.',
+    title: 'Good morning,',
+    name: 'Dana Whitfield',
+    description: '3 drafts are waiting. Here is where Lakeshore Realty stands.',
     actions: (
       <>
         <Button icon={ArrowRight}>Continue “18 Alder Court”</Button>
@@ -27,4 +27,6 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
-export const NothingToHighlight: Story = { args: { title: 'Good morning, Dana. Everything is published.', highlight: '' } };
+export const EverythingPublished: Story = { args: { description: 'Everything is published. Here is where Lakeshore Realty stands.' } };
+export const LongName: Story = { args: { name: 'Alexandra Montgomery-Fitzwilliam' } };
+export const NoName: Story = { args: { title: 'Home', name: '' } };
