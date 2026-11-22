@@ -139,6 +139,10 @@ jobs:
             esac
             { echo "LIVE_$name<<__END__"; echo "$value"; echo "__END__"; } >> "$GITHUB_ENV"
           done
+          # Where the old forms posted, if anywhere: the forms are the CMS's now, so this only says what there was.
+          for name in CONTACT_FORM_ENDPOINT NEWSLETTER_ENDPOINT CLOUD_WAITLIST_ENDPOINT; do
+            if echo "$listed" | jq -e --arg key "$name" '.envs[] | select(.key == $key)' > /dev/null; then echo "$name: set on the live project (the CMS form takes its place)"; else echo "$name: not set"; fi
+          done
           # The page itself, as a check of what visitors are sent today.
           if curl -fsS "https://$LIVE_DOMAIN/" -o live.html; then
             echo "On https://$LIVE_DOMAIN/ today: $(grep -oE 'GTM-[A-Z0-9]+|G-[A-Z0-9]{6,}|google-site-verification|msvalidate\.01' live.html | sort -u | tr '\n' ' ')"
