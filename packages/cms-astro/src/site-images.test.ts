@@ -24,3 +24,15 @@ it('shows a small copy where one can be made, and the image itself where it cann
   await library.list();
   expect(made).toBe(2);
 });
+
+it('takes images from the folders inside the folder, one image to a name', async () => {
+  const nested = {
+    '/src/assets/showcase/studio.png': { src: '/_astro/studio.b.png', width: 1200, height: 800 },
+    '/src/assets/hero.jpg': { src: '/_astro/hero.a.jpg', width: 1600, height: 900 },
+    '/src/assets/templates/agency/studio.jpg': { src: '/_astro/studio.c.jpg', width: 800, height: 600 },
+  };
+  expect(await folderImages(nested).list()).toEqual([
+    { name: 'hero', url: '/_astro/hero.a.jpg', width: 1600, height: 900 },
+    { name: 'studio', url: '/_astro/studio.b.png', width: 1200, height: 800 },
+  ]);
+});

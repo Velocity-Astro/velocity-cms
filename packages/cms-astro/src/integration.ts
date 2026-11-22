@@ -10,7 +10,8 @@ const MAILER = 'virtual:velocity-cms/mailer';
 const PLUGINS = 'virtual:velocity-cms/plugins';
 const IMAGES = 'virtual:velocity-cms/images';
 const SITES = 'virtual:velocity-cms/sites';
-const IMAGE_FILES = '*.{jpg,jpeg,png,webp,avif,gif}';
+// Every image in the folder and the folders inside it: a site often keeps its pictures by page or by kind.
+const IMAGE_FILES = '**/*.{jpg,jpeg,png,webp,avif,gif}';
 const ADMIN_PATH = '/admin';
 const route = (file: string) => fileURLToPath(new URL(`../routes/${file}`, import.meta.url));
 
@@ -26,7 +27,8 @@ export interface VelocityCmsOptions {
   readonly mailer?: string;
   /**
    * The folder of images that image fields choose from, from the project's root:
-   * `'./src/assets/photos'`. An image is called by its file name without the ending.
+   * `'./src/assets/photos'`, with the folders inside it. An image is called by its file name
+   * without the ending, wherever it sits in the folder; where two share a name, the first by path is kept.
    */
   readonly images?: string;
   /**
