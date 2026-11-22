@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **The editor's screen sits in a rounded panel.** From a tablet up, the navigation (the rail and the column of a section's places) sits on one dark ground that fills the window, and the bar and the screen sit in a panel with rounded corners inset from its edges, white in the light theme. Phones are unchanged.
+
 ## 0.1.0-beta.11
 
 - **The editor opens finished.** The Velocity mark now stays up until the first screen's content has arrived, so the editor goes from the mark straight to a full screen, never to a screen of grey shapes; those are left for moving between screens. The mark stands in a clearing of the grid with "Opening the editor" under it. Only a request that never answers is cut short, after ten seconds.
