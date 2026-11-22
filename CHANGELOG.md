@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+## 0.1.0-beta.13
+
 - **Code in formatted text.** Words in formatted text can be set as code, from a new button of the toolbar or with backticks in Markdown (imports, MCP and the command line). A field that names its `formats` gets it only by naming `code`. A developer's blog can now be written in the editor.
 
 ## 0.1.0-beta.12
