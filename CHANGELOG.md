@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+## 0.1.0-beta.16
+
 - **Branded emails.** Sign-in links, invitations, notices from forms and the test email are drawn in one polished layout: the site's logo (or its initial in its colour) above a card, a clear heading, a button that works in Outlook too, a form's answers in a panel, and a foot that names the site and says why the email came. They work in Gmail, Outlook and Apple Mail, follow dark mode where the client does, and carry the same words as plain text. A template names its logo and brand colour with `brandFields: { logo, logoDark, color }` on its settings page; the CMS serves the logo to email clients as a PNG. Without them an email wears the site's name in Velocity's orange.
 - **A name on every email.** Emails no longer come from a bare address: Settings, Email has a sender name, and without one they come from the site's name (`"Lakeshore Realty" <cms@…>`). A sender the server gives with a name of its own (`VELOCITY_CMS_EMAIL_FROM="Front desk <cms@…>"`) still wins. An invitation names who sent it, and a form's notice has a button to its submissions.
 - **Your profile.** Everyone can change their own name and photo and the address they sign in with (a link sent to the new address confirms it), and reach their passkeys, from "Your profile" in the account menu. An owner can rename anyone from People. A site's own mailer may add `sendEmailChange` to send the link; without it the server's or the editor's email settings send it.
