@@ -17,6 +17,7 @@ Text with headings, lists, quotes, bold, italics and links.
 - A button is lit while the cursor is in text it applies to. Pressing it again takes the format off.
 - The usual shortcuts work in the text: Ctrl or Cmd with B and I, and typing `## `, `- ` or `1. ` at the start of a line.
 - The link button opens a small panel for the address. Enter applies it; an empty address takes the link off. A web address typed into the text becomes a link by itself.
+- `formats` keeps to what a spot of a design was drawn for, such as `['bold', 'italic', 'link']` for paragraphs set under a heading: the toolbar shows only those buttons (none at all for `[]`), and typing or pasting cannot make anything else. Left out, every format.
 - The value is a tree (`{ type: 'doc', content: [...] }`), never HTML. `onChange` gets `null` once nothing is left to read, so "required" means what it says.
 - The text box is the one place in this package where ARIA is written by hand: React Aria has no rich text field, so the box names itself by its label, help and error as the other fields do.
 

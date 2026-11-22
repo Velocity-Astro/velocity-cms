@@ -47,6 +47,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 export const Empty: Story = { args: { value: null, isRequired: true, description: 'What makes this home worth a visit.' } };
+export const OnlySomeFormats: Story = { args: { label: 'Introduction', formats: ['bold', 'italic', 'link', 'lists'], description: 'Paragraphs, with bold, italics, links and lists.' } };
 export const WithError: Story = { args: { value: null, isRequired: true, errorMessage: 'Fill this in before publishing.' } };
 export const AddingALink: Story = {
   tags: ['!autodocs', 'overlay'],

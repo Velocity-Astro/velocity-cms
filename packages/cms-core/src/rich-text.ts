@@ -92,6 +92,44 @@ export const richTextSchema: z.ZodType<RichText> = z.preprocess(
     .refine((doc) => depthOf(doc) <= MAX_DEPTH, 'Lists and quotes are nested too deeply.'),
 );
 
+/**
+ * What a rich text field may hold beyond paragraphs. A field names the ones the place it is shown
+ * was drawn for (`formats`); one that names none takes them all.
+ */
+export const RICH_TEXT_FORMATS = ['bold', 'italic', 'link', 'headings', 'lists', 'quotes'] as const;
+export type RichTextFormat = (typeof RICH_TEXT_FORMATS)[number];
+
+const MARK_FORMAT = { bold: 'bold', italic: 'italic', link: 'link' } as const satisfies Record<RichTextMark['type'], RichTextFormat>;
+
+/**
+ * The text with only what `formats` allows: a mark it leaves out is taken off its words, a heading
+ * becomes a paragraph, a list gives its items' paragraphs and a quote what it holds. No word is
+ * lost. Without `formats`, the text is as it was.
+ */
+export function limitRichText(text: RichText, formats: readonly RichTextFormat[] | undefined): RichText {
+  if (formats === undefined) return text;
+  const allowed = new Set<RichTextFormat>(formats);
+  const inline = (nodes: readonly RichTextInline[] | undefined): RichTextInline[] | undefined =>
+    nodes?.map((node) => {
+      if (node.type !== 'text' || node.marks === undefined) return node;
+      const marks = node.marks.filter((applied) => allowed.has(MARK_FORMAT[applied.type]));
+      return marks.length > 0 ? { ...node, marks } : { type: 'text', text: node.text };
+    });
+  const blocks = (nodes: readonly (RichTextBlock | RichTextListItem)[]): RichTextBlock[] =>
+    nodes.flatMap((node): RichTextBlock[] => {
+      if (node.type === 'paragraph') return [{ type: 'paragraph', ...(node.content && { content: inline(node.content) }) }];
+      if (node.type === 'heading') {
+        const content = inline(node.content);
+        return [allowed.has('headings') ? { ...node, ...(content && { content }) } : { type: 'paragraph', ...(content && { content }) }];
+      }
+      if (node.type === 'blockquote') return allowed.has('quotes') ? [{ type: 'blockquote', content: blocks(node.content) }] : blocks(node.content);
+      if (node.type === 'listItem') return blocks(node.content);
+      if (allowed.has('lists')) return [{ type: node.type, content: node.content.map((item) => ({ type: 'listItem', content: blocks(item.content) })) }];
+      return blocks(node.content);
+    });
+  return { type: 'doc', content: blocks(text.content) };
+}
+
 const TAGS = { bold: 'strong', italic: 'em' } as const;
 
 function inlineHtml(nodes: readonly RichTextInline[] | undefined): string {
