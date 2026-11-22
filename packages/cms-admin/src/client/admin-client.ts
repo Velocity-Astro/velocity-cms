@@ -29,6 +29,39 @@ export interface NewPerson {
   readonly role: Role;
 }
 
+/** An access token for an agent or a script, as an owner sees it. The token itself is never shown again. */
+export interface AccessToken {
+  readonly id: string;
+  readonly name: string;
+  /** Its last four characters, to tell one from another. */
+  readonly hint: string;
+  readonly role: Role;
+  /** Whether it may publish. Without it, what it writes stays a draft. */
+  readonly publish: boolean;
+  /** Whether it may read and change contacts, deals and what visitors sent. */
+  readonly personalData: boolean;
+  readonly expiresAt: string;
+  readonly lastUsedAt: string | null;
+  readonly createdAt: string;
+  /** Who made it, by name, or `null` for one made from the command line. */
+  readonly madeBy: string | null;
+}
+
+export interface NewAccessToken {
+  readonly name: string;
+  readonly role: Role;
+  readonly publish: boolean;
+  readonly personalData: boolean;
+  /** How many days it works for, from 1 to 365. */
+  readonly days: number;
+}
+
+/** A token just made: what is shown of it, and the token itself, which is shown this once. */
+export interface MadeAccessToken {
+  readonly token: AccessToken;
+  readonly secret: string;
+}
+
 /** A content type as someone starts it: fields are added afterwards, one at a time. */
 export interface NewType {
   /** The name code and addresses use, e.g. `testimonials`. It cannot be changed later. */
@@ -312,6 +345,12 @@ export interface AdminClient {
   changePersonRole(id: string, role: Role): Promise<Person>;
   /** Takes away someone's access at once. Refused for yourself and for the last owner. */
   removePerson(id: string): Promise<void>;
+  /** The access tokens that have not ended, newest first. Owners only. */
+  listTokens(): Promise<readonly AccessToken[]>;
+  /** Makes an access token. The answer holds the token, which is never shown again. Owners only. */
+  createToken(token: NewAccessToken): Promise<MadeAccessToken>;
+  /** Takes an access token away, at once. Owners only. */
+  revokeToken(id: string): Promise<void>;
   /** Asks the browser to make a passkey for the signed-in person, called `name` in their list. */
   addPasskey(name: string): Promise<void>;
   /** The plugins the site named in its config, running or not, by name. Owners only. */

@@ -94,6 +94,16 @@ describe('what the site receives', () => {
   });
 });
 
+describe('Markdown', () => {
+  it('reads paragraphs, headings, lists, quotes, bold, italics and safe links, and leaves pictures out', async () => {
+    const { richTextFromMarkdown, richTextHtml } = await import('./rich-text.js');
+    const text = richTextFromMarkdown('# Title\n\nA **bold** and *slanted* [link](https://example.com) and [bad](javascript:void).\n\n- one\n- two\n  - inner\n\n1. first\n\n> quoted\n\n![photo](/a.jpg)');
+    expect(richTextHtml(text)).toBe(
+      '<h2>Title</h2><p>A <strong>bold</strong> and <em>slanted</em> <a href="https://example.com" rel="noopener noreferrer">link</a> and bad.</p><ul><li><p>one</p></li><li><p>two</p><ul><li><p>inner</p></li></ul></li></ul><ol><li><p>first</p></li></ol><blockquote><p>quoted</p></blockquote>',
+    );
+  });
+});
+
 describe('limitRichText', () => {
   const parsed = richTextSchema.parse(sample);
 

@@ -25,6 +25,34 @@ const GRANTS: Readonly<Record<Role, ReadonlySet<Permission>>> = {
   author: new Set(['entry:read', 'entry:write']),
 };
 
+/** What a role grants, in a fixed order. */
+export function permissionsOf(role: Role): Permission[] {
+  return [...GRANTS[role]];
+}
+
+/** The roles an access token may act as. Managing people, plugins, settings and content types stays with a person. */
+export const TOKEN_ROLES: readonly Role[] = ['editor', 'author'];
+
+/** What an access token may do beyond its role's writing, each ticked by the owner who makes it. */
+export interface TokenAllowances {
+  /** May publish, unpublish, schedule and delete for good. Left out, what the token writes stays a draft. */
+  readonly publish: boolean;
+  /** May read and change contacts, deals and what visitors sent, which are personal data. */
+  readonly personalData: boolean;
+}
+
+const PUBLISHING: ReadonlySet<Permission> = new Set(['entry:publish', 'entry:delete']);
+const PERSONAL: ReadonlySet<Permission> = new Set(['submission:read', 'submission:manage', 'contact:read', 'contact:manage']);
+
+/**
+ * Exactly what a token may do: its role's grants, less publishing and personal data unless the
+ * owner allowed them. Never more than an editor.
+ */
+export function tokenPermissions(role: Role, allowed: TokenAllowances): Permission[] {
+  const base = TOKEN_ROLES.includes(role) ? GRANTS[role] : GRANTS.author;
+  return [...base].filter((permission) => (allowed.publish || !PUBLISHING.has(permission)) && (allowed.personalData || !PERSONAL.has(permission)));
+}
+
 /** Every role there is, from most to least allowed. */
 export const ROLES: readonly Role[] = ['owner', 'editor', 'author'];
 

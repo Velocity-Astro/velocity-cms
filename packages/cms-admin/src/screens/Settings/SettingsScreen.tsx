@@ -13,6 +13,7 @@ import { FormsSettingsPanel } from './FormsSettings.js';
 import { GeneralSettingsPanel } from './GeneralSettings.js';
 import { SettingsPagePanel } from './SettingsPage.js';
 import { StorageSettingsPanel } from './StorageSettings.js';
+import { TokensPanel } from './TokensSettings.js';
 
 /** A tab's id for a page of the settings. An area's own id never starts this way. */
 const PAGE = 'page:';
@@ -36,7 +37,7 @@ export function SettingsScreen() {
   const pages = types.data.filter((type) => type.inSettings === true);
   // Where a page already says what the site is called, there is no second field for it.
   const named = pages.some((type) => type.siteNamePath !== undefined);
-  const areas: Readonly<Record<SettingsAreaId, ReactNode>> = { general: <GeneralSettingsPanel />, email: <EmailSettingsPanel />, storage: <StorageSettingsPanel />, forms: <FormsSettingsPanel /> };
+  const areas: Readonly<Record<SettingsAreaId, ReactNode>> = { general: <GeneralSettingsPanel />, email: <EmailSettingsPanel />, storage: <StorageSettingsPanel />, forms: <FormsSettingsPanel />, tokens: <TokensPanel /> };
   const tabs = [
     ...pages.map((type) => ({ id: `${PAGE}${type.key}`, label: localized(type.label, locale), content: <SettingsPagePanel type={type} />, href: paths.settingsPage(type.key) })),
     // The server's settings are an owner's.

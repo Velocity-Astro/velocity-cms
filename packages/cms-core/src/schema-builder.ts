@@ -154,7 +154,7 @@ export function toStoredData(fields: readonly FieldDef[], values: Readonly<Recor
       return value.filter(isValues).map((section) => {
         const block = blocks.find((candidate) => candidate.key === section['block']);
         if (!block) throw new ValidationError(`There is no block "${String(section['block'])}". The blocks are: ${blocks.map((candidate) => candidate.key).join(', ')}.`, [{ path: ['block'], message: 'No such block.' }]);
-        return { id: typeof section['id'] === 'string' ? section['id'] : newId(), block: block.id, data: toStoredData(block.fields, isValues(section['data']) ? section['data'] : {}, newId) };
+        return { id: typeof section['id'] === 'string' ? section['id'] : newId(), block: block.id, data: toStoredData(block.fields, isValues(section['data']) ? section['data'] : {}, newId), ...(section['hidden'] === true && { hidden: true }) };
       });
     }
     return value;
@@ -165,4 +165,37 @@ export function toStoredData(fields: readonly FieldDef[], values: Readonly<Recor
     if (value !== undefined && value !== null) stored[field.id] = convert(field.type, field.options, value);
   }
   return stored;
+}
+
+/**
+ * What an entry stores, written back by key: the inverse of `toStoredData`, down through groups,
+ * lists and the sections of a page. A section names its block by key and keeps its id, so the
+ * values can be changed and handed back to `toStoredData` without a section losing its place.
+ * Values are as stored (formatted text stays a tree), unlike `toPublicData`, which is for pages.
+ * A removed field, and a section of a block no longer described, are left out.
+ */
+export function fromStoredData(fields: readonly FieldDef[], data: EntryData): Record<string, unknown> {
+  const isValues = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
+  const convert = (type: string, options: Readonly<Record<string, unknown>>, value: unknown): unknown => {
+    if (type === 'group' && isValues(value)) return fromStoredData((options['fields'] as FieldDef[] | undefined) ?? [], value);
+    if (type === 'list' && Array.isArray(value)) {
+      const of = options['of'] as { type: string; options?: Record<string, unknown> } | undefined;
+      return of ? value.map((item) => convert(of.type, of.options ?? {}, item)) : value;
+    }
+    if (type === 'blocks' && Array.isArray(value)) {
+      const blocks = (options['blocks'] as BlockDef[] | undefined) ?? [];
+      return value.filter(isValues).flatMap((section) => {
+        const block = blocks.find((candidate) => candidate.id === section['block']);
+        if (!block) return [];
+        return [{ id: section['id'], block: block.key, data: fromStoredData(block.fields, isValues(section['data']) ? section['data'] : {}), ...(section['hidden'] === true && { hidden: true }) }];
+      });
+    }
+    return value;
+  };
+  const values: Record<string, unknown> = {};
+  for (const field of liveFields(fields)) {
+    const value = data[field.id];
+    if (value !== undefined) values[field.key] = convert(field.type, field.options, value);
+  }
+  return values;
 }

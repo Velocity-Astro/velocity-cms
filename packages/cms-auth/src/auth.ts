@@ -1,5 +1,5 @@
 import { passkey } from '@better-auth/passkey';
-import type { ApiSession, Authenticator } from '@velocity-astro/cms-api';
+import type { AccessToken, ApiSession, Authenticator, MadeAccessToken, NewAccessToken, Tokens } from '@velocity-astro/cms-api';
 import { AccessControl, CmsError, ConflictError, NotFoundError, ROLES, ValidationError, type Actor, type Role } from '@velocity-astro/cms-core';
 import { authAccount, authPasskey, authSession, authUser, authVerification, type Db } from '@velocity-astro/cms-db';
 import { betterAuth } from 'better-auth';
@@ -7,6 +7,7 @@ import { eq } from 'drizzle-orm';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { magicLink } from 'better-auth/plugins';
 import type { Mailer } from './mailer.js';
+import { AccessTokens, bearerToken } from './tokens.js';
 
 /** Someone who can sign in to the editor. */
 export interface AuthUser {
@@ -80,13 +81,14 @@ function staysOnSite(link: string): boolean {
  * of the CMS sees an `Authenticator` for the API, `handle` to mount, and a few methods for
  * managing who has access.
  */
-export class CmsAuth implements Authenticator {
+export class CmsAuth implements Authenticator, Tokens {
   readonly #options: CmsAuthOptions;
   readonly #access: AccessControl;
   readonly #adminPath: string;
   readonly #origin: string;
   readonly #lifetime: number;
   readonly #auth;
+  readonly #tokens: AccessTokens;
   /** Links being made for `createSignInLink`, by email: they are handed back instead of emailed. */
   readonly #handBack = new Map<string, (url: string) => void>();
   /** When links were last emailed, by address. */
@@ -108,6 +110,7 @@ export class CmsAuth implements Authenticator {
     this.#adminPath = options.adminPath ?? '/admin';
     this.#origin = origin.origin;
     this.#lifetime = options.linkLifetimeMinutes ?? 10;
+    this.#tokens = new AccessTokens(options.db, this.#access);
 
     this.#auth = betterAuth({
       baseURL: origin.origin,
@@ -136,14 +139,34 @@ export class CmsAuth implements Authenticator {
   /** Answers a request to one of the sign-in addresses under `basePath`. Mount it there. */
   readonly handle = (request: Request): Promise<Response> => this.#auth.handler(request);
 
-  /** Who a request comes from, by its session cookie. This is what `CmsApi` asks. */
+  /**
+   * Who a request comes from: by the access token it carries (`Authorization: Bearer vcms_…`),
+   * or else by its session cookie. This is what `CmsApi` asks. A request that carries a token is
+   * judged by the token alone, so a bad one is refused rather than passed to the cookie.
+   */
   async authenticate(request: Request): Promise<ApiSession | null> {
+    if (bearerToken(request) !== null) return this.#tokens.authenticate(request);
     const session = await this.#auth.api.getSession({ headers: request.headers });
     if (!session) return null;
     const { id, email, name, role } = session.user;
     // A role this version does not know grants nothing, rather than something by accident.
     if (!isRole(role)) return null;
     return { user: { id, email, name }, actor: { kind: 'user', id, role } };
+  }
+
+  /** The access tokens that have not ended, newest first. Owners only. */
+  listTokens(actor: Actor): Promise<AccessToken[]> {
+    return this.#tokens.listTokens(actor);
+  }
+
+  /** Makes an access token for an agent or a script. The token is in the answer and nowhere else. Owners only. */
+  createToken(actor: Actor, token: NewAccessToken): Promise<MadeAccessToken> {
+    return this.#tokens.createToken(actor, token);
+  }
+
+  /** Takes an access token away, at once. Owners only. */
+  revokeToken(actor: Actor, id: string): Promise<void> {
+    return this.#tokens.revokeToken(actor, id);
   }
 
   /** Everyone who can sign in, by name. */
