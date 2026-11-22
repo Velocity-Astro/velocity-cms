@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+## 0.1.0-beta.14
+
 - **Image fields see the folders inside the site's image folder.** `velocityCms({ images })` now lists every image under the folder, not only those at its top, so a site that keeps pictures by page or by kind (`src/assets/showcase/…`) shows them in the editor's image picker, lists and visual editor. An image is still called by its file name; where two share a name, the first by path is kept.
 
 ## 0.1.0-beta.13
