@@ -157,7 +157,7 @@ export { hasOwnPages, pageAddress, urlPatternFor, type AddressedVersion } from '
 export { PreviewService, type PreviewLink, type PreviewServiceOptions } from './services/preview-service.js';
 export { Registry, UnknownTypeError } from './registry.js';
 export { PublishChecks, type PublishCheck, type PublishCheckInput } from './checks.js';
-export { PageHeads, type PageHead, type PageHeadRule, type PageInfo } from './pages.js';
+export { CONSENT_MODES, PageHeads, isPageAddress, type ConsentMode, type PageAnalytics, type PageHead, type PageHeadRule, type PageInfo, type PageRedirect, type PageRedirectRule, type PageVerification } from './pages.js';
 export {
   PLUGIN_API_VERSION,
   PLUGIN_PERMISSIONS,

@@ -4,6 +4,11 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **Analytics plugin.** An owner sets the site's Google Analytics measurement ID, Tag Manager container and cookie consent (asked first, or not at all) under Plugins, and every page follows at once, with no deploy. `pageHead` hands the ids to the layout as `analytics`, which writes the template's own tags; nothing a plugin answers is ever a script.
+- **The SEO plugin holds the site's share image and its Search Console and Bing codes.** Every page carries the codes (`pageHead` answers `verification`), and a page with no picture of its own is shared with the image chosen there (`image`).
+- **Redirects plugin.** An owner lists old addresses and where their pages are now. A move takes over only an address with no page, answers 308 (or 307 when it is only for now), keeps the address's query, and never leads to a script or another site over plain http. Plugins can add their own with `pages.redirect`.
+- Switching a plugin on or off, or saving its settings, clears the pages the site kept, so a change of title ending, codes or ids shows at once.
+
 ## 0.1.0-beta.14
 
 - **Image fields see the folders inside the site's image folder.** `velocityCms({ images })` now lists every image under the folder, not only those at its top, so a site that keeps pictures by page or by kind (`src/assets/showcase/…`) shows them in the editor's image picker, lists and visual editor. An image is still called by its file name; where two share a name, the first by path is kept.

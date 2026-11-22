@@ -23,7 +23,7 @@ The demo is a real estate site on the CMS, with one click into its editor. Every
 | **Media** | An image library with uploads, kept in a folder or any S3-compatible bucket. Each upload is made lighter and kept as WebP. |
 | **Forms** | A form builder, forms as page sections, spam marking, an optional Cloudflare Turnstile check, notices by email, export and erase of what a person sent. |
 | **CRM** | Contacts with a timeline and notes, a pipeline board, owners and follow-up days, deals with a forecast, custom fields, CSV import. |
-| **Plugins** | A plugin API with settings, secrets and retried background work. Five come with it, off until an owner switches one on: SEO, Webhooks, and the experimental Mailchimp, Slack and HubSpot. |
+| **Plugins** | A plugin API with settings, secrets and retried background work. Seven come with it, off until an owner switches one on: SEO (search titles, share image, Search Console and Bing codes), Analytics (Google Analytics, Tag Manager, cookie consent), Redirects, Webhooks, and the experimental Mailchimp, Slack and HubSpot. |
 | **People** | Sign-in by email link or passkey, no passwords. Owner, editor and author roles. Invitations. |
 | **Editor** | A home that says what is waiting, one bar at the top of every screen, search with Ctrl or Command and K, light and dark, and a layout that fits a phone. |
 | **AI agents** | Rules and skills for coding agents, installed into every site and kept to the CMS's version. A `check` command that names each rule a site breaks and how to fix it. Access tokens, content commands and an MCP server that builds pages from the template's own sections. |

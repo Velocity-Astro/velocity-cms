@@ -1,4 +1,4 @@
-import { ValidationError, definePlugin, hasOwnPages, liveFields, type ContentTypeDef, type Entry, type PluginContext } from '@velocity-astro/cms-core';
+import { ValidationError, definePlugin, hasOwnPages, liveFields, type ContentTypeDef, type Entry, type PageHead, type PluginContext } from '@velocity-astro/cms-core';
 import { analyse, type SeoConfig, type SeoOverrides } from './analyse.js';
 import { seoEditor, type SeoFinding } from './editor.js';
 
@@ -52,6 +52,18 @@ async function configOf(cms: PluginContext): Promise<SeoConfig> {
   };
 }
 
+/** What the owner set for the whole site: the codes search engines ask for, and the share image for a page with none. */
+async function siteWideOf(cms: PluginContext, head: PageHead): Promise<PageHead> {
+  const set = await cms.settings.get();
+  const google = textOf(set['googleVerification']);
+  const bing = textOf(set['bingVerification']);
+  const image = textOf(set['shareImage']);
+  return {
+    ...((google !== '' || bing !== '') && { verification: { ...(google !== '' && { google }), ...(bing !== '' && { bing }) } }),
+    ...(image !== '' && head.image === undefined && { image }),
+  };
+}
+
 /** An entry's name for a list: its title, or its slug when it has none yet. */
 function nameOf(type: ContentTypeDef, entry: Entry): string {
   const fields = liveFields(type.fields);
@@ -68,8 +80,8 @@ export const seo = definePlugin({
   name: 'seo',
   apiVersion: 1,
   label: { en: 'SEO' },
-  description: { en: 'Titles and descriptions for search engines: write them per entry with a live preview, review the whole site, and check before publishing.' },
-  version: '1.1.0',
+  description: { en: 'Titles and descriptions for search engines: write them per entry with a live preview, review the whole site, and check before publishing. Also the site\'s share image and its Search Console and Bing codes.' },
+  version: '1.2.0',
   permissions: ['entry:read'],
   // It comes with the CMS, so it waits for an owner to activate it.
   enabledByDefault: false,
@@ -88,6 +100,26 @@ export const seo = definePlugin({
     },
     { key: 'maxDescription', type: 'number', label: { en: 'Longest description' }, help: { en: 'In characters. Search engines cut longer ones short. Leave empty for 160.' }, options: { min: 50, integer: true } },
     { key: 'requireDescription', type: 'boolean', label: { en: 'Require a description before publishing' } },
+    {
+      key: 'shareImage',
+      type: 'image',
+      label: { en: 'Share image' },
+      help: { en: 'Shown where a page is shared, when the page has no picture of its own. Leave empty to keep what the site draws.' },
+    },
+    {
+      key: 'googleVerification',
+      type: 'text',
+      label: { en: 'Google Search Console code' },
+      help: { en: 'From Search Console, "HTML tag": only what is inside content="…". Every page then carries it, so Google knows the site is yours.' },
+      options: { maxLength: 200 },
+    },
+    {
+      key: 'bingVerification',
+      type: 'text',
+      label: { en: 'Bing Webmaster Tools code' },
+      help: { en: 'From Bing Webmaster Tools, "HTML Meta Tag": only what is inside content="…".' },
+      options: { maxLength: 200 },
+    },
   ],
   // Two functions that stand alone, sent as the text of one module: the editor's part, and the
   // analysis it shares with the server, so both always judge an entry the same way.
@@ -109,12 +141,15 @@ export const seo = definePlugin({
 
     // What the page of an entry says about itself: what was written for it here, and the
     // owner's title ending. A page that is not an entry's own is left as the template made it.
+    // Every page, an entry's or not, carries the site's codes and, when it has no picture of its own, the share image.
     cms.pages.head(async ({ entry }, head) => {
-      if (!entry) return undefined;
+      const site = await siteWideOf(cms, head);
+      if (!entry) return site;
       const written = writtenOf(await cms.store.get(`${WRITTEN}${entry.id}`));
       const { titleSuffix } = await configOf(cms);
       const title = written.title ?? head.title;
       return {
+        ...site,
         ...(written.title !== undefined && { title: written.title }),
         ...(titleSuffix !== '' && title !== undefined && { fullTitle: `${title}${titleSuffix}` }),
         ...(written.description !== undefined && { description: written.description }),
