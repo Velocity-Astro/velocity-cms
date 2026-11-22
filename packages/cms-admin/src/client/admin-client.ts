@@ -78,9 +78,14 @@ export interface NewTypeField extends NewField {
 }
 
 export interface EntryListQuery {
-  /** The content type's key, e.g. `listings`. */
-  readonly type: string;
+  /** The content type's key, e.g. `listings`. Left out, entries of every type. */
+  readonly type?: string;
   readonly locale?: string;
+  /**
+   * Words to find, whatever their case, in an entry's working version: its slug or any text it
+   * holds, such as a title or an address.
+   */
+  readonly search?: string;
   /** Defaults to 50. */
   readonly limit?: number;
   readonly offset?: number;

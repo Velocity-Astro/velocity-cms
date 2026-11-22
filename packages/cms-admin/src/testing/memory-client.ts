@@ -283,13 +283,14 @@ export class MemoryAdminClient implements AdminClient {
 
   listEntries(query: EntryListQuery): Promise<Page<Entry>> {
     return this.#request(async (actor) => {
-      const type = await this.#cms.schema.getByKey(query.type);
+      const type = query.type === undefined ? null : await this.#cms.schema.getByKey(query.type);
       return this.#cms.content.find(actor, {
-        typeId: type.id,
         order: 'updated',
         limit: query.limit ?? 50,
         offset: query.offset ?? 0,
+        ...(type !== null && { typeId: type.id }),
         ...(query.locale !== undefined && { locale: query.locale }),
+        ...(query.search !== undefined && { search: query.search }),
       });
     });
   }

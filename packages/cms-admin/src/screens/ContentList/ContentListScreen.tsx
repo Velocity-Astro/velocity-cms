@@ -23,7 +23,7 @@ import { paths } from '../../app/paths.js';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { useContentTypes, useEntries, useImages } from '../../client/queries.js';
 import { FieldSummary, useControlFor } from '../../fields/index.js';
-import { entryAddress, entryImage, entryState, entryTitle, fieldAt, groupTranslations, localized, type EntryState } from '../../lib/content.js';
+import { entryAddress, entryHolds, entryImage, entryState, entryTitle, fieldAt, groupTranslations, localized, type EntryState } from '../../lib/content.js';
 import { relativeTime } from '../../lib/relative-time.js';
 import { smallOf } from '../../lib/small-image.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
@@ -90,11 +90,11 @@ export function ContentListScreen() {
   }
   // The page at the top of the site is what people look for first, whatever its title says.
   const isHome = (entry: Entry) => takesSlugPath(type) && entry.slug === HOME_SLUG;
-  const words = query.trim().toLowerCase();
+  const words = query.trim();
   const shown = [...groups.filter(({ primary }) => isHome(primary)), ...groups.filter(({ primary }) => !isHome(primary))].filter(({ primary, versions }) => {
     if (!SHOWN[filter](entryState(primary))) return false;
     if (words === '') return true;
-    return versions.some((entry) => `${entryTitle(type, entry.data) ?? ''} ${entry.slug}`.toLowerCase().includes(words));
+    return versions.some((entry) => entryHolds(entry, words));
   });
 
   // The columns the type asks for, each named by its field.

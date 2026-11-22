@@ -10,6 +10,14 @@ export function searchWords(text: string): string[] {
     .filter((word) => word.length > 0);
 }
 
+/**
+ * The words an editor typed to find entries or contacts, as each is looked for: split at spaces,
+ * in lower case, kept whole otherwise (`garden-flat`, `100%`), and at most eight.
+ */
+export function searchedWords(text: string | undefined): string[] {
+  return (text ?? '').toLowerCase().split(/\s+/u).filter((word) => word.length > 0).slice(0, 8);
+}
+
 const ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 
 export function escapeHtml(text: string): string {

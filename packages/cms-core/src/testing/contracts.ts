@@ -145,6 +145,33 @@ export function entryRepositoryContract(name: string, create: () => Promise<Entr
       await repository.save(entry({ id: 'e4', slug: 'first', locale: 'es' }), fresh);
     });
 
+    it('finds entries by any text their working version holds, however deep, or by slug', async () => {
+      const section = { id: 'sec-4405', block: 'b-4405', data: { title: 'Open house on Sunday' } };
+      await repository.save(entry({ data: { f1: '4405 Lakeview Drive', f2: { nested: [1, 2, 3] } } }), fresh);
+      await repository.save(entry({ id: 'e2', slug: 'garden-flat', data: { f1: 'Garden flat', f3: [section] } }), fresh);
+      await repository.save(entry({ id: 'e3', slug: 'gone', data: { f1: '4405 Elm' }, deletedAt: '2026-01-03T00:00:00.000Z' }), fresh);
+      await repository.save(
+        entry({ id: 'e4', slug: 'cabin', status: 'published', data: { f1: 'Cabin' }, published: { slug: 'cabin', data: { f1: 'Old 4405 name' }, revision: 1, at: '2026-01-02T00:00:00.000Z' } }),
+        fresh,
+      );
+      const ids = async (query: Parameters<EntryRepository['find']>[0]) => {
+        const page = await repository.find(query);
+        return [page.items.map((item) => item.id), page.total];
+      };
+      expect(await ids({ search: '4405' })).toEqual([['e1'], 1]);
+      expect(await ids({ search: '  LAKEVIEW dr ' })).toEqual([['e1'], 1]);
+      expect(await ids({ search: 'lakeview 4405' })).toEqual([['e1'], 1]);
+      expect(await ids({ search: 'garden sunday' })).toEqual([['e2'], 1]);
+      expect(await ids({ search: '4405 sunday' })).toEqual([[], 0]);
+      expect(await ids({ search: 'sunday' })).toEqual([['e2'], 1]);
+      expect(await ids({ search: 'garden-fl' })).toEqual([['e2'], 1]);
+      expect(await ids({ search: 'sec-4405' })).toEqual([[], 0]);
+      expect(await ids({ search: '100%' })).toEqual([[], 0]);
+      expect(await ids({ search: '4405', trashed: true })).toEqual([['e3'], 1]);
+      expect(await ids({ search: '', limit: 10 })).toEqual([['e1', 'e2', 'e4'], 3]);
+      expect(await ids({ search: 'e', typeId: 'other' })).toEqual([[], 0]);
+    });
+
     it('keeps an entry in the trash out of every search but the one for the trash', async () => {
       const gone = entry({ id: 'e2', slug: 'second', revision: 2, deletedAt: '2026-01-03T00:00:00.000Z' });
       await repository.save(entry(), fresh);

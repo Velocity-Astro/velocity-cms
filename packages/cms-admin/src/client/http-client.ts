@@ -133,8 +133,10 @@ export class HttpAdminClient implements AdminClient {
   }
 
   listEntries(query: EntryListQuery): Promise<Page<Entry>> {
-    const search = new URLSearchParams({ type: query.type });
+    const search = new URLSearchParams();
+    if (query.type !== undefined) search.set('type', query.type);
     if (query.locale !== undefined) search.set('locale', query.locale);
+    if (query.search !== undefined && query.search !== '') search.set('search', query.search);
     if (query.limit !== undefined) search.set('limit', String(query.limit));
     if (query.offset !== undefined) search.set('offset', String(query.offset));
     return this.#get(`/entries?${search}`);

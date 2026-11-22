@@ -46,6 +46,11 @@ export interface CommandGroup {
   /** The small heading over the group: "Go to", "Create". */
   readonly label: string;
   readonly items: readonly CommandItem[];
+  /**
+   * Its items were already found by what was typed, somewhere the window cannot look itself (the
+   * site's content, its contacts), so they are shown as they are rather than narrowed again.
+   */
+  readonly isFound?: boolean;
 }
 
 export interface CommandPaletteProps {
@@ -60,20 +65,26 @@ export interface CommandPaletteProps {
   readonly groups: readonly CommandGroup[];
   /** Called with the id of what was chosen. The window closes by itself. */
   readonly onAction: (id: string) => void;
+  /** Called with what is in the box each time it changes, to look for things elsewhere (`isFound`). */
+  readonly onSearch?: (words: string) => void;
 }
 
 /**
  * A window to find anything by typing and go there: a box, and under it the matches in groups.
  * The arrow keys move through them and Enter chooses one.
  */
-export function CommandPalette({ isOpen, onOpenChange, label, placeholder, emptyText, groups, onAction }: CommandPaletteProps) {
+export function CommandPalette({ isOpen, onOpenChange, label, placeholder, emptyText, groups, onAction, onSearch }: CommandPaletteProps) {
   const { contains } = useFilter({ sensitivity: 'base' });
+  const found = new Set(groups.filter((group) => group.isFound === true).flatMap((group) => group.items.map((item) => item.id)));
   return (
     <ModalOverlay isOpen={isOpen} onOpenChange={onOpenChange} isDismissable className={commandPaletteOverlayClass}>
       <Modal className={commandPaletteClass}>
         <Dialog aria-label={label} className={commandPaletteContentClass}>
           {({ close }) => (
-            <Autocomplete filter={contains}>
+            <Autocomplete
+              filter={(text, words, node) => found.has(String(node.key)) || contains(text, words)}
+              {...(onSearch !== undefined && { onInputChange: onSearch })}
+            >
               <SearchField aria-label={placeholder} autoFocus className={commandPaletteSearchClass}>
                 <Search aria-hidden size={commandPaletteSearchIconSize} />
                 <Input placeholder={placeholder} className={commandPaletteInputClass} />
