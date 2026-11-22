@@ -4,6 +4,9 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **A calmer greeting on Home.** The greeting is on one line and your name on its own line under it, never broken across two; what is waiting ("1 draft is waiting") is a smaller line beneath. In `cms-ui`, `Welcome` takes `name` in place of `highlight`.
+- **Plugin settings one click away.** Every active plugin with settings is listed in the Plugins menu and opens its settings straight away, and leaves the menu when it is switched off. A plugin's settings have an address of their own (`/admin/plugins?settings=<name>`).
+
 ## 0.1.0-beta.16
 
 - **Branded emails.** Sign-in links, invitations, notices from forms and the test email are drawn in one polished layout: the site's logo (or its initial in its colour) above a card, a clear heading, a button that works in Outlook too, a form's answers in a panel, and a foot that names the site and says why the email came. They work in Gmail, Outlook and Apple Mail, follow dark mode where the client does, and carry the same words as plain text. A template names its logo and brand colour with `brandFields: { logo, logoDark, color }` on its settings page; the CMS serves the logo to email clients as a PNG. Without them an email wears the site's name in Velocity's orange.

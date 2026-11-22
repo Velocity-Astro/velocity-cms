@@ -1366,13 +1366,13 @@ export const en = {
   },
   home: {
     greeting: {
-      morning: (name: string) => `Good morning, ${name}`,
-      afternoon: (name: string) => `Good afternoon, ${name}`,
-      evening: (name: string) => `Good evening, ${name}`,
+      morning: 'Good morning,',
+      afternoon: 'Good afternoon,',
+      evening: 'Good evening,',
     },
     description: (site: string) => `Here is where ${site} stands.`,
-    headline: (greeting: string, waiting: number) =>
-      waiting === 0 ? `${greeting}. Everything is published.` : `${greeting}. ${waiting === 1 ? '1 draft is' : `${waiting} drafts are`} waiting.`,
+    waiting: (waiting: number, site: string) =>
+      `${waiting === 0 ? 'Everything is published.' : `${waiting === 1 ? '1 draft is' : `${waiting} drafts are`} waiting.`} Here is where ${site} stands.`,
     siteWindowTitle: (site: string) => `The home page of ${site}, as visitors see it`,
     editHomeShort: 'Edit this page',
     openSite: 'Open the site',
