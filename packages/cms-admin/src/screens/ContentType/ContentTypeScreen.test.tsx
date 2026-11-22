@@ -65,6 +65,32 @@ it('adds a field with a key made from its name, and the entry form has it at onc
   expect(await screen.findByRole('textbox', { name: /Years of experience/ })).toBeTruthy();
 });
 
+it('adds formatted text that offers only what its place has room for', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/types/agents', signedIn);
+  await user.click(await screen.findByRole('button', { name: 'Add field' }));
+  const dialog = within(await screen.findByRole('dialog', { name: 'Add a field' }));
+  await user.type(dialog.getByRole('textbox', { name: /^Name/ }), 'Story');
+  await user.click(dialog.getByRole('button', { name: /Kind of field/ }));
+  await user.click(await screen.findByRole('option', { name: 'Formatted text' }));
+  const formats = within(dialog.getByRole('group', { name: 'What the text can have' }));
+  expect(formats.getAllByRole('checkbox').every((box) => (box as HTMLInputElement).checked)).toBe(true);
+  await user.click(formats.getByRole('checkbox', { name: 'Headings' }));
+  await user.click(formats.getByRole('checkbox', { name: 'Quotes' }));
+  await user.click(dialog.getByRole('button', { name: 'Add field' }));
+
+  expect(await screen.findByRole('alertdialog', { name: 'Story was added' })).toBeTruthy();
+  const saved = (await client.listContentTypes()).find((type) => type.key === 'agents')?.fields.at(-1);
+  expect(saved).toMatchObject({ key: 'story', type: 'richtext', options: { formats: ['bold', 'italic', 'link', 'lists'] } });
+
+  await user.click(screen.getByRole('link', { name: 'View entries' }));
+  await user.click((await screen.findAllByRole('button', { name: 'New entry' }))[0] as HTMLElement);
+  const toolbar = within(await screen.findByRole('toolbar', { name: 'Formatting' }));
+  expect(toolbar.queryByRole('button', { name: 'Heading' })).toBeNull();
+  expect(toolbar.queryByRole('button', { name: 'Quote' })).toBeNull();
+  expect(toolbar.getByRole('button', { name: 'Bulleted list' })).toBeTruthy();
+});
+
 it('asks for what a kind needs before adding it: options for a choice, a type for a link', async () => {
   const user = userEvent.setup();
   const { client } = renderApp('/types/agents', signedIn);

@@ -5,6 +5,7 @@ Every package is released together under one version. While versions are `0.x`, 
 ## Unreleased
 
 - **The editor's screen sits in a rounded panel.** From a tablet up, the navigation (the rail and the column of a section's places) sits on one dark ground that fills the window, and the bar and the screen sit in a panel with rounded corners inset from its edges, white in the light theme. Phones are unchanged.
+- **A formatted text field can offer only what its place has room for.** A field names its `formats` (bold, italics, links, headings, lists, quotes), in the template's description or under "What the text can have" in the content type builder. The editor's toolbar shows only those buttons, typing or pasting cannot make anything else, and what reaches the site is limited the same way, so a heading pasted into a card's text arrives as a paragraph with its words intact. A field that names none takes them all, as before.
 
 ## 0.1.0-beta.11
 
