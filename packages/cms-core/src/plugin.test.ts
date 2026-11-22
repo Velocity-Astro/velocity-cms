@@ -54,7 +54,7 @@ describe('starting plugins', () => {
       }),
     ]);
     expect(await cms.plugins.list(owner)).toEqual([
-      { name: 'ratings', label: { en: 'Ratings' }, description: { en: 'Stars for reviews.' }, version: '1.2.0', permissions: [], status: 'on', hasSettings: false, hasEditor: false, adds: { fieldTypes: ['rating'], checks: 0, pageHead: false, events: [], tasks: [] }, faults: 0 },
+      { name: 'ratings', label: { en: 'Ratings' }, description: { en: 'Stars for reviews.' }, version: '1.2.0', permissions: [], status: 'on', hasSettings: false, hasEditor: false, adds: { fieldTypes: ['rating'], checks: 0, pageHead: false, redirects: false, events: [], tasks: [] }, faults: 0 },
     ]);
     const reviews = await cms.schema.create(owner, { key: 'reviews', kind: 'collection', label: { en: 'Reviews' }, fields: [{ key: 'stars', type: 'rating', label: { en: 'Stars' } }] });
     expect(reviews.fields[0]?.type).toBe('rating');
@@ -421,6 +421,7 @@ describe('what a plugin adds to the site\'s pages', () => {
     ]);
     expect(await cms.pages.redirect('/old/')).toEqual({ to: '/new/', permanent: true });
     expect((await cms.plugins.list(owner))[0]).toMatchObject({ name: 'broken', faults: 1, lastFault: { where: 'redirect', message: 'No list.' } });
+    expect((await cms.plugins.list(owner))[1]).toMatchObject({ name: 'moves', adds: { redirects: true, pageHead: false } });
     await cms.plugins.setEnabled(owner, 'moves', false);
     expect(await cms.pages.redirect('/old/')).toBeUndefined();
   });

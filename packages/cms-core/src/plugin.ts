@@ -247,8 +247,10 @@ export interface PluginAdds {
   readonly fieldTypes: readonly string[];
   /** How many rules it checks before a publish. */
   readonly checks: number;
-  /** Whether it changes what pages say about themselves to search engines. */
+  /** Whether it changes what pages say about themselves: to search engines, social sites and analytics. */
   readonly pageHead: boolean;
+  /** Whether it moves visitors from addresses that have no page. */
+  readonly redirects: boolean;
   /** What it listens for, such as `entry.published`. */
   readonly events: readonly string[];
   /** The kinds of work it has that are tried again when they fail. */
@@ -261,7 +263,7 @@ export interface PluginEditorInfo {
   readonly label: LocalizedText;
 }
 
-const NOTHING_ADDED: PluginAdds = { fieldTypes: [], checks: 0, pageHead: false, events: [], tasks: [] };
+const NOTHING_ADDED: PluginAdds = { fieldTypes: [], checks: 0, pageHead: false, redirects: false, events: [], tasks: [] };
 
 /** A plugin as the Plugins screen shows it. */
 export interface PluginInfo {
@@ -856,6 +858,7 @@ export class PluginHost {
             }
           });
           held.stops.push(stop);
+          held.info = { ...held.info, adds: { ...held.info.adds, redirects: true } };
           return stop;
         },
         changed: () => events.emit('pages.changed', { plugin: name }),
