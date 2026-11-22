@@ -38,9 +38,12 @@ export {
   type LinkValue,
   type NewBlock,
   type PublicRichText,
+  type RichTextOptions,
 } from './fields/index.js';
 export {
   fromPlainText,
+  limitRichText,
+  RICH_TEXT_FORMATS,
   isEmptyRichText,
   isSafeLink,
   richTextFromMarkdown,
@@ -49,6 +52,7 @@ export {
   richTextSchema,
   type RichText,
   type RichTextBlock,
+  type RichTextFormat,
   type RichTextInline,
   type RichTextListItem,
   type RichTextMark,

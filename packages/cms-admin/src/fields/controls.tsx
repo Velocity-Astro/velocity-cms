@@ -1,4 +1,4 @@
-import { fromPlainText, isSwatchColour, liveFields, type FieldDef, type RichText } from '@velocity-astro/cms-core';
+import { fromPlainText, isSwatchColour, liveFields, RICH_TEXT_FORMATS, type FieldDef, type RichText, type RichTextFormat } from '@velocity-astro/cms-core';
 import { ColorPicker, DateField, Fieldset, NumberField, Repeater, SectionList, Segmented, Select, Skeleton, SkeletonGroup, Stack, Switch, Text, TextArea, TextField } from '@velocity-astro/cms-ui';
 import { Copy, Trash2 } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
@@ -315,6 +315,8 @@ const RichTextEditor = lazy(async () => ({ default: (await loadFresh(() => impor
 function RichTextControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {
   const messages = useMessages();
   const text = isPlainText(value) ? fromPlainText(value) : typeof value === 'object' && value !== null ? (value as RichText) : null;
+  const given = field.options['formats'];
+  const formats = Array.isArray(given) ? RICH_TEXT_FORMATS.filter((format: RichTextFormat) => given.includes(format)) : undefined;
   return (
     <Suspense
       fallback={
@@ -334,6 +336,7 @@ function RichTextControl({ field, label, help, isLabelHidden = false, value, onC
         onChange={(next) => onChange(next ?? undefined)}
         isRequired={field.required}
         words={messages.editor.richText}
+        {...(formats !== undefined && { formats })}
         {...(help !== undefined && { description: help })}
         {...(problem !== undefined && { errorMessage: problem })}
       />

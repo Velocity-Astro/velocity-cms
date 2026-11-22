@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import type { DefineContext } from './field-type.js';
 import { createFieldRegistry } from './fields/index.js';
-import { fromPlainText, isEmptyRichText, isSafeLink, richTextHtml, richTextParagraphs, richTextSchema, type RichText } from './rich-text.js';
+import { fromPlainText, isEmptyRichText, limitRichText, isSafeLink, richTextHtml, richTextParagraphs, richTextSchema, type RichText } from './rich-text.js';
 
 const text = (words: string, ...marks: object[]) => ({ type: 'text', text: words, ...(marks.length > 0 && { marks }) });
 const sample = {
@@ -100,5 +101,42 @@ describe('Markdown', () => {
     expect(richTextHtml(text)).toBe(
       '<h2>Title</h2><p>A <strong>bold</strong> and <em>slanted</em> <a href="https://example.com" rel="noopener noreferrer">link</a> and bad.</p><ul><li><p>one</p></li><li><p>two</p><ul><li><p>inner</p></li></ul></li></ul><ol><li><p>first</p></li></ol><blockquote><p>quoted</p></blockquote>',
     );
+  });
+});
+
+describe('limitRichText', () => {
+  const parsed = richTextSchema.parse(sample);
+
+  it('leaves the text as it is when the field names no formats', () => {
+    expect(limitRichText(parsed, undefined)).toEqual(parsed);
+    expect(limitRichText(parsed, ['bold', 'italic', 'link', 'headings', 'lists', 'quotes'])).toEqual(parsed);
+  });
+
+  it('turns what a field leaves out into plain paragraphs, and loses no word', () => {
+    const plain = limitRichText(parsed, []);
+    expect(richTextHtml(plain)).toBe('<p>The house</p><p>Four bedrooms &amp; a porch<br>See the tour</p><p>Lake &lt;view&gt;</p><p>Home.</p><p></p>');
+    expect(richTextParagraphs(plain)).toEqual(richTextParagraphs(parsed));
+  });
+
+  it('keeps the marks and blocks a field names', () => {
+    const some = limitRichText(parsed, ['italic', 'link', 'lists']);
+    expect(richTextHtml(some)).toBe(
+      '<p>The house</p><p>Four bedrooms &amp; a <em>porch</em><br><a href="https://example.com/tour?a=1&amp;b=2" rel="noopener noreferrer">See the tour</a></p><ul><li><p>Lake &lt;view&gt;</p></li></ul><p><a href="/contact/">Home.</a></p><p></p>',
+    );
+  });
+
+  it('is what a field with formats saves and hands to the site, even for text saved before', () => {
+    const field = createFieldRegistry().get('richtext');
+    const context = { fields: createFieldRegistry(), mode: 'draft' as const };
+    const options = field.options.parse({ formats: ['bold'] });
+    const saved = field.schema(options, context).parse(sample) as RichText;
+    expect(saved.content.map((block) => block.type)).toEqual(['paragraph', 'paragraph', 'paragraph', 'paragraph', 'paragraph']);
+    expect(field.toPublic(sample, options, context)).toMatchObject({ html: expect.stringContaining('<p>The house</p><p>Four bedrooms &amp; a <strong>porch</strong><br>See the tour</p>') });
+  });
+
+  it('keeps each format once, in order, and refuses one it does not know', () => {
+    const field = createFieldRegistry().get('richtext');
+    expect(field.define({ formats: ['link', 'bold', 'link'] }, undefined, { fields: createFieldRegistry(), ids: { next: () => 'x' }, now: new Date(0).toISOString() } as DefineContext)).toEqual({ formats: ['bold', 'link'] });
+    expect(field.options.safeParse({ formats: ['tables'] }).success).toBe(false);
   });
 });

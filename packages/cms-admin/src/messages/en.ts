@@ -1,3 +1,4 @@
+import type { RichTextFormat } from '@velocity-astro/cms-core';
 /**
  * Every word the editor shows, in English. Screens contain no words of their own: they read
  * them from here, so the editor can be translated by adding a file like this one.
@@ -1283,6 +1284,9 @@ export const en = {
     textMultiline: 'Several lines',
     textMaxLength: 'Longest text allowed',
     textMaxLengthHelp: 'In characters. Leave empty for no limit.',
+    richTextFormats: 'What the text can have',
+    richTextFormatsHelp: 'Paragraphs always. Untick what the page has no room for: the editor stops offering it, and anything pasted becomes plain paragraphs.',
+    richTextFormat: { bold: 'Bold', italic: 'Italics', link: 'Links', headings: 'Headings', lists: 'Lists', quotes: 'Quotes' } satisfies Record<RichTextFormat, string>,
     numberMin: 'Smallest number allowed',
     numberMax: 'Largest number allowed',
     numberInteger: 'Whole numbers only',

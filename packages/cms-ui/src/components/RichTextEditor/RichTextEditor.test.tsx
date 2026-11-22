@@ -3,7 +3,7 @@ import { userEvent } from '@testing-library/user-event';
 import { useState } from 'react';
 import { expect, it, vi } from 'vitest';
 import { expectAccessible } from '../../testing/accessible.js';
-import { RichTextEditor, type RichTextDocument } from './RichTextEditor.js';
+import { RichTextEditor, type RichTextDocument, type RichTextFormat } from './RichTextEditor.js';
 
 // The editor asks what is under the pointer to place the cursor. This page has no layout, so
 // the answer is "nothing". Set here and not for every test: other parts behave differently
@@ -32,9 +32,10 @@ interface ExampleProps {
   first?: RichTextDocument | null;
   onChange?: (value: RichTextDocument | null) => void;
   errorMessage?: string;
+  formats?: readonly RichTextFormat[];
 }
 
-function Example({ first = null, onChange, errorMessage }: ExampleProps) {
+function Example({ first = null, onChange, errorMessage, formats }: ExampleProps) {
   const [value, setValue] = useState<RichTextDocument | null>(first);
   return (
     <RichTextEditor
@@ -48,6 +49,7 @@ function Example({ first = null, onChange, errorMessage }: ExampleProps) {
       }}
       words={words}
       {...(errorMessage !== undefined && { errorMessage })}
+      {...(formats !== undefined && { formats })}
     />
   );
 }
@@ -147,4 +149,20 @@ it('has no accessibility violations, with text and with the link panel open', as
   await userEvent.click(tool('Link'));
   await screen.findByRole('dialog', { name: 'Link' });
   await expectAccessible(document.body);
+});
+
+it('offers only the formats it is given, and shows a heading it is handed as a paragraph', async () => {
+  const onChange = vi.fn();
+  const { container } = render(<Example formats={['bold', 'link']} onChange={onChange} first={doc({ type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'The house' }] })} />);
+  const toolbar = screen.getByRole('toolbar', { name: 'Formatting' });
+  expect(within(toolbar).getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual(['Bold', 'Link']);
+  expect(container.querySelector('h2')).toBeNull();
+  expect(box().textContent).toBe('The house');
+  await expectAccessible(container);
+});
+
+it('has no toolbar when it is given no formats', () => {
+  render(<Example formats={[]} />);
+  expect(screen.queryByRole('toolbar')).toBeNull();
+  expect(box().getAttribute('role')).toBe('textbox');
 });

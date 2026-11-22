@@ -1,5 +1,5 @@
-import { Registry, type FieldDef } from '@velocity-astro/cms-core';
-import { Checkbox, NumberField, Select, TextArea } from '@velocity-astro/cms-ui';
+import { Registry, RICH_TEXT_FORMATS, type FieldDef, type RichTextFormat } from '@velocity-astro/cms-core';
+import { Checkbox, Fieldset, NumberField, Select, TextArea } from '@velocity-astro/cms-ui';
 import { useState, type ComponentType } from 'react';
 import { useContentTypes } from '../client/queries.js';
 import { localized } from '../lib/content.js';
@@ -63,6 +63,26 @@ function TextSettings({ options, onChange }: FieldSettingsProps) {
         onChange={(maxLength) => onChange(withSetting(options, 'maxLength', maxLength))}
       />
     </>
+  );
+}
+
+/**
+ * Which formats a rich text field offers. Every box ticked is the same as no limit, so a field
+ * keeps no list that says nothing.
+ */
+function RichTextSettings({ options, onChange }: FieldSettingsProps) {
+  const messages = useMessages();
+  const given = Array.isArray(options['formats']) ? (options['formats'] as RichTextFormat[]) : RICH_TEXT_FORMATS;
+  const toggle = (format: RichTextFormat, isOn: boolean) => {
+    const next = RICH_TEXT_FORMATS.filter((candidate) => (candidate === format ? isOn : given.includes(candidate)));
+    onChange(withSetting(options, 'formats', next.length === RICH_TEXT_FORMATS.length ? undefined : next));
+  };
+  return (
+    <Fieldset legend={messages.builder.richTextFormats} description={messages.builder.richTextFormatsHelp}>
+      {RICH_TEXT_FORMATS.map((format) => (
+        <Checkbox key={format} label={messages.builder.richTextFormat[format]} isSelected={given.includes(format)} onChange={(isOn) => toggle(format, isOn)} />
+      ))}
+    </Fieldset>
   );
 }
 
@@ -138,7 +158,7 @@ function ListSettings({ options, onChange, isExisting, problem }: FieldSettingsP
 /** The settings of every built-in field type that can be set up by hand. */
 export const fieldSettings: FieldSettingsRegistry = new Registry<FieldSettings>('field settings')
   .register({ type: 'text', initial: {}, Component: TextSettings, canBeListed: true })
-  .register({ type: 'richtext', initial: {}, canBeListed: true })
+  .register({ type: 'richtext', initial: {}, Component: RichTextSettings, canBeListed: true })
   .register({ type: 'number', initial: {}, Component: NumberSettings, canBeListed: true })
   .register({ type: 'boolean', initial: {} })
   .register({ type: 'date', initial: {}, canBeListed: true })
