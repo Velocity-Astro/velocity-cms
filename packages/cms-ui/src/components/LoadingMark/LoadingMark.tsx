@@ -9,7 +9,7 @@ import {
 } from './LoadingMark.variants.js';
 
 export interface LoadingMarkProps {
-  /** What is happening, such as "Opening the editor". Read out by screen readers; the screen shows only the mark. */
+  /** What is happening, such as "Opening the editor", shown under the mark and read out by screen readers. */
   readonly label: string;
 }
 
@@ -21,7 +21,8 @@ const FACETS = [
 
 /**
  * The whole screen while the app opens and there is no layout yet to keep: the Velocity mark in the
- * middle, its three facets arriving in grey and taking their colour, again until the app is there.
+ * middle of a clearing in the grid, its three facets arriving in grey and taking their colour, again
+ * until the app is there, with what is happening under it.
  */
 export function LoadingMark({ label }: LoadingMarkProps) {
   return (

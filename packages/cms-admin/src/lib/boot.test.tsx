@@ -50,3 +50,46 @@ it('waits for a screen that takes over from another at once', () => {
   vi.advanceTimersByTime(0);
   expect(mark()?.dataset['ending']).toBe('true');
 });
+
+it('keeps the mark up while the first screen\'s content is on its way, so the editor opens finished', () => {
+  boot.bootDrawn();
+  const content = boot.holdBootForScreen();
+  vi.advanceTimersByTime(1000);
+  expect(mark()?.dataset['ending']).toBeUndefined();
+  content();
+  vi.advanceTimersByTime(0);
+  expect(mark()?.dataset['ending']).toBe('true');
+});
+
+it('shows the screen with its shapes when its content is slow, rather than keep the mark up', () => {
+  boot.bootDrawn();
+  boot.holdBootForScreen();
+  vi.advanceTimersByTime(0);
+  vi.advanceTimersByTime(boot.SCREEN_WAIT_MS - 1);
+  expect(mark()?.dataset['ending']).toBeUndefined();
+  vi.advanceTimersByTime(1);
+  expect(mark()?.dataset['ending']).toBe('true');
+});
+
+it('lets the frame keep the mark up for as long as it needs, whatever a screen waits for', () => {
+  const frame = boot.holdBoot();
+  boot.holdBootForScreen();
+  boot.bootDrawn();
+  vi.advanceTimersByTime(boot.SCREEN_WAIT_MS * 3);
+  expect(mark()?.dataset['ending']).toBeUndefined();
+  frame();
+  vi.advanceTimersByTime(boot.SCREEN_WAIT_MS);
+  expect(mark()?.dataset['ending']).toBe('true');
+});
+
+it('holds nothing once the mark has gone', () => {
+  boot.bootDrawn();
+  vi.advanceTimersByTime(300);
+  expect(mark()).toBeNull();
+  const late = document.createElement('div');
+  late.id = 'cms-boot';
+  document.body.append(late);
+  boot.holdBootForScreen()();
+  vi.advanceTimersByTime(5000);
+  expect(mark()?.dataset['ending']).toBeUndefined();
+});

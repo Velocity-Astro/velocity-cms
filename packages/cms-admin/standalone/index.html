@@ -8,11 +8,19 @@
     <title>Editor</title>
     <!--
       What is seen from the first byte of the page: the Velocity mark in the middle, its facets arriving
-      in grey and taking their colour, as LoadingMark draws it. It stays over the editor until the first
-      screen is drawn (src/lib/boot.ts), so it is one animation to the end, then fades.
+      in grey and taking their colour, on a clearing in the grid, as LoadingMark draws it. It stays over the
+      editor until its first screen is ready (src/lib/boot.ts), so it is one animation to the end, then fades.
     -->
     <style>
-      .cms-boot { position: fixed; inset: 0; z-index: 2147483000; display: grid; place-items: center; background: var(--background, #fff); transition: opacity 300ms ease; }
+      .cms-boot {
+        position: fixed; inset: 0; z-index: 2147483000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.25rem;
+        --boot-bg: var(--background, #fff); --boot-line: var(--border, #e5e5e5);
+        background-color: var(--boot-bg);
+        background-image: radial-gradient(closest-side, transparent 30%, var(--boot-bg) 100%), linear-gradient(to bottom, var(--boot-line) 1px, transparent 1px), linear-gradient(to right, var(--boot-line) 1px, transparent 1px);
+        background-size: 100% 100%, 1.5rem 1.5rem, 1.5rem 1.5rem; background-position: center;
+        transition: opacity 300ms ease;
+      }
+      .cms-boot p { margin: 0; font: 500 0.875rem/1.25rem var(--font-ui, system-ui, sans-serif); color: var(--foreground-subtle, #737373); }
       .cms-boot[data-ending="true"] { opacity: 0; pointer-events: none; }
       .cms-boot svg { width: 4rem; height: auto; overflow: visible; }
       .cms-boot .grey { fill: var(--border, #e5e5e5); }
@@ -30,7 +38,8 @@
       }
       @keyframes cms-boot-colour { 0%, 30% { opacity: 0; } 46%, 100% { opacity: 1; } }
       @media (prefers-color-scheme: dark) {
-        .cms-boot { background: var(--gray-950, #0a0a0a); }
+        .cms-boot { --boot-bg: var(--gray-950, #0a0a0a); --boot-line: var(--gray-800, #262626); }
+        .cms-boot p { color: oklch(60% 0 0); }
         .cms-boot .grey { fill: var(--gray-800, #262626); }
         .cms-boot .body { fill: var(--gray-50, #fafafa); }
       }
@@ -47,6 +56,7 @@
         <g class="p2"><path class="grey" d="M0.144951 28.8578C0.079723 29.2851 0.0434853 29.7123 0.0434853 30.1323L0 72.036C0 76.1778 1.95684 78.3936 5.26172 80.3631L39.4919 100.703L0.144951 28.8578Z" /><path class="colour body" d="M0.144951 28.8578C0.079723 29.2851 0.0434853 29.7123 0.0434853 30.1323L0 72.036C0 76.1778 1.95684 78.3936 5.26172 80.3631L39.4919 100.703L0.144951 28.8578Z" /></g>
         <g class="p3"><path class="grey" d="M89.9203 28.7058L50.0588 101L86.6661 79.1539C88.7027 77.9374 90 75.0265 90 72.6442L89.9783 29.6037C89.9783 29.2923 89.9493 28.9954 89.913 28.6985L89.9203 28.7058Z" /><path class="colour body" d="M89.9203 28.7058L50.0588 101L86.6661 79.1539C88.7027 77.9374 90 75.0265 90 72.6442L89.9783 29.6037C89.9783 29.2923 89.9493 28.9954 89.913 28.6985L89.9203 28.7058Z" /></g>
       </svg>
+      <p>Opening the editor</p>
     </div>
     <div id="root"></div>
     <script type="module" src="../src/standalone/main.tsx"></script>

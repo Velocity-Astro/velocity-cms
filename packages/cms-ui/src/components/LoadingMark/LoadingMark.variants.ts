@@ -1,5 +1,5 @@
-/** The whole screen, quiet, with the mark in the middle of it. */
-export const loadingMarkClass = 'flex min-h-dvh w-full items-center justify-center bg-background';
+/** The whole screen, quiet, with the mark and its words in the middle of a clearing in the grid. */
+export const loadingMarkClass = 'flex min-h-dvh w-full flex-col items-center justify-center gap-5 bg-background bg-grid-clearing';
 export const loadingMarkSvgClass = 'h-auto w-16 overflow-visible';
 /** Before a facet has its colour. */
 export const loadingMarkGreyClass = 'fill-border';
@@ -14,4 +14,4 @@ export const loadingMarkColourClass = {
   left: 'fill-foreground motion-mark-colour-left',
   right: 'fill-foreground motion-mark-colour-right',
 } as const;
-export const loadingMarkLabelClass = 'sr-only';
+export const loadingMarkLabelClass = 'text-sm font-medium text-foreground-subtle';
