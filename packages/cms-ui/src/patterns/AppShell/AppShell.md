@@ -5,6 +5,13 @@ tooltip, and the signed-in person at the bottom. Beside it, when the current sec
 under "Content"), a column that lists them under the section's name. Across the top, a bar with the site's name, the search and
 the one or two things a person does from anywhere. Under it, the main area the screen is drawn in.
 
+The column opens and closes with the screen: when a change of screen gives it places or takes them away, the panel slides to make
+room or take it back, and the column is uncovered from its edge (a view transition, or its width where there is none). While it closes
+it keeps what it held, out of reach (`inert`). A person who asks for less motion sees it simply open and close.
+
+A screen with nothing for the bar, such as a home screen that opens on its own greeting, passes `isBarHidden`: from `md` up there is no
+bar, and the search is still a key away. A phone keeps the bar, since its menu is there.
+
 It owns the page's only `main` landmark, and its navigation: `Main` for the rail, and one named after the section for its column.
 
 On a narrow window the rail and the column are behind a button in the bar: a panel lists every section with its places under it. The bar then has two rows: the menu button, the screen's title and the search, then the screen's buttons (a `PageHeader`'s or a `SaveBar`'s) across the whole width.

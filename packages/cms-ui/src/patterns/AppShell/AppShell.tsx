@@ -1,5 +1,5 @@
 import { ChevronsUpDown, Menu as MenuIcon, Search, type LucideIcon } from 'lucide-react';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { Button as AriaButton, Dialog as AriaDialog, DialogTrigger, Link, Modal, ModalOverlay } from 'react-aria-components';
 import { Logo } from '../../components/Logo/index.js';
 import { Menu, type MenuAction } from '../../components/Menu/index.js';
@@ -10,7 +10,7 @@ import {
   appShellAccountIconSize,
   appShellAccountNameClass,
   appShellAccountTextClass,
-  appShellBarClass,
+  appShellBarVariants,
   appShellBarSlotClass,
   appShellSiteClass,
   appShellSiteDetailClass,
@@ -51,7 +51,8 @@ import {
   appShellSearchIconSize,
   appShellSearchLabelVariants,
   appShellSearchShortcutVariants,
-  appShellSectionClass,
+  appShellSectionNavVariants,
+  appShellSectionVariants,
   appShellSkipClass,
 } from './AppShell.variants.js';
 
@@ -118,6 +119,11 @@ export interface AppShellProps {
   readonly search?: AppShellSearch;
   /** The signed-in person, at the bottom of the rail, with their menu. */
   readonly account?: AppShellAccount;
+  /**
+   * The screen has nothing for the bar across the top, so from `md` up there is none and the screen has the
+   * height. Home is such a screen. A phone keeps the bar, since its menu is there.
+   */
+  readonly isBarHidden?: boolean;
   /** The screen. */
   readonly children: ReactNode;
 }
@@ -168,7 +174,7 @@ function PlaceGroups({ groups, onPress }: { readonly groups: readonly AppShellNa
  * the bar across the top, which holds the screen's own header (its `PageHeader` or `SaveBar`) and the
  * search, and the main area, which holds only the screen's content.
  */
-export function AppShell({ logoLabel, siteName, siteDetail, navLabel, nav, menuLabel, skipLabel, search, account, children }: AppShellProps) {
+export function AppShell({ logoLabel, siteName, siteDetail, navLabel, nav, menuLabel, skipLabel, search, account, isBarHidden = false, children }: AppShellProps) {
   // Where the screen's header is drawn: the screen's own parts are handed it once the bar is there.
   const [bar, setBar] = useState<HTMLElement | null>(null);
   // How many parts of the screen say its bar leads back (one, or none): counted, so one leaving never undoes another.
@@ -182,6 +188,12 @@ export function AppShell({ logoLabel, siteName, siteDetail, navLabel, nav, menuL
     </div>
   );
   const current = nav.flatMap((group) => group.items).find((item) => item.isCurrent === true && (item.children?.length ?? 0) > 0);
+  // The column keeps showing the places it last held while it closes, so they slide away with it
+  // rather than vanish first. Once closed it is inert and hidden: nobody can reach or hear what it still holds.
+  const lastPlaces = useRef<AppShellNavItem | undefined>(undefined);
+  if (current !== undefined) lastPlaces.current = current;
+  const places = current ?? lastPlaces.current;
+  const isColumnOpen = current !== undefined;
 
   const accountWords = account !== undefined && (
     <>
@@ -252,15 +264,18 @@ export function AppShell({ logoLabel, siteName, siteDetail, navLabel, nav, menuL
         )}
       </aside>
 
-      {current?.children !== undefined && (
-        <nav aria-label={current.label} className={appShellSectionClass}>
-          {site}
-          <PlaceGroups groups={current.children} />
-        </nav>
-      )}
+      {/* Always there, so it can open from nothing the first time a section with places is chosen. */}
+      <div className={appShellSectionVariants({ isOpen: isColumnOpen })} inert={!isColumnOpen} {...(!isColumnOpen && { 'aria-hidden': true })}>
+        {places?.children !== undefined && (
+          <nav aria-label={places.label} className={appShellSectionNavVariants({ isOpen: isColumnOpen })}>
+            {site}
+            <PlaceGroups groups={places.children} />
+          </nav>
+        )}
+      </div>
 
       <div className={appShellColumnClass}>
-        <header className={appShellBarClass}>
+        <header className={appShellBarVariants({ isHidden: isBarHidden })}>
           <DialogTrigger>
             <AriaButton aria-label={menuLabel} className={appShellMenuButtonVariants({ isScreenLeadingBack })}>
               <MenuIcon aria-hidden size={appShellMenuIconSize} />
