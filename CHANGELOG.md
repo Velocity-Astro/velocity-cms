@@ -4,6 +4,11 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **Branded emails.** Sign-in links, invitations, notices from forms and the test email are drawn in one polished layout: the site's logo (or its initial in its colour) above a card, a clear heading, a button that works in Outlook too, a form's answers in a panel, and a foot that names the site and says why the email came. They work in Gmail, Outlook and Apple Mail, follow dark mode where the client does, and carry the same words as plain text. A template names its logo and brand colour with `brandFields: { logo, logoDark, color }` on its settings page; the CMS serves the logo to email clients as a PNG. Without them an email wears the site's name in Velocity's orange.
+- **A name on every email.** Emails no longer come from a bare address: Settings, Email has a sender name, and without one they come from the site's name (`"Lakeshore Realty" <cms@…>`). A sender the server gives with a name of its own (`VELOCITY_CMS_EMAIL_FROM="Front desk <cms@…>"`) still wins. An invitation names who sent it, and a form's notice has a button to its submissions.
+- **Your profile.** Everyone can change their own name and photo and the address they sign in with (a link sent to the new address confirms it), and reach their passkeys, from "Your profile" in the account menu. An owner can rename anyone from People. A site's own mailer may add `sendEmailChange` to send the link; without it the server's or the editor's email settings send it.
+- **The image library shows what you just uploaded.** Media lists the newest upload first and marks what was uploaded since the editor opened, here and in every image picker. Media has filters for where an image is from and its kind of file, and sorts by date, name or size; image pickers have a search.
+
 ## 0.1.0-beta.15
 
 - **Analytics plugin.** An owner sets the site's Google Analytics measurement ID, Tag Manager container and cookie consent (asked first, or not at all) under Plugins, and every page follows at once, with no deploy. `pageHead` hands the ids to the layout as `analytics`, which writes the template's own tags; nothing a plugin answers is ever a script.

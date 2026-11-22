@@ -1,9 +1,10 @@
 import { GridList, GridListItem } from 'react-aria-components';
 import {
+  mediaGridBadgeClass,
   mediaGridClass,
   mediaGridEmptyClass,
   mediaGridImageClass,
-  mediaGridItemClass,
+  mediaGridItemVariants,
   mediaGridNameClass,
   mediaGridNoteClass,
   mediaGridTextClass,
@@ -18,6 +19,8 @@ export interface MediaGridItem {
   readonly url: string;
   /** A line under the name, such as its size: "1600 × 900". */
   readonly note?: string;
+  /** Marks a picture to notice, such as "Just uploaded": shown on it, and it is outlined. */
+  readonly badge?: string;
 }
 
 export interface MediaGridProps {
@@ -41,9 +44,10 @@ export function MediaGrid({ label, items, onAction, emptyText }: MediaGridProps)
       className={mediaGridClass}
     >
       {items.map((item) => (
-        <GridListItem key={item.id} id={item.id} textValue={item.name} className={mediaGridItemClass}>
+        <GridListItem key={item.id} id={item.id} textValue={item.badge === undefined ? item.name : `${item.name}, ${item.badge}`} className={mediaGridItemVariants({ isMarked: item.badge !== undefined })}>
           <img src={item.url} alt="" loading="lazy" className={mediaGridImageClass} />
           <span className={mediaGridTextClass}>
+            {item.badge !== undefined && <span className={mediaGridBadgeClass}>{item.badge}</span>}
             <span className={mediaGridNameClass}>{item.name}</span>
             {item.note !== undefined && <span className={mediaGridNoteClass}>{item.note}</span>}
           </span>

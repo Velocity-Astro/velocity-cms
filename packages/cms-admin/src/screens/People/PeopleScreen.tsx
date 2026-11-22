@@ -1,11 +1,11 @@
 import { ROLES, type Role } from '@velocity-astro/cms-core';
 import { Box, Button, ConfirmDialog, Dialog, Form, IconButton, Inline, PageHeader, Select, Stack, Table, Tag, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
-import { Trash2, UserPlus } from 'lucide-react';
+import { Pencil, Trash2, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import type { Person } from '../../client/admin-client.js';
 import { AdminRequestError } from '../../client/errors.js';
-import { useChangePersonRole, useInvitePerson, usePeople, useRemovePerson, useSession } from '../../client/queries.js';
+import { useChangePersonRole, useInvitePerson, usePeople, useRemovePerson, useRenamePerson, useSession } from '../../client/queries.js';
 import { useMessages } from '../../messages/messages-context.js';
 import { useClosing, useLast } from '../../lib/use-closing.js';
 
@@ -21,6 +21,7 @@ export function PeopleScreen() {
   const remove = useRemovePerson();
   const [isInviting, setInviting] = useState(false);
   const [leaving, setLeaving] = useState<Person | null>(null);
+  const [renaming, setRenaming] = useState<Person | null>(null);
   const asked = useLast(leaving);
 
   const roles = ROLES.map((role) => ({ id: role, label: messages.people.roles[role] }));
@@ -65,7 +66,12 @@ export function PeopleScreen() {
           }
         />
       ),
-      actions: <IconButton label={messages.people.remove(person.name)} icon={Trash2} isDisabled={person.id === me} onPress={() => setLeaving(person)} />,
+      actions: (
+        <Inline gap={1}>
+          <IconButton label={messages.people.rename(person.name)} icon={Pencil} onPress={() => setRenaming(person)} />
+          <IconButton label={messages.people.remove(person.name)} icon={Trash2} isDisabled={person.id === me} onPress={() => setLeaving(person)} />
+        </Inline>
+      ),
     },
   }));
 
@@ -94,6 +100,7 @@ export function PeopleScreen() {
       </Stack>
       {/* Made anew each time it opens, so it never shows the last person's details. */}
       {isInviting && <InviteDialog onClose={() => setInviting(false)} />}
+      {renaming && <RenameDialog person={renaming} onClose={() => setRenaming(null)} />}
       <ConfirmDialog
         isOpen={leaving !== null}
         onOpenChange={(isOpen) => !isOpen && setLeaving(null)}
@@ -114,6 +121,60 @@ export function PeopleScreen() {
         {messages.people.removeDescription}
       </ConfirmDialog>
     </Box>
+  );
+}
+
+/** The window an owner changes someone's name in. */
+function RenameDialog({ person, onClose }: { readonly person: Person; readonly onClose: () => void }) {
+  const { close, dialog } = useClosing(onClose);
+  const messages = useMessages();
+  const rename = useRenamePerson();
+  const [name, setName] = useState(person.name);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  const send = () => {
+    setProblem(null);
+    rename.mutate(
+      { id: person.id, name },
+      {
+        onSuccess: (changed) => {
+          toast({ title: messages.people.renamed(changed.name), tone: 'success' });
+          close();
+        },
+        onError: (error) => setProblem(messageOf(error)),
+      },
+    );
+  };
+
+  return (
+    <Dialog
+      {...dialog}
+      title={messages.people.renameTitle(person.name)}
+      closeLabel={messages.app.dismiss}
+      footer={
+        <>
+          <Button variant="secondary" onPress={close}>
+            {messages.editor.cancel}
+          </Button>
+          <Button isPending={rename.isPending} isDisabled={name.trim() === '' || name.trim() === person.name} onPress={send}>
+            {messages.people.renameSave}
+          </Button>
+        </>
+      }
+    >
+      <Form label={messages.people.renameTitle(person.name)} gap={4} onSubmit={send}>
+        <TextField
+          label={messages.people.name}
+          value={name}
+          onChange={setName}
+          isRequired
+          autoFocus
+          autoComplete="off"
+          description={messages.people.renameHelp}
+          {...(problem !== null && { errorMessage: problem })}
+        />
+      </Form>
+    </Dialog>
   );
 }
 

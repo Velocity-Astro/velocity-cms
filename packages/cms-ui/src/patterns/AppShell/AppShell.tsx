@@ -38,6 +38,7 @@ import {
   appShellNavListClass,
   appShellRailAccountClass,
   appShellRailAvatarClass,
+  appShellAvatarImageClass,
   appShellRailBadgeClass,
   appShellRailClass,
   appShellRailGroupVariants,
@@ -86,6 +87,8 @@ export interface AppShellAccount {
   readonly name: string;
   /** Under the name: their role, or their email. */
   readonly detail?: string;
+  /** Their photo. Left out, their initials. */
+  readonly image?: string | undefined;
   /** What the menu is for, for screen readers, such as "Account". Read before the name and detail. */
   readonly label: string;
   readonly actions: readonly MenuAction[];
@@ -199,7 +202,7 @@ export function AppShell({ logoLabel, siteName, siteDetail, navLabel, nav, menuL
     <>
       <span className={appShellHiddenClass}>{account.label}</span>
       <span aria-hidden className={appShellRailAvatarClass}>
-        {initials(account.name)}
+        {account.image === undefined ? initials(account.name) : <img src={account.image} alt="" className={appShellAvatarImageClass} />}
       </span>
     </>
   );
@@ -319,7 +322,7 @@ export function AppShell({ logoLabel, siteName, siteDetail, navLabel, nav, menuL
                               <AriaButton className={appShellDrawerAccountClass}>
                                 <span className={appShellHiddenClass}>{account.label}</span>
                                 <span aria-hidden className={appShellDrawerAvatarClass}>
-                                  {initials(account.name)}
+                                  {account.image === undefined ? initials(account.name) : <img src={account.image} alt="" className={appShellAvatarImageClass} />}
                                 </span>
                                 <span className={appShellAccountTextClass}>
                                   <span className={appShellAccountNameClass}>{account.name}</span>

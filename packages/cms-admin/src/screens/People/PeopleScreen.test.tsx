@@ -103,3 +103,23 @@ it('adds a passkey from the account menu, and says so when the browser makes non
   expect(await dialog.findByText('You have no passkeys yet.')).toBeTruthy();
   expect(client.passkeys).toEqual([]);
 });
+
+it('lets an owner rename someone, yourself too, and says why a name was not taken', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/people', site());
+  await table();
+  await user.click(screen.getByRole('button', { name: 'Rename Ben' }));
+  const window = within(await screen.findByRole('dialog', { name: 'Rename Ben' }));
+  const field = window.getByRole('textbox', { name: /^Name/ });
+  await user.clear(field);
+  await user.type(field, 'Ben <b>');
+  await user.click(window.getByRole('button', { name: 'Save name' }));
+  expect(await window.findByText(/without angle brackets/)).toBeTruthy();
+  await user.clear(field);
+  await user.type(field, 'Ben Carter');
+  await user.click(window.getByRole('button', { name: 'Save name' }));
+  expect(await screen.findByText('Renamed to Ben Carter')).toBeTruthy();
+  await waitFor(async () => expect(await names()).toEqual(['Ben Carterben@example.com', 'DanaYoudana@example.com']));
+  expect((await client.listPeople()).find((person) => person.id === 'u2')?.name).toBe('Ben Carter');
+  expect(screen.getByRole('button', { name: 'Rename Dana' })).toHaveProperty('disabled', false);
+});

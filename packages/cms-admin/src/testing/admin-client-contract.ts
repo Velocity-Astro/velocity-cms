@@ -298,14 +298,17 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
     });
 
     it('saves how email is sent without ever sending the key back, and sends a test once it can', async () => {
-      expect(await client.getEmailSettings()).toEqual({ provider: 'resend', from: '', hasKey: false, sending: false, canTest: false, revision: 0 });
+      expect(await client.getEmailSettings()).toEqual({ provider: 'resend', from: '', senderName: '', hasKey: false, sending: false, canTest: false, revision: 0 });
       await expect(client.sendTestEmail()).rejects.toMatchObject({ code: 'conflict' });
       await expect(client.saveEmailSettings({ from: 'nobody', apiKey: 're_123', expectedRevision: 0 })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['from'] }] });
       const saved = await client.saveEmailSettings({ from: 'Lakeshore <hello@example.com>', apiKey: 're_123', expectedRevision: 0 });
-      expect(saved).toEqual({ provider: 'resend', from: 'Lakeshore <hello@example.com>', hasKey: true, sending: true, canTest: true, revision: 1 });
+      expect(saved).toEqual({ provider: 'resend', from: 'Lakeshore <hello@example.com>', senderName: '', hasKey: true, sending: true, canTest: true, revision: 1 });
       expect(await client.sendTestEmail()).toBeUndefined();
       await expect(client.saveEmailSettings({ from: 'hello@example.com', expectedRevision: 0 })).rejects.toMatchObject({ code: 'conflict' });
       expect(await client.saveEmailSettings({ from: 'hello@example.com', apiKey: null, expectedRevision: 1 })).toMatchObject({ from: 'hello@example.com', hasKey: false, sending: false, canTest: false, revision: 2 });
+      // The sender's name alone can be saved, and the address stays.
+      expect(await client.saveEmailSettings({ senderName: '  Lakeshore   Realty ', expectedRevision: 2 })).toMatchObject({ from: 'hello@example.com', senderName: 'Lakeshore Realty', revision: 3 });
+      await expect(client.saveEmailSettings({ senderName: 'Bad <name>', expectedRevision: 3 })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['senderName'] }] });
     });
 
     it('saves what the site is called, and goes back to its own name when that is emptied', async () => {
@@ -434,6 +437,30 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       expect((await client.listPeople()).map((person) => person.name)).toEqual(['Ben', 'Dana']);
       await client.removePerson(ben.id);
       expect(await client.listPeople()).toHaveLength(1);
+    });
+
+    it('lets an owner rename someone, and refuses a name that could not be one', async () => {
+      const ben = await client.invitePerson({ email: 'ben@example.com', name: 'Ben', role: 'author' });
+      expect(await client.renamePerson(ben.id, '  Ben   Carter ')).toMatchObject({ id: ben.id, name: 'Ben Carter', role: 'author' });
+      expect((await client.listPeople()).map((person) => person.name)).toEqual(['Ben Carter', 'Dana']);
+      await expect(client.renamePerson(ben.id, ' ')).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['name'] }] });
+      await expect(client.renamePerson('nobody', 'Ann')).rejects.toMatchObject({ code: 'not_found' });
+    });
+
+    it('keeps the person\'s own profile: their name and photo, and a new address only through its link', async () => {
+      expect(await client.getProfile()).toMatchObject({ id: 'u1', email: 'dana@example.com', name: 'Dana', role: 'owner' });
+      const photo = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAwS2OUAAAAABJRU5ErkJggg==';
+      expect(await client.saveProfile({ name: 'Dana Whitfield', image: photo })).toMatchObject({ name: 'Dana Whitfield', image: photo });
+      expect(await client.saveProfile({ image: null })).not.toHaveProperty('image');
+      await expect(client.saveProfile({ image: 'data:text/html;base64,PGI+' })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['image'] }] });
+      await expect(client.saveProfile({ name: '' })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['name'] }] });
+
+      await expect(client.askEmailChange('nope')).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['email'] }] });
+      await expect(client.askEmailChange('dana@example.com')).rejects.toMatchObject({ code: 'validation_failed' });
+      expect(await client.askEmailChange('dana@new.example')).toBeUndefined();
+      // Nothing changes until the link is opened, and a token that is not the link's opens nothing.
+      expect(await client.getProfile()).toMatchObject({ email: 'dana@example.com' });
+      await expect(client.confirmEmailChange('not-the-token')).rejects.toMatchObject({ code: 'conflict' });
     });
 
     it('makes access tokens for agents, shows each once, lists them and takes them away', async () => {

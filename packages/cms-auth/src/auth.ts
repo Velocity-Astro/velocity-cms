@@ -1,9 +1,9 @@
 import { passkey } from '@better-auth/passkey';
-import type { AccessToken, ApiSession, Authenticator, MadeAccessToken, NewAccessToken, Tokens } from '@velocity-astro/cms-api';
-import { AccessControl, CmsError, ConflictError, NotFoundError, ROLES, ValidationError, type Actor, type Role } from '@velocity-astro/cms-core';
+import type { AccessToken, ApiSession, Authenticator, MadeAccessToken, NewAccessToken, Profile, ProfileChanges, Profiles, Tokens } from '@velocity-astro/cms-api';
+import { AccessControl, CmsError, ConflictError, ForbiddenError, NotFoundError, ROLES, ValidationError, readImage, type Actor, type Role } from '@velocity-astro/cms-core';
 import { authAccount, authPasskey, authSession, authUser, authVerification, type Db } from '@velocity-astro/cms-db';
 import { betterAuth } from 'better-auth';
-import { eq } from 'drizzle-orm';
+import { and, eq, like, lt } from 'drizzle-orm';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { magicLink } from 'better-auth/plugins';
 import type { Mailer } from './mailer.js';
@@ -60,6 +60,41 @@ const LINKS_PER_ADDRESS = 3;
 const LINKS_WINDOW_MS = 10 * 60_000;
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** The longest name a person can be given: it goes in emails and across the editor. */
+const MAX_NAME_LENGTH = 80;
+/** A photo is drawn small, so it is kept small: the editor makes it 256 pixels square. */
+const MAX_PHOTO_BYTES = 96 * 1024;
+const PHOTO = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/;
+/** How long a link that confirms a new address works for. */
+const EMAIL_CHANGE_MINUTES = 30;
+const EMAIL_CHANGE = 'velocity-email-change:';
+
+const sha256 = async (text: string) =>
+  [...new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+
+/** A person's name as it is kept: words on one line. Refused when empty, too long or not plain words. */
+function nameFrom(typed: string): string {
+  const name = typed.trim().replace(/\s+/g, ' ');
+  const problem =
+    name === '' ? 'Enter a name.' : name.length > MAX_NAME_LENGTH ? `Keep the name to ${MAX_NAME_LENGTH} characters.` : /[\p{Cc}<>]/u.test(name) ? 'Use plain words for the name, without angle brackets.' : null;
+  if (problem !== null) throw new ValidationError(problem, [{ path: ['name'], message: problem }]);
+  return name;
+}
+
+/** A photo as it is kept: a small PNG, JPEG or WebP in a `data:` address, checked by what it holds. */
+function photoFrom(typed: string): string {
+  const match = PHOTO.exec(typed);
+  const bytes = match?.[2] === undefined ? null : Uint8Array.from(atob(match[2]), (character) => character.charCodeAt(0));
+  const facts = bytes === null ? null : readImage(bytes);
+  const problem =
+    bytes === null || facts === null || facts.contentType !== `image/${match?.[1] ?? ''}`
+      ? 'Choose a photo that is a JPEG, PNG or WebP.'
+      : bytes.length > MAX_PHOTO_BYTES
+        ? 'That photo is too large. Choose a smaller one.'
+        : null;
+  if (problem !== null) throw new ValidationError(problem, [{ path: ['image'], message: problem }]);
+  return typed;
+}
 const isRole = (value: unknown): value is Role => ROLES.includes(value as Role);
 const normalised = (email: string) => email.trim().toLowerCase();
 
@@ -81,7 +116,7 @@ function staysOnSite(link: string): boolean {
  * of the CMS sees an `Authenticator` for the API, `handle` to mount, and a few methods for
  * managing who has access.
  */
-export class CmsAuth implements Authenticator, Tokens {
+export class CmsAuth implements Authenticator, Tokens, Profiles {
   readonly #options: CmsAuthOptions;
   readonly #access: AccessControl;
   readonly #adminPath: string;
@@ -148,10 +183,10 @@ export class CmsAuth implements Authenticator, Tokens {
     if (bearerToken(request) !== null) return this.#tokens.authenticate(request);
     const session = await this.#auth.api.getSession({ headers: request.headers });
     if (!session) return null;
-    const { id, email, name, role } = session.user;
+    const { id, email, name, role, image } = session.user;
     // A role this version does not know grants nothing, rather than something by accident.
     if (!isRole(role)) return null;
-    return { user: { id, email, name }, actor: { kind: 'user', id, role } };
+    return { user: { id, email, name, ...(typeof image === 'string' && image !== '' && { image }) }, actor: { kind: 'user', id, role } };
   }
 
   /** The access tokens that have not ended, newest first. Owners only. */
@@ -186,8 +221,15 @@ export class CmsAuth implements Authenticator, Tokens {
   async invite(actor: Actor, invitation: Invitation): Promise<AuthUser> {
     this.#access.require(actor, 'user:manage');
     const user = await this.#create(invitation);
+    const invitedBy = actor.kind === 'user' ? await this.#get(actor.id).then((inviter) => inviter.name).catch(() => undefined) : undefined;
     try {
-      await this.#options.mailer.sendInvitation({ email: user.email, name: user.name, url: `${this.#origin}${this.#adminPath}`, siteName: this.#options.siteName });
+      await this.#options.mailer.sendInvitation({
+        email: user.email,
+        name: user.name,
+        url: `${this.#origin}${this.#adminPath}`,
+        siteName: this.#options.siteName,
+        ...(invitedBy !== undefined && { invitedBy }),
+      });
     } catch (error) {
       await this.#options.db.delete(authUser).where(eq(authUser.id, user.id));
       console.error('[velocity-cms] An invitation could not be sent.', error);
@@ -207,6 +249,109 @@ export class CmsAuth implements Authenticator, Tokens {
     if (user.role === 'owner' && role !== 'owner') await this.#requireAnotherOwner(userId, 'Make someone else an owner first.');
     await this.#options.db.update(authUser).set({ role }).where(eq(authUser.id, userId));
     return { ...user, role };
+  }
+
+  /** Changes what someone is called. Owners only: everyone else changes their own on their profile. */
+  async rename(actor: Actor, userId: string, name: string): Promise<AuthUser> {
+    this.#access.require(actor, 'user:manage');
+    const user = await this.#get(userId);
+    const kept = nameFrom(name);
+    await this.#options.db.update(authUser).set({ name: kept, updatedAt: new Date() }).where(eq(authUser.id, userId));
+    return { ...user, name: kept };
+  }
+
+  /** The signed-in person's own details. */
+  async profile(actor: Actor): Promise<Profile> {
+    return this.#profileOf(this.#self(actor));
+  }
+
+  /** Changes the signed-in person's own name or photo. */
+  async updateProfile(actor: Actor, changes: ProfileChanges): Promise<Profile> {
+    const id = this.#self(actor);
+    const name = changes.name === undefined ? undefined : nameFrom(changes.name);
+    const image = changes.image === undefined ? undefined : changes.image === null ? null : photoFrom(changes.image);
+    if (name !== undefined || image !== undefined) {
+      await this.#options.db
+        .update(authUser)
+        .set({ ...(name !== undefined && { name }), ...(image !== undefined && { image }), updatedAt: new Date() })
+        .where(eq(authUser.id, id));
+    }
+    return this.#profileOf(id);
+  }
+
+  /**
+   * Emails a link to a new address. The address becomes the person's only when the link is
+   * opened in the editor by the same person, signed in, within half an hour: a typing mistake
+   * locks nobody out, and nobody takes an address they cannot read.
+   */
+  async askEmailChange(actor: Actor, email: string): Promise<void> {
+    const id = this.#self(actor);
+    const address = normalised(email);
+    if (!EMAIL.test(address)) throw new ValidationError('Enter an email address, such as name@example.com.', [{ path: ['email'], message: 'Enter an email address, such as name@example.com.' }]);
+    const user = await this.#get(id);
+    if (address === user.email) throw new ValidationError('That is already your address.', [{ path: ['email'], message: 'That is already your address.' }]);
+    if (await this.#find(address)) throw new ConflictError('Someone on this site already signs in with that address. Choose another.');
+    const send = this.#options.mailer.sendEmailChange?.bind(this.#options.mailer);
+    if (!send) throw new ConflictError('This site\'s email cannot send the link that confirms a new address. Ask whoever runs the site.');
+    if (!this.#mayEmail(address)) throw new ConflictError('Several links were sent to that address just now. Wait ten minutes and try again.');
+
+    const token = btoa(String.fromCharCode(...globalThis.crypto.getRandomValues(new Uint8Array(32)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const now = Date.now();
+    // Links asked for before, and ones that ended, go: only the latest works.
+    await this.#options.db.delete(authVerification).where(and(like(authVerification.identifier, `${EMAIL_CHANGE}%`), lt(authVerification.expiresAt, new Date(now))));
+    for (const row of await this.#options.db.select().from(authVerification).where(like(authVerification.identifier, `${EMAIL_CHANGE}%`))) {
+      if (this.#changeOf(row.value)?.user === id) await this.#options.db.delete(authVerification).where(eq(authVerification.id, row.id));
+    }
+    await this.#options.db.insert(authVerification).values({
+      id: globalThis.crypto.randomUUID(),
+      identifier: `${EMAIL_CHANGE}${await sha256(token)}`,
+      value: JSON.stringify({ user: id, email: address }),
+      expiresAt: new Date(now + EMAIL_CHANGE_MINUTES * 60_000),
+    });
+    try {
+      await send({ email: address, name: user.name, url: `${this.#origin}${this.#adminPath}/profile?email=${token}`, expiresInMinutes: EMAIL_CHANGE_MINUTES, siteName: this.#options.siteName });
+    } catch (error) {
+      console.error('[velocity-cms] A link to confirm an email address could not be sent.', error);
+      throw new ConflictError('The link could not be sent. Check the address, or try again in a moment.');
+    }
+  }
+
+  /** Makes the address a link was sent to the person's own. The link works once. */
+  async confirmEmailChange(actor: Actor, token: string): Promise<Profile> {
+    const id = this.#self(actor);
+    const identifier = `${EMAIL_CHANGE}${await sha256(token)}`;
+    const [row] = await this.#options.db.select().from(authVerification).where(eq(authVerification.identifier, identifier)).limit(1);
+    const change = row ? this.#changeOf(row.value) : null;
+    if (!row || !change || change.user !== id || row.expiresAt.getTime() < Date.now()) {
+      throw new ConflictError('This link has ended, or it was for someone else. Ask for a new one on your profile.');
+    }
+    await this.#options.db.delete(authVerification).where(eq(authVerification.id, row.id));
+    if (await this.#find(change.email)) throw new ConflictError('Someone on this site signs in with that address now. Choose another.');
+    await this.#options.db.update(authUser).set({ email: change.email, emailVerified: true, updatedAt: new Date() }).where(eq(authUser.id, id));
+    return this.#profileOf(id);
+  }
+
+  /** The id of the person a request is from. An access token has no profile. */
+  #self(actor: Actor): string {
+    if (actor.kind !== 'user') throw new ForbiddenError('Only a person signed in has a profile.');
+    return actor.id;
+  }
+
+  async #profileOf(id: string): Promise<Profile> {
+    const [user] = await this.#options.db.select().from(authUser).where(eq(authUser.id, id)).limit(1);
+    if (!user) throw new NotFoundError('Person', id);
+    return { id: user.id, email: user.email, name: user.name, role: isRole(user.role) ? user.role : 'author', ...(user.image !== null && user.image !== '' && { image: user.image }) };
+  }
+
+  #changeOf(value: string): { user: string; email: string } | null {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return typeof parsed === 'object' && parsed !== null && typeof (parsed as { user?: unknown }).user === 'string' && typeof (parsed as { email?: unknown }).email === 'string'
+        ? (parsed as { user: string; email: string })
+        : null;
+    } catch {
+      return null;
+    }
   }
 
   /**

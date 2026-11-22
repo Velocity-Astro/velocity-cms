@@ -113,6 +113,7 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
         injectRoute({ pattern: '/cms-form.js', entrypoint: route('form-client.js.ts') });
         injectRoute({ pattern: '/cms-preview.js', entrypoint: route('preview-client.js.ts') });
         injectRoute({ pattern: '/media/[file]', entrypoint: route('media.ts') });
+        injectRoute({ pattern: '/cms-mail/[file]', entrypoint: route('mail-image.ts') });
         injectRoute({ pattern: '/api/cms/submit/[form]', entrypoint: route('submit.ts') });
         injectRoute({ pattern: '/api/cms/schedule', entrypoint: route('schedule.ts') });
         injectRoute({ pattern: '/api/cms/auth/[...path]', entrypoint: route('auth.ts') });

@@ -16,6 +16,12 @@ it('shows each picture with its name and note', () => {
   expect(grid.getByRole('row', { name: 'porch' }).textContent).toContain('1600 × 900');
 });
 
+it('marks a picture to notice, in words that are read out too', () => {
+  render(<MediaGrid label="Photos" items={[{ id: 'porch', name: 'porch', url: '/media/porch.jpg', badge: 'Just uploaded' }]} onAction={() => undefined} emptyText="No photos" />);
+  const row = screen.getByRole('row', { name: 'porch, Just uploaded' });
+  expect(row.textContent).toContain('Just uploaded');
+});
+
 it('opens a picture on a press, and from the keyboard', async () => {
   const onAction = vi.fn();
   const user = userEvent.setup();

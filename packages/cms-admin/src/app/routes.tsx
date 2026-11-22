@@ -13,6 +13,7 @@ import { MediaScreen } from '../screens/Media/MediaScreen.js';
 import { PluginScreenScreen } from '../screens/PluginScreen/PluginScreenScreen.js';
 import { PluginsScreen } from '../screens/Plugins/PluginsScreen.js';
 import { PeopleScreen } from '../screens/People/PeopleScreen.js';
+import { ProfileScreen } from '../screens/Profile/ProfileScreen.js';
 import { SettingsScreen } from '../screens/Settings/SettingsScreen.js';
 import { TrashScreen } from '../screens/Trash/TrashScreen.js';
 import { SignInScreen } from '../screens/SignIn/SignInScreen.js';
@@ -38,6 +39,7 @@ export function createRoutes(siteName: string): RouteObject[] {
               children: [
             { index: true, element: <HomeScreen siteName={siteName} /> },
             { path: 'people', element: <PeopleScreen /> },
+            { path: 'profile', element: <ProfileScreen /> },
             { path: 'media', element: <MediaScreen /> },
             { path: 'trash', element: <TrashScreen /> },
             { path: 'forms', element: <FormsScreen /> },

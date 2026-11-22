@@ -419,6 +419,13 @@ describe('people', () => {
         check(who);
         list.splice(list.findIndex((person) => person.id === id), 1);
       },
+      rename: async (who, id, name) => {
+        check(who);
+        const index = list.findIndex((person) => person.id === id);
+        const person = list[index];
+        if (!person) throw new NotFoundError('Person', id);
+        return (list[index] = { ...person, name });
+      },
     };
   };
 
@@ -435,6 +442,12 @@ describe('people', () => {
     expect((await call('DELETE', '/people/p2', {})).status).toBe(200);
     expect((await call('GET', '/people')).body['items']).toHaveLength(1);
     expect((await call('PATCH', '/people/nobody', { role: 'editor' })).status).toBe(404);
+  });
+
+  it('renames someone, one change at a time', async () => {
+    expect((await call('PATCH', '/people/p1', { name: 'Dana Whitfield' })).body).toMatchObject({ id: 'p1', name: 'Dana Whitfield', role: 'owner' });
+    expect((await call('PATCH', '/people/p1', { name: 'Dana', role: 'editor' })).status).toBe(400);
+    expect((await call('PATCH', '/people/p1', {})).status).toBe(400);
   });
 
   it('refuses anyone the people service refuses, and a request of the wrong shape', async () => {
@@ -616,11 +629,11 @@ describe('forms and what they were sent', () => {
 
   it('saves how email is sent without ever sending the key back, for owners only, and sends a test through the host', async () => {
     authenticator.session = as('owner');
-    expect((await call('GET', '/settings/email')).body).toEqual({ provider: 'resend', from: '', hasKey: false, sending: false, canTest: false, revision: 0 });
+    expect((await call('GET', '/settings/email')).body).toEqual({ provider: 'resend', from: '', senderName: '', hasKey: false, sending: false, canTest: false, revision: 0 });
     expect((await call('PUT', '/settings/email', { from: 'nobody', apiKey: 're_123', expectedRevision: 0 })).status).toBe(422);
     expect((await call('PUT', '/settings/email', { from: 'hello@example.com', apiKey: 're_123', sender: 'x', expectedRevision: 0 })).status).toBe(400);
     const saved = await call('PUT', '/settings/email', { from: 'Lakeshore <hello@example.com>', apiKey: 're_123', expectedRevision: 0 });
-    expect(saved).toEqual({ status: 200, body: { provider: 'resend', from: 'Lakeshore <hello@example.com>', hasKey: true, sending: true, canTest: false, revision: 1 } });
+    expect(saved).toEqual({ status: 200, body: { provider: 'resend', from: 'Lakeshore <hello@example.com>', senderName: '', hasKey: true, sending: true, canTest: false, revision: 1 } });
     expect(JSON.stringify(saved.body)).not.toContain('re_123');
     expect((await call('PUT', '/settings/email', { from: 'hello@example.com', expectedRevision: 0 })).status).toBe(409);
     expect((await call('POST', '/settings/email/test')).status).toBe(409);

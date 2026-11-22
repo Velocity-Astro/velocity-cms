@@ -4,7 +4,7 @@ import { sharedConnection } from './connection.js';
 import { EditorHost, LogMailer } from './editor.js';
 import { currentSite } from './hosted.js';
 import { SiteMail } from './site-mail.js';
-import { siteNameNow } from './site-name.js';
+import { siteBrandNow, siteNameNow } from './site-name.js';
 import { siteSecret } from './secret.js';
 
 /** What the integration tells the editor's routes about the site. */
@@ -92,7 +92,15 @@ async function createHost(origin: string, settings: SiteEditorSettings): Promise
     const named = hosted ? undefined : () => siteNameNow(connection.cms);
     const siteName = hosted?.name ?? (await named?.()) ?? settings.siteName;
     // The site's own mailer first, then Resend from the server's settings, then what an owner set up in the editor, then the server's log.
-    const mail = new SiteMail({ settings: connection.cms.settings, own: settings.mailer, fallback: new LogMailer(), hosted: hosted !== undefined, ...(named && { siteName: named }) });
+    const mail = new SiteMail({
+      settings: connection.cms.settings,
+      own: settings.mailer,
+      fallback: new LogMailer(),
+      hosted: hosted !== undefined,
+      origin,
+      brand: () => siteBrandNow(connection.cms),
+      ...(named && { siteName: named }),
+    });
     connection.cms.settings.useSite({ defaultName: hosted?.name ?? settings.siteName, fixedBy: hosted ? 'host' : null });
     const host = new EditorHost({
       connection,
@@ -107,6 +115,7 @@ async function createHost(origin: string, settings: SiteEditorSettings): Promise
     });
     connection.cms.settings.useMail({
       fixedBy: () => mail.fixedBy(),
+      namesSender: () => mail.namesSender(),
       canTest: () => mail.canTest(),
       // The test goes to the address the person signs in with, which only sign-in knows.
       sendTest: async (actor) => {

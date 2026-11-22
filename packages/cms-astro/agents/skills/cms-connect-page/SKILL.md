@@ -40,7 +40,8 @@ and a 404 when nothing is found. Lists read `getLiveCollection('<type>')` and ca
 
 ## Site-wide settings (name, logo, phone, social, theme)
 
-1. A single page with `inSettings: true` (and `siteNameField` for the name), so it is a tab of
+1. A single page with `inSettings: true` (with `siteNameField` for the name and `brandFields` for
+   the logo and brand colour the site's emails wear), so it is a tab of
    the editor's Settings.
 2. `const settings = await single(Astro, 'settings')`, and use each value with the template's
    own as the fallback: `typeof settings?.phone === 'string' ? settings.phone : '555 0100'`.

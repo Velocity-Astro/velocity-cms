@@ -1,9 +1,10 @@
 import type { SiteImage } from '@velocity-astro/cms-core';
-import { Box, Button, ConfirmDialog, Dialog, EmptyState, FileButton, Inline, MediaGrid, PageHeader, SearchField, Stack, Text, Thumbnail, toast } from '@velocity-astro/cms-ui';
+import { Box, Button, ConfirmDialog, Dialog, EmptyState, FileButton, Grid, Inline, MediaGrid, PageHeader, SearchField, Select, Stack, Text, Thumbnail, toast } from '@velocity-astro/cms-ui';
 import { Images, Trash2, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
-import { useImages, useRemoveImage, useSession, useUploadImage, useUploadRules } from '../../client/queries.js';
+import { useImages, useJustUploaded, useRemoveImage, useSession, useUploadImage, useUploadRules } from '../../client/queries.js';
+import { IMAGE_KINDS, IMAGE_SORTS, IMAGE_SOURCES, NEWEST_FIRST, arrangeImages, kindOf, type ImageArrangement, type ImageKind, type ImageSort, type ImageSource } from '../../lib/arrange-images.js';
 import { prepareImage } from '../../lib/prepare-image.js';
 import { relativeTime } from '../../lib/relative-time.js';
 import { smallOf } from '../../lib/small-image.js';
@@ -20,12 +21,17 @@ export function MediaScreen() {
   const images = useImages();
   const rules = useUploadRules().data ?? null;
   const uploading = useUploadImage();
-  const [query, setQuery] = useState('');
+  const fresh = useJustUploaded();
+  const [arrangement, setArrangement] = useState<ImageArrangement>(NEWEST_FIRST);
   const [openName, setOpenName] = useState<string | null>(null);
+  const arrange = (changes: Partial<ImageArrangement>) => setArrangement((current) => ({ ...current, ...changes }));
 
   const all = images.data ?? [];
-  const words = query.trim().toLowerCase();
-  const shown = words === '' ? all : all.filter((image) => image.name.toLowerCase().includes(words));
+  const shown = arrangeImages(all, arrangement);
+  const isNarrowed = arrangement.query.trim() !== '' || arrangement.source !== 'all' || arrangement.kind !== 'all';
+  // Only the kinds of file the library holds are offered.
+  const kinds = IMAGE_KINDS.filter((kind) => kind === 'all' || all.some((image) => kindOf(image) === kind));
+  const hasBoth = all.some((image) => image.uploadedAt !== undefined) && all.some((image) => image.uploadedAt === undefined);
   // An image leaves the list the moment it is removed. Its window keeps showing it while it closes.
   const open = useLast(all.find((image) => image.name === openName) ?? null);
   const noteOf = (image: SiteImage) =>
@@ -38,7 +44,11 @@ export function MediaScreen() {
       return;
     }
     uploading.mutate(prepared, {
-      onSuccess: (image) => toast({ title: messages.media.uploaded(image.name), description: messages.media.uploadedDescription, tone: 'success' }),
+      onSuccess: (image) => {
+        // The new image is shown first, marked, whatever the library was narrowed to.
+        setArrangement(NEWEST_FIRST);
+        toast({ title: messages.media.uploaded(image.name), description: messages.media.uploadedDescription, tone: 'success' });
+      },
       onError: (error) => toast({ title: messages.media.notUploaded, description: messageOf(error), tone: 'danger' }),
     });
   };
@@ -64,17 +74,61 @@ export function MediaScreen() {
         )}
         {images.isSuccess && all.length > 0 && (
           <>
-            <Box maxWidth="xs">
-              <SearchField label={messages.media.search} placeholder={messages.media.searchPlaceholder} clearLabel={messages.media.clearSearch} value={query} onChange={setQuery} />
-            </Box>
+            <Grid columns={4} gap={3}>
+              <SearchField
+                label={messages.media.search}
+                placeholder={messages.media.searchPlaceholder}
+                clearLabel={messages.media.clearSearch}
+                value={arrangement.query}
+                onChange={(query) => arrange({ query })}
+              />
+              {hasBoth && (
+                <Select
+                  label={messages.media.source}
+                  options={IMAGE_SOURCES.map((id) => ({ id, label: messages.media.sources[id] }))}
+                  value={arrangement.source}
+                  onChange={(id) => arrange({ source: id as ImageSource })}
+                />
+              )}
+              {kinds.length > 2 && (
+                <Select
+                  label={messages.media.kind}
+                  options={kinds.map((id) => ({ id, label: messages.media.kinds[id] }))}
+                  value={arrangement.kind}
+                  onChange={(id) => arrange({ kind: id as ImageKind })}
+                />
+              )}
+              <Select
+                label={messages.media.sort}
+                options={IMAGE_SORTS.map((id) => ({ id, label: messages.media.sorts[id] }))}
+                value={arrangement.sort}
+                onChange={(id) => arrange({ sort: id as ImageSort })}
+              />
+            </Grid>
+            {isNarrowed && (
+              <Inline gap={3}>
+                <Text size="sm" tone="muted">
+                  {messages.media.shownCount(shown.length, all.length)}
+                </Text>
+                <Button variant="ghost" size="sm" onPress={() => arrange({ query: '', source: 'all', kind: 'all' })}>
+                  {messages.media.showAll}
+                </Button>
+              </Inline>
+            )}
             <MediaGrid
               label={messages.media.grid}
               items={shown.map((image) => {
                 const note = noteOf(image);
-                return { id: image.name, name: image.name, url: smallOf(image), ...(note !== undefined && { note }) };
+                return {
+                  id: image.name,
+                  name: image.name,
+                  url: smallOf(image),
+                  ...(note !== undefined && { note }),
+                  ...(fresh.has(image.name) && { badge: messages.media.justUploaded }),
+                };
               })}
               onAction={setOpenName}
-              emptyText={messages.media.noMatches}
+              emptyText={isNarrowed ? messages.media.noMatchesFiltered : messages.media.noMatches}
             />
           </>
         )}

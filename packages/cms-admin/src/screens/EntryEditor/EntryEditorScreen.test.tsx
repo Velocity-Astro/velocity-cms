@@ -525,7 +525,7 @@ it('uploads a photo from the computer, chooses it and saves it with the entry', 
   expect((await client.getEntry('e2')).data['f-cover']).toBe('front-porch');
   // The new photo is there to choose for the next field, without loading the page again.
   await user.click(cover.getByRole('button', { name: 'Change' }));
-  expect(await screen.findByRole('option', { name: 'front-porch' })).toBeTruthy();
+  expect(await screen.findByRole('option', { name: /front-porch/ })).toBeTruthy();
 });
 
 it('says why a file was not taken, and leaves the window open to try another', async () => {

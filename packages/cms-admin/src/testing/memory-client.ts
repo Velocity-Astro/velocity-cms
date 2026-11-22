@@ -62,7 +62,7 @@ import {
   InMemoryMediaStore,
   InMemorySchemaRepository,
 } from '@velocity-astro/cms-core/in-memory';
-import type { AccessToken, AdminClient, MadeAccessToken, NewAccessToken, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from '../client/admin-client.js';
+import type { AccessToken, AdminClient, MadeAccessToken, NewAccessToken, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, Profile, ProfileChanges, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from '../client/admin-client.js';
 import { MemoryPeople } from './memory-people.js';
 import { MemoryTokens } from './memory-tokens.js';
 import { MemoryChallengeRoom, MemoryMailRoom, MemoryStorageRoom } from './memory-mail.js';
@@ -572,6 +572,36 @@ export class MemoryAdminClient implements AdminClient {
 
   removePerson(id: string): Promise<void> {
     return this.#request((actor) => this.#people.remove(actor, id));
+  }
+
+  renamePerson(id: string, name: string): Promise<Person> {
+    return this.#request((actor) => this.#people.rename(actor, id, name));
+  }
+
+  getProfile(): Promise<Profile> {
+    return this.#request((actor) => this.#people.profile(actor));
+  }
+
+  async saveProfile(changes: ProfileChanges): Promise<Profile> {
+    const saved = await this.#request((actor) => this.#people.updateProfile(actor, changes));
+    // The session follows, as the real one does on the next request.
+    if (this.#user?.id === saved.id) this.#user = { id: saved.id, email: saved.email, name: saved.name, role: saved.role, ...(saved.image !== undefined && { image: saved.image }) };
+    return saved;
+  }
+
+  askEmailChange(email: string): Promise<void> {
+    return this.#request((actor) => this.#people.askEmailChange(actor, email));
+  }
+
+  /** The token of the last link asked for to confirm a new address, as the email would carry it. */
+  get lastEmailToken(): string | null {
+    return this.#people.lastEmailToken;
+  }
+
+  async confirmEmailChange(token: string): Promise<Profile> {
+    const saved = await this.#request((actor) => this.#people.confirmEmailChange(actor, token));
+    if (this.#user?.id === saved.id) this.#user = { ...this.#user, email: saved.email };
+    return saved;
   }
 
   listTokens(): Promise<readonly AccessToken[]> {

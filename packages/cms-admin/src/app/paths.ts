@@ -13,6 +13,8 @@ export const paths = {
   home: '/',
   signIn: '/sign-in',
   people: '/people',
+  /** The signed-in person's own details. */
+  profile: '/profile',
   media: '/media',
   trash: '/trash',
   forms: '/forms',

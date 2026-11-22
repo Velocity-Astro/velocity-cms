@@ -20,12 +20,20 @@ export const imagePickerNameClass = 'min-w-0 flex-1 truncate text-sm text-foregr
 
 /** The images to choose from, three or four to a row. */
 export const imagePickerChoicesClass = 'grid grid-cols-2 gap-3 py-2 outline-none sm:grid-cols-3';
-export const imagePickerChoiceClass = [
-  'flex cursor-default flex-col gap-1.5 rounded-md border border-border bg-card p-1.5 outline-none',
-  'transition-colors motion-fast',
-  'data-hovered:border-border-strong data-focus-visible:ring-2 data-focus-visible:ring-input-focus',
-  'data-selected:border-input-focus data-selected:ring-1 data-selected:ring-input-focus',
-].join(' ');
+export const imagePickerChoiceVariants = cva(
+  [
+    'flex cursor-default flex-col gap-1.5 rounded-md border bg-card p-1.5 outline-none',
+    'transition-colors motion-fast',
+    'data-hovered:border-border-strong data-focus-visible:ring-2 data-focus-visible:ring-input-focus',
+    'data-selected:border-input-focus data-selected:ring-1 data-selected:ring-input-focus',
+  ].join(' '),
+  {
+    variants: { isMarked: { true: 'border-brand-fill ring-2 ring-brand-fill', false: 'border-border' } },
+    defaultVariants: { isMarked: false },
+  },
+);
+export const imagePickerBadgeClass = 'self-start rounded-full bg-brand-fill px-2 py-0.5 text-xs font-semibold text-brand-ink';
+export const imagePickerSearchClass = 'pt-2';
 export const imagePickerChoiceImageClass = 'aspect-video w-full rounded-sm bg-background-secondary object-cover';
 export const imagePickerChoiceNameClass = 'truncate px-0.5 text-sm text-foreground';
 export const imagePickerEmptyClass = 'py-6 text-center text-sm text-foreground-muted';

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { ApiSession, Authenticator } from './authenticator.js';
 import { ApiError, errorResponse, isFault, json } from './http.js';
 import { McpEndpoint } from './mcp.js';
-import type { People } from './people.js';
+import type { People, Profiles } from './people.js';
 import { Router } from './router.js';
 import type { Tokens } from './tokens.js';
 
@@ -12,6 +12,8 @@ export interface CmsApiOptions {
   readonly authenticator: Authenticator;
   /** Who can sign in. Without it the API has nothing under `/people`. */
   readonly people?: People;
+  /** Each person's own details. Without it the API has nothing under `/profile`. */
+  readonly profiles?: Profiles;
   /** Access tokens for agents and scripts. Without it the API has nothing under `/tokens`. */
   readonly tokens?: Tokens;
   /** Where the API is mounted on the site. Defaults to `/api/cms`. */
@@ -65,7 +67,10 @@ const pluginValues = z.strictObject({ values: z.record(z.string(), z.unknown()) 
 const pluginSecret = z.strictObject({ value: z.string().nullable() });
 const newToken = z.strictObject({ name: z.string().max(200), role: z.string(), publish: z.boolean(), personalData: z.boolean(), days: z.number().int() });
 const newPerson = z.strictObject({ email: z.string(), name: z.string(), role: z.string() });
-const roleChange = z.strictObject({ role: z.string() });
+const personChange = z.strictObject({ role: z.string().optional(), name: z.string().max(1000).optional() });
+const profileChanges = z.strictObject({ name: z.string().max(1000).optional(), image: z.string().max(200_000).nullable().optional() });
+const emailChange = z.strictObject({ email: z.string().max(1000) });
+const emailConfirm = z.strictObject({ token: z.string().max(200) });
 const words = z.record(z.string(), z.string());
 const settings = z.record(z.string(), z.unknown());
 const newType = z.strictObject({ key: z.string(), kind: z.enum(['collection', 'single']), label: words, urlPattern: z.string().optional() });
@@ -177,7 +182,8 @@ const customFieldsChanges = z.strictObject({
 });
 const emailSettingsChanges = z.strictObject({
   provider: z.enum(['resend']).optional(),
-  from: z.string().max(1000),
+  from: z.string().max(1000).optional(),
+  senderName: z.string().max(1000).optional(),
   apiKey: z.string().max(2000).nullable().optional(),
   expectedRevision: z.number().int().min(0),
 });
@@ -569,6 +575,8 @@ export class CmsApi {
         });
     }
 
+    if (options.profiles) this.#profileRoutes(options.profiles);
+
     const { people } = options;
     if (people) {
       this.#router
@@ -581,14 +589,39 @@ export class CmsApi {
         })
         .add('PATCH', '/people/:id', async (call) => {
           const who = actor(call);
-          const { role } = parse(roleChange, await this.#body(call.request));
-          return json(await people.changeRole(who, param(call, 'id'), role as Role));
+          const { role, name } = parse(personChange, await this.#body(call.request));
+          const id = param(call, 'id');
+          if (name !== undefined && role !== undefined) throw new ApiError(400, 'bad_request', 'Change a person\'s name or their role, one at a time.');
+          if (name !== undefined) return json(await people.rename(who, id, name));
+          if (role === undefined) throw new ApiError(400, 'bad_request', 'Send the new role or the new name.');
+          return json(await people.changeRole(who, id, role as Role));
         })
         .add('DELETE', '/people/:id', async (call) => {
           await people.remove(actor(call), param(call, 'id'));
           return json({});
         });
     }
+  }
+
+  /** Each person's own profile. A person changes only their own. */
+  #profileRoutes(profiles: Profiles): void {
+    this.#router
+      .add('GET', '/profile', async (call) => json(await profiles.profile(actor(call))))
+      .add('PATCH', '/profile', async (call) => {
+        const who = actor(call);
+        return json(await profiles.updateProfile(who, deep(parse(profileChanges, await this.#body(call.request)))));
+      })
+      .add('POST', '/profile/email', async (call) => {
+        const who = actor(call);
+        const { email } = parse(emailChange, await this.#body(call.request));
+        await profiles.askEmailChange(who, email);
+        return json({});
+      })
+      .add('POST', '/profile/email/confirm', async (call) => {
+        const who = actor(call);
+        const { token } = parse(emailConfirm, await this.#body(call.request));
+        return json(await profiles.confirmEmailChange(who, token));
+      });
   }
 
   /** Answers one request. Never throws: whatever goes wrong becomes a response. */

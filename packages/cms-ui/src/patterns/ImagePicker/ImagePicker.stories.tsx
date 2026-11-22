@@ -75,3 +75,13 @@ export const WindowOnly: Story = {
   tags: ['!autodocs', 'overlay'],
   args: { window: { isOpen: true, onOpenChange: () => undefined } },
 };
+/** With a search, and the image just uploaded marked. */
+export const ChoosingWithSearch: Story = {
+  tags: ['!autodocs', 'overlay'],
+  args: {
+    search: { label: 'Search photos', placeholder: 'Search by name', clearLabel: 'Clear search', noMatchesText: 'No photos match.' },
+  },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole('button', { name: 'Change' }));
+  },
+};

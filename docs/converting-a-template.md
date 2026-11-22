@@ -187,6 +187,7 @@ A content type is `{ key, kind, label, fields, ... }`. These are the properties
 | `forDeals` | Whether a deal can be about an entry of this type (a listing, a service). |
 | `inSettings` | For a single page: shown as a tab of Settings and left out of the content list. |
 | `siteNameField` | For such a page: the field that holds the site's name, by key. Needs `inSettings: true`. |
+| `brandFields` | For such a page: the fields that hold the site's look, by key: `{ logo, logoDark, color }` (image, image and colour fields). The site's emails wear them. Needs `inSettings: true`. |
 
 The starter's pages type:
 
@@ -248,9 +249,11 @@ const settings = {
   label: en('Site'),
   inSettings: true,
   siteNameField: 'name',
+  brandFields: { logo: 'logo', color: 'brand' },
   fields: [
     text('name', 'Site name', { required: true }),
     field('image')('logo', 'Logo'),
+    field('color')('brand', 'Brand colour'),
     field('phone')('phone', 'Phone'),
     field('email')('email', 'Email'),
     list('social', 'Social links', group('item', 'Link', [text('label', 'Label'), link('link', 'Goes to')])),
@@ -259,7 +262,10 @@ const settings = {
 ```
 
 What is published in `name` becomes the site's name in the editor and its emails, and Settings
-then shows no second name field. A draft renames nothing.
+then shows no second name field. A draft renames nothing. What is published in `logo` and
+`brand` is what the site's emails wear (sign-in links, invitations, notices from forms): the
+logo above each, as a PNG the CMS makes from it, and the colour on its button and accent.
+Without them an email shows the site's name in Velocity's orange.
 
 Set `forDeals: true` on a collection people enquire about (listings, services), so a form on its
 page can start a deal about the entry (step 8).
@@ -993,7 +999,7 @@ Model
 - [ ] Every page, collection, menu, form, setting and section from the audit is in `cms/model.mjs`.
 - [ ] Each content type has `kind`, `label`, `titleField`, and `sections` for the editor's layout.
 - [ ] Built pages use `urlPattern: '/[...slug]'`, and the home page's slug is `index`.
-- [ ] Site-wide values are on a single page with `inSettings: true`, and its name field is `siteNameField`.
+- [ ] Site-wide values are on a single page with `inSettings: true`, its name field is `siteNameField`, and its logo and brand colour are `brandFields`.
 - [ ] Every distinct section is a block with a stable key, an icon and a description.
 - [ ] Every look is a `select` with named choices; colour choices have `swatches`. No free colours or sizes.
 - [ ] List and blocks limits (`min`, `max`) are inside `options`.

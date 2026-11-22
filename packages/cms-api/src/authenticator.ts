@@ -5,6 +5,8 @@ export interface ApiUser {
   readonly id: string;
   readonly email: string;
   readonly name: string;
+  /** Their photo, as a small image in a `data:` address, where they added one. */
+  readonly image?: string;
 }
 
 export interface ApiSession {

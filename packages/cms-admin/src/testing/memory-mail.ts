@@ -18,6 +18,11 @@ export class MemoryMailRoom implements MailRoom {
     return this.fixed;
   }
 
+  /** The site's code and its host send their own way; a server here leaves the name open. */
+  namesSender(): MailFixedBy | null {
+    return this.fixed === 'code' || this.fixed === 'host' ? this.fixed : null;
+  }
+
   async canTest(): Promise<boolean> {
     return this.fixed !== null || (await this.settings.mailAccount()) !== null;
   }
