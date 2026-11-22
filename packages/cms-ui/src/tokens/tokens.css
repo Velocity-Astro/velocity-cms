@@ -246,10 +246,11 @@
 
   /* The height of a pane that stays in view beside a form: the window less the frame, the bar
      at the top of the screen and the space around the pane. */
-  --pane-height: calc(100dvh - 8rem);
+  --pane-height: calc(100dvh - 9rem);
 
-  /* The rail: the dark strip of the editor's sections down the side of the window. It is dark in
-     both themes, so these hold for light and dark alike (see .dark below for its ground). */
+  /* The rail: the dark ground of the editor's navigation, from `md` up, which the rounded panel
+     holding the bar and the screen sits in. It is dark in both themes, so these hold for light and
+     dark alike (see .dark below for its ground). */
   --rail: var(--gray-950);
   --rail-foreground: var(--gray-50);  /* 19.3:1 on the rail */
   --rail-muted: var(--gray-400);      /*  6.0:1 on the rail */

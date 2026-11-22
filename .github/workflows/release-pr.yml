@@ -5,7 +5,12 @@ name: Release pull request
 # next version and files those changes under it, so what a release would hold can be read in one
 # place. Merging it starts the Release workflow, which stages that version on npm.
 #
-# Needs "Allow GitHub Actions to create and approve pull requests" (Settings, Actions, General).
+# Pushes and opens the pull request as the release GitHub App when the repository has one
+# (the variable RELEASE_APP_ID and the secret RELEASE_APP_PRIVATE_KEY): then CI runs on it like
+# any pull request, with nothing to approve. Without the app it uses the workflow's own token,
+# which needs "Allow GitHub Actions to create and approve pull requests" (Settings, Actions,
+# General); GitHub then holds the pull request's CI until a person approves it, and this workflow
+# starts CI on the branch by name as well.
 on:
   push:
     branches: [main]
@@ -18,7 +23,7 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
-  # To start CI on the release branch (see below).
+  # To start CI on the release branch when there is no release app (see below).
   actions: write
 
 jobs:
@@ -27,13 +32,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Act as the release app, when the repository has one
+        id: app
+        if: ${{ vars.RELEASE_APP_ID != '' }}
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
       - uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app.outputs.token || github.token }}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
       - name: Propose the next release
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
+          AS_APP: ${{ steps.app.outputs.token != '' }}
         run: |
           version=$(node scripts/next-release.mjs --next)
           if [ -z "$version" ]; then
@@ -60,7 +75,10 @@ jobs:
           else
             gh pr create --base main --head release/next --title "Release $version" --body-file "$RUNNER_TEMP/body.md"
           fi
-          # A push by this workflow starts no other workflow, so CI is asked for by name: main
-          # requires its checks before anything, this pull request included, can be merged.
-          gh workflow run ci.yml --ref release/next
+          # A push with the workflow's own token starts no other workflow, so without the app CI
+          # is asked for by name: main requires its checks before anything can be merged. As the
+          # app, the push itself starts CI on the pull request.
+          if [ "$AS_APP" != "true" ]; then
+            gh workflow run ci.yml --ref release/next
+          fi
           echo "The pull request \"Release $version\" is up to date." >> "$GITHUB_STEP_SUMMARY"
