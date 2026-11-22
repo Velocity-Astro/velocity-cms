@@ -4,7 +4,10 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+## 0.1.0-beta.11
+
 - **The editor opens finished.** The Velocity mark now stays up until the first screen's content has arrived, so the editor goes from the mark straight to a full screen, never to a screen of grey shapes; those are left for moving between screens. The mark stands in a clearing of the grid with "Opening the editor" under it. Only a request that never answers is cut short, after ten seconds.
+
 ## 0.1.0-beta.10
 
 - **The editor opens on the Velocity mark.** In place of a small spinner in the corner, the mark sits in the middle of the screen, its three facets arriving in grey and taking their colour, from the first moment the page arrives until the editor's first screen is ready, then it fades. People who ask for less motion see the mark still.
