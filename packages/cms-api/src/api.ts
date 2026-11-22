@@ -43,12 +43,14 @@ const PLUGIN_METHODS: ReadonlySet<string> = new Set(['GET', 'POST', 'PUT', 'DELE
 const contentTypeOf = (request: Request): string => (request.headers.get('content-type') ?? '').split(';')[0]?.trim().toLowerCase() ?? '';
 
 const entryList = z.object({
-  type: z.string().min(1),
+  /** Left out, entries of every content type. */
+  type: z.string().min(1).optional(),
   locale: z.string().min(1).optional(),
+  search: z.string().max(200).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
   offset: z.coerce.number().int().min(0).default(0),
 });
-const trashList = entryList.omit({ type: true, locale: true });
+const trashList = entryList.omit({ type: true, locale: true, search: true });
 const data = z.record(z.string(), z.unknown());
 const newEntry = z.strictObject({ type: z.string().min(1), locale: z.string().min(1).optional(), slug: z.string(), data });
 const entryChanges = z.strictObject({ slug: z.string(), data, expectedRevision: z.number().int().positive() });
@@ -331,13 +333,14 @@ export class CmsApi {
       })
       .add('GET', '/entries', async (call) => {
         const query = parse(entryList, Object.fromEntries(call.url.searchParams));
-        const type = await schema.getByKey(query.type);
+        const type = query.type === undefined ? null : await schema.getByKey(query.type);
         const page = await content.find(actor(call), {
-          typeId: type.id,
           order: 'updated',
           limit: query.limit,
           offset: query.offset,
+          ...(type !== null && { typeId: type.id }),
           ...(query.locale !== undefined && { locale: query.locale }),
+          ...(query.search !== undefined && { search: query.search }),
         });
         return json(page);
       })

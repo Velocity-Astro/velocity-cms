@@ -1,4 +1,4 @@
-import { AppShell, CommandPalette, LoadingMark, dismissToasts, toast, type AppShellNavGroup, type AppShellNavItem, type CommandItem } from '@velocity-astro/cms-ui';
+import { AppShell, LoadingMark, dismissToasts, toast, type AppShellNavGroup, type AppShellNavItem, type CommandItem } from '@velocity-astro/cms-ui';
 import { Blocks, Contact, HandCoins, House, Images, Inbox, KeyRound, Layers, LogOut, Plus, Puzzle, Settings, Shapes, Trash2, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router';
@@ -13,6 +13,7 @@ import { useLoadPluginEditors, usePluginExtensions } from '../plugins/plugin-edi
 import { paths } from './paths.js';
 import { ErrorState } from './RequestState.js';
 import { PasskeysDialog } from './PasskeysDialog.js';
+import { SearchPalette } from './SearchPalette.js';
 
 export interface AdminLayoutProps {
   /** The site's name, shown at the top of the sidebar. */
@@ -155,10 +156,6 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
     ]),
   );
   const creations: CommandItem[] = creatable.map((type) => ({ id: `new:${type.key}`, label: messages.app.createIn(localized(type.label, locale)), icon: Plus }));
-  const command = (id: string) => {
-    if (id.startsWith('go:')) go(id.slice('go:'.length));
-    else if (id.startsWith('new:')) go(paths.newEntry(id.slice('new:'.length)));
-  };
 
   return (
     <>
@@ -203,17 +200,15 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
       >
         <Outlet />
       </AppShell>
-      <CommandPalette
+      <SearchPalette
         isOpen={isSearching}
         onOpenChange={setSearching}
-        label={messages.app.searchTitle}
-        placeholder={messages.app.searchPlaceholder}
-        emptyText={messages.app.searchEmpty}
-        groups={[
-          { id: 'go', label: messages.app.goToGroup, items: places },
-          { id: 'create', label: messages.app.createGroup, items: creations },
-        ]}
-        onAction={command}
+        places={places}
+        creations={creations}
+        types={types.data ?? []}
+        findsContacts={role === 'owner' || role === 'editor'}
+        onGo={go}
+        onCreate={(typeKey) => go(paths.newEntry(typeKey))}
       />
       {isShowingPasskeys && <PasskeysDialog onClose={() => setShowingPasskeys(false)} />}
     </>

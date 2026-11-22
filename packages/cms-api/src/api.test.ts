@@ -113,11 +113,19 @@ describe('reading', () => {
   });
 
   it('refuses a list request it cannot make sense of, and says why', async () => {
-    expect((await call('GET', '/entries')).status).toBe(400);
+    expect((await call('GET', `/entries?search=${'x'.repeat(201)}`)).status).toBe(400);
     const tooMany = await call('GET', '/entries?type=listings&limit=5000');
     expect([tooMany.status, tooMany.body.error?.code]).toEqual([400, 'bad_request']);
     expect(tooMany.body.error?.message).toContain('"limit"');
     expect((await call('GET', '/entries?type=unicorns')).status).toBe(404);
+  });
+
+  it('finds entries of every type by what they hold', async () => {
+    await call('POST', '/entries', { type: 'listings', slug: 'lake-house', data: {} });
+    await call('POST', '/entries', { type: 'listings', slug: 'city-flat', data: {} });
+    const found = await call('GET', '/entries?search=LAKE');
+    expect((found.body['items'] as { slug: string }[]).map((entry) => entry.slug)).toEqual(['lake-house']);
+    expect((await call('GET', '/entries')).body['total']).toBe(2);
   });
 
   it('gives one entry, or says it does not exist', async () => {

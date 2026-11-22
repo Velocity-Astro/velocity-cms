@@ -28,9 +28,28 @@ import type {
   SearchResults,
   StoredFile,
 } from '../ports.js';
-import { MARK_CLOSE, MARK_OPEN, markedExcerpt, searchWords } from '../search-text.js';
+import { MARK_CLOSE, MARK_OPEN, markedExcerpt, searchWords, searchedWords } from '../search-text.js';
 
 /** Keeps entries in memory. For unit tests and examples: nothing survives a restart. */
+/** The keys of a section that only tie an entry together, which a search does not look in. */
+const UNSEARCHED_KEYS = new Set(['id', 'block']);
+
+/** Every piece of text in a value, however deep. */
+function textsIn(value: unknown, key?: string): string[] {
+  if (typeof value === 'string') return key !== undefined && UNSEARCHED_KEYS.has(key) ? [] : [value];
+  if (Array.isArray(value)) return value.flatMap((item) => textsIn(item));
+  if (value !== null && typeof value === 'object') return Object.entries(value).flatMap(([inner, item]) => textsIn(item, inner));
+  return [];
+}
+
+/** Whether the version being worked on holds each of the words, in its slug or its text. */
+function holds(entry: Entry, search: string | undefined): boolean {
+  const words = searchedWords(search);
+  if (words.length === 0) return true;
+  const texts = [entry.slug, ...textsIn(entry.data)].map((text) => text.toLowerCase());
+  return words.every((word) => texts.some((text) => text.includes(word)));
+}
+
 export class InMemoryEntryRepository implements EntryRepository {
   readonly #entries = new Map<string, Entry>();
   readonly #history = new Map<string, Revision[]>();
@@ -50,7 +69,8 @@ export class InMemoryEntryRepository implements EntryRepository {
           (query.translationGroup === undefined || entry.translationGroup === query.translationGroup) &&
           (query.dueBy === undefined || (entry.publishAt !== undefined && entry.publishAt <= query.dueBy)) &&
           (query.slug === undefined || entry.slug === query.slug) &&
-          (query.publishedSlug === undefined || entry.published?.slug === query.publishedSlug),
+          (query.publishedSlug === undefined || entry.published?.slug === query.publishedSlug) &&
+          holds(entry, query.search),
       )
       .sort((a, b) =>
         query.order === 'updated'

@@ -2,6 +2,7 @@ import { and, asc, count, desc, eq, isNull, lte, ne, or, sql, type SQL, type SQL
 import { ConflictError, type Contact, type ContactNote, type ContactQuery, type ContactRepository, type Page } from '@velocity-astro/cms-core';
 import type { Db } from './database.js';
 import { contactNotes, contacts } from './tables.js';
+import { containing } from './like.js';
 
 type Row = typeof contacts.$inferSelect;
 
@@ -25,9 +26,6 @@ const toRow = ({ source, ...contact }: Contact): Row => ({
   followUpAt: contact.followUpAt ?? null,
   data: contact.data ?? null,
 });
-
-/** The words as a pattern that matches them anywhere, with nothing in them read as a wildcard. */
-const containing = (words: string): string => `%${words.toLowerCase().replace(/[\\%_]/g, (mark) => `\\${mark}`)}%`;
 
 export class SqliteContactRepository implements ContactRepository {
   constructor(private readonly db: Db) {}

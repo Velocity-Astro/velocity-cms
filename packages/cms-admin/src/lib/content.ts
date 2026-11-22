@@ -34,6 +34,27 @@ export function entryTitle(type: ContentTypeDef, data: EntryData): string | null
   return typeof value === 'string' && value.trim() !== '' ? value : null;
 }
 
+/** The keys of a section that only tie an entry together, which a search does not look in. */
+const UNSEARCHED_KEYS = new Set(['id', 'block']);
+
+function textsIn(value: unknown, key?: string): string[] {
+  if (typeof value === 'string') return key !== undefined && UNSEARCHED_KEYS.has(key) ? [] : [value];
+  if (Array.isArray(value)) return value.flatMap((item) => textsIn(item));
+  if (value !== null && typeof value === 'object') return Object.entries(value).flatMap(([inner, item]) => textsIn(item, inner));
+  return [];
+}
+
+/**
+ * Whether an entry holds each of the words (split at spaces, any case, any order): in its slug
+ * or in any text it holds, however deep. The server's search finds the same entries.
+ */
+export function entryHolds(entry: Pick<Entry, 'slug' | 'data'>, search: string): boolean {
+  const words = search.toLowerCase().split(/\s+/u).filter((word) => word.length > 0);
+  if (words.length === 0) return true;
+  const texts = [entry.slug, ...textsIn(entry.data)].map((text) => text.toLowerCase());
+  return words.every((word) => texts.some((text) => text.includes(word)));
+}
+
 /** A field of a type and its value in an entry, found by a path of field ids from the top down. */
 export function fieldAt(type: ContentTypeDef, data: EntryData, path: readonly string[]): { readonly field: FieldDef; readonly value: unknown } | null {
   let fields: readonly FieldDef[] = type.fields;

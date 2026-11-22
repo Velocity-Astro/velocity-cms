@@ -99,6 +99,14 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       expect((await client.listEntries({ type: 'listings', locale: 'es' })).total).toBe(0);
     });
 
+    it('finds entries of every type by what they hold', async () => {
+      expect((await client.listEntries({ search: 'santa fe' })).items.map((entry) => entry.id)).toEqual(['e3']);
+      expect((await client.listEntries({ search: '6214' })).items.map((entry) => entry.id)).toEqual(['e1']);
+      expect((await client.listEntries({ type: 'listings', search: 'alder-court' })).items.map((entry) => entry.id)).toEqual(['e2']);
+      expect((await client.listEntries({ search: 'nowhere at all' })).total).toBe(0);
+      expect((await client.listEntries({})).total).toBeGreaterThanOrEqual(4);
+    });
+
     it('rejects with a code the screens can act on', async () => {
       await expect(client.getEntry('nope')).rejects.toMatchObject({ name: 'AdminRequestError', code: 'not_found' });
       await expect(client.listEntries({ type: 'unicorns' })).rejects.toMatchObject({ code: 'not_found' });

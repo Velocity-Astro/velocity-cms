@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, isNotNull, isNull, lte, ne, or, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, lte, ne, or, sql, type SQL } from 'drizzle-orm';
 import {
   ConflictError,
   type Entry,
@@ -7,9 +7,11 @@ import {
   type Page,
   type Revision,
   type SaveOptions,
+  searchedWords,
 } from '@velocity-astro/cms-core';
 import type { Db } from './database.js';
 import { entries, revisions } from './tables.js';
+import { containing } from './like.js';
 
 type EntryRow = typeof entries.$inferSelect;
 
@@ -37,6 +39,18 @@ const toRow = ({ published, ...entry }: Entry): EntryRow => ({
   publishedAt: published?.at ?? null,
 });
 
+/**
+ * Entries whose working version holds the word: in the slug, or in any text of the data however
+ * deep, leaving out the ids that tie sections together.
+ */
+const holding = (word: string): SQL => {
+  const pattern = containing(word);
+  return sql`(lower(${entries.slug}) like ${pattern} escape '\\' or exists (
+    select 1 from json_tree(${entries.data}) as part
+    where part.type = 'text' and coalesce(part.key, '') not in ('id', 'block') and lower(part.value) like ${pattern} escape '\\'
+  ))`;
+};
+
 export class SqliteEntryRepository implements EntryRepository {
   constructor(private readonly db: Db) {}
 
@@ -54,6 +68,7 @@ export class SqliteEntryRepository implements EntryRepository {
     if (query.dueBy !== undefined) filters.push(lte(entries.publishAt, query.dueBy));
     if (query.slug !== undefined) filters.push(eq(entries.slug, query.slug));
     if (query.publishedSlug !== undefined) filters.push(eq(entries.publishedSlug, query.publishedSlug));
+    for (const word of searchedWords(query.search)) filters.push(holding(word));
     const where = and(...filters);
 
     const rows = await this.db
