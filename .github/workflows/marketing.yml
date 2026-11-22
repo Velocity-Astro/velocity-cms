@@ -224,7 +224,7 @@ jobs:
         if: env.TARGET == 'preview'
         run: |
           # The same commit, built again with the values just set.
-          npx --yes vercel@latest redeploy "$PREVIEW_DEPLOYMENT" --target=preview --scope="$VERCEL_TEAM" --token="$VERCEL_TOKEN" | tee deploy.log
+          npx --yes vercel@latest redeploy "$PREVIEW_DEPLOYMENT" --environment=preview --scope="$VERCEL_TEAM" --token="$VERCEL_TOKEN" | tee deploy.log
           echo "Preview: $SITE_ORIGIN (the preview of velocity-marketing $MARKETING_REF in $VERCEL_PROJECT_NAME)." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Check the preview answers
@@ -235,8 +235,10 @@ jobs:
           bypass="${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}"
           header=()
           [ -n "$bypass" ] && header=(-H "x-vercel-protection-bypass: $bypass")
-          status=$(curl -sS -o /dev/null -w '%{http_code}' "${header[@]}" "$SITE_ORIGIN/" || echo 000)
-          if [ "$status" = "401" ] || [ "$status" = "403" ]; then
+          answer=$(curl -sS -o /dev/null -w '%{http_code} %{redirect_url}' "${header[@]}" "$SITE_ORIGIN/" || echo 000)
+          status=${answer%% *}
+          # Vercel's sign-in answers 401, or sends the browser to vercel.com to sign in.
+          if [ "$status" = "401" ] || [ "$status" = "403" ] || { [[ "$status" == 30* ]] && [[ "$answer" == *vercel.com/sso* || "$answer" == *vercel.com/login* ]]; }; then
             echo "::notice::The preview is behind Vercel's sign-in, so its pages were not checked from here. Open $SITE_ORIGIN signed in to Vercel."
             exit 0
           fi
