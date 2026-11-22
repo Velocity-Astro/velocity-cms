@@ -10,6 +10,7 @@ function marked(element: HTMLElement, marks: readonly RichTextMark[]): readonly 
   const has = (type: RichTextMark['type']) => marks.some((mark) => mark.type === type);
   if ((element.tagName === 'B' || element.tagName === 'STRONG') && !has('bold')) return [{ type: 'bold' }, ...marks];
   if ((element.tagName === 'I' || element.tagName === 'EM') && !has('italic')) return [{ type: 'italic' }, ...marks];
+  if (element.tagName === 'CODE' && !has('code')) return [{ type: 'code' }, ...marks];
   const href = element.tagName === 'A' ? (element.getAttribute('href') ?? '').trim() : '';
   if (href !== '' && isSafeLink(href) && !has('link')) return [{ type: 'link', attrs: { href } }, ...marks];
   return marks;

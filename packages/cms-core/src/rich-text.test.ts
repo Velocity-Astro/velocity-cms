@@ -31,7 +31,7 @@ describe('richTextSchema', () => {
   it('refuses a kind of block or mark it does not know, and a heading the page has no place for', () => {
     const doc = (block: object) => ({ type: 'doc', content: [block] });
     expect(richTextSchema.safeParse(doc({ type: 'image', attrs: { src: 'x' } })).success).toBe(false);
-    expect(richTextSchema.safeParse(doc({ type: 'paragraph', content: [text('x', { type: 'code' })] })).success).toBe(false);
+    expect(richTextSchema.safeParse(doc({ type: 'paragraph', content: [text('x', { type: 'strike' })] })).success).toBe(false);
     expect(richTextSchema.safeParse(doc({ type: 'heading', attrs: { level: 1 }, content: [text('x')] })).success).toBe(false);
     expect(richTextSchema.safeParse({ type: 'paragraph' }).success).toBe(false);
   });
@@ -101,6 +101,14 @@ describe('Markdown', () => {
     expect(richTextHtml(text)).toBe(
       '<h2>Title</h2><p>A <strong>bold</strong> and <em>slanted</em> <a href="https://example.com" rel="noopener noreferrer">link</a> and bad.</p><ul><li><p>one</p></li><li><p>two</p><ul><li><p>inner</p></li></ul></li></ul><ol><li><p>first</p></li></ol><blockquote><p>quoted</p></blockquote>',
     );
+  });
+
+  it('sets words in backticks as code, escaped, and takes the mark off where a field leaves code out', async () => {
+    const { richTextFromMarkdown, richTextHtml, limitRichText } = await import('./rich-text.js');
+    const text = richTextFromMarkdown('Run `pnpm add <name>` and **`check`** it.');
+    expect(richTextHtml(text)).toBe('<p>Run <code>pnpm add &lt;name&gt;</code> and <code><strong>check</strong></code> it.</p>');
+    expect(richTextHtml(limitRichText(text, ['bold']))).toBe('<p>Run pnpm add &lt;name&gt; and <strong>check</strong> it.</p>');
+    expect(richTextSchema.safeParse(text).success).toBe(true);
   });
 });
 

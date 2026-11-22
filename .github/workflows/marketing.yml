@@ -1,0 +1,216 @@
+name: Marketing site
+
+# The CMS behind deployvelocity.com (the velocity-marketing repository), beside the demos. It makes
+# the site's database on Turso the first time (TURSO_API_TOKEN, as the demos do), fills it from
+# the site's seed (velocity-marketing's cms/prepare.mjs: content types, pages, posts, templates,
+# settings and the waitlist, contact and newsletter forms), and then either:
+#
+#   preview  deploys the site, built against this checkout of the CMS, to a Vercel project of its
+#            own (velocity-marketing-cms-preview), at its own address, to try it before it is live.
+#            Its links say deployvelocity.com, so search engines see one site.
+#   live     gives the real marketing project in Vercel (the one that answers at deployvelocity.com)
+#            what it needs to read the database. It deploys nothing: the site goes live on the CMS
+#            when velocity-marketing's main is deployed, as it is today.
+#
+# The preview and the live site share one database, so what is edited on the preview is what goes
+# live. Nothing in it is ever overwritten: the seed only adds what is missing.
+#
+# Who owns the editor is a repository secret, MARKETING_OWNER_EMAIL (or the run's `owner` input),
+# masked in the log and never written anywhere else. Email goes out with RESEND_API_KEY and
+# CMS_EMAIL_FROM when both are set: sign-in links, and a notice to the owner for each submission.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Deploy a preview, or set up the live site's project (it deploys nothing)
+        type: choice
+        options: [preview, live]
+        default: preview
+      marketing_ref:
+        description: Branch of velocity-marketing to build from
+        default: main
+      owner:
+        description: Make this address an owner of the editor (left empty, the MARKETING_OWNER_EMAIL secret)
+        default: ''
+
+concurrency:
+  group: marketing
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  marketing:
+    name: Marketing site (${{ inputs.target || 'preview' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TARGET: ${{ inputs.target || 'preview' }}
+      MARKETING_REF: ${{ inputs.marketing_ref || 'main' }}
+      PREVIEW_PROJECT: ${{ vars.MARKETING_PREVIEW_PROJECT || 'velocity-marketing-cms-preview' }}
+      LIVE_DOMAIN: ${{ vars.MARKETING_DOMAIN || 'deployvelocity.com' }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_SCOPE: ${{ vars.VERCEL_SCOPE }}
+    steps:
+      - name: Check that every secret is there
+        env:
+          REPO_TOKEN: ${{ secrets.MARKETING_REPO_TOKEN || secrets.TEMPLATES_REPO_TOKEN }}
+        run: |
+          missing=""
+          [ -n "$VERCEL_TOKEN" ] || missing="$missing VERCEL_TOKEN"
+          [ -n "$REPO_TOKEN" ] || missing="$missing MARKETING_REPO_TOKEN"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing:$missing. Add the matching secrets under Settings, Secrets and variables, Actions."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          path: cms
+      - name: Check out velocity-marketing
+        uses: actions/checkout@v4
+        with:
+          repository: southwellmedia/velocity-marketing
+          # A token that can read that private repository: MARKETING_REPO_TOKEN, or the templates' token if it can.
+          token: ${{ secrets.MARKETING_REPO_TOKEN || secrets.TEMPLATES_REPO_TOKEN }}
+          ref: ${{ env.MARKETING_REF }}
+          path: site
+
+      - name: Find or make the database
+        env:
+          BASE_SECRET: ${{ secrets.VELOCITY_CMS_SECRET }}
+          TURSO_API_TOKEN: ${{ secrets.TURSO_API_TOKEN }}
+          TURSO_ORGANIZATION: ${{ vars.TURSO_ORGANIZATION }}
+          TURSO_GROUP: ${{ vars.TURSO_GROUP }}
+        run: bash cms/.github/scripts/marketing-site.sh
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: cms/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Build the CMS
+        if: env.TARGET == 'preview'
+        working-directory: cms
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Install the site
+        working-directory: site
+        run: |
+          if [ "$TARGET" = "preview" ]; then
+            # The preview tries the CMS as this checkout has it, released or not.
+            node "$GITHUB_WORKSPACE/cms/.github/scripts/use-cms-checkout.mjs" .
+          else
+            # The live site runs the CMS its package.json names, from npm, as its deploys do.
+            pnpm install --frozen-lockfile
+          fi
+
+      - name: Fill the database from the site's seed
+        working-directory: site
+        env:
+          # Read from the secret (masked by GitHub) or the run's input (masked by the script), never printed.
+          VELOCITY_CMS_OWNER: ${{ secrets.MARKETING_OWNER_EMAIL }}
+          SITE_URL: https://${{ env.LIVE_DOMAIN }}
+        run: |
+          node cms/prepare.mjs
+          if [ -z "$VELOCITY_CMS_OWNER" ] && [ -z "$(jq -r '.inputs.owner // empty' "$GITHUB_EVENT_PATH")" ]; then
+            echo "::notice::Nobody was made an owner of the editor: add the MARKETING_OWNER_EMAIL secret, or run this workflow with an owner, then run it again."
+          fi
+
+      - name: Find the Vercel team and project
+        run: |
+          api=https://api.vercel.com
+          auth="Authorization: Bearer $VERCEL_TOKEN"
+          teams=$(curl -fsS -H "$auth" "$api/v2/teams")
+          team="$VERCEL_SCOPE"
+          if [ -z "$team" ]; then
+            if [ "$(echo "$teams" | jq '.teams | length')" != 1 ]; then
+              echo "Teams: $(echo "$teams" | jq -r '[.teams[].slug] | join(", ")')"
+              echo "::error::Set the VERCEL_SCOPE variable to one of the teams above"
+              exit 1
+            fi
+            team=$(echo "$teams" | jq -r '.teams[0].slug')
+          fi
+          org=$(echo "$teams" | jq -r --arg team "$team" '.teams[] | select(.slug == $team) | .id')
+          if [ "$TARGET" = "live" ]; then
+            # The project that answers at the live domain, whatever it is called.
+            project=$(curl -fsS -H "$auth" "$api/v9/projects?slug=$team&limit=100" \
+              | jq -r --arg domain "$LIVE_DOMAIN" '.projects[] | select([.targets.production.alias[]?] | index($domain)) | .id' | head -1)
+            [ -n "$project" ] || { echo "::error::No project in the Vercel team $team answers at $LIVE_DOMAIN."; exit 1; }
+            echo "SITE_ORIGIN=https://$LIVE_DOMAIN" >> "$GITHUB_ENV"
+          else
+            project=$(curl -sS -H "$auth" "$api/v9/projects/$PREVIEW_PROJECT?slug=$team" | jq -r '.id // empty')
+            if [ -z "$project" ]; then
+              project=$(curl -fsS -X POST -H "$auth" -H 'Content-Type: application/json' \
+                -d "{\"name\":\"$PREVIEW_PROJECT\",\"framework\":\"astro\"}" \
+                "$api/v11/projects?slug=$team" | jq -r '.id')
+              echo "Made the Vercel project $PREVIEW_PROJECT."
+            fi
+            echo "SITE_ORIGIN=https://$PREVIEW_PROJECT.vercel.app" >> "$GITHUB_ENV"
+          fi
+          echo "VERCEL_TEAM=$team" >> "$GITHUB_ENV"
+          echo "VERCEL_ORG_ID=$org" >> "$GITHUB_ENV"
+          echo "VERCEL_PROJECT_ID=$project" >> "$GITHUB_ENV"
+
+      - name: Give the project the database, the secret and email
+        env:
+          VELOCITY_CMS_RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          VELOCITY_CMS_EMAIL_FROM: ${{ secrets.CMS_EMAIL_FROM }}
+        run: |
+          api=https://api.vercel.com
+          auth="Authorization: Bearer $VERCEL_TOKEN"
+          # The host calls /api/cms/schedule with this, to publish what is due.
+          export CRON_SECRET="$VELOCITY_CMS_SECRET"
+          # Links and forms belong to the address the site is visited at.
+          export VELOCITY_CMS_ORIGIN="$SITE_ORIGIN"
+          names="VELOCITY_CMS_DATABASE_URL VELOCITY_CMS_DATABASE_TOKEN VELOCITY_CMS_SECRET CRON_SECRET VELOCITY_CMS_ORIGIN"
+          if [ -n "$VELOCITY_CMS_RESEND_API_KEY" ] && [ -n "$VELOCITY_CMS_EMAIL_FROM" ]; then
+            names="$names VELOCITY_CMS_RESEND_API_KEY VELOCITY_CMS_EMAIL_FROM"
+          else
+            echo "::notice::No email: RESEND_API_KEY and CMS_EMAIL_FROM are not both set. Sign-in links go to the project's logs until an owner sets up email under Settings, Email."
+          fi
+          # The live site's own address is its domain, which Vercel already knows.
+          [ "$TARGET" = "live" ] && names="${names/ VELOCITY_CMS_ORIGIN/}"
+          for name in $names; do
+            jq -n --arg key "$name" --arg value "${!name}" '{key: $key, value: $value, type: "encrypted", target: ["production"]}' \
+              | curl -fsS -o /dev/null -X POST -H "$auth" -H 'Content-Type: application/json' -d @- \
+                "$api/v10/projects/$VERCEL_PROJECT_ID/env?slug=$VERCEL_TEAM&upsert=true"
+          done
+          echo "Set $names on the project."
+
+      - name: Deploy the preview
+        if: env.TARGET == 'preview'
+        working-directory: site
+        env:
+          # Canonical links and share cards name the live site, so the preview is never a second site to search engines.
+          SITE_URL: https://${{ env.LIVE_DOMAIN }}
+        run: |
+          npx --yes vercel@latest pull --yes --environment=production --token="$VERCEL_TOKEN"
+          npx --yes vercel@latest build --prod --token="$VERCEL_TOKEN"
+          npx --yes vercel@latest deploy --prebuilt --prod --token="$VERCEL_TOKEN" | tee deploy.log
+          echo "Preview: $SITE_ORIGIN (deployment $(tail -1 deploy.log)), built from velocity-marketing $MARKETING_REF." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check the preview answers
+        if: env.TARGET == 'preview'
+        run: |
+          failed=0
+          for path in / /premium/ /cms/ /cloud/ /blog/ /contact/ /license/ /api/cms/session; do
+            status=000
+            for attempt in 1 2 3 4 5; do
+              status=$(curl -sS -o body.html -w '%{http_code}' "$SITE_ORIGIN$path" || echo 000)
+              [ "$status" = "200" ] && break
+              sleep 6
+            done
+            echo "$path -> $status"
+            [ "$status" = "200" ] || failed=1
+          done
+          if ! curl -sS "$SITE_ORIGIN/contact/" | grep -q 'data-cms-form'; then
+            echo "::error::The contact page draws no form: the database has no contact form, or the site cannot read it."
+            failed=1
+          fi
+          [ "$failed" = "0" ] || { echo "::error::A page of $SITE_ORIGIN did not answer 200. The lines above say which."; exit 1; }

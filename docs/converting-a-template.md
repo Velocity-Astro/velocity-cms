@@ -164,7 +164,7 @@ These are the built-in field types (`createFieldRegistry` in `cms-core`):
 | `font` | One of the fonts the template offers, by name | `choices` (required), `labels` |
 | `reference` | Another entry, by its slug | `to` (a type's key, required) |
 | `image` | An image, by its name | |
-| `richtext` | Formatted text (headings, lists, bold, italic, links) | `formats` (what it may hold beyond paragraphs) |
+| `richtext` | Formatted text (headings, lists, bold, italic, code, links) | `formats` (what it may hold beyond paragraphs) |
 | `group` | Several fields together | `fields` |
 | `list` | Several values of one type | `of: { type, options }`, `min`, `max` |
 | `blocks` | The sections of a page | `blocks`, `min`, `max` |

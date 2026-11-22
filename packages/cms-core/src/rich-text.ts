@@ -14,6 +14,7 @@ export interface RichText {
 export type RichTextMark =
   | { readonly type: 'bold' }
   | { readonly type: 'italic' }
+  | { readonly type: 'code' }
   | { readonly type: 'link'; readonly attrs: { readonly href: string } };
 
 export type RichTextInline =
@@ -43,6 +44,7 @@ export function isSafeLink(href: string): boolean {
 const mark = z.discriminatedUnion('type', [
   z.object({ type: z.literal('bold') }),
   z.object({ type: z.literal('italic') }),
+  z.object({ type: z.literal('code') }),
   z.object({
     type: z.literal('link'),
     attrs: z.object({ href: z.string().max(2000).refine(isSafeLink, 'A link must be a web address, an email address, a phone number or a page of this site.') }),
@@ -96,10 +98,10 @@ export const richTextSchema: z.ZodType<RichText> = z.preprocess(
  * What a rich text field may hold beyond paragraphs. A field names the ones the place it is shown
  * was drawn for (`formats`); one that names none takes them all.
  */
-export const RICH_TEXT_FORMATS = ['bold', 'italic', 'link', 'headings', 'lists', 'quotes'] as const;
+export const RICH_TEXT_FORMATS = ['bold', 'italic', 'code', 'link', 'headings', 'lists', 'quotes'] as const;
 export type RichTextFormat = (typeof RICH_TEXT_FORMATS)[number];
 
-const MARK_FORMAT = { bold: 'bold', italic: 'italic', link: 'link' } as const satisfies Record<RichTextMark['type'], RichTextFormat>;
+const MARK_FORMAT = { bold: 'bold', italic: 'italic', code: 'code', link: 'link' } as const satisfies Record<RichTextMark['type'], RichTextFormat>;
 
 /**
  * The text with only what `formats` allows: a mark it leaves out is taken off its words, a heading
@@ -130,7 +132,7 @@ export function limitRichText(text: RichText, formats: readonly RichTextFormat[]
   return { type: 'doc', content: blocks(text.content) };
 }
 
-const TAGS = { bold: 'strong', italic: 'em' } as const;
+const TAGS = { bold: 'strong', italic: 'em', code: 'code' } as const;
 
 function inlineHtml(nodes: readonly RichTextInline[] | undefined): string {
   return (nodes ?? [])
@@ -181,7 +183,7 @@ export const isEmptyRichText = (text: RichText): boolean => richTextParagraphs(t
 /**
  * Markdown, as an agent, an import or a person writes it, turned into formatted text. Only what
  * the format keeps is read: paragraphs, headings (`#` to `###`, kept at level 2 or 3), quotes,
- * bulleted and numbered lists (nested by indenting), bold, italics and links. Anything else is
+ * bulleted and numbered lists (nested by indenting), bold, italics, code in backticks and links. Anything else is
  * kept as its words, except pictures, which formatted text cannot hold and are left out. A link
  * that is not safe keeps its words and loses the link.
  */
@@ -267,7 +269,7 @@ function markdownInline(text: string): RichTextInline[] {
       } else if (label !== undefined && href !== undefined) walk(label, isSafeLink(href) ? [...marks, { type: 'link', attrs: { href } }] : marks);
       else if (strong !== undefined || strongToo !== undefined) walk(strong ?? strongToo ?? '', [...marks, { type: 'bold' }]);
       else if (em !== undefined || emToo !== undefined) walk(em ?? emToo ?? '', [...marks, { type: 'italic' }]);
-      else add(code ?? '', marks);
+      else add(code ?? '', [...marks, { type: 'code' }]);
       rest = rest.slice(found.index + found[0].length);
     }
   };

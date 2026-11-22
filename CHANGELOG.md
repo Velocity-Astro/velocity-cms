@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **Code in formatted text.** Words in formatted text can be set as code, from a new button of the toolbar or with backticks in Markdown (imports, MCP and the command line). A field that names its `formats` gets it only by naming `code`. A developer's blog can now be written in the editor.
+
 ## 0.1.0-beta.12
 
 - **The column beside the rail slides open and closed.** Choosing Content (or leaving it) no longer makes the column of its places appear at once: the screen's panel slides over to make room and the column is uncovered from its edge, then the reverse on the way out. People who ask for less motion see it simply open and close. Home has no bar across the top on a tablet or larger, since it held only the search; Ctrl or Command with K still opens it.
