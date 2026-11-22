@@ -4,7 +4,7 @@ import { defineFields, type NewField } from './define-fields.js';
 import { CmsError, ConflictError, ForbiddenError, NotFoundError, ValidationError } from './errors.js';
 import { EVENT_NEEDS, type CmsEvents, type EventBus } from './events.js';
 import type { FieldType } from './field-type.js';
-import type { PageHeadRule, PageHeads } from './pages.js';
+import type { PageHeadRule, PageHeads, PageRedirectRule } from './pages.js';
 import { liveFields, type EntryData, type FieldDef, type LocalizedText, type Timestamp } from './model.js';
 import { isPrivateAddress } from './net.js';
 import type { Clock, IdGenerator, NameLookup, PluginStore } from './ports.js';
@@ -182,11 +182,13 @@ export interface PluginContext {
   };
   /**
    * The site's pages. `head` adds a rule that changes what a page says about itself to search
-   * engines: its title, its description, whether it is listed. A rule that fails is caught and
-   * noted, and the page is drawn without it. `changed` tells the site that pages would now come
-   * out differently, so it stops showing the ones it kept.
+   * engines and to the sites it is shared on: its title, its description, whether it is listed,
+   * its share picture, the codes that prove who owns the site, and the ids it is measured with.
+   * A rule that fails is caught and noted, and the page is drawn without it. `redirect` adds a
+   * rule that sends a visitor from an address that has no page to another. `changed` tells the
+   * site that pages would now come out differently, so it stops showing the ones it kept.
    */
-  readonly pages: { head(rule: PageHeadRule): () => void; changed(): Promise<void> };
+  readonly pages: { head(rule: PageHeadRule): () => void; redirect(rule: PageRedirectRule): () => void; changed(): Promise<void> };
   /**
    * Answers requests at `/api/cms/plugins/<name><path>`, for the plugin's screens in the editor.
    * Only signed-in people reach it, and only those who hold `requires` (reading content, unless
@@ -245,8 +247,10 @@ export interface PluginAdds {
   readonly fieldTypes: readonly string[];
   /** How many rules it checks before a publish. */
   readonly checks: number;
-  /** Whether it changes what pages say about themselves to search engines. */
+  /** Whether it changes what pages say about themselves: to search engines, social sites and analytics. */
   readonly pageHead: boolean;
+  /** Whether it moves visitors from addresses that have no page. */
+  readonly redirects: boolean;
   /** What it listens for, such as `entry.published`. */
   readonly events: readonly string[];
   /** The kinds of work it has that are tried again when they fail. */
@@ -259,7 +263,7 @@ export interface PluginEditorInfo {
   readonly label: LocalizedText;
 }
 
-const NOTHING_ADDED: PluginAdds = { fieldTypes: [], checks: 0, pageHead: false, events: [], tasks: [] };
+const NOTHING_ADDED: PluginAdds = { fieldTypes: [], checks: 0, pageHead: false, redirects: false, events: [], tasks: [] };
 
 /** A plugin as the Plugins screen shows it. */
 export interface PluginInfo {
@@ -842,6 +846,19 @@ export class PluginHost {
           });
           held.stops.push(stop);
           held.info = { ...held.info, adds: { ...held.info.adds, pageHead: true } };
+          return stop;
+        },
+        redirect: (rule) => {
+          const stop = pages.addRedirect(async (path) => {
+            try {
+              return (await isOn()) ? await rule(path) : undefined;
+            } catch (error) {
+              this.#fault(name, 'redirect', error);
+              return undefined;
+            }
+          });
+          held.stops.push(stop);
+          held.info = { ...held.info, adds: { ...held.info.adds, redirects: true } };
           return stop;
         },
         changed: () => events.emit('pages.changed', { plugin: name }),

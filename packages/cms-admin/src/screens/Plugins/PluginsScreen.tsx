@@ -59,6 +59,7 @@ export function PluginsScreen() {
       ...(plugin.adds.fieldTypes.length > 0 ? [messages.plugins.addsFieldTypes(plugin.adds.fieldTypes.length)] : []),
       ...(plugin.adds.checks > 0 ? [messages.plugins.addsChecks(plugin.adds.checks)] : []),
       ...(plugin.adds.pageHead ? [messages.plugins.addsPageHead] : []),
+      ...(plugin.adds.redirects ? [messages.plugins.addsRedirects] : []),
       ...(plugin.adds.tasks.length > 0 ? [messages.plugins.addsTasks] : []),
     ];
     const editorProblem = extensions.problems.get(plugin.name);

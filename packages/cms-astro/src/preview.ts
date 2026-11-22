@@ -4,6 +4,7 @@ import { PREVIEW_BRIDGE_SCRIPT } from '@velocity-astro/cms-admin/page-bridge';
 import { PREVIEW_PARAMETER, PreviewLinks, type EntryData } from '@velocity-astro/cms-core';
 import { siteSecret } from './secret.js';
 import { refreshUploadedImages } from './site-media.js';
+import { redirectFor } from './redirects.js';
 
 const PARAMETER = PREVIEW_PARAMETER;
 
@@ -189,7 +190,7 @@ export const showsContent = (request: Request, pathname: string, isPrerendered: 
  * A preview is never cached and never indexed, and a request without a valid token is handled
  * exactly as if this middleware were not there.
  */
-export const onRequest: MiddlewareHandler = async (context, next) => {
+const previewRequest: MiddlewareHandler = async (context, next) => {
   // A page built ahead of time is the same for everyone, so it is never a preview. On a server
   // that runs many sites it is also built for no site, and has no secret to check a token with.
   if (context.isPrerendered) return next();
@@ -223,4 +224,11 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
     const body = page === null ? await response.arrayBuffer() : draft ? addEditorScript(page, linkLeads()) : page;
     return new Response(body, { status: response.status, statusText: response.statusText, headers });
   });
+};
+
+/** Previews, then a move an owner listed for an address that found no page. */
+export const onRequest: MiddlewareHandler = async (context, next) => {
+  const response = await previewRequest(context, next);
+  if (context.isPrerendered || !(response instanceof Response)) return response ?? next();
+  return (await redirectFor(context, response)) ?? response;
 };

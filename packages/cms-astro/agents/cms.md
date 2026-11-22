@@ -89,8 +89,19 @@ nothing, so the template keeps its own values as the fallback.
 | `menuLinks(Astro, { type, field })` | A menu people edit, as `{ label, href, columns? }` links. |
 | `linkTo(Astro, value)` | Where a `link` field leads today, or nothing. |
 | `siteForm(Astro, { id })` or `siteForm(Astro, 'key')` | A form to draw: fields, `action`, `hidden`, `trap`. |
-| `pageHead(Astro, { title, description })` | The title, description and robots the page writes, after plugins. Call it in the layout. |
+| `pageHead(Astro, { title, description })` | What the page writes in its head after plugins: title, description, robots, share `image`, Search Console and Bing `verification`, and the `analytics` ids. Call it in the layout, on every page. |
 | `cmsLiveLoader({ type })` | A live collection for lists (`getLiveCollection`, `getLiveEntry`). |
+
+## Search, sharing and analytics are plugins
+
+- Don't add fields of the site's own for a title for search engines, hiding a page from them, a
+  share image, Search Console or Bing codes, a Google Analytics or Tag Manager id, or cookie
+  consent. The SEO and Analytics plugins hold them, and `pageHead` hands them to the layout.
+- The layout writes `head.verification` as meta tags, uses `head.image` for `og:image` when the
+  page has no picture of its own, and writes the site's measuring tags with `head.analytics`. The
+  ids are never scripts: the template's own tags use them, with Google's host added through
+  `Astro.csp.insertScriptResource()`.
+- An old address goes in the Redirects plugin, not in the host's config, so the owner can change it.
 
 ## Drafts never leak
 

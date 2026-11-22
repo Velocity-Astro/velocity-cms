@@ -129,11 +129,14 @@ export class EditorHost {
         if (offset + page.items.length >= page.total || page.items.length === 0) break;
       }
     };
-    // A plugin changed what pages say about themselves: the copies the site kept are stale.
-    cms.events.on('pages.changed', () => {
+    // A plugin changed what pages say about themselves: the copies the site kept are stale. So
+    // does one switched on or off or given new settings, since its head rules answer differently.
+    const pagesChanged = () => {
       invalidateLiveContent();
       this.#published = true;
-    });
+    };
+    cms.events.on('pages.changed', pagesChanged);
+    cms.events.on('plugin.changed', pagesChanged);
     // A page that draws a form was kept with the form's fields as they were.
     const formChanged = () => {
       invalidateLiveContent();

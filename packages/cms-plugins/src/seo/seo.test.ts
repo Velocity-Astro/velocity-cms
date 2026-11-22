@@ -137,6 +137,19 @@ describe('the SEO plugin', () => {
     expect(await cms.pages.run(page, template)).toEqual(template);
   });
 
+  it('puts the owner\'s Search Console and Bing codes on every page, and the share image on a page with none', async () => {
+    await cms.plugins.setEnabled(owner, 'seo', true);
+    const about = { path: '/about/', locale: 'en' };
+    expect(await cms.pages.run(about, { title: 'About' })).toEqual({ title: 'About' });
+    await settings({ googleVerification: ' abc-123_X ', bingVerification: 'B1NG', shareImage: 'share.png' });
+    expect(await cms.pages.run(about, { title: 'About' })).toEqual({ title: 'About', verification: { google: 'abc-123_X', bing: 'B1NG' }, image: 'share.png' });
+    // A page's own picture stays.
+    expect(await cms.pages.run(about, { title: 'About', image: '/about.png' })).toMatchObject({ image: '/about.png' });
+    // A code that could leave its attribute never reaches the page.
+    await settings({ googleVerification: '"><script>' });
+    expect(await cms.pages.run(about, { title: 'About' })).toEqual({ title: 'About' });
+  });
+
   it('sends the editor one module that stands alone and registers its panel and screen', async () => {
     const module = (await import(/* @vite-ignore */ `data:text/javascript,${encodeURIComponent(seo.editor ?? '')}`)) as { default: (api: unknown) => void };
     const registered: string[] = [];
