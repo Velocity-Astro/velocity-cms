@@ -65,6 +65,19 @@ it('finds an entry by what it holds, such as part of its address, and opens it',
   expect(await screen.findByRole('textbox', { name: /^Slug/ })).toHaveProperty('value', '907-mesa-verde-lane');
 });
 
+it('finds an entry in several languages once, in the editor\'s language', async () => {
+  const user = userEvent.setup();
+  const [english] = sampleEntries().filter((entry) => entry.id === 'e3');
+  if (!english) throw new Error('No e3');
+  const spanish = { ...english, id: 'e3-es', locale: 'es', slug: 'mesa-verde-es', updatedAt: new Date().toISOString(), data: { ...english.data, 'f-title': '907 Mesa Verde (es)' } };
+  renderApp('/', { ...signedIn(), entries: [...sampleEntries(), spanish] });
+  await user.keyboard('{Control>}k{/Control}');
+  const search = within(await screen.findByRole('dialog', { name: 'Search and commands' }));
+  await user.keyboard('mesa verde');
+  await search.findByRole('menuitem', { name: /907 Mesa Verde Lane/ });
+  expect(search.queryByRole('menuitem', { name: /\(es\)/ })).toBeNull();
+});
+
 it('finds a contact by name or email for an owner or an editor, and never for an author', async () => {
   const user = userEvent.setup();
   const { unmount } = renderApp('/', signedIn('editor'));

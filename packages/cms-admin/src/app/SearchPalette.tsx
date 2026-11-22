@@ -2,8 +2,8 @@ import { CommandPalette, type CommandGroup, type CommandItem } from '@velocity-a
 import type { ContentTypeDef } from '@velocity-astro/cms-core';
 import { Contact } from 'lucide-react';
 import { useDeferredValue, useState } from 'react';
-import { useFoundContacts, useFoundEntries } from '../client/queries.js';
-import { entryTitle, localized } from '../lib/content.js';
+import { FOUND_AT_MOST, useFoundContacts, useFoundEntries } from '../client/queries.js';
+import { entryTitle, groupTranslations, localized } from '../lib/content.js';
 import { typeIcon } from '../lib/type-icon.js';
 import { useLocale, useMessages } from '../messages/messages-context.js';
 import { paths } from './paths.js';
@@ -42,22 +42,15 @@ export function SearchPalette({ isOpen, onOpenChange, places, creations, types, 
   const entries = useFoundEntries(words, isSearching);
   const contacts = useFoundContacts(words, isSearching && findsContacts);
 
-  // An entry in several languages is found once: the version saved last.
+  // An entry in several languages is found once, in the editor's language when it has it, as
+  // the lists show it.
   const typeById = new Map(types.map((type) => [type.id, type]));
-  const seen = new Set<string>();
-  const foundEntries: CommandItem[] = [];
-  for (const entry of isSearching ? (entries.data?.items ?? []) : []) {
+  const foundEntries: CommandItem[] = groupTranslations(isSearching ? (entries.data?.items ?? []) : [], locale).flatMap(({ primary: entry }) => {
     const type = typeById.get(entry.typeId);
-    if (type === undefined || seen.has(entry.translationGroup)) continue;
-    seen.add(entry.translationGroup);
+    if (type === undefined) return [];
     const href = type.inSettings === true ? paths.settingsPage(type.key) : paths.entry(type.key, entry.id);
-    foundEntries.push({
-      id: `found:${href}`,
-      label: entryTitle(type, entry.data) ?? messages.app.searchUntitled,
-      detail: localized(type.label, locale),
-      icon: typeIcon(type.key),
-    });
-  }
+    return [{ id: `found:${href}`, label: entryTitle(type, entry.data) ?? messages.app.searchUntitled, detail: localized(type.label, locale), icon: typeIcon(type.key) }];
+  }).slice(0, FOUND_AT_MOST);
   const foundContacts: CommandItem[] = (isSearching && findsContacts ? (contacts.data?.items ?? []) : []).map((contact) => ({
     id: `found:${paths.contact(contact.id)}`,
     label: contact.name ?? contact.email,

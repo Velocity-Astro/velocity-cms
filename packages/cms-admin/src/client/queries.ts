@@ -191,7 +191,7 @@ const WHOLE_STOPS_AT = 10_000;
  * the whole list, so the answers that follow are read too: a list never stops short in silence.
  */
 /** How many of each kind the search shows. */
-const FOUND_AT_MOST = 6;
+export const FOUND_AT_MOST = 6;
 
 async function whole<T, Q extends { readonly limit?: number; readonly offset?: number }>(query: Q, list: (query: Q) => Promise<Page<T>>): Promise<Page<T>> {
   const first = await list(query);
@@ -216,7 +216,8 @@ export function useEntries(query: EntryListQuery) {
  */
 export function useFoundEntries(words: string, isWanted: boolean) {
   const client = useClient();
-  const query: EntryListQuery = { search: words, limit: FOUND_AT_MOST };
+  // Enough for each entry found to come with its other languages, so the editor's own is among them.
+  const query: EntryListQuery = { search: words, limit: FOUND_AT_MOST * 4 };
   return useQuery({ queryKey: keys.entries(query), queryFn: () => client.listEntries(query), enabled: isWanted && words !== '', placeholderData: (previous) => previous });
 }
 
