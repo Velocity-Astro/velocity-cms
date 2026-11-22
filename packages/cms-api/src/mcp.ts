@@ -48,7 +48,8 @@ const SERVER = { name: 'velocity-cms', title: 'Velocity CMS', version: '1' };
 const INSTRUCTIONS = `This is a site's content in Velocity CMS.
 Start with describe_site: it lists the content types, what this token may do, and the forms.
 Values are written by field key. Formatted text (richtext) takes a string, or {"markdown": "..."} for headings, lists, bold, italics and links.
-A page built from sections (a "blocks" field) takes only the blocks its content type lists, each with its own fields: read get_content_type or list_blocks first, then add_section, update_section, move_section, remove_section or set_sections. Never invent a block, a field or a colour: a look is one of the choices a field offers.
+A page built from sections (a "blocks" field) is built from the blocks its content type lists, each with its own fields: read get_content_type or list_blocks first, then add_section, update_section, move_section, remove_section or set_sections. A look is one of the choices a field offers.
+An idea the blocks cannot show is welcome: a new kind of section is a block in the site's model with a component of the same key in its code, so it is drawn on the theme and editors can change it. design_new_section gives the site's colours, fonts and blocks to design from and the steps to add one; once it is deployed, these tools use it like any other.
 What you write is a draft until it is published. Publishing needs a token that allows it; otherwise tell the person the draft is ready for them to publish in the editor.
 Contacts, deals and what visitors sent are personal data: they are there only when the token allows it, and never belong on a page.`;
 
@@ -133,6 +134,12 @@ function describeOptions(value: unknown, locale: string): unknown {
   }
   if (!isObject(value)) return value;
   return Object.fromEntries(Object.entries(value).map(([key, inner]) => [key, describeOptions(inner, locale)]));
+}
+
+/** A field's settings as `options`, when it has any worth saying. */
+function describeOptionsOf(field: FieldDef, locale: string): { options?: unknown } {
+  const options = describeOptions(field.options, locale);
+  return isObject(options) && Object.keys(options).length > 0 ? { options } : {};
 }
 
 /** The blocks a field allows, as a page may be built from them today. A retired block is left out. */
@@ -243,7 +250,7 @@ function outline(value: unknown) {
 function blockOf(blocks: readonly BlockDef[], key: string): BlockDef {
   const block = blocks.find((candidate) => candidate.key === key);
   if (block) return block;
-  throw new ValidationError(`There is no block "${key}" here. The blocks this page can be built from are: ${blocks.map((candidate) => candidate.key).join(', ')}.`, [{ path: ['block'], message: 'No such block.' }]);
+  throw new ValidationError(`There is no block "${key}" here yet. The blocks this page can be built from are: ${blocks.map((candidate) => candidate.key).join(', ')}. To add a new kind of section, see design_new_section.`, [{ path: ['block'], message: 'No such block.' }]);
 }
 
 function indexOf(sections: readonly Section[], id: string): number {
@@ -315,13 +322,47 @@ export const MCP_TOOLS: readonly McpTool[] = [
   tool({
     name: 'list_blocks',
     title: 'List the blocks a page takes',
-    description: 'The blocks (kinds of section) a content type\'s pages can be built from, each with its fields. Only these can be used.',
+    description: 'The blocks (kinds of section) a content type\'s pages can be built from today, each with its fields. For an idea none of them can show, see design_new_section.',
     input: z.object({ type: z.string(), field: z.string().optional().describe('The field of sections, when the type has more than one.') }),
     readOnly: true,
     run: async ({ type: key, field }, { cms, locale }) => {
       const type = await cms.schema.getByKey(key);
       const sections = sectionsField(type, field);
       return { type: type.key, field: sections.key, blocks: describeBlocks((sections.options as { blocks?: BlockDef[] }).blocks ?? [], locale) };
+    },
+  }),
+  tool({
+    name: 'design_new_section',
+    title: 'Design a new kind of section',
+    description: 'For an idea no block can show: the site\'s theme (its published colours and fonts), every block it has with its fields and named looks, and the steps to add a new block and its component in the site\'s code.',
+    input: z.object({}),
+    readOnly: true,
+    run: async (_input, { cms, actor, locale }) => {
+      const types = await cms.schema.list();
+      const theme: Record<string, unknown>[] = [];
+      for (const type of types.filter((one) => one.kind === 'single')) {
+        const looks = liveFields(type.fields).filter((field) => field.type === 'color' || field.type === 'font');
+        if (looks.length === 0) continue;
+        const [entry] = (await cms.content.find(actor, { typeId: type.id, limit: 1 })).items;
+        const published = entry?.published ? fromStoredData(type.fields, entry.published.data) : {};
+        theme.push({ type: type.key, fields: looks.map((field) => ({ key: field.key, type: field.type, label: say(field.label, locale), value: published[field.key] ?? null, ...describeOptionsOf(field, locale) })) });
+      }
+      const blocks = types.flatMap((type) =>
+        liveFields(type.fields)
+          .filter((field) => Array.isArray((field.options as { blocks?: unknown }).blocks))
+          .map((field) => ({ type: type.key, field: field.key, blocks: describeBlocks((field.options as { blocks: BlockDef[] }).blocks, locale) })),
+      );
+      return {
+        theme,
+        blocks,
+        steps: [
+          'In the site\'s code, describe the block in the model (usually cms/model.mjs) on the blocks field of the types that should take it: { key, label, description, icon, group, fields }. Keys start with a lowercase letter and are permanent.',
+          'Give each look a select field with named choices (and swatches for colours) drawn from the theme above, never a free colour, size or class. Text, pictures, links, lists and forms are fields of their own, so editors can change them.',
+          'Write its component, of the same key, in the block map (export const blocks = { ... }): every prop optional, wrapped with sectionMark(section.id, section.data), each field marked with fieldMark(key).',
+          'Run the seed, then `npx velocity-cms check`, and build the site. The cms-add-section skill has each step in full.',
+          'Once the site is deployed, add_section can place it on any page whose type takes it.',
+        ],
+      };
     },
   }),
   tool({

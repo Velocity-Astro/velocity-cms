@@ -1,4 +1,4 @@
-import { createCms, tokenPermissions, type Actor, type Cms } from '@velocity-astro/cms-core';
+import { createCms, toStoredData, tokenPermissions, type Actor, type Cms } from '@velocity-astro/cms-core';
 import { FakeClock, InMemoryEntryRepository, InMemorySchemaRepository, SequentialIds } from '@velocity-astro/cms-core/in-memory';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { CmsApi } from './api.js';
@@ -108,10 +108,21 @@ describe('the MCP endpoint', () => {
     expect((await cms.content.get(owner, id)).status).toBe('draft');
   });
 
+  it('hands an idea no block can show what it needs to become a new kind of section', async () => {
+    await cms.schema.define(owner, { key: 'theme', kind: 'single', label: { en: 'Theme' }, fields: [{ key: 'brand', type: 'color', label: { en: 'Brand' } }, { key: 'headings', type: 'font', label: { en: 'Headings' }, options: { choices: ['serif', 'sans'] } }] });
+    const type = await cms.schema.getByKey('theme');
+    const made = await cms.content.create(owner, { typeId: type.id, locale: 'en', slug: 'theme', data: toStoredData(type.fields, { brand: '#ff6600', headings: 'serif' }, () => 'new') });
+    await cms.content.publish(owner, made.id);
+    const design = (await tool('design_new_section')) as { theme: { type: string; fields: { key: string; value: unknown }[] }[]; blocks: { type: string; blocks: { key: string }[] }[]; steps: string[] };
+    expect(design.theme).toEqual([{ type: 'theme', fields: [expect.objectContaining({ key: 'brand', value: '#ff6600' }), expect.objectContaining({ key: 'headings', value: 'serif', options: { choices: ['serif', 'sans'] } })] }]);
+    expect(design.blocks).toEqual([{ type: 'pages', field: 'body', blocks: [expect.objectContaining({ key: 'hero' }), expect.objectContaining({ key: 'text' })] }]);
+    expect(design.steps.join(' ')).toContain('cms-add-section');
+  });
+
   it('stays on the rails: no block, field or look the template does not have', async () => {
     const page = await tool('create_entry', { type: 'pages', slug: 'rails', data: { title: 'Rails' } });
     const id = page['id'] as string;
-    expect(await tool('add_section', { id, block: 'carousel' })).toEqual({ refused: expect.stringContaining('The blocks this page can be built from are: hero, text') });
+    expect(await tool('add_section', { id, block: 'carousel' })).toEqual({ refused: expect.stringContaining('The blocks this page can be built from are: hero, text. To add a new kind of section, see design_new_section.') });
     expect(await tool('add_section', { id, block: 'hero', data: { title: 'Hi', colour: '#ff0000' } })).toEqual({ refused: expect.stringContaining('There is no field "colour"') });
     expect(await tool('add_section', { id, block: 'hero', data: { title: 'Hi', tone: 'neon' } })).toEqual({ refused: expect.stringContaining('tone') });
   });

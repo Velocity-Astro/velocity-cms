@@ -130,8 +130,9 @@ nothing, so the template keeps its own values as the fallback.
   upload | forms | pipeline` work over the site's API. `npx velocity-cms mcp` is an MCP server
   for an agent on this computer, and every site serves the same tools at `/api/cms/mcp`.
 - Values are written by field key. Formatted text takes a string or `{ "markdown": "..." }`. A
-  page is laid out only from the blocks its type allows (`list_blocks`, `add_section`,
-  `set_sections`), with their own fields and named looks.
+  page is laid out from the blocks its type allows (`list_blocks`, `add_section`,
+  `set_sections`), with their own fields and named looks. For an idea no block can show, make a
+  new one in code (`cms-add-section`); `design_new_section` gives the theme and blocks to start from.
 - What a token writes is a draft unless the token may publish. Contacts, deals and submissions
   are there only when the token was allowed personal data.
 

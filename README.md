@@ -61,7 +61,7 @@ A deployed site needs `VELOCITY_CMS_SECRET` and its address (`site` in the Astro
 To let an agent work with the content itself, make an access token in the editor (Settings, Access tokens) or with `npx velocity-cms token "Claude on my laptop" --save`. A token acts as an editor or an author, writes drafts unless it may publish, and sees contacts and submissions only when it is allowed personal data. Then:
 
 - `npx velocity-cms entries pages`, `create`, `update`, `publish`, `import`, `export` and `upload` work over the site's API, on this computer or the live site.
-- Every site serves an MCP server at `/api/cms/mcp`, for an agent that speaks HTTP with the token as a bearer. `npx velocity-cms mcp` is the same server on standard input and output. Its tools build a page only from the sections the template allows, with their own fields and named looks, so an agent cannot make a page the template does not draw.
+- Every site serves an MCP server at `/api/cms/mcp`, for an agent that speaks HTTP with the token as a bearer. `npx velocity-cms mcp` is the same server on standard input and output. Its tools build pages from the template's sections, with their own fields and named looks. For an idea no section can show, `design_new_section` hands the agent the site's colours, fonts and blocks and the steps to add a new kind of section in the site's code, where it stays on the theme and editable.
 
 ## Run the starter
 
