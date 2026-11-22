@@ -1,6 +1,6 @@
 {
   "name": "@velocity-astro/cms-astro",
-  "version": "0.1.0-beta.14",
+  "version": "0.1.0-beta.15",
   "description": "The Astro side of Velocity CMS: a live loader for pages rendered on demand, a Content Layer loader for static builds, and the integration.",
   "type": "module",
   "license": "MIT",
