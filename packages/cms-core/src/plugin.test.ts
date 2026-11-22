@@ -406,6 +406,25 @@ describe('what a plugin adds to the site\'s pages', () => {
     expect(await cms.pages.run(page, { title: 'Oak Lane' })).toEqual({ title: 'Oak Lane' });
   });
 
+  it('moves a visitor from an address with no page only while the plugin is on, and keeps a fault to itself', async () => {
+    await cms.plugins.load([
+      definePlugin({
+        name: 'broken',
+        apiVersion: 1,
+        label: { en: 'Broken' },
+        setup: (plugin) =>
+          void plugin.pages.redirect(() => {
+            throw new Error('No list.');
+          }),
+      }),
+      definePlugin({ name: 'moves', apiVersion: 1, label: { en: 'Moves' }, setup: (plugin) => void plugin.pages.redirect((path) => (path === '/old/' ? { to: '/new/', permanent: true } : undefined)) }),
+    ]);
+    expect(await cms.pages.redirect('/old/')).toEqual({ to: '/new/', permanent: true });
+    expect((await cms.plugins.list(owner))[0]).toMatchObject({ name: 'broken', faults: 1, lastFault: { where: 'redirect', message: 'No list.' } });
+    await cms.plugins.setEnabled(owner, 'moves', false);
+    expect(await cms.pages.redirect('/old/')).toBeUndefined();
+  });
+
   it('lists a plugin\'s own values under a prefix, and tells the site when pages changed', async () => {
     const heard: string[] = [];
     cms.events.on('pages.changed', ({ plugin }) => void heard.push(plugin));
