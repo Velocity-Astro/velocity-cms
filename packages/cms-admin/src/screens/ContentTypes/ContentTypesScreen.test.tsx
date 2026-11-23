@@ -98,3 +98,25 @@ it('starts a single page, which is opened straight from the sidebar and has one 
   expect(((await screen.findByRole('textbox', { name: /^Story/ })) as HTMLTextAreaElement).value).toBe('Founded in 1998.');
   expect(screen.queryByRole('button', { name: 'About' })).toBeNull();
 });
+
+it('starts a single page in the place it is listed, and says where in the list of types', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/types', signedIn);
+  await user.click(await screen.findByRole('button', { name: 'New content type' }));
+  const dialog = within(await screen.findByRole('dialog', { name: 'New content type' }));
+  // A collection is always with the content, so the choice is only offered for one page.
+  expect(dialog.queryByRole('radio', { name: 'Across the site' })).toBeNull();
+  await user.click(dialog.getByRole('radio', { name: 'One page' }));
+  await user.click(dialog.getByRole('radio', { name: 'Across the site' }));
+  expect(dialog.getByText(/for something every page shows/)).toBeTruthy();
+  await user.type(dialog.getByRole('textbox', { name: /^Name/ }), 'Banner');
+  await user.click(dialog.getByRole('button', { name: 'Create content type' }));
+  expect(await screen.findByRole('heading', { level: 1, name: 'Banner' })).toBeTruthy();
+  expect((await client.listContentTypes()).find((type) => type.key === 'banner')).toMatchObject({ sitePart: true });
+  const parts = within((await screen.findAllByRole('group', { name: 'Across the site' }))[0] as HTMLElement);
+  expect(await parts.findByRole('link', { name: 'Banner' })).toBeTruthy();
+
+  await user.click(screen.getByRole('link', { name: 'All content types' }));
+  const row = await screen.findByRole('row', { name: /^Banner/ });
+  expect(within(row).getByText('One page, across the site')).toBeTruthy();
+});

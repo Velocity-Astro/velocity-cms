@@ -116,13 +116,14 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
             isCurrent: openSettings === plugin.name,
           }))
       : [];
+  // The way to manage them comes first, and it is where the section opens for an owner.
   const pluginNav: AppShellNavItem[] = [
+    ...(role === 'owner' ? [{ id: 'plugins', label: messages.app.plugins, href: paths.plugins, icon: Puzzle, isCurrent: location.pathname === paths.plugins && openSettings === null }] : []),
     ...screens.map((screen) => {
       const href = paths.pluginScreen(screen.plugin, screen.id);
       return { id: `plugin:${screen.plugin}:${screen.id}`, label: screen.label, href, icon: Blocks, isCurrent: location.pathname === href };
     }),
     ...settingsNav,
-    ...(role === 'owner' ? [{ id: 'plugins', label: messages.app.plugins, href: paths.plugins, icon: Puzzle, isCurrent: location.pathname === paths.plugins && openSettings === null }] : []),
   ];
   const plugins: AppShellNavItem[] =
     pluginNav.length === 0
@@ -131,8 +132,8 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
           {
             id: 'plugins',
             label: messages.app.pluginsGroup,
-            // A plugin's screen first; a plugin's settings are not where the section opens.
-            href: screens.length > 0 ? (pluginNav[0]?.href ?? paths.plugins) : paths.plugins,
+            // An owner lands where plugins are managed; anyone else on the first screen a plugin added.
+            href: role === 'owner' ? paths.plugins : (pluginNav[0]?.href ?? paths.plugins),
             icon: Puzzle,
             isCurrent: location.pathname.startsWith('/plugins'),
             ...(pluginNav.length > 1 && { children: [{ id: 'plugins', items: pluginNav }] }),

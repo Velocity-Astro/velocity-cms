@@ -13,6 +13,9 @@ import {
   type FieldSection,
   type ListSummary,
   type LocalizedText,
+  isTemplateType,
+  placeOf,
+  type TypePlace,
 } from '../model.js';
 import type { Clock, IdGenerator, SchemaRepository } from '../ports.js';
 import type { Registry } from '../registry.js';
@@ -22,6 +25,12 @@ export interface NewContentType {
   readonly kind: ContentTypeKind;
   readonly label: LocalizedText;
   readonly urlPattern?: string;
+  /**
+   * Where the editor lists a type someone makes in the builder: with the content, "Across the
+   * site" or as a tab of Settings. Only a single page can be listed anywhere but with the
+   * content. A template says `sitePart` or `inSettings` instead.
+   */
+  readonly place?: TypePlace;
   /** Where entries live in the other languages, by locale: `{ es: '/es/propiedades/[slug]' }`. */
   readonly localizedUrlPatterns?: Readonly<Record<string, string>>;
   readonly fields?: readonly NewField[];
@@ -72,6 +81,11 @@ export interface ContentTypeChanges {
   readonly list?: ListSummary | null;
   /** Whether a deal can be about one of its entries. Deals already about one keep it either way. */
   readonly forDeals?: boolean;
+  /**
+   * Where the editor lists the type (`TypePlace`). Only a single page can be listed anywhere but
+   * with the content, and a type the template describes stays where the template says.
+   */
+  readonly place?: TypePlace;
 }
 
 /** Where a field is, when it is not one of the type's own. */
@@ -181,7 +195,22 @@ export class SchemaService {
   }
 
   async create(actor: Actor, input: NewContentType): Promise<ContentTypeDef> {
-    return this.make(actor, input, false);
+    const { place, ...rest } = input;
+    if (place !== undefined) this.requirePlace(input.key, input.kind, place);
+    return this.make(actor, { ...rest, ...(place === 'settings' && { inSettings: true }), ...(place === 'site' && { sitePart: true }) }, false);
+  }
+
+  /** A place a type can be listed in: anywhere for a single page, with the content for a collection. */
+  private requirePlace(key: string, kind: ContentTypeKind, place: TypePlace): void {
+    if (!['content', 'site', 'settings'].includes(place)) {
+      throw new ValidationError(`"${place}" is not a place a content type is listed in. Say content, site or settings.`, [{ path: ['place'], message: 'Say content, site or settings.' }]);
+    }
+    if (place !== 'content' && kind !== 'single') {
+      throw new ValidationError(
+        `"${key}" is a collection, and a collection is listed with the content. Only a single page can be listed across the site or in the settings.`,
+        [{ path: ['place'], message: 'Only a single page can be listed there.' }],
+      );
+    }
   }
 
   private async make(actor: Actor, input: NewContentType, byTemplate: boolean): Promise<ContentTypeDef> {
@@ -223,7 +252,17 @@ export class SchemaService {
   /** Changes what a content type is called, where its entries live and what lists show of them. Fields are changed one at a time. */
   async update(actor: Actor, typeId: string, change: ContentTypeChanges): Promise<ContentTypeDef> {
     this.access.require(actor, 'schema:write');
-    const { urlPattern, titlePath, list, forDeals, ...type } = await this.getLive(typeId);
+    const { urlPattern, titlePath, list, forDeals, inSettings, sitePart, siteNamePath, brandPaths, ...type } = await this.getLive(typeId);
+    const was = placeOf({ inSettings, sitePart });
+    const place = change.place ?? was;
+    if (place !== was) {
+      this.requirePlace(type.key, type.kind, place);
+      if (isTemplateType(type)) {
+        throw new ConflictError(
+          `"${type.key}" comes from the site's template, so where it is listed is said in the template's code (\`sitePart\` or \`inSettings\`) and applied on the next deploy. Types you make yourself can be listed anywhere.`,
+        );
+      }
+    }
     if (change.label !== undefined) requireLabel(change.label, 'content type');
     if (typeof change.urlPattern === 'string') requirePattern(change.urlPattern);
     for (const path of [change.titlePath, change.list?.imagePath, ...(change.list?.fieldPaths ?? [])]) {
@@ -239,6 +278,11 @@ export class SchemaService {
       ...(title && { titlePath: title }),
       ...(summary && (summary.imagePath !== undefined || (summary.fieldPaths?.length ?? 0) > 0) && { list: summary }),
       ...((change.forDeals ?? forDeals === true) && { forDeals: true as const }),
+      ...(place === 'settings' && { inSettings: true as const }),
+      ...(place === 'site' && { sitePart: true as const }),
+      // The site's name and look are read from a page of the settings, and from nowhere else.
+      ...(place === 'settings' && siteNamePath !== undefined && { siteNamePath }),
+      ...(place === 'settings' && brandPaths !== undefined && { brandPaths }),
     });
   }
 

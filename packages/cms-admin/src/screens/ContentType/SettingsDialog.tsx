@@ -1,5 +1,5 @@
-import { liveFields, type ContentTypeDef, type FieldDef } from '@velocity-astro/cms-core';
-import { Button, Checkbox, Dialog, Fieldset, Form, Select, TextField, toast } from '@velocity-astro/cms-ui';
+import { isTemplateType, liveFields, placeOf, type ContentTypeDef, type FieldDef, type TypePlace } from '@velocity-astro/cms-core';
+import { Button, Checkbox, Dialog, Fieldset, Form, Select, Text, TextField, toast } from '@velocity-astro/cms-ui';
 import { useState } from 'react';
 import { AdminRequestError } from '../../client/errors.js';
 import { useFieldTypes, useUpdateContentType } from '../../client/queries.js';
@@ -7,6 +7,7 @@ import { innerFields } from '../../fields/settings.js';
 import { localized } from '../../lib/content.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 import { useClosing } from '../../lib/use-closing.js';
+import { TypePlacePicker } from './TypePlacePicker.js';
 
 const AUTOMATIC = '';
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -26,6 +27,10 @@ export function SettingsDialog({ type, onClose }: { readonly type: ContentTypeDe
   const [image, setImage] = useState(type.list?.imagePath ? wordOf(type.list.imagePath) : AUTOMATIC);
   const [columns, setColumns] = useState<readonly string[]>((type.list?.fieldPaths ?? []).map(wordOf));
   const [forDeals, setForDeals] = useState(type.forDeals === true);
+  // Where a single page someone made is listed is theirs to say; a template's says it in its code.
+  const was = placeOf(type);
+  const [place, setPlace] = useState<TypePlace>(was);
+  const canMove = type.kind === 'single' && !isTemplateType(type);
   const [problems, setProblems] = useState<Readonly<Record<string, string>>>({});
 
   const own = liveFields([...type.fields]);
@@ -59,11 +64,12 @@ export function SettingsDialog({ type, onClose }: { readonly type: ContentTypeDe
           titlePath: title === AUTOMATIC ? null : title.split('/'),
           list: image === AUTOMATIC && columns.length === 0 ? null : { ...(image !== AUTOMATIC && { imagePath: image.split('/') }), ...(columns.length > 0 && { fieldPaths: columns.map((word) => word.split('/')) }) },
           forDeals,
+          ...(canMove && { place }),
         },
       },
       {
         onSuccess: () => {
-          toast({ title: messages.builder.settingsSaved, tone: 'success' });
+          toast({ title: messages.builder.settingsSaved, ...(place !== was && { description: messages.builder.typePlaceMoved[place] }), tone: 'success' });
           close();
         },
         onError: (error) => {
@@ -95,6 +101,14 @@ export function SettingsDialog({ type, onClose }: { readonly type: ContentTypeDe
     >
       <Form label={heading} gap={4} onSubmit={send}>
         <TextField label={messages.builder.typeName} value={name} onChange={setName} isRequired autoFocus autoComplete="off" {...(problems['label'] !== undefined && { errorMessage: problems['label'] })} />
+        {canMove && <TypePlacePicker place={place} onChange={setPlace} />}
+        {type.kind === 'single' && !canMove && (
+          <Fieldset legend={messages.builder.typePlace}>
+            <Text size="sm" tone="muted">
+              {messages.builder.typePlaceFromTemplate(messages.builder.typePlaces[was])}
+            </Text>
+          </Fieldset>
+        )}
         <TextField
           label={messages.builder.typeAddress}
           description={messages.builder.typeAddressHelp}
