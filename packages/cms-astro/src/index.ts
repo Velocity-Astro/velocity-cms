@@ -46,7 +46,7 @@ export {
   type PostLimit,
   type SubmissionNotice,
 } from './form-post.js';
-export { FORM_CHALLENGE_FIELD, SiteChallenge, TURNSTILE_HOST, TURNSTILE_SCRIPT, TURNSTILE_VERIFY, type ChallengeCheck, type SiteChallengeOptions } from './challenge.js';
+export { CHALLENGE_HOSTS, FORM_CHALLENGE_FIELD, FORM_RECAPTCHA_FIELD, RECAPTCHA_ACTION, RECAPTCHA_HOSTS, RECAPTCHA_PASSING_SCORE, RECAPTCHA_VERIFY, SiteChallenge, TURNSTILE_HOST, TURNSTILE_SCRIPT, TURNSTILE_VERIFY, recaptchaScript, type ChallengeCheck, type SiteChallengeOptions } from './challenge.js';
 export { FORM_SCRIPT, siteForm, siteFormPosts, type FormChoice, type SiteForm, type SiteFormOptions } from './site-forms.js';
 export { menuLinks, type MenuColumn, type MenuLink, type MenuOptions } from './menu.js';
 export { single } from './single.js';

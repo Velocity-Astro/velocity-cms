@@ -1,4 +1,4 @@
-import type { PublicForm } from '@velocity-astro/cms-core';
+import type { ChallengeProvider, PublicForm } from '@velocity-astro/cms-core';
 import { isLiveType } from '@velocity-astro/cms-core';
 import { sharedConnection, SITE } from './connection.js';
 import { FORM_ABOUT_FIELD, FORM_CHALLENGE_KEY_FIELD, FORM_LOCALE_FIELD, FORM_PAGE_FIELD, FORM_TOKEN_FIELD, FORM_TRAP_FIELD, FormPosts, MemoryRateLimiter, aboutMark, formToken } from './form-post.js';
@@ -7,7 +7,7 @@ import { currentSite, siteKey } from './hosted.js';
 import { LogMailer } from './editor.js';
 import { SiteMail } from './site-mail.js';
 import { siteNameNow } from './site-name.js';
-import { SiteChallenge, TURNSTILE_HOST, TURNSTILE_SCRIPT } from './challenge.js';
+import { RECAPTCHA_HOSTS, SiteChallenge, TURNSTILE_HOST, TURNSTILE_SCRIPT, recaptchaScript } from './challenge.js';
 import { siteSecret } from './secret.js';
 import { editorOrigin, type SiteEditorSettings } from './site-editor.js';
 
@@ -72,9 +72,17 @@ export interface SiteForm extends PublicForm {
   /**
    * The challenge a sender must pass, when an owner set one up. The form's script (`FORM_SCRIPT`)
    * draws it where the form has a `[data-cms-form-challenge]`, or above the submit button. A
-   * site with a content security policy allows `host` for scripts and frames.
+   * site with a content security policy allows `hosts` for scripts and frames (`CHALLENGE_HOSTS`
+   * lists those of every service, for a policy written once). `host` is the first of them.
    */
-  readonly challenge?: { readonly provider: 'turnstile'; readonly siteKey: string; readonly script: string; readonly host: string };
+  readonly challenge?: { readonly provider: ChallengeProvider; readonly siteKey: string; readonly script: string; readonly host: string; readonly hosts: readonly string[] };
+}
+
+/** What a page needs to know of a challenge: where its script is and which hosts it loads from. */
+function challengeFor(provider: ChallengeProvider, siteKey: string): NonNullable<SiteForm['challenge']> {
+  return provider === 'recaptcha'
+    ? { provider, siteKey, script: recaptchaScript(siteKey), host: RECAPTCHA_HOSTS[0], hosts: RECAPTCHA_HOSTS }
+    : { provider, siteKey, script: TURNSTILE_SCRIPT, host: TURNSTILE_HOST, hosts: [TURNSTILE_HOST] };
 }
 
 /** The address of the script that sends a form without leaving its page (`data-cms-form`). */
@@ -104,7 +112,7 @@ export async function siteForm(page: DrawnPage, choice: FormChoice, options: Sit
     if (!form) return null;
     const token = await formToken(siteSecret(), form.key);
     const locale = page.currentLocale;
-    const siteKey = await cms.settings.challengeSiteKey();
+    const challenge = await cms.settings.challengeForPage();
     let about: string | undefined;
     if (options.about) {
       // An entry that is not there, or not published, leaves the form as one about nothing.
@@ -120,10 +128,10 @@ export async function siteForm(page: DrawnPage, choice: FormChoice, options: Sit
         ...(locale !== undefined && { [FORM_LOCALE_FIELD]: locale }),
         ...(token !== undefined && { [FORM_TOKEN_FIELD]: token }),
         ...(about !== undefined && { [FORM_ABOUT_FIELD]: about }),
-        ...(siteKey !== null && { [FORM_CHALLENGE_KEY_FIELD]: siteKey }),
+        ...(challenge !== null && { [FORM_CHALLENGE_KEY_FIELD]: challenge.provider === 'recaptcha' ? `recaptcha:${challenge.siteKey}` : challenge.siteKey }),
       },
       trap: FORM_TRAP_FIELD,
-      ...(siteKey !== null && { challenge: { provider: 'turnstile' as const, siteKey, script: TURNSTILE_SCRIPT, host: TURNSTILE_HOST } }),
+      ...(challenge !== null && { challenge: challengeFor(challenge.provider, challenge.siteKey) }),
     };
   } catch (error) {
     console.error('[velocity-cms] A form could not be read.', error instanceof Error ? error.message : error);

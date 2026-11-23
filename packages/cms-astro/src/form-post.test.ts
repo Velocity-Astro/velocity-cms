@@ -216,6 +216,16 @@ describe('what keeps a form from being abused', () => {
     expect(JSON.stringify(await kept())).not.toContain('a-person');
   });
 
+  it("hands the challenge reCAPTCHA's answer, which the form's script posts under its own name", async () => {
+    const answered: unknown[] = [];
+    const taker = posts({ challenge: { passed: async (answer) => (answered.push(answer), answer === 'a-person') } });
+    const passed = await taker.handle(plain(await filled(taker, answers, { 'g-recaptcha-response': 'a-person' })), 'contact');
+    expect(passed.status).toBe(200);
+    expect(answered).toEqual(['a-person']);
+    expect((await kept()).map((submission) => submission.status)).toEqual(['new']);
+    expect(JSON.stringify(await kept())).not.toContain('a-person');
+  });
+
   it('does not ask the challenge about a post that is already suspected', async () => {
     let asked = 0;
     const taker = posts({ challenge: { passed: async () => ((asked += 1), true) } });

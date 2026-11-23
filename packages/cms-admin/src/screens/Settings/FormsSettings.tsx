@@ -1,5 +1,5 @@
-import { MAX_FORM_POSTS_PER_ADDRESS, type FormsSettings } from '@velocity-astro/cms-core';
-import { Box, Button, Card, ConfirmDialog, Form, Inline, NumberField, Stack, Tag, Text, TextField, toast } from '@velocity-astro/cms-ui';
+import { CHALLENGE_PROVIDERS, MAX_FORM_POSTS_PER_ADDRESS, type ChallengeProvider, type FormsSettings } from '@velocity-astro/cms-core';
+import { Button, Card, ConfirmDialog, Form, Inline, NumberField, Segmented, Stack, Tag, Text, TextField, toast } from '@velocity-astro/cms-ui';
 import { ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
@@ -18,12 +18,12 @@ export function FormsSettingsPanel() {
   if (settings.isPending) return <LoadingState shape="form" />;
   if (settings.isError) return <ErrorState error={settings.error} onRetry={() => void settings.refetch()} />;
   return (
-    <Box maxWidth="lg">
+    <>
       <Stack gap={6}>
         <ChallengeCard settings={settings.data} />
         <LimitCard settings={settings.data} />
       </Stack>
-    </Box>
+    </>
   );
 }
 
@@ -32,27 +32,31 @@ function ChallengeCard({ settings }: { readonly settings: FormsSettings }) {
   const words = messages.settings.forms;
   const save = useSaveFormsSettings();
   const test = useTestFormsSettings();
+  const [provider, setProvider] = useState<ChallengeProvider>(settings.provider);
   const [siteKey, setSiteKey] = useState(settings.siteKey);
   const [secret, setSecret] = useState('');
   const [replacing, setReplacing] = useState(false);
   const [stopping, setStopping] = useState(false);
   const [problems, setProblems] = useState(NO_PROBLEMS);
 
-  const typesSecret = !settings.hasSecret || replacing;
-  const changed = siteKey.trim() !== settings.siteKey || (typesSecret && secret.trim() !== '');
+  // A secret key saved for one service is of no use to another: a new service asks for its own.
+  const isSwitching = provider !== settings.provider;
+  const typesSecret = !settings.hasSecret || replacing || isSwitching;
+  const changed = isSwitching || siteKey.trim() !== settings.siteKey || (typesSecret && secret.trim() !== '');
   const problemOf = (field: string) => (problems[field] !== undefined ? { errorMessage: problems[field] } : {});
 
   const send = () => {
     setProblems(NO_PROBLEMS);
     save.mutate(
-      { siteKey, ...(typesSecret && secret.trim() !== '' && { secretKey: secret }), postsPerAddress: settings.postsPerAddress, expectedRevision: settings.revision },
+      { provider, siteKey, ...(typesSecret && secret.trim() !== '' && { secretKey: secret }), postsPerAddress: settings.postsPerAddress, expectedRevision: settings.revision },
       {
         onSuccess: (saved) => {
           // What was typed is not kept on the screen once it is saved.
           setSecret('');
           setReplacing(false);
           setSiteKey(saved.siteKey);
-          toast({ title: words.saved, ...(saved.checking && { description: words.savedDescription }), tone: 'success' });
+          setProvider(saved.provider);
+          toast({ title: words.saved, ...(saved.checking && { description: words.savedDescription[saved.provider] }), tone: 'success' });
         },
         onError: (error) => {
           setProblems(problemsOf(error));
@@ -64,7 +68,7 @@ function ChallengeCard({ settings }: { readonly settings: FormsSettings }) {
 
   const check = () =>
     test.mutate(undefined, {
-      onSuccess: () => toast({ title: words.testWorked, description: words.testWorkedDescription, tone: 'success' }),
+      onSuccess: () => toast({ title: words.testWorked[settings.provider], description: words.testWorkedDescription, tone: 'success' }),
       onError: (error) => toast({ title: words.testFailed, description: messageOf(error), tone: 'danger' }),
     });
 
@@ -74,6 +78,7 @@ function ChallengeCard({ settings }: { readonly settings: FormsSettings }) {
       {
         onSuccess: () => {
           setSiteKey('');
+          setProvider(settings.provider);
           setSecret('');
           setReplacing(false);
           toast({ title: words.stopped, description: words.stoppedDescription, tone: 'success' });
@@ -86,12 +91,21 @@ function ChallengeCard({ settings }: { readonly settings: FormsSettings }) {
   return (
     <Card title={words.title} description={words.description} actions={<Tag tone={settings.checking ? 'success' : 'neutral'}>{settings.checking ? words.states.checking : words.states.off}</Tag>}>
       <Form onSubmit={send}>
-        <Text tone="secondary">{settings.checking ? words.help.checking : words.help.off}</Text>
+        <Segmented
+          label={words.provider}
+          isLabelShown
+          options={CHALLENGE_PROVIDERS.map((id) => ({ id, label: words.providers[id] }))}
+          selected={provider}
+          onChange={(id) => setProvider(CHALLENGE_PROVIDERS.find((one) => one === id) ?? provider)}
+          description={words.providerHelp}
+          {...problemOf('provider')}
+        />
+        <Text tone="secondary">{settings.checking && !isSwitching ? words.help.checking[provider] : words.help.off[provider]}</Text>
         <TextField label={words.siteKey} autoComplete="off" value={siteKey} onChange={setSiteKey} description={words.siteKeyHelp} {...problemOf('siteKey')} />
         {typesSecret ? (
           <Stack gap={2}>
             <TextField label={words.secret} type="password" autoComplete="off" value={secret} onChange={setSecret} description={words.secretHelp} {...problemOf('secretKey')} />
-            {settings.hasSecret && (
+            {settings.hasSecret && !isSwitching && (
               <Inline gap={3}>
                 <Button
                   variant="ghost"
@@ -132,7 +146,7 @@ function ChallengeCard({ settings }: { readonly settings: FormsSettings }) {
             )}
           </Inline>
           <Text size="sm" tone="muted">
-            {settings.checking && changed ? words.testAfterSave : words.testHelp}
+            {settings.checking && changed ? words.testAfterSave : words.testHelp[provider]}
           </Text>
         </Stack>
       </Form>

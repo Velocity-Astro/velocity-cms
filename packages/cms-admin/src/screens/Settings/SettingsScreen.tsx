@@ -1,4 +1,4 @@
-import { Box, EmptyState, PageHeader, Stack, Tabs } from '@velocity-astro/cms-ui';
+import { EmptyState, PageBody, PageHeader, Stack, Tabs } from '@velocity-astro/cms-ui';
 import { Lock } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useParams } from 'react-router';
@@ -31,7 +31,7 @@ export function SettingsScreen() {
   const types = useContentTypes();
   const session = useSession();
 
-  if (types.isPending) return <LoadingState shape="form" />;
+  if (types.isPending) return <LoadingState shape="form" width="narrow" />;
   if (types.isError) return <ErrorState error={types.error} onRetry={() => void types.refetch()} />;
 
   const pages = types.data.filter((type) => type.inSettings === true);
@@ -49,7 +49,7 @@ export function SettingsScreen() {
   const selected = tabs.find((tab) => tab.id === asked) ?? tabs[0];
 
   return (
-    <Box paddingX={12} paddingY={10}>
+    <PageBody width="narrow">
       <Stack gap={6}>
         <PageHeader title={messages.settings.title} description={messages.settings.description} />
         {selected === undefined && <EmptyState icon={Lock} title={messages.settings.ownersTitle} description={messages.settings.ownersDescription} />}
@@ -65,6 +65,6 @@ export function SettingsScreen() {
           />
         )}
       </Stack>
-    </Box>
+    </PageBody>
   );
 }

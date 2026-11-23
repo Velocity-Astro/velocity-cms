@@ -1,8 +1,8 @@
 import type { ContentTypeDef, Entry, EntryData, FieldDef } from '@velocity-astro/cms-core';
 import { HOME_SLUG, SLUG_PATH, hasOwnPages, isSlug, isSlugPath, liveFields, takesSlugPath } from '@velocity-astro/cms-core';
-import { Box, Button, Card, ConfirmDialog, Form, IconButton, Menu, SaveBar, Split, Stack, Tag, TextField, Workbench, toast } from '@velocity-astro/cms-ui';
+import { Box, Button, Card, ConfirmDialog, Form, IconButton, Menu, PageBody, SaveBar, Split, Stack, Tag, TextField, Workbench, toast } from '@velocity-astro/cms-ui';
 import { CalendarClock, Copy, Ellipsis, ExternalLink, Eye, EyeOff, History, Languages, Palette, PanelRightClose, PanelRightOpen, Redo2, Save, Trash2, Undo2 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { paths } from '../../app/paths.js';
 import { AdminRequestError } from '../../client/errors.js';
@@ -414,6 +414,8 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
     ));
   // Deals are as personal as contacts: the card is for those who may read them, on a saved entry.
   const showsDeals = type.forDeals === true && entry !== null && session.data !== null && session.data !== undefined && session.data.role !== 'author';
+  // Nothing to show beside the content: the content is read and filled in from top to bottom.
+  const isAlone = isSingle && panels.length === 0 && !showsDeals && !sections.some((section) => section.aside);
   // Right under the address, where it is seen without scrolling past the fields beside the content.
   const dealsCard = showsDeals ? <EntryDeals type={type} entry={entry} /> : null;
   const savedNote =
@@ -538,7 +540,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
           actions={actions}
         />
       )}
-      <Box paddingX={embedded ? 0 : 12} paddingY={8} grow>
+      <EntryArea showsPage={showsPage} embedded={embedded} isAlone={isAlone}>
         <Form label={messages.editor.form} gap={5} onSubmit={() => void run('save')}>
           {showsPage ? (
             // The page is beside the form, so everything else is in the form's one column.
@@ -645,7 +647,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
                 {panels}
               </Workbench>
             </PageFocusProvider>
-          ) : isSingle && panels.length === 0 && !showsDeals && !sections.some((section) => section.aside) ? (
+          ) : isAlone ? (
 
             // Nothing to show beside the content, so the content has the page.
             <Stack gap={6}>{sections.map(card)}</Stack>
@@ -683,7 +685,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
             </Split>
           )}
         </Form>
-      </Box>
+      </EntryArea>
       {isScheduling && entry !== null && <ScheduleDialog entry={entry} hasChanges={hasChanges} onClose={() => setScheduling(false)} />}
       {isShowingHistory && entry !== null && (
         <HistoryDialog
@@ -740,5 +742,33 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
         </ConfirmDialog>
       )}
     </Stack>
+  );
+}
+
+interface EntryAreaProps {
+  readonly showsPage: boolean;
+  readonly embedded: boolean;
+  readonly isAlone: boolean;
+  readonly children: ReactNode;
+}
+
+/**
+ * Where the form is drawn. Beside its page it has the whole width, which the page and the form
+ * share; otherwise it is a screen's area like any other: narrow when nothing stands beside the
+ * content, wide when a side column does. Inside another screen (a page of the settings) it takes
+ * that screen's width.
+ */
+function EntryArea({ showsPage, embedded, isAlone, children }: EntryAreaProps) {
+  if (showsPage) {
+    return (
+      <Box paddingX={embedded ? 0 : 12} paddingY={8} grow>
+        {children}
+      </Box>
+    );
+  }
+  return (
+    <PageBody width={isAlone ? 'narrow' : 'wide'} isInset={embedded}>
+      {children}
+    </PageBody>
   );
 }

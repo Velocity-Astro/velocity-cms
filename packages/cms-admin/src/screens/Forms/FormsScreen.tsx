@@ -1,5 +1,5 @@
 import { liveFields, type FormDef } from '@velocity-astro/cms-core';
-import { Box, Button, ConfirmDialog, Dialog, EmptyState, Form, Heading, Inline, PageHeader, Stack, Table, Tag, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
+import { Button, ConfirmDialog, Dialog, EmptyState, Form, Heading, Inline, PageBody, PageHeader, Stack, Table, Tag, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
 import { Inbox, Plus, UserX } from 'lucide-react';
 import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
@@ -104,7 +104,7 @@ export function FormsScreen() {
   );
 
   return (
-    <Box paddingX={12} paddingY={10}>
+    <PageBody>
       <Stack gap={6}>
         <PageHeader
           title={messages.forms.title}
@@ -155,7 +155,7 @@ export function FormsScreen() {
       >
         {messages.forms.deleteDescription}
       </ConfirmDialog>
-    </Box>
+    </PageBody>
   );
 }
 

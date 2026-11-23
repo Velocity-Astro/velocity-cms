@@ -1,5 +1,5 @@
 import type { GeneralSettings } from '@velocity-astro/cms-core';
-import { Box, Button, Card, Form, Inline, Tag, Text, TextField, toast } from '@velocity-astro/cms-ui';
+import { Button, Card, Form, Inline, Tag, Text, TextField, toast } from '@velocity-astro/cms-ui';
 import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { AdminRequestError } from '../../client/errors.js';
@@ -14,9 +14,7 @@ export function GeneralSettingsPanel() {
   if (settings.isPending) return <LoadingState shape="form" />;
   if (settings.isError) return <ErrorState error={settings.error} onRetry={() => void settings.refetch()} />;
   return (
-    <Box maxWidth="lg">
-      <NameCard settings={settings.data} />
-    </Box>
+    <NameCard settings={settings.data} />
   );
 }
 

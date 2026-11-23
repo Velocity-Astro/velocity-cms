@@ -196,6 +196,7 @@ const storageSettingsChanges = z.strictObject({
   expectedRevision: z.number().int().min(0),
 });
 const formsSettingsChanges = z.strictObject({
+  provider: z.enum(['turnstile', 'recaptcha']).optional(),
   siteKey: z.string().max(1000),
   secretKey: z.string().max(2000).nullable().optional(),
   postsPerAddress: z.number(),

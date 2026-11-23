@@ -1,5 +1,5 @@
 import { ROLES, type Role } from '@velocity-astro/cms-core';
-import { Box, Button, ConfirmDialog, Dialog, Form, IconButton, Inline, PageHeader, Select, Stack, Table, Tag, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
+import { Button, ConfirmDialog, Dialog, Form, IconButton, Inline, PageBody, PageHeader, Select, Stack, Table, Tag, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
 import { Pencil, Trash2, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
@@ -76,7 +76,7 @@ export function PeopleScreen() {
   }));
 
   return (
-    <Box paddingX={12} paddingY={10}>
+    <PageBody>
       <Stack gap={6}>
         <PageHeader
           title={messages.people.title}
@@ -120,7 +120,7 @@ export function PeopleScreen() {
       >
         {messages.people.removeDescription}
       </ConfirmDialog>
-    </Box>
+    </PageBody>
   );
 }
 

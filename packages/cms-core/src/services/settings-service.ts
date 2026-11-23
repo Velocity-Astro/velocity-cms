@@ -2,7 +2,7 @@ import type { AccessControl, Actor } from '../access.js';
 import { ConflictError, ValidationError, type ValidationIssue } from '../errors.js';
 import type { EventBus } from '../events.js';
 import type { ContentTypeDef, EntryData } from '../model.js';
-import type { BucketAccount, ChallengeAccount, EmailProvider, EmailSettings, FormsSettings, GeneralSettings, MailAccount, SettingFixedBy, StorageSettings } from '../model.js';
+import type { BucketAccount, ChallengeAccount, ChallengeProvider, EmailProvider, EmailSettings, FormsSettings, GeneralSettings, MailAccount, SettingFixedBy, StorageSettings } from '../model.js';
 import type { ChallengeRoom, MailRoom, SettingsStore, StorageRoom } from '../ports.js';
 import type { SecretSeal, Sealed } from '../seal.js';
 
@@ -84,6 +84,8 @@ export interface SiteNaming {
 
 /** How the site's forms are guarded, as the editor sends it. */
 export interface FormsSettingsChanges {
+  /** The service the keys are for. Left out, it stays as it is. */
+  readonly provider?: ChallengeProvider;
   /** The challenge's site key. Empty, with no secret key saved, for no challenge. */
   readonly siteKey: string;
   /** The challenge's secret key. Left out, the one that is saved stays; `null` takes it away. */
@@ -98,6 +100,9 @@ export interface FormsSettingsChanges {
 export const DEFAULT_FORM_POSTS_PER_ADDRESS = 8;
 export const MAX_FORM_POSTS_PER_ADDRESS = 100;
 export const MAX_CHALLENGE_KEY_LENGTH = 200;
+/** The services a site's forms can ask, in the order the editor offers them. */
+export const CHALLENGE_PROVIDERS: readonly ChallengeProvider[] = ['turnstile', 'recaptcha'];
+const SERVICE_NAME: Readonly<Record<ChallengeProvider, string>> = { turnstile: 'Cloudflare', recaptcha: 'Google' };
 
 const FORMS = 'forms';
 /** A challenge's key as the service shows it: letters, digits and a few marks, nothing that could end an attribute or a line. */
@@ -105,6 +110,8 @@ const CHALLENGE_KEY = /^[A-Za-z0-9._-]{8,200}$/;
 
 /** The forms part as it is stored. The secret key is sealed. */
 interface StoredForms {
+  /** Left out by sites that saved their keys before there was a choice: those are Turnstile's. */
+  readonly provider?: ChallengeProvider;
   readonly siteKey: string;
   readonly postsPerAddress: number;
   readonly secret?: Sealed;
@@ -112,6 +119,9 @@ interface StoredForms {
 
 const isStoredForms = (value: unknown): value is StoredForms =>
   typeof value === 'object' && value !== null && typeof (value as { siteKey?: unknown }).siteKey === 'string' && Number.isInteger((value as { postsPerAddress?: unknown }).postsPerAddress);
+
+/** The service stored keys are for: Turnstile's when the keys were saved before there was a choice. */
+const providerOf = (forms: StoredForms | null): ChallengeProvider => (forms?.provider !== undefined && CHALLENGE_PROVIDERS.includes(forms.provider) ? forms.provider : 'turnstile');
 
 const GENERAL = 'general';
 const isStoredGeneral = (value: unknown): value is { readonly siteName: string } =>
@@ -335,13 +345,22 @@ export class SettingsService {
     if (revision !== changes.expectedRevision) throw new ConflictError('The forms settings were changed by someone else. Reload them and try again.');
 
     const issues: ValidationIssue[] = [];
+    const was = providerOf(current);
+    const provider = changes.provider ?? was;
+    if (!CHALLENGE_PROVIDERS.includes(provider)) issues.push({ path: ['provider'], message: 'Choose one of the spam checks listed.' });
+    const service = SERVICE_NAME[provider] ?? 'the service';
     const siteKey = changes.siteKey.trim();
-    if (siteKey !== '' && !CHALLENGE_KEY.test(siteKey)) issues.push({ path: ['siteKey'], message: 'This does not look like a site key. Paste it as Cloudflare shows it.' });
+    if (siteKey !== '' && !CHALLENGE_KEY.test(siteKey)) issues.push({ path: ['siteKey'], message: `This does not look like a site key. Paste it as ${service} shows it.` });
     const typedSecret = typeof changes.secretKey === 'string' ? changes.secretKey.trim() : undefined;
     if (typedSecret !== undefined && !CHALLENGE_KEY.test(typedSecret)) {
-      issues.push({ path: ['secretKey'], message: typedSecret === '' ? 'Paste the secret key.' : 'This does not look like a secret key. Paste it as Cloudflare shows it.' });
+      issues.push({ path: ['secretKey'], message: typedSecret === '' ? 'Paste the secret key.' : `This does not look like a secret key. Paste it as ${service} shows it.` });
     }
-    const secretStays = changes.secretKey === null ? false : typedSecret !== undefined || current?.secret !== undefined;
+    // A secret key saved for one service means nothing to another: a new service needs its own.
+    const keptSecret = provider === was ? current?.secret : undefined;
+    if (provider !== was && current?.secret !== undefined && changes.secretKey === undefined && siteKey !== '') {
+      issues.push({ path: ['secretKey'], message: `Paste the secret key ${service} gave you. The one saved is for ${SERVICE_NAME[was]}.` });
+    }
+    const secretStays = changes.secretKey === null ? false : typedSecret !== undefined || keptSecret !== undefined;
     // A secret key with no site key would mark every post as spam: no page could draw the challenge.
     if (siteKey === '' && secretStays) issues.push({ path: ['siteKey'], message: 'Paste the site key too. Forms cannot show the check without it.' });
     const { postsPerAddress } = changes;
@@ -350,8 +369,8 @@ export class SettingsService {
     }
     if (issues.length > 0) throw new ValidationError(issues.length === 1 ? 'One thing about the forms settings needs another look.' : `${issues.length} things about the forms settings need another look.`, issues);
 
-    const secret = changes.secretKey === null ? undefined : typedSecret !== undefined ? await this.seal.seal(typedSecret) : current?.secret;
-    const next: StoredForms = { siteKey, postsPerAddress, ...(secret !== undefined && { secret }) };
+    const secret = changes.secretKey === null ? undefined : typedSecret !== undefined ? await this.seal.seal(typedSecret) : keptSecret;
+    const next: StoredForms = { provider, siteKey, postsPerAddress, ...(secret !== undefined && { secret }) };
     await this.store.save(FORMS, next, revision + 1, kept === null ? null : revision);
     await this.events.emit('settings.saved', { area: 'forms', actor });
     return this.#shownForms();
@@ -375,7 +394,7 @@ export class SettingsService {
     const kept = await this.store.get(FORMS);
     if (kept === null || !isStoredForms(kept.value) || kept.value.siteKey === '') return null;
     const secretKey = await this.seal.open(kept.value.secret);
-    return secretKey === undefined ? null : { provider: 'turnstile', siteKey: kept.value.siteKey, secretKey };
+    return secretKey === undefined ? null : { provider: providerOf(kept.value), siteKey: kept.value.siteKey, secretKey };
   }
 
   /**
@@ -384,6 +403,15 @@ export class SettingsService {
    */
   async challengeSiteKey(): Promise<string | null> {
     return (await this.challengeAccount())?.siteKey ?? null;
+  }
+
+  /**
+   * The service and the site key a page shows the challenge with, or `null` when forms ask for
+   * none. No permission is asked, and the secret key is not part of it.
+   */
+  async challengeForPage(): Promise<{ readonly provider: ChallengeProvider; readonly siteKey: string } | null> {
+    const account = await this.challengeAccount();
+    return account === null ? null : { provider: account.provider, siteKey: account.siteKey };
   }
 
   /** How many posts the forms take from one address in ten minutes. No permission is asked. */
@@ -397,7 +425,7 @@ export class SettingsService {
     const current = kept !== null && isStoredForms(kept.value) ? kept.value : null;
     const hasSecret = current?.secret !== undefined && (await this.seal.open(current.secret)) !== undefined;
     return {
-      provider: 'turnstile',
+      provider: providerOf(current),
       siteKey: current?.siteKey ?? '',
       hasSecret,
       checking: hasSecret && current.siteKey !== '',

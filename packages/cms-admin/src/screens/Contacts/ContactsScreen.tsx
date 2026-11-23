@@ -1,5 +1,5 @@
 import type { Contact } from '@velocity-astro/cms-core';
-import { Box, Button, Dialog, EmptyState, Form, Inline, PageHeader, SearchField, Segmented, Select, Stack, Table, Tag, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
+import { Button, Dialog, EmptyState, Form, Inline, PageBody, PageHeader, SearchField, Segmented, Select, Stack, Table, Tag, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
 import { Columns3, Contact as ContactIcon, FileUp, List, ListFilter, ListPlus, Plus, SearchX, Settings2 } from 'lucide-react';
 import { useDeferredValue, useState } from 'react';
 import { useSearchParams } from 'react-router';
@@ -110,7 +110,7 @@ function ContactList() {
   const isEmpty = contacts.isSuccess && rows.length === 0;
 
   return (
-    <Box paddingX={12} paddingY={10}>
+    <PageBody>
       <Stack gap={6}>
         <PageHeader
           title={messages.contacts.title}
@@ -194,7 +194,7 @@ function ContactList() {
       {isEditingStages && pipeline.data && <StagesDialog pipeline={pipeline.data} team={team.data ?? []} onClose={() => setEditingStages(false)} />}
       {/* Made anew each time it opens, so it never shows what was typed last time. */}
       {isCreating && <NewContactDialog onClose={() => setCreating(false)} />}
-    </Box>
+    </PageBody>
   );
 }
 

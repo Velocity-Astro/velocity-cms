@@ -1,5 +1,6 @@
-export const welcomeClass = 'border-b border-border bg-background bg-grid';
-export const welcomeInnerClass = 'mx-auto flex max-w-7xl flex-wrap items-center gap-10 px-4 py-8 sm:px-6 md:px-12 md:py-12';
+/** The band runs from edge to edge; what is in it has the gutter and the wide width of `PageBody`, so its edges line up with the screen's content below. */
+export const welcomeClass = 'border-b border-border bg-background bg-grid px-4 py-8 md:px-12 md:py-12';
+export const welcomeInnerClass = 'mx-auto flex w-full max-w-7xl flex-wrap items-center gap-10';
 export const welcomeTextClass = 'flex min-w-0 flex-1 basis-96 flex-col gap-4';
 export const welcomeEyebrowClass = 'text-xs font-semibold tracking-widest text-foreground-subtle uppercase';
 export const welcomeTitleClass = 'max-w-2xl font-display text-4xl font-bold tracking-tight text-foreground md:text-5xl';

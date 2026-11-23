@@ -1,5 +1,5 @@
 import type { Deal, Pipeline } from '@velocity-astro/cms-core';
-import { Board, Box, EmptyState, Grid, Link, Meter, PageHeader, Stack, Stat, toast, type BoardColumn } from '@velocity-astro/cms-ui';
+import { Board, Box, EmptyState, Grid, Link, Meter, PageBody, PageHeader, Stack, Stat, toast, type BoardColumn } from '@velocity-astro/cms-ui';
 import { HandCoins, ListPlus } from 'lucide-react';
 import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
@@ -25,7 +25,7 @@ export function DealsScreen() {
   // Deals are as personal as contacts: an author who finds the address is told so, and nothing is asked for.
   if (!mayRead) return <EmptyState icon={HandCoins} title={messages.deals.title} description={messages.deals.noAccess} />;
   return (
-    <Box paddingX={12} paddingY={10}>
+    <PageBody>
       <Stack gap={6}>
         <PageHeader
           title={messages.deals.title}
@@ -37,7 +37,7 @@ export function DealsScreen() {
         {pipeline.isSuccess && <DealBoard pipeline={pipeline.data} />}
       </Stack>
       {isEditingFields && <CustomFieldsDialog of="deal" onClose={() => setEditingFields(false)} />}
-    </Box>
+    </PageBody>
   );
 }
 

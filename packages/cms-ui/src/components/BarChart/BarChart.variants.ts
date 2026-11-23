@@ -10,9 +10,9 @@ export const barChartClass = 'flex w-full flex-col gap-3';
 /* --- Columns: one per day, or per short label ------------------------------ */
 export const barChartColumnsClass = 'flex h-40 w-full items-end gap-1.5';
 export const barChartColumnClass = 'flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5';
-/** A day with nothing still shows where its bar would stand, on the line along the foot. */
-export const barChartColumnTrackClass = 'flex w-full flex-1 items-end border-b border-border';
-export const barChartColumnBarVariants = cva('w-full rounded-t-sm transition-all motion-slide', {
+/** A day with nothing still shows where its bar would stand, on the line along the foot. A bar is never wider than a finger, however wide the chart. */
+export const barChartColumnTrackClass = 'flex w-full flex-1 items-end justify-center border-b border-border';
+export const barChartColumnBarVariants = cva('w-full max-w-10 rounded-t-sm transition-all motion-slide', {
   variants: {
     step: {
       0: 'h-0',

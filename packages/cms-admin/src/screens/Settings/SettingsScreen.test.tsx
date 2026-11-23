@@ -218,6 +218,30 @@ it('sets up the spam check under Forms and spam, checks the keys, and never show
   expect(await client.getFormsSettings()).toMatchObject({ siteKey: '', hasSecret: false, checking: false });
 });
 
+it('switches the spam check to Google reCAPTCHA, which asks for its own secret key', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/settings', site());
+  await client.saveFormsSettings({ siteKey: '0x4AAAAAAAsitekey', secretKey: '0x4AAAAAAAsecretkey', postsPerAddress: 8, expectedRevision: 0 });
+  await user.click(await screen.findByRole('tab', { name: 'Forms and spam' }));
+  const check = within(await screen.findByRole('region', { name: 'Spam check' }));
+  expect(check.queryByLabelText(/^Secret key/)).toBeNull();
+
+  await user.click(check.getByRole('radio', { name: 'Google reCAPTCHA v3' }));
+  expect(check.getByText(/reCAPTCHA admin console/)).toBeTruthy();
+  const siteKey = check.getByRole('textbox', { name: /^Site key/ });
+  await user.clear(siteKey);
+  await user.type(siteKey, '6LcAAAAAAAAAAAAAsitekey');
+  await user.click(check.getByRole('button', { name: 'Save spam check' }));
+  expect(await check.findByText(/The one saved is for Cloudflare/)).toBeTruthy();
+
+  await user.type(check.getByLabelText(/^Secret key/), '6LcAAAAAAAAAAAAAsecretkey');
+  await user.click(check.getByRole('button', { name: 'Save spam check' }));
+  expect(await check.findByText('Checking senders')).toBeTruthy();
+  expect(await client.getFormsSettings()).toMatchObject({ provider: 'recaptcha', siteKey: '6LcAAAAAAAAAAAAAsitekey', checking: true });
+  await user.click(check.getByRole('button', { name: 'Check the keys' }));
+  expect(await screen.findByText('Google knows the secret key')).toBeTruthy();
+});
+
 it('changes how much one address may send without touching the keys', async () => {
   const user = userEvent.setup();
   const { client } = renderApp('/settings', site());

@@ -1,5 +1,5 @@
 import { liveFields, type ContentTypeKind } from '@velocity-astro/cms-core';
-import { Box, Button, Dialog, EmptyState, Form, Heading, PageHeader, Segmented, Stack, Table, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
+import { Button, Dialog, EmptyState, Form, Heading, PageBody, PageHeader, Segmented, Stack, Table, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
 import { Plus, Shapes } from 'lucide-react';
 import { useState } from 'react';
 import { useGo } from '../../app/use-go.js';
@@ -97,7 +97,7 @@ export function ContentTypesScreen() {
   );
 
   return (
-    <Box paddingX={12} paddingY={10}>
+    <PageBody>
       <Stack gap={6}>
         <PageHeader title={messages.builder.title} description={messages.builder.description} actions={create} />
         {types.isPending && <LoadingState shape="table" />}
@@ -123,7 +123,7 @@ export function ContentTypesScreen() {
       </Stack>
       {/* Made anew each time it opens, so it never shows what was typed last time. */}
       {isCreating && <NewTypeDialog onClose={() => setCreating(false)} />}
-    </Box>
+    </PageBody>
   );
 }
 

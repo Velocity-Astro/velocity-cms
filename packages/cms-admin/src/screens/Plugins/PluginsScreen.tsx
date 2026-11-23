@@ -1,5 +1,5 @@
 import type { PluginInfo } from '@velocity-astro/cms-core';
-import { Box, Button, Card, EmptyState, Grid, PageHeader, Stack, Switch, Tag, Text, toast } from '@velocity-astro/cms-ui';
+import { Button, Card, EmptyState, Grid, PageBody, PageHeader, Stack, Switch, Tag, Text, toast } from '@velocity-astro/cms-ui';
 import { ArrowRight, History, Puzzle, Settings2 } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
@@ -119,7 +119,7 @@ export function PluginsScreen() {
   });
 
   return (
-    <Box paddingX={12} paddingY={10}>
+    <PageBody>
       <Stack gap={6}>
         <PageHeader title={messages.plugins.title} description={messages.plugins.description} />
         {plugins.isPending && <LoadingState shape="summary" />}
@@ -134,6 +134,6 @@ export function PluginsScreen() {
       {/* Made anew each time it opens, so it never shows another plugin's settings. */}
       {settingUp && <PluginSettingsDialog key={settingUp.name} plugin={settingUp} onClose={() => setSettingUp(null)} />}
       {watching && <PluginActivityDialog key={watching.name} plugin={watching} onClose={() => setWatching(null)} />}
-    </Box>
+    </PageBody>
   );
 }

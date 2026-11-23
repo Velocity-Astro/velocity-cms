@@ -293,6 +293,15 @@
       "uses": ["Button", "Dialog", "SearchField"]
     },
     {
+      "name": "PageBody",
+      "layer": "pattern",
+      "group": "Page",
+      "description": "A screen's own area below its bar: the screen's gutter, and its content centred in one of two widths (wide for lists, tables, boards and dashboards; narrow for settings and forms), so every screen lines up on any window.",
+      "example": "<PageBody width=\"narrow\"><Card title=\"Your details\">…</Card></PageBody>",
+      "useInstead": "Workbench for the visual editor, which gives the page the whole window.",
+      "uses": []
+    },
+    {
       "name": "Split",
       "layer": "pattern",
       "group": "Page",

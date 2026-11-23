@@ -1,4 +1,4 @@
-import { Box, Button, Card, EmptyState, Grid, Inline, Skeleton, SkeletonGroup, Spinner, Stack } from '@velocity-astro/cms-ui';
+import { Box, Button, Card, EmptyState, Grid, Inline, PageBody, Skeleton, SkeletonGroup, Spinner, Stack } from '@velocity-astro/cms-ui';
 import { useEffect, type ReactNode } from 'react';
 import { CircleAlert } from 'lucide-react';
 import { holdBootForScreen } from '../lib/boot.js';
@@ -15,6 +15,11 @@ export interface LoadingStateProps {
   /** What is being fetched, such as "Loading listings". Defaults to "Loading". */
   readonly label?: string;
   readonly shape?: LoadingShape;
+  /**
+   * Set when the shapes stand for a whole screen, so they sit in the screen's own area at the
+   * width the screen will have. `page` is always a whole screen, wide unless this says otherwise.
+   */
+  readonly width?: 'wide' | 'narrow';
 }
 
 const ROWS = [0, 1, 2, 3, 4];
@@ -53,12 +58,10 @@ function HeadingShape() {
 const SHAPES: Readonly<Record<Exclude<LoadingShape, 'spinner'>, () => ReactNode>> = {
   table: () => <TableShape />,
   page: () => (
-    <Box paddingX={12} paddingY={10}>
-      <Stack gap={6}>
-        <HeadingShape />
-        <TableShape />
-      </Stack>
-    </Box>
+    <Stack gap={6}>
+      <HeadingShape />
+      <TableShape />
+    </Stack>
   ),
   summary: () => (
     <Stack gap={6}>
@@ -77,30 +80,28 @@ const SHAPES: Readonly<Record<Exclude<LoadingShape, 'spinner'>, () => ReactNode>
     </Stack>
   ),
   form: () => (
-    <Box paddingX={12} paddingY={8}>
-      <Stack gap={6}>
-        <HeadingShape />
-        <Card>
-          <Stack gap={5}>
-            {[0, 1, 2].map((field) => (
-              <Stack key={field} gap={2}>
-                <Skeleton width="sm" />
-                <Skeleton shape="control" />
-              </Stack>
-            ))}
-            <Stack gap={2}>
+    <Stack gap={6}>
+      <HeadingShape />
+      <Card>
+        <Stack gap={5}>
+          {[0, 1, 2].map((field) => (
+            <Stack key={field} gap={2}>
               <Skeleton width="sm" />
-              <Skeleton shape="block" />
+              <Skeleton shape="control" />
             </Stack>
+          ))}
+          <Stack gap={2}>
+            <Skeleton width="sm" />
+            <Skeleton shape="block" />
           </Stack>
-        </Card>
-      </Stack>
-    </Box>
+        </Stack>
+      </Card>
+    </Stack>
   ),
 };
 
 /** What a screen shows while its content is on the way: grey shapes laid out like the content. */
-export function LoadingState({ label, shape = 'page' }: LoadingStateProps) {
+export function LoadingState({ label, shape = 'page', width }: LoadingStateProps) {
   const messages = useMessages();
   // While the editor is opening, its mark stays up a moment longer instead of these shapes.
   useEffect(holdBootForScreen, []);
@@ -112,7 +113,9 @@ export function LoadingState({ label, shape = 'page' }: LoadingStateProps) {
       </Box>
     );
   }
-  return <SkeletonGroup label={words}>{SHAPES[shape]()}</SkeletonGroup>;
+  const shapes = SHAPES[shape]();
+  const area = width ?? (shape === 'page' ? 'wide' : undefined);
+  return <SkeletonGroup label={words}>{area === undefined ? shapes : <PageBody width={area}>{shapes}</PageBody>}</SkeletonGroup>;
 }
 
 export interface ErrorStateProps {

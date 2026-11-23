@@ -3,6 +3,7 @@ import {
   Button,
   EmptyState,
   Inline,
+  PageBody,
   PageHeader,
   SearchField,
   Segmented,
@@ -83,7 +84,7 @@ export function ContentListScreen() {
   if (type.kind === 'single') {
     // One that is part of the settings is edited there.
     if (type.inSettings === true) return <Navigate to={paths.settingsPage(type.key)} replace />;
-    if (entries.isPending) return <LoadingState shape="form" />;
+    if (entries.isPending) return <LoadingState shape="form" width="wide" />;
     if (entries.isError) return <ErrorState error={entries.error} onRetry={() => void entries.refetch()} />;
     const entry = groups[0]?.primary;
     return <Navigate to={entry ? paths.entry(type.key, entry.id) : paths.newEntry(type.key)} replace />;
@@ -161,7 +162,7 @@ export function ContentListScreen() {
   );
 
   return (
-    <Box paddingX={12} paddingY={10}>
+    <PageBody>
       <Stack gap={6}>
         <PageHeader title={name} actions={newEntry} {...(entries.data && { description: messages.contentList.description(groups.length) })} />
         {entries.isPending && <LoadingState shape="table" />}
@@ -201,6 +202,6 @@ export function ContentListScreen() {
           </>
         )}
       </Stack>
-    </Box>
+    </PageBody>
   );
 }
