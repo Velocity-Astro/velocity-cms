@@ -364,3 +364,23 @@ it('archives a content type after asking, and restores it from the list of archi
   await waitFor(() => expect(screen.queryByRole('grid', { name: 'Archived content types' })).toBeNull());
   expect((await client.listContentTypes()).map((type) => type.key)).toEqual(['agents', 'listings']);
 });
+
+it('leaves the fields the template describes alone, and lets people add their own beside them', async () => {
+  const user = userEvent.setup();
+  const fromTemplate: ContentTypeDef = {
+    ...agentsWithSections,
+    fields: agentsWithSections.fields.map((field) => (field.key === 'phone' ? field : { ...field, fromTemplate: true as const })),
+  };
+  renderApp('/types/agents', { ...signedIn, contentTypes: [...sampleContentTypes.filter((type) => type.key !== 'agents'), fromTemplate] });
+  expect(await screen.findByText(/come with the site's template and are changed in its code/)).toBeTruthy();
+  const name = within(screen.getByRole('row', { name: /^Name/ }));
+  expect(name.getByText('From the template')).toBeTruthy();
+  expect(name.queryByRole('button', { name: 'Edit Name' })).toBeNull();
+  expect(name.queryByRole('button', { name: 'Remove Name' })).toBeNull();
+  // The site's own field is the site's to change, and a new one can be added.
+  const phone = within(screen.getByRole('row', { name: /^Phone/ }));
+  expect(phone.queryByText('From the template')).toBeNull();
+  expect(phone.getByRole('button', { name: 'Remove Phone' })).toBeTruthy();
+  await user.click(screen.getAllByRole('button', { name: 'Add field' })[0] as HTMLElement);
+  expect(await screen.findByRole('dialog', { name: 'Add a field' })).toBeTruthy();
+});

@@ -108,12 +108,11 @@ describe('describing blocks', () => {
     expect(fields.find((field) => field.key === 'title')).toMatchObject({ id: title });
   });
 
-  it('stays as it is when the field is changed in the builder', async () => {
-    const changed = await cms.schema.changeField(owner, pages.id, body(pages).id, { label: { en: 'Page sections' } });
-    expect(body(changed).options).toEqual(body(pages).options);
+  it('is the template\'s, so the builder leaves it as described', async () => {
+    await expect(cms.schema.changeField(owner, pages.id, body(pages).id, { label: { en: 'Page sections' } })).rejects.toThrowError(/comes from the site's template/);
     const retired = await describePages([hero]);
-    const relabelled = await cms.schema.changeField(owner, retired.id, body(retired).id, { label: { en: 'Page sections' } });
-    expect(block(relabelled, 'faq').retiredAt).toEqual(expect.any(String));
+    expect(block(retired, 'faq').retiredAt).toEqual(expect.any(String));
+    expect(body(await cms.schema.get(pages.id)).options).toEqual(body(retired).options);
   });
 
   it('refuses a key code could not use, two blocks with one key, and a block with no name', async () => {

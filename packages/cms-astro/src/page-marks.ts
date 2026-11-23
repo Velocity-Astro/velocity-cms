@@ -89,3 +89,31 @@ export function slotMark(sectionId: string, ...path: readonly (string | number)[
 export function fieldMark(...path: readonly (string | number)[]): PageMark {
   return path.length > 0 && isEditorPreview() ? { 'data-cms-field': path.join('.') } : NONE;
 }
+
+/**
+ * Says which single page of the CMS a part every page shows comes from: the header, the footer,
+ * an announcement bar, a menu. Beside the editor's form, a click on it opens that page's fields
+ * in a panel, tried on the page as they are typed and published from there. Given each page's
+ * key and what the part shows of it, as `single` or `menuLinks` read it:
+ *
+ * ```astro
+ * <aside {...partMark({ 'site-header-footer': bar })}>…</aside>
+ * <header {...partMark({ navigation: menus, 'site-header-footer': bar })}>…</header>
+ * ```
+ *
+ * The first page named is the one a click on nothing in particular opens; a click on words opens
+ * the page and the field that holds them. Where a value is changed before it is shown, an
+ * element inside says which field it is with `fieldMark`, the page's key first:
+ * `fieldMark('navigation:header', 0, 'label')`. A visitor's page gets no attribute.
+ */
+export function partMark(parts: Readonly<Record<string, unknown>>): PageMark {
+  const keys = Object.keys(parts).filter((key) => /^[a-z][a-zA-Z0-9]*(-[a-z0-9]+)*$/.test(key));
+  if (keys.length === 0 || !isEditorPreview()) return NONE;
+  const values: (readonly string[])[] = [];
+  for (const key of keys) {
+    const found: (readonly string[])[] = [];
+    shown(parts[key], [], found);
+    for (const [path, ...rest] of found) values.push([`${key}:${path ?? ''}`, ...rest]);
+  }
+  return values.length > 0 ? { 'data-cms-part': keys.join(' '), 'data-cms-values': JSON.stringify(values) } : { 'data-cms-part': keys.join(' ') };
+}

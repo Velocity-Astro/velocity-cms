@@ -49,15 +49,15 @@ it('reads the site\'s look from the fields its settings name, as published', asy
     key: 'settings',
     kind: 'single',
     label: { en: 'Site details' },
-    fields: [...fields, { key: 'logo', type: 'image', label: { en: 'Logo' } }, { key: 'brand', type: 'color', label: { en: 'Brand colour' } }],
+    fields: [...fields, { key: 'logo', type: 'image', label: { en: 'Logo' } }, { key: 'brand', type: 'color', label: { en: 'Brand colour' } }, { key: 'favicon', type: 'image', label: { en: 'Favicon' } }],
     inSettings: true,
-    brandFields: { logo: 'logo', color: 'brand' },
+    brandFields: { logo: 'logo', color: 'brand', favicon: 'favicon' },
   });
-  const [, logo, colour] = type.fields.map((field) => field.id);
-  const entry = await cms.content.create(owner, { typeId: type.id, locale: 'en', slug: 'settings', data: { [logo ?? '']: 'mark', [colour ?? '']: '#0A7CFF' } });
+  const [, logo, colour, favicon] = type.fields.map((field) => field.id);
+  const entry = await cms.content.create(owner, { typeId: type.id, locale: 'en', slug: 'settings', data: { [logo ?? '']: 'mark', [colour ?? '']: '#0A7CFF', [favicon ?? '']: 'tab-mark' } });
   expect(await siteBrandNow(cms)).toEqual({});
   await cms.content.publish(owner, entry.id);
-  expect(await siteBrandNow(cms)).toEqual({ logo: 'mark', color: '#0A7CFF' });
+  expect(await siteBrandNow(cms)).toEqual({ logo: 'mark', color: '#0A7CFF', favicon: 'tab-mark' });
 });
 
 it('refuses brand fields of the wrong kind, or on a page outside the settings', async () => {
@@ -65,5 +65,6 @@ it('refuses brand fields of the wrong kind, or on a page outside the settings', 
   const define = (brandFields: object, inSettings = true) =>
     cms.schema.define(owner, { key: 'settings', kind: 'single', label: { en: 'Site details' }, fields, inSettings, brandFields } as never);
   await expect(define({ logo: 'name' })).rejects.toMatchObject({ code: 'validation_failed', message: expect.stringContaining('"image"') });
+  await expect(define({ favicon: 'name' })).rejects.toMatchObject({ code: 'validation_failed', message: expect.stringContaining('favicon field') });
   await expect(define({ color: 'name' }, false)).rejects.toMatchObject({ code: 'validation_failed' });
 });

@@ -301,6 +301,7 @@ export const MCP_TOOLS: readonly McpTool[] = [
           label: say(type.label, locale),
           ...(type.urlPattern && { urlPattern: type.urlPattern }),
           ...(type.inSettings && { inSettings: true }),
+          ...(type.sitePart && { sitePart: true }),
           fields: liveFields(type.fields).map((field) => `${field.key} (${field.type})`),
           ...(liveFields(type.fields).some((field) => field.type === 'blocks') && { builtFromSections: true }),
         })),

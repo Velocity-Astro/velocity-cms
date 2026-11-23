@@ -6,7 +6,8 @@
  * It is in parts, each a few functions that close over the same page:
  *
  * - messaging: what the page and the editor say to each other, and to nobody else
- * - marks: which section, and which field of it, an element of the page belongs to
+ * - marks: which section, and which field of it, an element of the page belongs to, or which
+ *   part every page shows (a header, a footer: `data-cms-part`) and which field of its page
  * - layer: outlines drawn above the page, so nothing of the template's own markup is changed
  * - tools: a small bar on the section the pointer is in (move, copy, remove), a button at each
  *   of its edges that adds a section there, and a button on a picture or a link the editor can
@@ -54,8 +55,13 @@ export function previewBridge(page: Window & typeof globalThis): void {
   const shownIn = new WeakMap<Element, Map<string, Text[]>>();
   const squeeze = (text: string | null): string => (text ?? '').replace(/\s+/g, '');
   // What a section holds itself: a section inside it (a column's) answers for its own.
+  // A part every page shows (a header, a footer) holds its fields as a section does, and says
+  // which single pages of the CMS they come from (`data-cms-part`). Its mark's section is `PART`
+  // and those keys, which no section's id can be, so nothing of a section's is offered on it.
+  const HOLDER = '[data-cms-section],[data-cms-part]';
+  const PART = 'part:';
   const within = (section: HTMLElement, selector: string): HTMLElement[] =>
-    [...section.querySelectorAll<HTMLElement>(selector)].filter((element) => element.closest('[data-cms-section]') === section);
+    [...section.querySelectorAll<HTMLElement>(selector)].filter((element) => element.closest(HOLDER) === section);
   const guess = (section: HTMLElement): Map<string, HTMLElement> => {
     const known = guesses.get(section);
     if (known) return known;
@@ -151,8 +157,9 @@ export function previewBridge(page: Window & typeof globalThis): void {
   };
   const markOf = (target: unknown): Mark | null => {
     if (!isElement(target)) return null;
-    const section = target.closest<HTMLElement>('[data-cms-section]');
-    const id = section?.dataset['cmsSection'];
+    const section = target.closest<HTMLElement>(HOLDER);
+    const part = section?.dataset['cmsPart']?.trim();
+    const id = section?.dataset['cmsSection'] ?? (part ? `${PART}${part}` : undefined);
     if (!section || !id) return null;
     // Everything inside text being written is that text, whatever was written into it since.
     if (writing?.mark.element.contains(target)) return writing.mark;
@@ -1636,6 +1643,17 @@ export function previewBridge(page: Window & typeof globalThis): void {
       if (!mark) return;
       marks.chosen = mark;
       draw();
+      // A part every page shows is one of the site's single pages, opened in the editor: the field's
+      // place names its page first (`navigation:header.0.label`), or it is the first page the part names.
+      if (mark.section.startsWith(PART)) {
+        const keys = mark.section.slice(PART.length).split(/\s+/);
+        const named = mark.field?.match(/^([a-z][a-zA-Z0-9-]*):(.+)$/);
+        const isNamed = named?.[1] !== undefined && keys.includes(named[1]);
+        const key = isNamed ? named[1] : keys[0];
+        const field = isNamed ? named[2] : mark.field;
+        say({ type: 'part', id: key, ...(field !== undefined && { field }) });
+        return;
+      }
       // A field that is not being typed into here, where it is, is one for the form.
       const here = typing?.mark.element === mark.element || writing?.mark.element === mark.element;
       say({ type: 'section', id: mark.section, ...(mark.field !== undefined && { field: mark.field, ...(!here && { form: true }) }) });

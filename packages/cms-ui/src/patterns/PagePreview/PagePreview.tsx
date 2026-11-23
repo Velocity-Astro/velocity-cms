@@ -88,6 +88,11 @@ export interface PagePreviewProps extends PagePreviewVariants {
    */
   readonly onSectionPress?: (id: string, field?: string, inForm?: boolean) => void;
   /**
+   * Called when a part every page shows (a header, a footer, an announcement bar) is pressed on
+   * the page: the key of the single page it comes from, and the field pressed, as keys, where one was.
+   */
+  readonly onPartPress?: (key: string, field?: string) => void;
+  /**
    * Called when the page asks where a link in text being written there should lead, with the
    * address it has now (or none) and how to answer: an address, nothing to take the link away,
    * or `null` to leave it as it is. Ask the person, then answer.
@@ -158,16 +163,16 @@ export interface PagePreviewProps extends PagePreviewVariants {
  * A page of the site as it would look with what is in a form now, in a frame. The page is drawn
  * by the site itself, so it looks exactly as it will; nothing of it is drawn here.
  */
-export function PagePreview({ label, address, draft, note, toolbar, action, emptyText, onSectionPress, shownSectionId, shownAt = 0, typable, onWords, tools, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onSectionSwatch, onSectionSlot, onTextLink, onUndo, onRedo, onSave, escapes = 0, isBare = false, width }: PagePreviewProps) {
+export function PagePreview({ label, address, draft, note, toolbar, action, emptyText, onSectionPress, onPartPress, shownSectionId, shownAt = 0, typable, onWords, tools, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onSectionSwatch, onSectionSlot, onTextLink, onUndo, onRedo, onSave, escapes = 0, isBare = false, width }: PagePreviewProps) {
   const name = `preview-${useId().replaceAll(':', '')}`;
   const form = useRef<HTMLFormElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const hasSent = useRef(false);
   const places = typable === undefined ? undefined : JSON.stringify(typable);
   const offered = tools === undefined ? undefined : JSON.stringify(tools);
-  const latest = useRef({ onSectionPress, shownSectionId, onWords, places, offered, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onSectionSwatch, onSectionSlot, onTextLink, onUndo, onRedo, onSave });
+  const latest = useRef({ onSectionPress, onPartPress, shownSectionId, onWords, places, offered, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onSectionSwatch, onSectionSlot, onTextLink, onUndo, onRedo, onSave });
   useEffect(() => {
-    latest.current = { onSectionPress, shownSectionId, onWords, places, offered, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onSectionSwatch, onSectionSlot, onTextLink, onUndo, onRedo, onSave };
+    latest.current = { onSectionPress, onPartPress, shownSectionId, onWords, places, offered, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onSectionSwatch, onSectionSlot, onTextLink, onUndo, onRedo, onSave };
   });
   // When words were last typed on the page, and whether the page lacks a change made in the form.
   const typedAt = useRef(0);
@@ -263,6 +268,10 @@ export function PagePreview({ label, address, draft, note, toolbar, action, empt
       if (said.type === 'section' && typeof said.id === 'string') {
         if (typeof said.field === 'string') latest.current.onSectionPress?.(said.id, said.field, said.form === true);
         else latest.current.onSectionPress?.(said.id);
+      }
+      if (said.type === 'part' && typeof said.id === 'string') {
+        if (typeof said.field === 'string') latest.current.onPartPress?.(said.id, said.field);
+        else latest.current.onPartPress?.(said.id);
       }
       if (said.type === 'words' && typeof said.id === 'string' && typeof said.field === 'string' && typeof said.words === 'string') {
         typedAt.current = Date.now();

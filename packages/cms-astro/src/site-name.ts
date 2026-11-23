@@ -19,10 +19,12 @@ export async function siteNameNow(cms: Cms): Promise<string | null> {
   return cms.settings.siteName();
 }
 
-/** What the site's settings say it looks like: the names of its logo images, and its colour. */
+/** What the site's settings say it looks like: the names of its logo images and favicon, and its colour. */
 export interface SiteBrand {
   readonly logo?: string;
   readonly logoDark?: string;
+  /** The name of the image a browser shows in the tab. */
+  readonly favicon?: string;
   /** `#rgb` or `#rrggbb`, as a colour field holds it. */
   readonly color?: string;
 }
@@ -52,8 +54,9 @@ export async function siteBrandNow(cms: Cms): Promise<SiteBrand> {
     };
     const logo = text(type.brandPaths.logo);
     const logoDark = text(type.brandPaths.logoDark);
+    const favicon = text(type.brandPaths.favicon);
     const color = text(type.brandPaths.color);
-    return { ...(logo && { logo }), ...(logoDark && { logoDark }), ...(color && /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(color) && { color }) };
+    return { ...(logo && { logo }), ...(logoDark && { logoDark }), ...(favicon && { favicon }), ...(color && /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(color) && { color }) };
   } catch {
     return {};
   }

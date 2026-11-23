@@ -49,6 +49,14 @@ Find these files before you change anything. If the site has no CMS yet, use the
   `/[...slug]` for pages, where the slug `index` is the home page).
 - Set `forDeals: true` on a type people enquire about (listings, services), so a form on its
   page can start a deal about the entry.
+- **Site-wide content is a single page, and it says where it belongs.** What every page shows
+  (header, footer, announcement bar, menus, prices) says `sitePart: true`: the editor lists it
+  under Content, "Across the site". Only what the site *is* (its name, logo, favicon, contact
+  details, theme) says `inSettings: true`, with `siteNameField` and `brandFields: { logo,
+  logoDark, favicon, color }`. Never both on one page, and don't fill Settings with content.
+- **The fields `schema.define` describes are the template's.** The editor's builder can't change
+  or remove them (they would come back on the next deploy); people add their own beside them.
+  Change a template's field in the model, never by hand in the database.
 
 ## Sections
 
@@ -66,6 +74,9 @@ Find these files before you change anything. If the site has no CMS yet, use the
 - Draw a section's values from its props, every prop optional. Wrap each section with
   `sectionMark(section.id, section.data)` and mark the element showing a field with
   `fieldMark('key')`, so the visual editor can find it. Both add nothing to a visitor's page.
+- Wrap each part every page shows with `partMark({ 'site-header-footer': values })`, naming the
+  single pages it shows and what it reads of them (several where it mixes, the first opened by
+  default). A click on it in the visual editor opens that page's fields beside the page.
 
 ## Live pages
 

@@ -24,7 +24,7 @@ export {
 export { isEditorPreview, isPreview } from './preview.js';
 export { PREVIEW_BRIDGE_SCRIPT } from '@velocity-astro/cms-admin/page-bridge';
 export { EDITOR_PREVIEW_VERSION } from './preview.js';
-export { fieldMark, sectionMark, slotMark, type PageMark } from './page-marks.js';
+export { fieldMark, partMark, sectionMark, slotMark, type PageMark } from './page-marks.js';
 export { pageHead, type DrawnPage } from './page-head.js';
 export { entryPage, entryPageAddresses, type EntryPage, type EntryPageOptions } from './entry-page.js';
 export { linkTo, type LinkTarget } from './link.js';

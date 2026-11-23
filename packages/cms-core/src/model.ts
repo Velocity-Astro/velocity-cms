@@ -30,6 +30,12 @@ export interface FieldDef {
   readonly options: Readonly<Record<string, unknown>>;
   /** Set when the field was removed. Its data is kept until the retention period ends. */
   readonly deletedAt?: Timestamp;
+  /**
+   * Set on a field the site's template describes in its code (`schema.define`), which brings it
+   * back as described on every deploy. The editor's builder leaves it, and what it holds, alone:
+   * people add fields of their own beside it.
+   */
+  readonly fromTemplate?: true;
 }
 
 /** Fields the editor shows together under one heading, such as "Price and status". */
@@ -78,6 +84,13 @@ export interface ContentTypeDef {
    * the editor shows it as a part of Settings and leaves it out of the list of content.
    */
   readonly inSettings?: true;
+  /**
+   * Set on a single page that holds a part every page of the site shows: its header, its footer,
+   * an announcement bar, its menus, its prices. The editor lists it under Content, apart from
+   * the content itself, and a page beside the form opens it where a template marks that part
+   * (`partMark`). A page is a part of the site or of the settings, never both.
+   */
+  readonly sitePart?: true;
   /**
    * The field of such a page that holds what the site is called, as field ids from the top down.
    * What is published there is the name the editor and the site's emails use.
@@ -262,6 +275,8 @@ export interface SiteImage {
 export interface BrandPaths {
   readonly logo?: readonly string[];
   readonly logoDark?: readonly string[];
+  /** The small picture a browser shows in the tab beside the site's name. */
+  readonly favicon?: readonly string[];
   readonly color?: readonly string[];
 }
 

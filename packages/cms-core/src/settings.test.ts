@@ -208,3 +208,23 @@ describe('A page of the settings', () => {
     await expect(cms.schema.define(owner, { ...described, inSettings: true, siteNameField: 'title' })).rejects.toBeInstanceOf(ValidationError);
   });
 });
+
+describe('A part of the site', () => {
+  const described = { key: 'header', kind: 'single' as const, label: { en: 'Header and footer' }, fields: [{ key: 'announce', type: 'text', label: { en: 'Announcement' } }] };
+
+  it('is a single page a template marks, kept until a description says otherwise', async () => {
+    const cms = site();
+    const type = await cms.schema.define(owner, { ...described, sitePart: true });
+    expect(type.sitePart).toBe(true);
+    expect(type).not.toHaveProperty('inSettings');
+    expect(await cms.schema.update(owner, type.id, { label: { en: 'Header' } })).toMatchObject({ sitePart: true });
+    expect((await cms.schema.define(owner, described)).sitePart).toBe(true);
+    expect(await cms.schema.define(owner, { ...described, sitePart: false })).not.toHaveProperty('sitePart');
+  });
+
+  it('cannot be a collection, or a page of the settings as well', async () => {
+    const cms = site();
+    await expect(cms.schema.define(owner, { ...described, kind: 'collection', sitePart: true })).rejects.toThrowError(/Only a single page can be a part of the site/);
+    await expect(cms.schema.define(owner, { ...described, sitePart: true, inSettings: true })).rejects.toThrowError(/keep one/);
+  });
+});
