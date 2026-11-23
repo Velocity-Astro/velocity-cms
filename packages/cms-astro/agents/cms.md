@@ -54,6 +54,8 @@ Find these files before you change anything. If the site has no CMS yet, use the
   under Content, "Across the site". Only what the site *is* (its name, logo, favicon, contact
   details, theme) says `inSettings: true`, with `siteNameField` and `brandFields: { logo,
   logoDark, favicon, color }`. Never both on one page, and don't fill Settings with content.
+  A single page someone makes in the builder is listed where they choose (its Settings, "Where
+  it is listed"); a type the template describes stays where the template says.
 - **The fields `schema.define` describes are the template's.** The editor's builder can't change
   or remove them (they would come back on the next deploy); people add their own beside them.
   Change a template's field in the model, never by hand in the database.

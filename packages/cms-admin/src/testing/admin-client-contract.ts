@@ -651,6 +651,14 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       await expect(client.removePerson('nobody')).rejects.toMatchObject({ code: 'not_found' });
     });
 
+    it('lists a single page someone makes where they choose, and a collection with the content', async () => {
+      const banner = await client.createContentType({ key: 'banner', kind: 'single', label: { en: 'Banner' }, place: 'site' });
+      expect(banner).toMatchObject({ sitePart: true });
+      expect(await client.updateContentType(banner.id, { place: 'settings' })).toMatchObject({ inSettings: true });
+      expect(await client.updateContentType(banner.id, { place: 'content' })).not.toHaveProperty('inSettings');
+      await expect(client.createContentType({ key: 'notices', kind: 'collection', label: { en: 'Notices' }, place: 'site' })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['place'] }] });
+    });
+
     it('builds a content type: starts it, changes it, and adds, changes, orders, removes and restores fields', async () => {
       const news = await client.createContentType({ key: 'news', kind: 'collection', label: { en: 'News' }, urlPattern: '/news/[slug]' });
       expect(news).toMatchObject({ key: 'news', kind: 'collection', label: { en: 'News' }, urlPattern: '/news/[slug]', fields: [] });

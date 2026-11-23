@@ -60,7 +60,11 @@ export {
 export {
   hasUnpublishedChanges,
   isLiveType,
+  isTemplateType,
   isTrashed,
+  placeOf,
+  TYPE_PLACES,
+  type TypePlace,
   liveFields,
   type BlockDef,
   type BlockValue,

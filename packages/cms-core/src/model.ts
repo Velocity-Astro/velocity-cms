@@ -105,6 +105,32 @@ export interface ContentTypeDef {
   readonly deletedAt?: Timestamp;
 }
 
+/**
+ * Where the editor lists a content type: with the content (`content`), under Content, "Across the
+ * site" (`site`, a single page every page shows: a header, menus, prices), or as a tab of
+ * Settings (`settings`, a single page that is part of the site's setup). A collection is always
+ * with the content.
+ */
+export type TypePlace = 'content' | 'site' | 'settings';
+
+/** The places a content type can be listed in, in the order the editor offers them. */
+export const TYPE_PLACES: readonly TypePlace[] = ['content', 'site', 'settings'];
+
+/** Where the editor lists a content type. */
+export function placeOf(type: { readonly inSettings?: true | undefined; readonly sitePart?: true | undefined }): TypePlace {
+  if (type.inSettings === true) return 'settings';
+  if (type.sitePart === true) return 'site';
+  return 'content';
+}
+
+/**
+ * Whether a content type is described by the site's template (`schema.define`): it holds a field
+ * the template names. What it is and where it is listed are then the template's to say.
+ */
+export function isTemplateType(type: Pick<ContentTypeDef, 'fields'>): boolean {
+  return type.fields.some((field) => field.fromTemplate === true);
+}
+
 /** Whether a content type is in use: not archived. */
 export function isLiveType(type: ContentTypeDef): boolean {
   return type.deletedAt === undefined;

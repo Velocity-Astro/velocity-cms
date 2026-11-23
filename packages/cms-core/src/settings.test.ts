@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ConflictError, ForbiddenError, ValidationError, createCms, senderFrom, siteNameFrom, storageEndpointFrom, type Actor } from './index.js';
+import { ConflictError, ForbiddenError, ValidationError, createCms, placeOf, senderFrom, siteNameFrom, storageEndpointFrom, type Actor } from './index.js';
 import { InMemoryEntryRepository, InMemorySchemaRepository, InMemorySettingsStore } from './testing/index.js';
 
 const owner: Actor = { kind: 'user', id: 'u1', role: 'owner' };
@@ -243,5 +243,42 @@ describe('A part of the site', () => {
     const cms = site();
     await expect(cms.schema.define(owner, { ...described, kind: 'collection', sitePart: true })).rejects.toThrowError(/Only a single page can be a part of the site/);
     await expect(cms.schema.define(owner, { ...described, sitePart: true, inSettings: true })).rejects.toThrowError(/keep one/);
+  });
+});
+
+describe('Where a type someone makes is listed', () => {
+  const made = { key: 'banner', kind: 'single' as const, label: { en: 'Banner' } };
+
+  it('is chosen when it is made and changed later, and a deploy leaves it alone', async () => {
+    const cms = site();
+    const banner = await cms.schema.create(owner, { ...made, place: 'site' });
+    expect(placeOf(banner)).toBe('site');
+    expect(banner).not.toHaveProperty('place');
+    const moved = await cms.schema.update(owner, banner.id, { place: 'settings' });
+    expect(moved).toMatchObject({ inSettings: true });
+    expect(moved).not.toHaveProperty('sitePart');
+    // A change that does not say where leaves it where it is.
+    expect(placeOf(await cms.schema.update(owner, banner.id, { label: { en: 'Top banner' } }))).toBe('settings');
+    expect(placeOf(await cms.schema.update(owner, banner.id, { place: 'content' }))).toBe('content');
+    expect(placeOf(await cms.schema.create(owner, { ...made, key: 'notice' }))).toBe('content');
+  });
+
+  it('is with the content for a collection, and the template\'s for a type it describes', async () => {
+    const cms = site();
+    await expect(cms.schema.create(owner, { ...made, kind: 'collection', place: 'site' })).rejects.toThrowError(/collection is listed with the content/);
+    const news = await cms.schema.create(owner, { ...made, key: 'news', kind: 'collection' });
+    await expect(cms.schema.update(owner, news.id, { place: 'settings' })).rejects.toBeInstanceOf(ValidationError);
+    expect(placeOf(await cms.schema.update(owner, news.id, { place: 'content' }))).toBe('content');
+
+    const header = await cms.schema.define(owner, { key: 'header', kind: 'single', label: { en: 'Header' }, sitePart: true, fields: [{ key: 'announce', type: 'text', label: { en: 'Announcement' } }] });
+    await expect(cms.schema.update(owner, header.id, { place: 'content' })).rejects.toThrowError(/comes from the site's template/);
+    // Saying where it already is changes nothing, so the builder's window can always send it.
+    expect(placeOf(await cms.schema.update(owner, header.id, { place: 'site', label: { en: 'Top of every page' } }))).toBe('site');
+  });
+
+  it('is for someone who may change the model', async () => {
+    const cms = site();
+    const banner = await cms.schema.create(owner, made);
+    await expect(cms.schema.update(editor, banner.id, { place: 'site' })).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

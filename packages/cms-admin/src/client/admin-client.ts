@@ -1,4 +1,4 @@
-import type { FormsSettings, FormsSettingsChanges, GeneralSettings, GeneralSettingsChanges, EmailSettings, EmailSettingsChanges, StorageSettings, StorageSettingsChanges, ContactImportReport, ContactImportRow, CustomFields, CustomFieldsChanges, Contact, ContactChanges, Deal, DealChanges, DealSubject, Forecast, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginTask, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Revision, Role, SiteImage } from '@velocity-astro/cms-core';
+import type { FormsSettings, FormsSettingsChanges, GeneralSettings, GeneralSettingsChanges, EmailSettings, EmailSettingsChanges, StorageSettings, StorageSettingsChanges, ContactImportReport, ContactImportRow, CustomFields, CustomFieldsChanges, Contact, ContactChanges, Deal, DealChanges, DealSubject, Forecast, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginTask, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Revision, Role, SiteImage, TypePlace } from '@velocity-astro/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
@@ -81,6 +81,8 @@ export interface NewType {
   readonly label: LocalizedText;
   /** Where its entries live on the site, e.g. `/news/[slug]`. Left out, it has no page of its own. */
   readonly urlPattern?: string;
+  /** Where the editor lists it. Only a single page can be listed anywhere but with the content. */
+  readonly place?: TypePlace;
 }
 
 /** A field as someone adds it, and the section that shows it, by key. */

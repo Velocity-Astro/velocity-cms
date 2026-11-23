@@ -73,7 +73,8 @@ const emailChange = z.strictObject({ email: z.string().max(1000) });
 const emailConfirm = z.strictObject({ token: z.string().max(200) });
 const words = z.record(z.string(), z.string());
 const settings = z.record(z.string(), z.unknown());
-const newType = z.strictObject({ key: z.string(), kind: z.enum(['collection', 'single']), label: words, urlPattern: z.string().optional() });
+const typePlace = z.enum(['content', 'site', 'settings']);
+const newType = z.strictObject({ key: z.string(), kind: z.enum(['collection', 'single']), label: words, urlPattern: z.string().optional(), place: typePlace.optional() });
 const path = z.array(z.string()).min(1);
 const typeChanges = z.strictObject({
   label: words.optional(),
@@ -81,6 +82,7 @@ const typeChanges = z.strictObject({
   titlePath: path.nullable().optional(),
   list: z.strictObject({ imagePath: path.optional(), fieldPaths: z.array(path).optional() }).nullable().optional(),
   forDeals: z.boolean().optional(),
+  place: typePlace.optional(),
 });
 const sectionList = z.strictObject({
   sections: z.array(z.strictObject({ key: z.string(), label: words, fieldIds: z.array(z.string()), aside: z.boolean().optional() })),

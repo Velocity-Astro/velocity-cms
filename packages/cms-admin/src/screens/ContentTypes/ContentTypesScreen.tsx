@@ -1,4 +1,4 @@
-import { liveFields, type ContentTypeKind } from '@velocity-astro/cms-core';
+import { liveFields, placeOf, type ContentTypeKind, type TypePlace } from '@velocity-astro/cms-core';
 import { Button, Dialog, EmptyState, Form, Heading, PageBody, PageHeader, Segmented, Stack, Table, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
 import { Plus, Shapes } from 'lucide-react';
 import { useState } from 'react';
@@ -9,6 +9,7 @@ import { AdminRequestError } from '../../client/errors.js';
 import { useArchivedContentTypes, useContentTypes, useCreateContentType, useRestoreContentType } from '../../client/queries.js';
 import { localized } from '../../lib/content.js';
 import { relativeTime } from '../../lib/relative-time.js';
+import { TypePlacePicker } from '../ContentType/TypePlacePicker.js';
 import { typeKeyFrom } from '../../lib/keys.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 import { useClosing } from '../../lib/use-closing.js';
@@ -85,7 +86,7 @@ export function ContentTypesScreen() {
           </Text>
         </Stack>
       ),
-      kind: type.kind === 'single' ? messages.builder.kindSingle : messages.builder.kindCollection,
+      kind: type.kind === 'single' ? messages.builder.kindOf(messages.builder.kindSingle, messages.builder.typePlaces[placeOf(type)]) : messages.builder.kindCollection,
       fields: messages.builder.fieldCount(liveFields(type.fields).length),
       address: type.urlPattern ?? <Text tone="muted">{messages.builder.noAddress}</Text>,
     },
@@ -136,6 +137,7 @@ function NewTypeDialog({ onClose }: { readonly onClose: () => void }) {
   const create = useCreateContentType();
   const [kind, setKind] = useState<ContentTypeKind>('collection');
   const isSingle = kind === 'single';
+  const [place, setPlace] = useState<TypePlace>('content');
   const [name, setName] = useState('');
   // The key follows the name until someone writes a key of their own.
   const [ownKey, setOwnKey] = useState<string | null>(null);
@@ -148,7 +150,7 @@ function NewTypeDialog({ onClose }: { readonly onClose: () => void }) {
     setProblems(missing);
     if (Object.keys(missing).length > 0) return;
     create.mutate(
-      { key, kind, label: { [locale.split('-')[0] ?? locale]: name.trim() }, ...(address.trim() !== '' && { urlPattern: address.trim() }) },
+      { key, kind, label: { [locale.split('-')[0] ?? locale]: name.trim() }, ...(address.trim() !== '' && { urlPattern: address.trim() }), ...(isSingle && place !== 'content' && { place }) },
       {
         onSuccess: (type) => {
           toast({ title: messages.builder.typeCreated(name.trim()), description: messages.builder.typeCreatedDescription, tone: 'success' });
@@ -196,6 +198,7 @@ function NewTypeDialog({ onClose }: { readonly onClose: () => void }) {
             {isSingle ? messages.builder.kindSingleHelp : messages.builder.kindCollectionHelp}
           </Text>
         </Stack>
+        {isSingle && <TypePlacePicker place={place} onChange={setPlace} />}
         <TextField
           label={messages.builder.typeName}
           description={isSingle ? messages.builder.typeNameHelpSingle : messages.builder.typeNameHelp}

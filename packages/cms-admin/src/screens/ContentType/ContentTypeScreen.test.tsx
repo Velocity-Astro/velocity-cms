@@ -384,3 +384,43 @@ it('leaves the fields the template describes alone, and lets people add their ow
   await user.click(screen.getAllByRole('button', { name: 'Add field' })[0] as HTMLElement);
   expect(await screen.findByRole('dialog', { name: 'Add a field' })).toBeTruthy();
 });
+
+it('moves a single page someone made to another place, and the editor lists it there at once', async () => {
+  const user = userEvent.setup();
+  const banner: ContentTypeDef = { id: 'type-banner', key: 'banner', kind: 'single', label: { en: 'Banner' }, fields: [] };
+  const { client } = renderApp('/types/banner', { ...signedIn, contentTypes: [...sampleContentTypes, banner] });
+  await user.click(await screen.findByRole('button', { name: 'Settings' }));
+  let dialog = within(await screen.findByRole('dialog', { name: 'Settings for Banner' }));
+  await user.click(dialog.getByRole('radio', { name: 'Across the site' }));
+  await user.click(dialog.getByRole('button', { name: 'Save settings' }));
+  expect(await screen.findByText('It is listed under Content, "Across the site", now.')).toBeTruthy();
+  const parts = within((await screen.findAllByRole('group', { name: 'Across the site' }))[0] as HTMLElement);
+  expect(await parts.findByRole('link', { name: 'Banner' })).toBeTruthy();
+  expect((await client.listContentTypes()).find((type) => type.key === 'banner')).toMatchObject({ sitePart: true });
+
+  await user.click(await screen.findByRole('button', { name: 'Settings' }));
+  dialog = within(await screen.findByRole('dialog', { name: 'Settings for Banner' }));
+  await user.click(dialog.getByRole('radio', { name: 'In Settings' }));
+  await user.click(dialog.getByRole('button', { name: 'Save settings' }));
+  await waitFor(() => expect(screen.queryByRole('link', { name: 'Banner' })).toBeNull());
+  // Settings has a tab for it, where its one entry is filled in.
+  await user.click(screen.getAllByRole('link', { name: 'Settings' })[0] as HTMLElement);
+  expect(await screen.findByRole('tab', { name: 'Banner' })).toBeTruthy();
+});
+
+it('says a template\'s single page is listed where the template says, with no way to move it here', async () => {
+  const user = userEvent.setup();
+  const header: ContentTypeDef = {
+    id: 'type-header',
+    key: 'header',
+    kind: 'single',
+    label: { en: 'Header and footer' },
+    sitePart: true,
+    fields: [{ id: 'f-announce', key: 'announce', type: 'text', label: { en: 'Announcement' }, translated: true, required: false, options: {}, fromTemplate: true }],
+  };
+  renderApp('/types/header', { ...signedIn, contentTypes: [...sampleContentTypes, header] });
+  await user.click(await screen.findByRole('button', { name: 'Settings' }));
+  const dialog = within(await screen.findByRole('dialog', { name: 'Settings for Header and footer' }));
+  expect(dialog.getByText('Across the site. The site\'s template decides where this is listed, in its code.')).toBeTruthy();
+  expect(dialog.queryByRole('radio', { name: 'In Settings' })).toBeNull();
+});

@@ -4,6 +4,9 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **Plugins opens where you manage them.** For an owner, Plugins on the rail opens the list of plugins, and that page leads the plugin column, before the screens and settings plugins add.
+- **Choose where a page you make is listed.** In Content types, a single page can be listed with the content, under "Across the site" or as a tab of Settings. Choose it when you make the page, or change it later in its Settings, and the editor lists it there at once. A collection stays with the content, and a type your template describes stays where the template says.
+
 ## 0.1.0-beta.20
 
 - **The Content column stays beside a single page.** Opening one of the pages under "Across the site" (a header, menus, prices) keeps the column of places beside it, so the next one is one click away. An entry of a list still has the width to itself.
