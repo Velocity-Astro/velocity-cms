@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+## 0.1.0-beta.21
+
 - **Plugins opens where you manage them.** For an owner, Plugins on the rail opens the list of plugins, and that page leads the plugin column, before the screens and settings plugins add.
 - **Choose where a page you make is listed.** In Content types, a single page can be listed with the content, under "Across the site" or as a tab of Settings. Choose it when you make the page, or change it later in its Settings, and the editor lists it there at once. A collection stays with the content, and a type your template describes stays where the template says.
 
