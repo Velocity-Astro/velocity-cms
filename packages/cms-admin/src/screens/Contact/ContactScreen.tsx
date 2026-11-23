@@ -1,5 +1,5 @@
 import { liveFields, type Contact, type TimelineItem } from '@velocity-astro/cms-core';
-import { Box, Button, Card, ConfirmDialog, Dialog, EmptyState, Form, Inline, Link, PageHeader, Split, Stack, Tag, Text, TextArea, TextField, toast } from '@velocity-astro/cms-ui';
+import { Button, Card, ConfirmDialog, Dialog, EmptyState, Form, Inline, Link, PageBody, PageHeader, Split, Stack, Tag, Text, TextArea, TextField, toast } from '@velocity-astro/cms-ui';
 import { Contact as ContactIcon, Download, Pencil, UserX } from 'lucide-react';
 import { useState } from 'react';
 import { useParams } from 'react-router';
@@ -79,7 +79,7 @@ function ContactPage({ contact }: { readonly contact: Contact }) {
   ];
 
   return (
-    <Box paddingX={12} paddingY={10}>
+    <PageBody>
       <Stack gap={6}>
         <Stack gap={2}>
           <Link href={paths.contacts}>{messages.contacts.backToContacts}</Link>
@@ -163,7 +163,7 @@ function ContactPage({ contact }: { readonly contact: Contact }) {
       >
         {messages.contacts.eraseDescription}
       </ConfirmDialog>
-    </Box>
+    </PageBody>
   );
 }
 

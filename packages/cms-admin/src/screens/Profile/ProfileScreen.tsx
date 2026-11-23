@@ -1,4 +1,4 @@
-import { Avatar, Box, Button, Card, FileButton, Form, Inline, PageHeader, Stack, Text, TextField, toast } from '@velocity-astro/cms-ui';
+import { Avatar, Button, Card, FileButton, Form, Inline, PageBody, PageHeader, Stack, Text, TextField, toast } from '@velocity-astro/cms-ui';
 import { KeyRound, Mail, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
@@ -22,23 +22,23 @@ export function ProfileScreen() {
   const messages = useMessages();
   const profile = useProfile();
   return (
-    <Box paddingX={12} paddingY={10}>
+    <PageBody width="narrow">
       <Stack gap={6}>
         <PageHeader title={messages.profile.title} description={messages.profile.description} />
         <EmailLink />
         {profile.isPending && <LoadingState shape="form" />}
         {profile.isError && <ErrorState error={profile.error} onRetry={() => void profile.refetch()} />}
         {profile.isSuccess && (
-          <Box maxWidth="lg">
+          <>
             <Stack gap={6}>
               <DetailsCard profile={profile.data} />
               <EmailCard profile={profile.data} />
               <PasskeysCard />
             </Stack>
-          </Box>
+          </>
         )}
       </Stack>
-    </Box>
+    </PageBody>
   );
 }
 

@@ -1,4 +1,4 @@
-import { Box, EmptyState, PageHeader, Stack } from '@velocity-astro/cms-ui';
+import { EmptyState, PageBody, PageHeader, Stack } from '@velocity-astro/cms-ui';
 import { FileQuestion } from 'lucide-react';
 import { useParams } from 'react-router';
 import { useMessages } from '../../messages/messages-context.js';
@@ -13,7 +13,7 @@ export function PluginScreenScreen() {
   const screen = screens.find((candidate) => candidate.plugin === pluginName && candidate.id === screenId);
 
   return (
-    <Box paddingX={12} paddingY={10}>
+    <PageBody>
       {screen ? (
         <Stack gap={6}>
           <PageHeader title={screen.label} {...(screen.description !== undefined && { description: screen.description })} />
@@ -25,6 +25,6 @@ export function PluginScreenScreen() {
       ) : (
         <EmptyState icon={FileQuestion} title={messages.plugins.screenMissingTitle} description={messages.plugins.screenMissingDescription} />
       )}
-    </Box>
+    </PageBody>
   );
 }

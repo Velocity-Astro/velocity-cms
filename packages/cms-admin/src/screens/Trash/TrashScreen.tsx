@@ -1,5 +1,5 @@
 import type { Entry } from '@velocity-astro/cms-core';
-import { Box, Button, ConfirmDialog, EmptyState, Inline, PageHeader, Stack, Table, Text, toast, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
+import { Button, ConfirmDialog, EmptyState, Inline, PageBody, PageHeader, Stack, Table, Text, toast, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
 import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
@@ -97,7 +97,7 @@ export function TrashScreen() {
   });
 
   return (
-    <Box paddingX={12} paddingY={10}>
+    <PageBody>
       <Stack gap={6}>
         <PageHeader title={messages.trash.title} description={messages.trash.description} />
         {(trash.isPending || types.isPending) && <LoadingState shape="table" />}
@@ -133,6 +133,6 @@ export function TrashScreen() {
           {messages.trash.deleteDescription}
         </ConfirmDialog>
       )}
-    </Box>
+    </PageBody>
   );
 }

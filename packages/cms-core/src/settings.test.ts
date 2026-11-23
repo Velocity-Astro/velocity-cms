@@ -164,6 +164,23 @@ describe('SettingsService: forms', () => {
     expect(await cms.settings.challengeSiteKey()).toBeNull();
   });
 
+  it('keeps which service the keys are for, and asks for a new secret key when the service changes', async () => {
+    const cms = site();
+    await cms.settings.saveForms(owner, keys);
+    // The secret key saved is Cloudflare's: Google could do nothing with it.
+    const error: unknown = await cms.settings.saveForms(owner, { provider: 'recaptcha', siteKey: '6LcAAAAAAAAAAAAAsitekey', postsPerAddress: 8, expectedRevision: 1 }).catch((thrown: unknown) => thrown);
+    expect(error instanceof ValidationError ? error.issues.map((issue) => [issue.path[0], issue.message]) : error).toEqual([['secretKey', 'Paste the secret key Google gave you. The one saved is for Cloudflare.']]);
+    const saved = await cms.settings.saveForms(owner, { provider: 'recaptcha', siteKey: '6LcAAAAAAAAAAAAAsitekey', secretKey: '6LcAAAAAAAAAAAAAsecretkey', postsPerAddress: 8, expectedRevision: 1 });
+    expect(saved).toMatchObject({ provider: 'recaptcha', checking: true, revision: 2 });
+    expect(await cms.settings.challengeAccount()).toEqual({ provider: 'recaptcha', siteKey: '6LcAAAAAAAAAAAAAsitekey', secretKey: '6LcAAAAAAAAAAAAAsecretkey' });
+    expect(await cms.settings.challengeForPage()).toEqual({ provider: 'recaptcha', siteKey: '6LcAAAAAAAAAAAAAsitekey' });
+    // Left out, the service stays as it is.
+    expect(await cms.settings.saveForms(owner, { siteKey: '6LcAAAAAAAAAAAAAsitekey', postsPerAddress: 20, expectedRevision: 2 })).toMatchObject({ provider: 'recaptcha', checking: true });
+    // Switching back with the keys taken away needs no secret key.
+    expect(await cms.settings.saveForms(owner, { provider: 'turnstile', siteKey: '', secretKey: null, postsPerAddress: 20, expectedRevision: 3 })).toMatchObject({ provider: 'turnstile', checking: false });
+    await expect(cms.settings.saveForms(owner, { provider: 'hcaptcha' as 'turnstile', siteKey: '', postsPerAddress: 8, expectedRevision: 4 })).rejects.toBeInstanceOf(ValidationError);
+  });
+
   it('checks the keys only once both are saved, through the host, and is for owners only', async () => {
     const cms = site();
     const asked: string[] = [];

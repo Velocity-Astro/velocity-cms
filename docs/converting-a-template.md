@@ -874,12 +874,14 @@ What each part does:
 
 - `form.action` is `/api/cms/submit/<key>`, the one address anyone may post to.
 - `form.hidden` carries the page, the language, a signed mark of when the form was drawn and,
-  when set up, the Turnstile key. Write every one, as it is.
+  when set up, the spam check's site key. Write every one, as it is.
 - `form.trap` is a field a person never fills; hide it from sight, the keyboard and screen
   readers. A post that fills it is kept as spam.
 - `/cms-form.js` (`FORM_SCRIPT`) sends a `data-cms-form` form in place, writes each problem into
-  the element `data-cms-form-error="<key>"`, and draws the Turnstile check when an owner set one
-  up. Without scripts the form still posts.
+  the element `data-cms-form-error="<key>"`, and runs the spam check an owner set up (Cloudflare
+  Turnstile, drawn above the submit button, or Google reCAPTCHA v3, which draws only its badge).
+  Without scripts the form still posts. A site with a content security policy lists
+  `CHALLENGE_HOSTS` (from `@velocity-astro/cms-astro`) for scripts and frames, so either works.
 - `form.fields` is the form as it is today, so a field added under Forms appears at once.
 
 The starter's `Form.astro` draws every field kind; copy it rather than writing your own.

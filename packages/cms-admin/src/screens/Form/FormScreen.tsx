@@ -1,5 +1,5 @@
 import type { FormDef } from '@velocity-astro/cms-core';
-import { Box, ConfirmDialog, EmptyState, Link, PageHeader, Stack, Tabs, Text, toast } from '@velocity-astro/cms-ui';
+import { ConfirmDialog, EmptyState, Link, PageBody, PageHeader, Stack, Tabs, Text, toast } from '@velocity-astro/cms-ui';
 import { Inbox, Settings2, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useParams } from 'react-router';
@@ -47,7 +47,7 @@ function FormParts({ form }: { readonly form: FormDef }) {
   const [tab, setTab] = useState(form.fields.length === 0 || !mayManage ? 'fields' : 'submissions');
 
   return (
-    <Box paddingX={12} paddingY={10}>
+    <PageBody>
       <Stack gap={6}>
         <Stack gap={2}>
           <Link href={paths.forms}>{messages.forms.backToForms}</Link>
@@ -99,6 +99,6 @@ function FormParts({ form }: { readonly form: FormDef }) {
       >
         {messages.forms.trashDescription}
       </ConfirmDialog>
-    </Box>
+    </PageBody>
   );
 }

@@ -3,6 +3,7 @@ export * from './AuthShell/index.js';
 export * from './ConfirmDialog/index.js';
 export * from './EmptyState/index.js';
 export * from './PageHeader/index.js';
+export * from './PageBody/index.js';
 export * from './Repeater/index.js';
 export * from './SaveBar/index.js';
 export * from './ImagePicker/index.js';

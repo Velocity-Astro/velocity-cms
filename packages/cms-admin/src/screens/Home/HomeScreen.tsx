@@ -1,4 +1,4 @@
-import { BarChart, Box, Button, Card, EmptyState, Grid, Inline, Link, SiteWindow, Split, Stack, Stat, Table, Tag, Text, Welcome, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
+import { BarChart, Button, Card, EmptyState, Grid, Inline, Link, PageBody, SiteWindow, Split, Stack, Stat, Table, Tag, Text, Welcome, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
 import { HOME_SLUG, takesSlugPath, type ContentTypeDef, type Entry } from '@velocity-astro/cms-core';
 import { ArrowRight, ExternalLink, Inbox, MousePointer2, Shapes } from 'lucide-react';
 import { useGo } from '../../app/use-go.js';
@@ -144,7 +144,7 @@ export function HomeScreen({ siteName }: HomeScreenProps) {
           />
         }
       />
-      <Box paddingX={12} paddingY={8}>
+      <PageBody>
         <Stack gap={6}>
           {failed && <ErrorState error={failed.error} onRetry={() => void failed.refetch()} />}
           {!failed && pending && <LoadingState shape="summary" />}
@@ -189,7 +189,7 @@ export function HomeScreen({ siteName }: HomeScreenProps) {
             </>
           )}
         </Stack>
-      </Box>
+      </PageBody>
     </>
   );
 }

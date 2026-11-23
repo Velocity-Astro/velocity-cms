@@ -630,14 +630,18 @@ export interface BucketAccount {
   readonly secretAccessKey: string;
 }
 
-/** The services that can check a form's sender is a person. */
-export type ChallengeProvider = 'turnstile';
+/**
+ * The services that can check a form's sender is a person: Cloudflare Turnstile, or Google
+ * reCAPTCHA v3 (the invisible one that scores each sender; a v2 checkbox key does not work with it).
+ */
+export type ChallengeProvider = 'turnstile' | 'recaptcha';
 
 /**
  * How the site's forms are guarded, as an owner sees it. The challenge's secret key is never
  * part of it: `hasSecret` says only that one is saved.
  */
 export interface FormsSettings {
+  /** The service the keys are for. Turnstile until an owner chooses another. */
   readonly provider: ChallengeProvider;
   /** The challenge's site key, which every page with a form shows. Empty until someone says. */
   readonly siteKey: string;

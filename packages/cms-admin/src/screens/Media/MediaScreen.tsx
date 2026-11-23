@@ -1,5 +1,5 @@
 import type { SiteImage } from '@velocity-astro/cms-core';
-import { Box, Button, ConfirmDialog, Dialog, EmptyState, FileButton, Grid, Inline, MediaGrid, PageHeader, SearchField, Select, Stack, Text, Thumbnail, toast } from '@velocity-astro/cms-ui';
+import { Button, ConfirmDialog, Dialog, EmptyState, FileButton, Grid, Inline, MediaGrid, PageBody, PageHeader, SearchField, Select, Stack, Text, Thumbnail, toast } from '@velocity-astro/cms-ui';
 import { Images, Trash2, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
@@ -60,7 +60,7 @@ export function MediaScreen() {
     );
 
   return (
-    <Box paddingX={12} paddingY={10}>
+    <PageBody>
       <Stack gap={6}>
         <PageHeader
           title={messages.media.title}
@@ -135,7 +135,7 @@ export function MediaScreen() {
       </Stack>
       {/* Made anew for each image, so it never shows the last one's details. */}
       {openName !== null && open && <ImageDialog key={openName} image={open} onClose={() => setOpenName(null)} />}
-    </Box>
+    </PageBody>
   );
 }
 

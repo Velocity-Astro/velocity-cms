@@ -1,5 +1,5 @@
 import type { StorageSettings } from '@velocity-astro/cms-core';
-import { Box, Button, Card, ConfirmDialog, Form, Inline, Stack, Tag, Text, TextField, toast } from '@velocity-astro/cms-ui';
+import { Button, Card, ConfirmDialog, Form, Inline, Stack, Tag, Text, TextField, toast } from '@velocity-astro/cms-ui';
 import { PlugZap } from 'lucide-react';
 import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
@@ -16,9 +16,7 @@ export function StorageSettingsPanel() {
   if (settings.isPending) return <LoadingState shape="form" />;
   if (settings.isError) return <ErrorState error={settings.error} onRetry={() => void settings.refetch()} />;
   return (
-    <Box maxWidth="lg">
-      <StorageCard settings={settings.data} />
-    </Box>
+    <StorageCard settings={settings.data} />
   );
 }
 

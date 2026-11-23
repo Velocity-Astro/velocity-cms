@@ -1,5 +1,5 @@
 import type { MailBrand } from '@velocity-astro/cms-auth';
-import { FORM_CHALLENGE_FIELD, type ChallengeCheck } from './challenge.js';
+import { FORM_CHALLENGE_FIELD, FORM_RECAPTCHA_FIELD, type ChallengeCheck } from './challenge.js';
 import { NotFoundError, ValidationError, liveFields, type Cms, type DealSubject, type FormDef, type LocalizedText, type Submission } from '@velocity-astro/cms-core';
 
 /** The names a form's page sends beside its own fields. A field's key never starts with `_`. */
@@ -8,7 +8,10 @@ export const FORM_TOKEN_FIELD = '_t';
 export const FORM_PAGE_FIELD = '_page';
 export const FORM_LOCALE_FIELD = '_locale';
 export const FORM_ABOUT_FIELD = '_about';
-/** Holds the challenge's site key, so the form's script draws the challenge in a template that knows nothing of it. */
+/**
+ * Holds the challenge's site key, so the form's script draws the challenge in a template that
+ * knows nothing of it: the key alone for Turnstile, `recaptcha:<key>` for reCAPTCHA (no key holds a colon).
+ */
 export const FORM_CHALLENGE_KEY_FIELD = '_challenge';
 
 /** Where the editor is served, for the link to a form's submissions in its notice. */
@@ -189,7 +192,7 @@ export class FormPosts {
       (typeof sent[FORM_TRAP_FIELD] === 'string' && sent[FORM_TRAP_FIELD] !== '') ||
       !(await this.#drawnForAPerson(formKey, sent[FORM_TOKEN_FIELD])) ||
       // Asked last: a post already suspected is not worth a question to another service.
-      !((await this.#options.challenge?.passed(sent[FORM_CHALLENGE_FIELD])) ?? true);
+      !((await this.#options.challenge?.passed(sent[FORM_CHALLENGE_FIELD] ?? sent[FORM_RECAPTCHA_FIELD])) ?? true);
 
     // A page that cannot be looked up costs the submission nothing but its subject.
     const about = (await this.#marked(formKey, sent[FORM_ABOUT_FIELD])) ?? (page === undefined ? undefined : await this.#options.entryAt?.(page).catch(() => undefined));
