@@ -1,6 +1,6 @@
 {
   "name": "@velocity-astro/cms-db",
-  "version": "0.1.0-beta.18",
+  "version": "0.1.0-beta.19",
   "description": "SQLite and libSQL storage for Velocity CMS: tables, migrations and the repositories cms-core asks for.",
   "type": "module",
   "license": "MIT",
