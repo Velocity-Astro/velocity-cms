@@ -85,7 +85,11 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
   // Content leads to a list: a single page would open its entry, with no column to choose another from.
   const firstList = contentTypes.find((type) => type.kind !== 'single') ?? contentTypes[0];
   // An entry being edited has the width to itself: the column of places comes back with the list.
-  const isInEntry = /^\/content\/[^/]+\/[^/]+/.test(location.pathname);
+  // A single page (a header, menus, prices) has no list to come back to, so the column stays:
+  // it is the only way from one of them to the next.
+  const openEntry = /^\/content\/([^/]+)\/[^/]+/.exec(location.pathname);
+  const openType = openEntry ? contentTypes.find((type) => type.key === decodeURIComponent(openEntry[1] ?? '')) : undefined;
+  const isInEntry = openEntry !== null && openType?.kind !== 'single';
   const content: AppShellNavItem = {
     id: 'content',
     label: messages.app.contentGroup,
