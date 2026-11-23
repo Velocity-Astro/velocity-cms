@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+## 0.1.0-beta.20
+
 - **The Content column stays beside a single page.** Opening one of the pages under "Across the site" (a header, menus, prices) keeps the column of places beside it, so the next one is one click away. An entry of a list still has the width to itself.
 
 ## 0.1.0-beta.19
