@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+## 0.1.0-beta.18
+
 - **Parts of the site, apart from Settings.** A template marks the single pages every page shows (header, footer, announcement bar, menus, prices) `sitePart: true`, and the editor lists them under Content, "Across the site", instead of as tabs of Settings. Settings keeps what the site is (its name, logo, contact details) and how it is set up.
 - **Click the header in the visual editor.** A template wraps its header, footer or announcement bar with `partMark({ 'site-header-footer': values })`; a click on it in the visual editor opens that page's fields beside the page, tries them there as you type, and publishes them for every page.
 - **The template's fields stay the template's.** Fields a template describes with `schema.define` are marked "From the template" in the content type builder, which no longer changes or removes them (the next deploy would bring them back as described). Add fields of your own beside them.
