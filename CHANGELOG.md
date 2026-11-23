@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+## 0.1.0-beta.19
+
 - **Google reCAPTCHA as a spam check, beside Cloudflare Turnstile.** Under Settings, Forms and spam, an owner chooses the service and pastes its two keys. reCAPTCHA is v3 (score based, nothing to tick: its badge shows in a corner of the page), and a sender who scores under 0.5 is kept under Spam, never lost. A v2 checkbox key does not work with it. Templates need no change; a site with a content security policy lists `CHALLENGE_HOSTS` (`https://challenges.cloudflare.com`, `https://www.google.com`, `https://www.gstatic.com`) for scripts and frames, and `siteForm(...).challenge` now says `hosts`.
 - **Screens line up on every window.** Every screen of the editor is laid out at one of two widths (`PageBody`): wide for lists, boards and Home, narrow for settings and your profile, so nothing runs edge to edge on a large monitor and Home's greeting, numbers and lists share their edges. Charts keep their bars slim.
 
