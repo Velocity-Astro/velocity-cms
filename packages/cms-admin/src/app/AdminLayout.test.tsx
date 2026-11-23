@@ -110,3 +110,18 @@ it('lists the parts every page shows apart from the content, and the settings\' 
   expect(collections.getByRole('link', { name: 'Listings' })).toBeTruthy();
   expect(screen.queryByRole('link', { name: 'Business details' })).toBeNull();
 });
+
+it('keeps the column of places beside a single page, which has no list to come back to', async () => {
+  const header = { id: 'type-site-header-footer', key: 'site-header-footer', kind: 'single' as const, label: { en: 'Header and footer' }, fields: [], sitePart: true as const };
+  renderApp('/content/site-header-footer', { ...signedIn(), contentTypes: [...sampleContentTypes, header] });
+  expect((await screen.findAllByRole('button', { name: /Publish/ })).length).toBeGreaterThan(0);
+  const parts = within((await screen.findAllByRole('group', { name: 'Across the site' }))[0] as HTMLElement);
+  expect(parts.getByRole('link', { name: 'Header and footer' }).getAttribute('aria-current')).toBe('page');
+});
+
+it('gives an entry of a list the width, with no column of places beside it', async () => {
+  const header = { id: 'type-site-header-footer', key: 'site-header-footer', kind: 'single' as const, label: { en: 'Header and footer' }, fields: [], sitePart: true as const };
+  renderApp('/content/listings/e1', { ...signedIn(), contentTypes: [...sampleContentTypes, header] });
+  expect((await screen.findAllByRole('button', { name: /Publish/ })).length).toBeGreaterThan(0);
+  expect(screen.queryByRole('group', { name: 'Across the site' })).toBeNull();
+});

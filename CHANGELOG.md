@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **The Content column stays beside a single page.** Opening one of the pages under "Across the site" (a header, menus, prices) keeps the column of places beside it, so the next one is one click away. An entry of a list still has the width to itself.
+
 ## 0.1.0-beta.19
 
 - **Google reCAPTCHA as a spam check, beside Cloudflare Turnstile.** Under Settings, Forms and spam, an owner chooses the service and pastes its two keys. reCAPTCHA is v3 (score based, nothing to tick: its badge shows in a corner of the page), and a sender who scores under 0.5 is kept under Spam, never lost. A v2 checkbox key does not work with it. Templates need no change; a site with a content security policy lists `CHALLENGE_HOSTS` (`https://challenges.cloudflare.com`, `https://www.google.com`, `https://www.gstatic.com`) for scripts and frames, and `siteForm(...).challenge` now says `hosts`.
