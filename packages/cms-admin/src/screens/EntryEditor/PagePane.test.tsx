@@ -622,6 +622,57 @@ it('tries a colour and a font of the theme on the page as they are set, and keep
   expect((await client.getEntry('set1')).published?.data).toEqual({ 'f-set-colour': '#c2410c', 'f-set-font': 'fraunces' });
 });
 
+it('opens a part every page shows where it is pressed on the page, tries it there, and publishes it', async () => {
+  const user = userEvent.setup();
+  const text = (id: string, key: string, label: string): FieldDef => ({ id, key, type: 'text', label: { en: label }, required: false, translated: false, options: {} });
+  const header = {
+    id: 'type-header',
+    key: 'site-header-footer',
+    kind: 'single' as const,
+    label: { en: 'Header and footer' },
+    sitePart: true as const,
+    fields: [text('f-hf-bold', 'announceBold', 'Announcement'), text('f-hf-button', 'primaryLabel', 'First button'), text('f-hf-rights', 'footerRights', 'Rights')],
+    sections: [
+      { key: 'announcement', label: { en: 'Announcement' }, fieldIds: ['f-hf-bold'] },
+      { key: 'header', label: { en: 'Header' }, fieldIds: ['f-hf-button'] },
+      { key: 'footer', label: { en: 'Footer' }, fieldIds: ['f-hf-rights'] },
+    ],
+  };
+  const kept = { ...samplePage(), id: 'hf1', typeId: 'type-header', translationGroup: 'hf1', slug: 'site-header-footer', data: { 'f-hf-bold': 'Open beta', 'f-hf-button': 'Try it', 'f-hf-rights': 'All rights reserved.' } };
+  const { client } = renderApp('/content/pages/p1', { user: sampleUser, contentTypes: [...sampleContentTypes, samplePagesType, header], entries: [...sampleEntries(), samplePage(), kept] });
+  await frame();
+  await user.click(await screen.findByRole('button', { name: 'Visual editor' }));
+  expect(screen.queryByRole('region', { name: /Header and footer/ })).toBeNull();
+
+  // The announcement pressed: its section of the page it comes from, and nothing else of it.
+  await say({ source: 'velocity-cms', type: 'part', id: 'site-header-footer', field: 'announceBold' });
+  const card = within(await screen.findByRole('region', { name: 'Header and footer · Announcement' }));
+  const words = card.getByRole<HTMLInputElement>('textbox', { name: 'Announcement' });
+  expect(words.value).toBe('Open beta');
+  expect(card.queryByRole('textbox', { name: 'First button' })).toBeNull();
+  await waitFor(() => expect(words.closest('[data-lit]')).not.toBeNull());
+
+  // Typed, it goes to the page with the page's own draft, and nothing is saved.
+  await user.clear(words);
+  await user.type(words, 'Now live');
+  expect((draft() as { with?: unknown }).with).toEqual([{ id: 'hf1', data: { 'f-hf-bold': 'Now live', 'f-hf-button': 'Try it', 'f-hf-rights': 'All rights reserved.' } }]);
+  expect((await client.getEntry('hf1')).data['f-hf-bold']).toBe('Open beta');
+
+  await user.click(card.getByRole('button', { name: 'Publish' }));
+  expect(await screen.findByText('Header and footer published')).toBeTruthy();
+  expect((await client.getEntry('hf1')).published?.data['f-hf-bold']).toBe('Now live');
+  await waitFor(() => expect((draft() as { with?: unknown }).with).toBeUndefined());
+
+  // Another part of the same page opens its own section; Close puts the card away.
+  await say({ source: 'velocity-cms', type: 'part', id: 'site-header-footer', field: 'primaryLabel' });
+  const again = within(await screen.findByRole('region', { name: 'Header and footer · Header' }));
+  await user.click(again.getByRole('button', { name: 'Close' }));
+  await waitFor(() => expect(screen.queryByRole('region', { name: /Header and footer/ })).toBeNull());
+  // A key that is no single page of the site opens nothing.
+  await say({ source: 'velocity-cms', type: 'part', id: 'nowhere' });
+  expect(screen.queryByRole('region', { name: /Header and footer/ })).toBeNull();
+});
+
 it('offers no theme where the settings have no looks to choose', async () => {
   const user = userEvent.setup();
   renderApp('/content/pages/p1', site());

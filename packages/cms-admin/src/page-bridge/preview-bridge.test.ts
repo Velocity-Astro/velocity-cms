@@ -1023,3 +1023,25 @@ it('draws its tools larger when the page is shown smaller, so they are the size 
   hear({ source: 'velocity-cms', type: 'zoom', scale: 0 });
   expect($('[data-cms-tools]').style.getPropertyValue('zoom')).toBe('');
 });
+
+it('says which single page, and which field of it, a part every page shows comes from', () => {
+  const values = JSON.stringify([['site-header-footer:announceBold', 'Open beta'], ['navigation:header.0.label', 'Docs']]).replaceAll("'", '&#39;');
+  open(`
+    <header data-cms-part="site-header-footer navigation" data-cms-values='${values}'>
+      <b>Open beta</b><a href="/docs/">Docs</a><span data-cms-field="navigation:header.1.label">Blog</span><i>Logo</i>
+    </header>
+    <div data-cms-section="s1"><h1 data-cms-field="title">Welcome</h1></div>`);
+  expect(click('b').defaultPrevented).toBe(true);
+  expect(said.at(-1)).toEqual([{ source: 'velocity-cms', type: 'part', id: 'site-header-footer', field: 'announceBold' }, origin]);
+  click('a');
+  expect(said.at(-1)).toEqual([{ source: 'velocity-cms', type: 'part', id: 'navigation', field: 'header.0.label' }, origin]);
+  click('span');
+  expect(said.at(-1)).toEqual([{ source: 'velocity-cms', type: 'part', id: 'navigation', field: 'header.1.label' }, origin]);
+  // Nothing in particular: the first page the part names.
+  click('i');
+  expect(said.at(-1)).toEqual([{ source: 'velocity-cms', type: 'part', id: 'site-header-footer' }, origin]);
+  expect(box('chosen').style.display).toBe('block');
+  // A section is still a section.
+  click('h1');
+  expect(said.at(-1)).toEqual([{ source: 'velocity-cms', type: 'section', id: 's1', field: 'title', form: true }, origin]);
+});

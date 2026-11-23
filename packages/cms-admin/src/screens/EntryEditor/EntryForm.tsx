@@ -27,6 +27,7 @@ import { usePluginExtensions } from '../../plugins/plugin-editor.js';
 import { EntryDeals } from './EntryDeals.js';
 import { PagePane, PageWidths, type PageWidth } from './PagePane.js';
 import { SectionOutline } from './SectionOutline.js';
+import { SitePartCard, useSitePart, type PressedPart } from './SitePartCard.js';
 import { ThemeCard, themeTried, useSiteLooks, type ThemeDraft } from './ThemeCard.js';
 
 const STATE_TONE = { draft: 'neutral', scheduled: 'info', published: 'success', unpublishedChanges: 'warning' } as const satisfies Record<
@@ -130,7 +131,11 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   const [themeDraft, setThemeDraft] = useState<ThemeDraft>({});
   const [isThemeShown, setThemeShown] = useState(false);
   const looks = useSiteLooks(entry?.locale);
-  const themed = themeTried(looks, themeDraft);
+  // A part every page shows (a header, an announcement bar), pressed on the page: its single page,
+  // tried on the page as it is typed, in the same draft as the theme, since both are the site's own.
+  const [pressedPart, setPressedPart] = useState<PressedPart | null>(null);
+  const part = useSitePart(pressedPart?.key ?? null, entry?.locale);
+  const themed = themeTried([...looks, ...(part ? [part] : [])], themeDraft);
 
   const typeName = localized(type.label, locale);
   const title = entryTitle(type, data);
@@ -333,7 +338,8 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   };
   useSaveKey(saveNow);
   // The theme is the whole site's, so choosing it is for those who may publish.
-  const canTheme = looks.length > 0 && session.data !== null && session.data !== undefined && session.data.role !== 'author';
+  const mayPublish = session.data !== null && session.data !== undefined && session.data.role !== 'author';
+  const canTheme = looks.length > 0 && mayPublish;
   // A step back or forward changes what the form holds, so what the server said of it no longer applies.
   const { undo: stepBack, redo: stepForward } = history;
   const undo = useCallback(() => {
@@ -597,6 +603,12 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
                       setVisual(true);
                     }}
                     onFormWanted={() => setFormAway(false)}
+                    {...(mayPublish && {
+                      onPartPress: (key: string, field?: string) => {
+                        setPressedPart({ key, field, at: Date.now() });
+                        setFormAway(false);
+                      },
+                    })}
                     also={themed}
                     onUndo={undo}
                     onRedo={redo}
@@ -604,6 +616,9 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
                   />
                 }
               >
+                {mayPublish && pressedPart !== null && part !== null && (
+                  <SitePartCard key={part.entry.id} part={part} pressed={pressedPart} draft={themeDraft} onChange={setThemeDraft} onClose={() => setPressedPart(null)} />
+                )}
                 {canTheme && isThemeShown && <ThemeCard looks={looks} draft={themeDraft} onChange={setThemeDraft} />}
                 {sections.filter((section) => !section.aside).map(narrowCard)}
                 {!isSingle && (

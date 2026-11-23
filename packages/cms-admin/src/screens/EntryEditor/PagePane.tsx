@@ -55,6 +55,8 @@ export interface PagePaneProps {
   readonly onRedo?: () => void;
   /** Called when the keys that save are pressed on the page. */
   readonly onSave?: () => void;
+  /** Called when a part every page shows (a header, a footer) is pressed on the page: the key of its single page, and the field, as keys. */
+  readonly onPartPress?: (key: string, field?: string) => void;
   /** Other entries tried on the page along with this one and not saved: the site's settings, while their colours are chosen. */
   readonly also?: readonly { readonly id: string; readonly data: EntryData }[];
 }
@@ -68,7 +70,7 @@ const pageOf = (path: string) => path.split('?')[0];
  * The entry's page beside its form, drawn by the site from what the form holds now. Nothing is
  * saved to show it: the draft goes with the request for the page and is kept nowhere.
  */
-export function PagePane({ entry, data, title, width, onWidthChange, isWhole, onWhole, onFormWanted, onUndo, onRedo, onSave, also = [] }: PagePaneProps) {
+export function PagePane({ entry, data, title, width, onWidthChange, isWhole, onWhole, onFormWanted, onPartPress, onUndo, onRedo, onSave, also = [] }: PagePaneProps) {
   const messages = useMessages();
   const escapes = useEscapes();
   const focus = usePageFocus();
@@ -114,6 +116,7 @@ export function PagePane({ entry, data, title, width, onWidthChange, isWhole, on
           toolbar: <PageWidths width={width} onChange={onWidthChange} />,
         })}
         emptyText={emptyText}
+        {...(onPartPress && { onPartPress })}
         {...(onUndo && { onUndo })}
         {...(onRedo && { onRedo })}
         {...(onSave && { onSave })}

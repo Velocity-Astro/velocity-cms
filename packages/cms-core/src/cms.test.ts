@@ -7,6 +7,7 @@ import { FieldType } from './field-type.js';
 import { hasUnpublishedChanges, type ContentTypeDef, type FieldDef } from './model.js';
 import { pageAddress } from './page-address.js';
 import { UnknownTypeError } from './registry.js';
+import type { NewContentType } from './services/schema-service.js';
 import {
   FakeClock,
   InMemoryEntryRepository,
@@ -30,6 +31,14 @@ let cms: Cms;
 let listings: ContentTypeDef;
 
 /** The id of a field, looked up by key, so tests read like the site's code does. */
+/** A type made as the builder makes one: the type, then each field, none of them the template's. */
+const built = async (input: NewContentType): Promise<ContentTypeDef> => {
+  const { fields = [], ...type } = input;
+  let made = await cms.schema.create(owner, type);
+  for (const field of fields) made = await cms.schema.addField(owner, made.id, field);
+  return made;
+};
+
 const id = (type: ContentTypeDef, key: string): string => {
   const field = type.fields.find((candidate) => candidate.key === key && candidate.deletedAt === undefined);
   if (!field) throw new Error(`No field "${key}"`);
@@ -739,6 +748,34 @@ describe('describing a content type again', () => {
     expect(id(after, 'kind')).toBe(id(before, 'kind'));
   });
 
+  it('marks the fields it describes as the template\'s, which the builder leaves alone', async () => {
+    const type = await cms.schema.define(owner, agents);
+    expect(type.fields.map((field) => field.fromTemplate)).toEqual([true, true, true]);
+    const phone = type.fields.find((field) => field.key === 'phone') as FieldDef;
+    const display = (phone.options['fields'] as FieldDef[])[0] as FieldDef;
+    // Changed or removed here, the next deploy would bring it back as described.
+    await expect(cms.schema.changeField(owner, type.id, id(type, 'name'), { label: { en: 'Called' } })).rejects.toThrowError(/comes from the site's template/);
+    await expect(cms.schema.renameField(owner, type.id, id(type, 'name'), { key: 'called' })).rejects.toBeInstanceOf(ConflictError);
+    await expect(cms.schema.removeField(owner, type.id, id(type, 'kind'))).rejects.toBeInstanceOf(ConflictError);
+    await expect(cms.schema.changeField(owner, type.id, display.id, { label: { en: 'Digits' } }, [phone.id])).rejects.toThrowError(/"phone" comes from the site's template/);
+    await expect(cms.schema.addField(owner, type.id, { key: 'extension', type: 'text', label: { en: 'Extension' } }, { within: [phone.id] })).rejects.toBeInstanceOf(ConflictError);
+    // A field of the site's own, beside them, is the site's to change.
+    const own = await cms.schema.addField(owner, type.id, { key: 'motto', type: 'text', label: { en: 'Motto' } });
+    expect(own.fields.find((field) => field.key === 'motto')).not.toHaveProperty('fromTemplate');
+    expect(await cms.schema.changeField(owner, type.id, id(own, 'motto'), { label: { en: 'Saying' } })).toBeDefined();
+    // Defined again, the site's own field is still its own, and one the template no longer describes becomes the site's.
+    const again = await cms.schema.define(owner, { ...agents, fields: agents.fields.slice(0, 2) });
+    expect(again.fields.map((field) => [field.key, field.fromTemplate === true])).toEqual([['name', true], ['phone', true], ['kind', false], ['motto', false]]);
+    expect((await cms.schema.removeField(owner, type.id, id(again, 'kind'))).fields.find((field) => field.key === 'kind')?.deletedAt).toBeTypeOf('string');
+  });
+
+  it('marks nothing as the template\'s when the builder makes a type', async () => {
+    const made = await cms.schema.create(owner, { key: 'offices', kind: 'collection', label: { en: 'Offices' } });
+    const type = await cms.schema.addField(owner, made.id, { key: 'city', type: 'text', label: { en: 'City' } });
+    expect(type.fields[0]).not.toHaveProperty('fromTemplate');
+    expect((await cms.schema.removeField(owner, type.id, id(type, 'city'))).fields[0]?.deletedAt).toBeTypeOf('string');
+  });
+
   it('stores the title field and the sections by field id', async () => {
     const type = await cms.schema.define(owner, {
       ...agents,
@@ -870,7 +907,8 @@ describe('building what a group holds, and a type\'s sections and lists', () => 
   const inner = (type: ContentTypeDef, key: string) => type.fields.find((field) => field.key === key)?.options as { fields?: FieldDef[]; of?: { options: { fields: FieldDef[] } } };
 
   beforeEach(async () => {
-    agents = await cms.schema.define(owner, {
+    // Made in the builder, a field at a time, so every field is the site's own to change.
+    agents = await built({
       key: 'agents',
       kind: 'collection',
       label: { en: 'Agents' },

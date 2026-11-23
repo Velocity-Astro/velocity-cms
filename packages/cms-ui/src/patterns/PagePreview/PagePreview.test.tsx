@@ -68,6 +68,19 @@ it('says which field of the section was pressed, where the page marks its fields
   expect(onSectionPress).toHaveBeenLastCalledWith('s2');
 });
 
+it('says which part every page shows was pressed: its single page and the field', () => {
+  const onPartPress = vi.fn();
+  const onSectionPress = vi.fn();
+  render(example({ onPartPress, onSectionPress }));
+  say({ source: 'velocity-cms', type: 'part', id: 'site-header-footer', field: 'announceBold' });
+  expect(onPartPress).toHaveBeenCalledWith('site-header-footer', 'announceBold');
+  say({ source: 'velocity-cms', type: 'part', id: 'navigation' });
+  expect(onPartPress).toHaveBeenLastCalledWith('navigation');
+  say({ source: 'velocity-cms', type: 'part', id: 3 });
+  expect(onPartPress).toHaveBeenCalledTimes(2);
+  expect(onSectionPress).not.toHaveBeenCalled();
+});
+
 it('listens to nothing but this site\'s own page in this frame', () => {
   const onSectionPress = vi.fn();
   render(example({ onSectionPress }));

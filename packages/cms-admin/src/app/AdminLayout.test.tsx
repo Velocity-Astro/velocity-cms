@@ -95,3 +95,18 @@ it('finds a contact by name or email for an owner or an editor, and never for an
   expect(await search.findByText('Nothing matches that.')).toBeTruthy();
   expect(search.queryByRole('menuitem', { name: /Ana Ruiz/ })).toBeNull();
 });
+
+it('lists the parts every page shows apart from the content, and the settings\' pages under Settings only', async () => {
+  const single = (key: string, label: string, place: { sitePart?: true; inSettings?: true }) => ({ id: `type-${key}`, key, kind: 'single' as const, label: { en: label }, fields: [], ...place });
+  renderApp('/content/listings', {
+    ...signedIn(),
+    contentTypes: [...sampleContentTypes, single('site-header-footer', 'Header and footer', { sitePart: true }), single('settings', 'Business details', { inSettings: true })],
+  });
+  await screen.findByRole('heading', { level: 1, name: 'Listings' });
+  const parts = within(screen.getAllByRole('group', { name: 'Across the site' })[0] as HTMLElement);
+  expect(parts.getByRole('link', { name: 'Header and footer' })).toBeTruthy();
+  const collections = within(screen.getAllByRole('group', { name: 'Collections' })[0] as HTMLElement);
+  expect(collections.queryByRole('link', { name: 'Header and footer' })).toBeNull();
+  expect(collections.getByRole('link', { name: 'Listings' })).toBeTruthy();
+  expect(screen.queryByRole('link', { name: 'Business details' })).toBeNull();
+});

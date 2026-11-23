@@ -37,11 +37,17 @@ export interface NewContentType {
   readonly forDeals?: boolean;
   /** For a single page that is part of the site's setup: the editor shows it under Settings. Left out, it stays as it is. */
   readonly inSettings?: boolean;
+  /**
+   * For a single page that holds a part every page shows (a header, a footer, an announcement
+   * bar, menus): the editor lists it under Content, apart from the rest. Left out, it stays as it is.
+   */
+  readonly sitePart?: boolean;
   /** The field of such a page that holds what the site is called, by key: `name`. */
   readonly siteNameField?: string;
   /**
    * The fields of such a page that say how the site looks, by key: its logo (an image field), a
-   * logo for dark backgrounds, and its colour (a colour field). The site's emails wear them.
+   * logo for dark backgrounds, its favicon (an image field) and its colour (a colour field). The
+   * site's emails wear the logo and colour, and a template writes the favicon into every page's head.
    */
   readonly brandFields?: BrandFields;
 }
@@ -50,6 +56,8 @@ export interface NewContentType {
 export interface BrandFields {
   readonly logo?: string;
   readonly logoDark?: string;
+  /** The small picture a browser shows in the tab (an image field): a square mark, best as an SVG or PNG. */
+  readonly favicon?: string;
   readonly color?: string;
 }
 
@@ -173,6 +181,10 @@ export class SchemaService {
   }
 
   async create(actor: Actor, input: NewContentType): Promise<ContentTypeDef> {
+    return this.make(actor, input, false);
+  }
+
+  private async make(actor: Actor, input: NewContentType, byTemplate: boolean): Promise<ContentTypeDef> {
     this.access.require(actor, 'schema:write');
     requireKey(input.key, 'content type');
     requireLabel(input.label, 'content type');
@@ -185,7 +197,7 @@ export class SchemaService {
           : `An archived content type has the key "${input.key}". Restore it, or choose another key.`,
       );
     }
-    return this.save(actor, this.described({ id: this.ids.next(), key: input.key, kind: input.kind, label: input.label, fields: [] }, input));
+    return this.save(actor, this.described({ id: this.ids.next(), key: input.key, kind: input.kind, label: input.label, fields: [] }, input, byTemplate));
   }
 
   /**
@@ -196,12 +208,16 @@ export class SchemaService {
    * its id, so its content stays; it takes the described label, type and settings. Fields the
    * description leaves out are kept as they are. Content is not converted when a field's type
    * changes: a value the new type does not accept is reported the next time its entry is saved.
+   *
+   * The fields it describes are the template's (`fromTemplate`): the builder leaves them alone,
+   * since the next deploy would bring them back as described. A field it no longer describes is
+   * the site's own from then on.
    */
   async define(actor: Actor, input: NewContentType): Promise<ContentTypeDef> {
     this.access.require(actor, 'schema:write');
     const existing = await this.types.getByKey(input.key);
-    if (!existing) return this.create(actor, input);
-    return this.save(actor, this.described(existing, input));
+    if (!existing) return this.make(actor, input, true);
+    return this.save(actor, this.described(existing, input, true));
   }
 
   /** Changes what a content type is called, where its entries live and what lists show of them. Fields are changed one at a time. */
@@ -234,6 +250,7 @@ export class SchemaService {
     this.access.require(actor, 'schema:write');
     const type = await this.getLive(typeId);
     const { section, within = [] } = place;
+    this.requireOwnField(type, within, undefined, 'adding a field inside it');
     const fields = this.held(type.fields, within);
     this.requireFreeKey(fields, input.key);
     requireLabel(input.label, 'field');
@@ -268,6 +285,7 @@ export class SchemaService {
     const type = await this.getLive(typeId);
     const fields = this.held(type.fields, within);
     const field = requireField(fields, fieldId);
+    this.requireOwnField(type, within, field, 'changing it');
     if (field.deletedAt !== undefined) throw new ConflictError(`The field "${field.key}" was removed. Restore it before changing it.`);
     if (change.key !== undefined && change.key !== field.key) this.requireFreeKey(fields, change.key);
     if (change.label !== undefined) requireLabel(change.label, 'field');
@@ -342,6 +360,7 @@ export class SchemaService {
     const fields = this.held(type.fields, within);
     const field = requireField(fields, fieldId);
     if (field.deletedAt !== undefined) return type;
+    this.requireOwnField(type, within, field, 'removing it');
     const removed = { ...field, deletedAt: this.clock.now() };
     return this.replaceFields(actor, type, within, fields.map((existing) => (existing.id === fieldId ? removed : existing)));
   }
@@ -356,16 +375,50 @@ export class SchemaService {
     return this.replaceFields(actor, type, within, fields.map((existing) => (existing.id === fieldId ? field : existing)));
   }
 
+  /** A field marked as the template's, or not. */
+  private owned(field: FieldDef, byTemplate: boolean): FieldDef {
+    const { fromTemplate: _was, ...rest } = field;
+    return byTemplate ? { ...rest, fromTemplate: true } : rest;
+  }
+
+  /**
+   * Refuses to change a field the template describes, or anything inside one: the next deploy
+   * would put it back as the template's code says, and a field someone removed would come back.
+   */
+  private requireOwnField(type: ContentTypeDef, within: readonly string[], field: FieldDef | undefined, what: string): void {
+    let fields: readonly FieldDef[] = type.fields;
+    for (const id of within) {
+      const holder = fields.find((candidate) => candidate.id === id);
+      if (!holder) break;
+      if (holder.fromTemplate === true) throw this.templates(holder, what);
+      fields = this.fields.get(holder.type).inner(holder.options, this.fields);
+    }
+    if (field?.fromTemplate === true) throw this.templates(field, what);
+  }
+
+  private templates(field: FieldDef, what: string): ConflictError {
+    return new ConflictError(
+      `The field "${field.key}" comes from the site's template, so ${what} is done in the template's code (its content model) and applied on the next deploy. Add a field of your own beside it instead.`,
+    );
+  }
+
   private get context() {
     return { fields: this.fields, ids: this.ids, now: this.clock.now() };
   }
 
   /** A type with a description applied to it: its fields, what entries are called by, and its layout. */
-  private described(type: ContentTypeDef, input: NewContentType): ContentTypeDef {
-    const { titlePath: _title, list: _list, sections: _sections, urlPattern: _url, localizedUrlPatterns: _urls, forDeals, inSettings: wasInSettings, siteNamePath: _name, brandPaths: _brand, ...rest } = type;
+  private described(type: ContentTypeDef, input: NewContentType, byTemplate: boolean): ContentTypeDef {
+    const { titlePath: _title, list: _list, sections: _sections, urlPattern: _url, localizedUrlPatterns: _urls, forDeals, inSettings: wasInSettings, sitePart: wasSitePart, siteNamePath: _name, brandPaths: _brand, ...rest } = type;
     const inSettings = input.inSettings ?? wasInSettings === true;
+    const sitePart = input.sitePart ?? wasSitePart === true;
     if ((inSettings || input.siteNameField !== undefined) && type.kind !== 'single') {
       throw new ValidationError(`Only a single page can be part of the settings, and "${type.key}" is a collection. Leave \`inSettings\` and \`siteNameField\` out of it.`, [{ path: ['inSettings'], message: 'Only a single page can be part of the settings.' }]);
+    }
+    if (sitePart && type.kind !== 'single') {
+      throw new ValidationError(`Only a single page can be a part of the site, and "${type.key}" is a collection. Leave \`sitePart\` out of it.`, [{ path: ['sitePart'], message: 'Only a single page can be a part of the site.' }]);
+    }
+    if (sitePart && inSettings) {
+      throw new ValidationError(`"${type.key}" says both \`sitePart\` and \`inSettings\`. A page is a part of the site (a header, menus, prices) or of the settings (the site's name, logo and contact details): keep one.`, [{ path: ['sitePart'], message: 'Say `sitePart` or `inSettings`, not both.' }]);
     }
     if (input.brandFields !== undefined && !inSettings) {
       throw new ValidationError(`"${type.key}" names the fields that hold the site's look, so it must be a single page that says \`inSettings: true\`.`, [{ path: ['brandFields'], message: 'Say `inSettings: true` as well.' }]);
@@ -373,7 +426,10 @@ export class SchemaService {
     if (input.siteNameField !== undefined && !inSettings) {
       throw new ValidationError(`"${type.key}" names the field that holds the site's name, so it must also say \`inSettings: true\`.`, [{ path: ['siteNameField'], message: 'Say `inSettings: true` as well.' }]);
     }
-    const fields = defineFields(input.fields ?? [], type.fields, this.context);
+    const defined = defineFields(input.fields ?? [], type.fields, this.context);
+    // What the description names is the template's; what it leaves out is the site's own.
+    const named = new Set((input.fields ?? []).map((field) => field.key));
+    const fields = byTemplate ? defined.map((field) => this.owned(field, field.deletedAt === undefined && named.has(field.key))) : defined;
     const live = liveFields(fields);
     const sections: FieldSection[] = (input.sections ?? []).map((section) => ({
       key: section.key,
@@ -397,6 +453,7 @@ export class SchemaService {
       ...(sections.length > 0 && { sections }),
       ...((input.forDeals ?? forDeals === true) && { forDeals: true as const }),
       ...(inSettings && { inSettings: true as const }),
+      ...(sitePart && { sitePart: true as const }),
       ...(inSettings && input.siteNameField !== undefined && { siteNamePath: this.pathOf(live, input.siteNameField, 'the site name field') }),
       ...(inSettings && input.brandFields !== undefined && { brandPaths: this.brandPaths(live, input.brandFields) }),
     };
@@ -418,8 +475,9 @@ export class SchemaService {
     };
     const logo = at(brand.logo, 'the logo field', 'image');
     const logoDark = at(brand.logoDark, 'the dark logo field', 'image');
+    const favicon = at(brand.favicon, 'the favicon field', 'image');
     const color = at(brand.color, 'the brand colour field', 'color');
-    return { ...(logo && { logo }), ...(logoDark && { logoDark }), ...(color && { color }) };
+    return { ...(logo && { logo }), ...(logoDark && { logoDark }), ...(favicon && { favicon }), ...(color && { color }) };
   }
 
   /** The ids along a dotted key path, such as `address.street`. */

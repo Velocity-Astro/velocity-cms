@@ -94,6 +94,10 @@ function TypeBuilder({ type, holders, fields }: TypeBuilderProps) {
   const gone = fields.filter((field) => field.deletedAt !== undefined);
   const hasFields = places.some((place) => place.fields.length > 0);
   const labelOf = (field: FieldDef) => localized(field.label, locale);
+  // What the template describes comes back as described on each deploy, so it is changed in its code.
+  const isTemplatePlace = holders.some((field) => field.fromTemplate === true);
+  const hasTemplateFields = fields.some((field) => field.fromTemplate === true && field.deletedAt === undefined);
+  const isLocked = (field: FieldDef) => isTemplatePlace || field.fromTemplate === true;
 
   const move = (field: FieldDef, by: -1 | 1) =>
     arrange.mutate({ typeId: type.id, arrangement: holder ? movedWithin(fields, field.id, by, within) : moved(type, field.id, by) }, { onError: (error) => toast({ title: messages.builder.notMoved, description: messageOf(error), tone: 'danger' }) });
@@ -124,6 +128,7 @@ function TypeBuilder({ type, holders, fields }: TypeBuilderProps) {
         kind: kindCell(field),
         rules: (
           <Inline gap={2}>
+            {field.fromTemplate === true && <Tag>{messages.builder.fromTemplate}</Tag>}
             {field.required && <Tag tone="info">{messages.builder.required}</Tag>}
             {!field.translated && <Tag>{messages.builder.sameInEveryLanguage}</Tag>}
           </Inline>
@@ -135,16 +140,25 @@ function TypeBuilder({ type, holders, fields }: TypeBuilderProps) {
             )}
             <IconButton size="sm" label={messages.builder.moveUp(labelOf(field))} icon={ArrowUp} isDisabled={index === 0 || arrange.isPending} onPress={() => move(field, -1)} />
             <IconButton size="sm" label={messages.builder.moveDown(labelOf(field))} icon={ArrowDown} isDisabled={index === fields.length - 1 || arrange.isPending} onPress={() => move(field, 1)} />
-            <IconButton size="sm" label={messages.builder.edit(labelOf(field))} icon={Pencil} onPress={() => setEditing(field)} />
-            <IconButton size="sm" label={messages.builder.remove(labelOf(field))} icon={Trash2} onPress={() => setLeaving(field)} />
+            {!isLocked(field) && (
+              <>
+                <IconButton size="sm" label={messages.builder.edit(labelOf(field))} icon={Pencil} onPress={() => setEditing(field)} />
+                <IconButton size="sm" label={messages.builder.remove(labelOf(field))} icon={Trash2} onPress={() => setLeaving(field)} />
+              </>
+            )}
           </Inline>
         ),
       },
     }));
-  const addField = (
+  const addField = isTemplatePlace ? undefined : (
     <Button icon={Plus} collapses onPress={() => setAdding(true)}>
       {messages.builder.addField}
     </Button>
+  );
+  const templateNote = (isTemplatePlace || hasTemplateFields) && (
+    <Text size="sm" tone="muted">
+      {isTemplatePlace ? messages.builder.insideTemplateNote : messages.builder.fromTemplateNote}
+    </Text>
   );
 
   return (
@@ -153,7 +167,8 @@ function TypeBuilder({ type, holders, fields }: TypeBuilderProps) {
         {holder ? (
           <Stack gap={2}>
             <Link href={paths.type(type.key, within.slice(0, -1))}>{messages.builder.backTo(holders.length > 1 ? labelOf(holders.at(-2) as FieldDef) : name)}</Link>
-            <PageHeader title={labelOf(holder)} description={messages.builder.insideOf(labelOf(holder), name)} actions={addField} />
+            <PageHeader title={labelOf(holder)} description={messages.builder.insideOf(labelOf(holder), name)} {...(addField && { actions: addField })} />
+            {templateNote}
           </Stack>
         ) : (
           <Stack gap={2}>
@@ -169,13 +184,14 @@ function TypeBuilder({ type, holders, fields }: TypeBuilderProps) {
                   { id: 'sections', label: messages.builder.sections, icon: LayoutList, onPress: () => setChangingSections(true) },
                 ],
               }}
-              actions={addField}
+              {...(addField && { actions: addField })}
             />
             <Link href={paths.contentList(type.key)}>{messages.builder.viewEntries}</Link>
+            {templateNote}
           </Stack>
         )}
 
-        {!hasFields && <EmptyState icon={ListPlus} title={messages.builder.noFieldsTitle} description={messages.builder.noFieldsDescription} action={addField} />}
+        {!hasFields && <EmptyState icon={ListPlus} title={messages.builder.noFieldsTitle} description={messages.builder.noFieldsDescription} {...(addField && { action: addField })} />}
         {hasFields &&
           places.map((place) => {
             const section = type.sections?.find((candidate) => candidate.key === place.key);

@@ -6,7 +6,7 @@ import { FieldGrid, useControlFor } from '../../fields/index.js';
 import { localized, sameData, withValue } from '../../lib/content.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 
-/** A page of the site's settings with looks to choose (its colours): the entry a page in this language reads, and those fields. */
+/** A page of the site's settings, or a part of the site, with looks to choose (its colours): the entry a page in this language reads, and those fields. */
 export interface SiteLook {
   readonly type: ContentTypeDef;
   readonly entry: Entry;
@@ -19,13 +19,14 @@ export type ThemeDraft = Readonly<Record<string, EntryData>>;
 const NO_PROBLEMS: ReadonlyMap<string, string> = new Map();
 
 /**
- * The looks the whole site has: every field of a page kept in the settings whose control says
+ * The looks the whole site has: every field of a page kept in the settings, or of a part of the
+ * site (a header, a footer), whose control says
  * it is a choice among the site's colours. For a page in `locale`, the settings entry in that
  * language where there is one, as the site itself reads it.
  */
 export function useSiteLooks(locale: string | undefined): readonly SiteLook[] {
   const controlFor = useControlFor();
-  const types = (useContentTypes().data ?? []).filter((type) => type.kind === 'single' && type.inSettings === true);
+  const types = (useContentTypes().data ?? []).filter((type) => type.kind === 'single' && (type.inSettings === true || type.sitePart === true));
   const lists = useEntriesOfTypes(types.map((type) => ({ type: type.key, limit: 200 })));
   return types.flatMap((type, at) => {
     const entries = [...(lists[at]?.data?.items ?? [])].sort((a, b) => a.locale.localeCompare(b.locale));
@@ -40,11 +41,17 @@ export function useSiteLooks(locale: string | undefined): readonly SiteLook[] {
   });
 }
 
-/** What of a theme being tried differs from what is saved, as the entries a page is drawn with. */
-export function themeTried(looks: readonly SiteLook[], draft: ThemeDraft): readonly { readonly id: string; readonly data: EntryData }[] {
-  return looks.flatMap(({ entry }) => {
+/**
+ * What of the site's own pages being tried (a theme, a header) differs from what is saved, as the
+ * entries a page is drawn with. Each entry once, however many of the pages given hold it.
+ */
+export function themeTried(pages: readonly { readonly entry: Entry }[], draft: ThemeDraft): readonly { readonly id: string; readonly data: EntryData }[] {
+  const seen = new Set<string>();
+  return pages.flatMap(({ entry }) => {
     const data = draft[entry.id];
-    return data !== undefined && !sameData(data, entry.data) ? [{ id: entry.id, data }] : [];
+    if (seen.has(entry.id) || data === undefined || sameData(data, entry.data)) return [];
+    seen.add(entry.id);
+    return [{ id: entry.id, data }];
   });
 }
 

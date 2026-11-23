@@ -65,10 +65,13 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
   // A page that is part of the settings is reached from there, so the menu has one way to it.
   const settingsPages = (types.data ?? []).filter((type) => type.inSettings === true);
   const contentTypes = (types.data ?? []).filter((type) => type.inSettings !== true);
-  const typeNav: AppShellNavItem[] = contentTypes.map((type) => {
+  const navItem = (type: (typeof contentTypes)[number]): AppShellNavItem => {
     const href = paths.contentList(type.key);
     return { id: type.id, label: localized(type.label, locale), href, icon: typeIcon(type.key), isCurrent: at(href) };
-  });
+  };
+  // What every page shows (a header, menus, prices) is listed apart from the content itself.
+  const typeNav: AppShellNavItem[] = contentTypes.filter((type) => type.sitePart !== true).map(navItem);
+  const partNav: AppShellNavItem[] = contentTypes.filter((type) => type.sitePart === true).map(navItem);
   // Where content is looked after, beside the content itself: the types, for owners, and the trash.
   const workspaceNav: AppShellNavItem[] = [
     ...(role === 'owner' ? [{ id: 'types', label: messages.app.types, href: paths.types, icon: Shapes, isCurrent: at(paths.types) }] : []),
@@ -76,6 +79,7 @@ export function AdminLayout({ siteName }: AdminLayoutProps) {
   ];
   const contentChildren: AppShellNavGroup[] = [
     ...(typeNav.length > 0 ? [{ id: 'collections', label: messages.app.collectionsGroup, items: typeNav }] : []),
+    ...(partNav.length > 0 ? [{ id: 'site-parts', label: messages.app.sitePartsGroup, items: partNav }] : []),
     { id: 'workspace', label: messages.app.workspaceGroup, items: workspaceNav },
   ];
   // Content leads to a list: a single page would open its entry, with no column to choose another from.
