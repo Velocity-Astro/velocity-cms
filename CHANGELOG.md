@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+## 0.1.0-beta.17
+
 - **A calmer greeting on Home.** The greeting is on one line and your name on its own line under it, never broken across two; what is waiting ("1 draft is waiting") is a smaller line beneath. In `cms-ui`, `Welcome` takes `name` in place of `highlight`.
 - **Plugin settings one click away.** Every active plugin with settings is listed in the Plugins menu and opens its settings straight away, and leaves the menu when it is switched off. A plugin's settings have an address of their own (`/admin/plugins?settings=<name>`).
 
