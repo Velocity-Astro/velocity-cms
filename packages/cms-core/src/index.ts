@@ -47,6 +47,7 @@ export {
   isEmptyRichText,
   isSafeLink,
   richTextFromMarkdown,
+  richTextToMarkdown,
   richTextHtml,
   richTextParagraphs,
   richTextSchema,

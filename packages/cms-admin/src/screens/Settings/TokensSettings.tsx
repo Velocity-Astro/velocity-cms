@@ -1,11 +1,11 @@
 import { TOKEN_ROLES, type Role } from '@velocity-astro/cms-core';
 import { Button, Card, Checkbox, ConfirmDialog, Dialog, EmptyState, Form, IconButton, Inline, NumberField, Select, Stack, Table, Tag, Text, TextField, toast, type TableColumn, type TableRow } from '@velocity-astro/cms-ui';
-import { KeyRound, Plus, Trash2 } from 'lucide-react';
+import { KeyRound, Plug, Plus, Trash2, Unplug } from 'lucide-react';
 import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
-import type { AccessToken, MadeAccessToken } from '../../client/admin-client.js';
+import type { AccessToken, ConnectedApp, MadeAccessToken } from '../../client/admin-client.js';
 import { AdminRequestError } from '../../client/errors.js';
-import { useCreateToken, useRevokeToken, useTokens } from '../../client/queries.js';
+import { useConnections, useCreateToken, useDisconnect, useRevokeToken, useTokens } from '../../client/queries.js';
 import { relativeTime } from '../../lib/relative-time.js';
 import { siteAddress } from '../../lib/site-address.js';
 import { useClosing, useLast } from '../../lib/use-closing.js';
@@ -69,6 +69,7 @@ export function TokensPanel() {
 
   return (
     <Stack gap={6}>
+      <ConnectedAppsCard />
       <Card title={words.title} description={words.description} actions={tokens.data.length > 0 ? makeButton : undefined} isFlush={tokens.data.length > 0}>
         {tokens.data.length === 0 ? <EmptyState icon={KeyRound} title={words.empty} description={words.emptyDescription} action={makeButton} level={3} /> : <Table label={words.title} columns={columns} rows={rows} frame="none" />}
       </Card>
@@ -103,6 +104,81 @@ export function TokensPanel() {
         {words.revokeDescription}
       </ConfirmDialog>
     </Stack>
+  );
+}
+
+/**
+ * The apps that connected by themselves: someone gave the app the site's MCP address, signed in
+ * and pressed Allow. The address is here to copy, and each app can be disconnected.
+ */
+function ConnectedAppsCard() {
+  const messages = useMessages();
+  const tokens = messages.settings.tokens;
+  const words = tokens.connect;
+  const locale = useLocale();
+  const connections = useConnections();
+  const disconnect = useDisconnect();
+  const [leaving, setLeaving] = useState<ConnectedApp | null>(null);
+  const asked = useLast(leaving);
+
+  if (connections.isPending) return <LoadingState shape="table" />;
+  if (connections.isError) return <ErrorState error={connections.error} onRetry={() => void connections.refetch()} />;
+
+  const columns: TableColumn[] = [
+    { id: 'name', label: words.columnName },
+    { id: 'may', label: tokens.columnMay, isSecondary: true },
+    { id: 'actions', label: tokens.columnActions, align: 'end' },
+  ];
+  const rows: TableRow[] = connections.data.map((app) => ({
+    id: app.id,
+    cells: {
+      name: (
+        <Stack gap={0}>
+          <Text weight="semibold">{app.name}</Text>
+          <Text size="sm" tone="muted">
+            {[...(app.returnsTo === '' ? [] : [words.from(app.returnsTo)]), words.connectedBy(app.connectedBy), app.lastUsedAt === null ? tokens.neverUsed : tokens.lastUsed(relativeTime(app.lastUsedAt, locale))].join(' · ')}
+          </Text>
+        </Stack>
+      ),
+      may: (
+        <Inline gap={1}>
+          <Tag>{tokens.roles[app.role]}</Tag>
+          <Tag tone={app.publish ? 'warning' : 'neutral'}>{app.publish ? tokens.publishes : tokens.drafts}</Tag>
+          {app.personalData && <Tag tone="warning">{tokens.personal}</Tag>}
+        </Inline>
+      ),
+      actions: <IconButton label={words.disconnect(app.name)} icon={Unplug} onPress={() => setLeaving(app)} />,
+    },
+  }));
+
+  return (
+    <>
+      <Card title={words.title} description={words.description}>
+        <Stack gap={4}>
+          <TextField label={tokens.mcpField} value={tokens.mcpAddress(siteAddress())} isReadOnly autoComplete="off" description={words.addressHelp} />
+          {connections.data.length === 0 ? <EmptyState icon={Plug} title={words.empty} level={3} /> : <Table label={words.title} columns={columns} rows={rows} />}
+        </Stack>
+      </Card>
+      <ConfirmDialog
+        isOpen={leaving !== null}
+        onOpenChange={(isOpen) => !isOpen && setLeaving(null)}
+        title={words.disconnectTitle(asked?.name ?? '')}
+        confirmLabel={words.disconnectConfirm}
+        cancelLabel={messages.editor.cancel}
+        tone="danger"
+        isPending={disconnect.isPending}
+        onConfirm={() => {
+          if (!leaving) return;
+          disconnect.mutate(leaving.id, {
+            onSuccess: () => toast({ title: words.disconnected(leaving.name), tone: 'success' }),
+            onError: (error) => toast({ title: words.notDisconnected, description: messageOf(error), tone: 'danger' }),
+            onSettled: () => setLeaving(null),
+          });
+        }}
+      >
+        {words.disconnectDescription}
+      </ConfirmDialog>
+    </>
   );
 }
 

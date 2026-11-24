@@ -33,6 +33,15 @@ it('asks for a link that lands on the editor, and on the sign-in screen if it ha
   ]);
 });
 
+it('lands a link on a screen of the editor when asked, and never off the site', async () => {
+  const { fetch, calls } = server();
+  const client = createAuthClient({ fetch });
+  await client.requestSignInLink('dana@example.com', '/connect?client_id=abc');
+  await client.requestSignInLink('dana@example.com', '//evil.test');
+  await client.requestSignInLink('dana@example.com', 'https://evil.test');
+  expect(calls.map((call) => (call.body as { callbackURL: string }).callbackURL)).toEqual(['/admin/connect?client_id=abc', '/admin', '/admin']);
+});
+
 it('follows the site when sign-in and the editor are mounted somewhere else', async () => {
   const { fetch, calls } = server();
   const client = createAuthClient({ fetch, basePath: '/cms/auth/', adminPath: '/studio' });

@@ -2,6 +2,7 @@ import { act, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { dismissToasts } from '@velocity-astro/cms-ui';
 import { afterEach, expect, it } from 'vitest';
+import { SAMPLE_APP_QUERY } from '../../testing/memory-connections.js';
 import { renderApp } from '../../testing/render-app.js';
 import { sampleContentTypes, sampleUser } from '../../testing/sample-content.js';
 
@@ -35,6 +36,25 @@ it('makes an access token for an agent, shows it once with the MCP address, and 
   await user.click(await screen.findByRole('button', { name: 'Take it away' }));
   expect(await screen.findByText('Claude on my laptop was taken away')).toBeTruthy();
   expect(await client.listTokens()).toEqual([]);
+});
+
+it('lists the apps that connected by themselves, with the address to give one, and disconnects one', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/settings/tokens', { user: sampleUser, contentTypes: sampleContentTypes });
+  await client.answerConnection(SAMPLE_APP_QUERY, { allow: true, role: 'author', publish: false, personalData: true });
+  const card = within(await screen.findByRole('region', { name: 'Connected apps' }));
+  expect((card.getByRole('textbox', { name: /MCP address/ }) as HTMLInputElement).value).toMatch(/\/api\/cms\/mcp$/);
+  const row = within(await card.findByRole('row', { name: /Claude/ }));
+  expect(row.getByText(/From claude\.ai · Connected by Dana · Not used yet/)).toBeTruthy();
+  expect(row.getByText('Writes drafts')).toBeTruthy();
+  expect(row.getByText('Drafts only')).toBeTruthy();
+  expect(row.getByText('Contacts and forms')).toBeTruthy();
+
+  await user.click(row.getByRole('button', { name: 'Disconnect Claude' }));
+  await user.click(await screen.findByRole('button', { name: 'Disconnect' }));
+  expect(await screen.findByText('Claude was disconnected')).toBeTruthy();
+  expect(await card.findByText('No apps connected yet')).toBeTruthy();
+  expect(await client.listConnections()).toEqual([]);
 });
 
 it('puts what the server refuses on the field it is about', async () => {

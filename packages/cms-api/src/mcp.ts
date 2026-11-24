@@ -6,6 +6,8 @@ import {
   liveFields,
   pageAddress,
   richTextFromMarkdown,
+  richTextSchema,
+  richTextToMarkdown,
   toStoredData,
   type Actor,
   type BlockDef,
@@ -47,7 +49,7 @@ const SERVER = { name: 'velocity-cms', title: 'Velocity CMS', version: '1' };
 
 const INSTRUCTIONS = `This is a site's content in Velocity CMS.
 Start with describe_site: it lists the content types, what this token may do, and the forms.
-Values are written by field key. Formatted text (richtext) takes a string, or {"markdown": "..."} for headings, lists, bold, italics, code in backticks and links.
+Values are written by field key. Formatted text (richtext) is read as {"markdown": "..."} and takes the same back, or a plain string: headings, lists, quotes, bold, italics, code in backticks and links.
 A page built from sections (a "blocks" field) is built from the blocks its content type lists, each with its own fields: read get_content_type or list_blocks first, then add_section, update_section, move_section, remove_section or set_sections. A look is one of the choices a field offers.
 An idea the blocks cannot show is welcome: a new kind of section is a block in the site's model with a component of the same key in its code, so it is drawn on the theme and editors can change it. design_new_section gives the site's colours, fonts and blocks to design from and the steps to add one; once it is deployed, these tools use it like any other.
 What you write is a draft until it is published. Publishing needs a token that allows it; otherwise tell the person the draft is ready for them to publish in the editor.
@@ -104,6 +106,20 @@ function written(value: unknown): unknown {
   const keys = Object.keys(value);
   if (keys.length === 1 && keys[0] === 'markdown' && typeof value['markdown'] === 'string') return richTextFromMarkdown(value['markdown']);
   return Object.fromEntries(Object.entries(value).map(([key, inner]) => [key, written(inner)]));
+}
+
+/**
+ * Values as an agent reads them: formatted text, anywhere, is `{ "markdown": "..." }`, which is
+ * what it would write. So what a tool hands over can be changed and sent straight back.
+ */
+function read(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(read);
+  if (!isObject(value)) return value;
+  if (value['type'] === 'doc' && Array.isArray(value['content'])) {
+    const text = richTextSchema.safeParse(value);
+    if (text.success) return { markdown: richTextToMarkdown(text.data) };
+  }
+  return Object.fromEntries(Object.entries(value).map(([key, inner]) => [key, read(inner)]));
 }
 
 const isFieldDef = (value: unknown): value is FieldDef => isObject(value) && typeof value['id'] === 'string' && typeof value['key'] === 'string' && typeof value['type'] === 'string' && isObject(value['label']);
@@ -219,7 +235,7 @@ function entryView(type: ContentTypeDef, entry: Entry, locale: string) {
     ...(entry.published && { publishedSlug: entry.published.slug, publishedAt: entry.published.at }),
     ...(page !== null && { page }),
     ...(entry.publishProblem && { publishProblem: entry.publishProblem }),
-    data: fromStoredData(type.fields, entry.data),
+    data: read(fromStoredData(type.fields, entry.data)) as Record<string, unknown>,
   };
 }
 

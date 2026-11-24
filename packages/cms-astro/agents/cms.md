@@ -147,7 +147,10 @@ nothing, so the template keeps its own values as the fallback.
 
 ## Working with content
 
-- An agent reaches content with an access token: an owner makes one in the editor (Settings,
+- An app that signs in by itself (Claude, ChatGPT) is connected by a person: they give it the
+  site's MCP address (`<site>/api/cms/mcp`), sign in to the editor and press Allow. Nothing in the
+  site's code is needed for it. Formatted text is read and written as `{ "markdown": "..." }`.
+- An agent on this computer reaches content with an access token: an owner makes one in the editor (Settings,
   Access tokens) or with `npx velocity-cms token "<what it is for>" --save`, which writes
   `VELOCITY_CMS_TOKEN` to `.env`. Never commit or print a token.
 - `npx velocity-cms types | entries | entry | create | update | publish | import | export |

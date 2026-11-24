@@ -1,11 +1,12 @@
 import { passkey } from '@better-auth/passkey';
-import type { AccessToken, ApiSession, Authenticator, MadeAccessToken, NewAccessToken, Profile, ProfileChanges, Profiles, Tokens } from '@velocity-astro/cms-api';
+import type { AccessToken, ApiSession, AskedConnection, Authenticator, ConnectedApp, ConnectionAnswer, Connections, MadeAccessToken, NewAccessToken, Profile, ProfileChanges, Profiles, Tokens } from '@velocity-astro/cms-api';
 import { AccessControl, CmsError, ConflictError, ForbiddenError, NotFoundError, ROLES, ValidationError, readImage, type Actor, type Role } from '@velocity-astro/cms-core';
 import { authAccount, authPasskey, authSession, authUser, authVerification, type Db } from '@velocity-astro/cms-db';
 import { betterAuth } from 'better-auth';
 import { and, eq, like, lt } from 'drizzle-orm';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { magicLink } from 'better-auth/plugins';
+import { AppConnections, appToken } from './connections.js';
 import type { Mailer } from './mailer.js';
 import { AccessTokens, bearerToken } from './tokens.js';
 
@@ -39,6 +40,10 @@ export interface CmsAuthOptions {
   readonly basePath?: string;
   /** Where the editor is mounted, which is where a sign-in link lands. Defaults to `/admin`. */
   readonly adminPath?: string;
+  /** Where the API is mounted, which is where an app that connects by itself finds the MCP server. Defaults to `/api/cms`. */
+  readonly apiPath?: string;
+  /** Told about a fault while an app connects, which the app is told nothing about. */
+  readonly onFault?: (error: unknown) => void;
   /** How long a sign-in link works for. Defaults to 10 minutes. */
   readonly linkLifetimeMinutes?: number;
   /**
@@ -116,7 +121,7 @@ function staysOnSite(link: string): boolean {
  * of the CMS sees an `Authenticator` for the API, `handle` to mount, and a few methods for
  * managing who has access.
  */
-export class CmsAuth implements Authenticator, Tokens, Profiles {
+export class CmsAuth implements Authenticator, Tokens, Connections, Profiles {
   readonly #options: CmsAuthOptions;
   readonly #access: AccessControl;
   readonly #adminPath: string;
@@ -124,6 +129,7 @@ export class CmsAuth implements Authenticator, Tokens, Profiles {
   readonly #lifetime: number;
   readonly #auth;
   readonly #tokens: AccessTokens;
+  readonly #connections: AppConnections;
   /** Links being made for `createSignInLink`, by email: they are handed back instead of emailed. */
   readonly #handBack = new Map<string, (url: string) => void>();
   /** When links were last emailed, by address. */
@@ -146,6 +152,13 @@ export class CmsAuth implements Authenticator, Tokens, Profiles {
     this.#origin = origin.origin;
     this.#lifetime = options.linkLifetimeMinutes ?? 10;
     this.#tokens = new AccessTokens(options.db, this.#access);
+    this.#connections = new AppConnections(options.db, {
+      origin: origin.origin,
+      access: this.#access,
+      adminPath: this.#adminPath,
+      ...(options.apiPath !== undefined && { apiPath: options.apiPath }),
+      ...(options.onFault && { onFault: options.onFault }),
+    });
 
     this.#auth = betterAuth({
       baseURL: origin.origin,
@@ -180,6 +193,7 @@ export class CmsAuth implements Authenticator, Tokens, Profiles {
    * judged by the token alone, so a bad one is refused rather than passed to the cookie.
    */
   async authenticate(request: Request): Promise<ApiSession | null> {
+    if (appToken(request) !== null) return this.#connections.authenticate(request);
     if (bearerToken(request) !== null) return this.#tokens.authenticate(request);
     const session = await this.#auth.api.getSession({ headers: request.headers });
     if (!session) return null;
@@ -187,6 +201,42 @@ export class CmsAuth implements Authenticator, Tokens, Profiles {
     // A role this version does not know grants nothing, rather than something by accident.
     if (!isRole(role)) return null;
     return { user: { id, email, name, ...(typeof image === 'string' && image !== '' && { image }) }, actor: { kind: 'user', id, role } };
+  }
+
+  /**
+   * Answers a request to an app's own side of connecting (OAuth): the addresses it finds its way
+   * by, registering, and trading a code for tokens. Mount it at `/.well-known/oauth-*` and under
+   * `<api>/oauth/`. `connects` says whether an address is one of them.
+   */
+  readonly connect = (request: Request): Promise<Response> => this.#connections.handle(request);
+
+  connects(pathname: string): boolean {
+    return this.#connections.handles(pathname);
+  }
+
+  /** Where a request to the MCP server with no session is told to look to learn how to sign in. */
+  get resourceMetadata(): string {
+    return this.#connections.resourceMetadata;
+  }
+
+  /** What an app asked for, read from the query its request carried. Owners only. */
+  asked(actor: Actor, query: string): Promise<AskedConnection> {
+    return this.#connections.asked(actor, query);
+  }
+
+  /** Records an owner's answer to an app, and says where their browser goes next. */
+  answer(actor: Actor, query: string, answer: ConnectionAnswer): Promise<{ readonly redirect: string }> {
+    return this.#connections.answer(actor, query, answer);
+  }
+
+  /** The apps connected to the site, newest first. Owners only. */
+  listConnections(actor: Actor): Promise<ConnectedApp[]> {
+    return this.#connections.listConnections(actor);
+  }
+
+  /** Takes a connected app away, at once. Owners only. */
+  disconnect(actor: Actor, id: string): Promise<void> {
+    return this.#connections.disconnect(actor, id);
   }
 
   /** The access tokens that have not ended, newest first. Owners only. */

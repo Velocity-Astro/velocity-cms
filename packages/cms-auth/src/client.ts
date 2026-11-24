@@ -30,7 +30,8 @@ export interface PasskeySummary {
 
 /** What the editor's `HttpAdminClient` takes as `auth`, plus adding a passkey once signed in. */
 export interface AuthClient {
-  requestSignInLink(email: string): Promise<void>;
+  /** Emails a sign-in link. `next` is a path inside the editor the link lands on, such as `/connect?…`; left out, the editor itself. */
+  requestSignInLink(email: string, next?: string): Promise<void>;
   signInWithPasskey(): Promise<SignedInUser>;
   signOut(): Promise<void>;
   /** Adds a passkey for the person signed in. `name` tells their passkeys apart: "Work laptop". */
@@ -83,9 +84,11 @@ export function createAuthClient(options: AuthClientOptions = {}): AuthClient {
   }
 
   return {
-    async requestSignInLink(email) {
+    async requestSignInLink(email, next) {
+      // Only a path inside the editor: the server checks again that a link never leaves the site.
+      const landing = next !== undefined && /^\/(?![/\\])/.test(next) ? `${adminPath}${next}` : adminPath;
       // The answer is the same whether or not the address belongs to someone.
-      await call('/sign-in/magic-link', { email, callbackURL: adminPath, errorCallbackURL: `${adminPath}/sign-in?link=expired` });
+      await call('/sign-in/magic-link', { email, callbackURL: landing, errorCallbackURL: `${adminPath}/sign-in?link=expired` });
     },
 
     async signInWithPasskey() {
