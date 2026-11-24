@@ -9,7 +9,7 @@ on:
       demo:
         description: Which demo to sign in to
         type: choice
-        options: [real-estate, restaurant]
+        options: [real-estate, restaurant, law-firm]
         default: real-estate
       email:
         description: Your email address
