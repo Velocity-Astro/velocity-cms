@@ -1138,7 +1138,7 @@ export const en = {
       connect: {
         title: 'Connected apps',
         description: 'Apps that connect by themselves, such as Claude and ChatGPT. Give the app this site\'s MCP address, sign in here and press Allow: there is no token to copy.',
-        addressHelp: 'In Claude: Settings, Connectors, Add custom connector. In ChatGPT: Settings, Connectors, Create. Paste the address and follow the app back here.',
+        addressHelp: 'In Claude: Settings, Connectors, Add custom connector. In ChatGPT: Settings, Connectors, and add a custom one. Paste the address and follow the app back here.',
         empty: 'No apps connected yet',
         columnName: 'App',
         connectedBy: (name: string) => `Connected by ${name}`,
