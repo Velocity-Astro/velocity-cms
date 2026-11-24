@@ -4,6 +4,7 @@
   "description": "Sign-in for Velocity CMS: email links and passkeys, kept in the CMS's own database. No passwords and no outside account.",
   "type": "module",
   "license": "MIT",
+  "keywords": ["velocity-cms", "cms", "astro", "auth", "passkeys"],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Velocity-Astro/velocity-cms.git",

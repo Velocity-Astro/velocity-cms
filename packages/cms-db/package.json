@@ -4,6 +4,7 @@
   "description": "SQLite and libSQL storage for Velocity CMS: tables, migrations and the repositories cms-core asks for.",
   "type": "module",
   "license": "MIT",
+  "keywords": ["velocity-cms", "cms", "astro", "sqlite", "libsql", "drizzle"],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Velocity-Astro/velocity-cms.git",

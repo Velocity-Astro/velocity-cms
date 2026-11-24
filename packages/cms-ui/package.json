@@ -4,6 +4,7 @@
   "description": "The Velocity CMS editor's design system: tokens, components and patterns. Knows nothing about content or the API.",
   "type": "module",
   "license": "MIT",
+  "keywords": ["velocity-cms", "cms", "astro", "design-system", "react"],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Velocity-Astro/velocity-cms.git",

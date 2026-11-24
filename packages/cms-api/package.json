@@ -4,6 +4,7 @@
   "description": "The Velocity CMS over HTTP: what the editor, the CLI and plugins call. Built on web-standard Request and Response, so it runs wherever the site does.",
   "type": "module",
   "license": "MIT",
+  "keywords": ["velocity-cms", "cms", "astro", "api", "mcp"],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Velocity-Astro/velocity-cms.git",
