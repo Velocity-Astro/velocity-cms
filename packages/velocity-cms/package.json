@@ -4,6 +4,7 @@
   "description": "The command that adds Velocity CMS to an Astro site: npx velocity-cms init",
   "type": "module",
   "license": "MIT",
+  "keywords": ["velocity-cms", "astro", "cms", "headless-cms", "cli"],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Velocity-Astro/velocity-cms.git",

@@ -4,6 +4,7 @@
   "description": "The Velocity CMS content model and every rule about it. No database, no Astro, no HTTP.",
   "type": "module",
   "license": "MIT",
+  "keywords": ["velocity-cms", "cms", "astro", "content-model"],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Velocity-Astro/velocity-cms.git",

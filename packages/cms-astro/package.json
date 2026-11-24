@@ -1,9 +1,10 @@
 {
   "name": "@velocity-astro/cms-astro",
   "version": "0.1.0-beta.21",
-  "description": "The Astro side of Velocity CMS: a live loader for pages rendered on demand, a Content Layer loader for static builds, and the integration.",
+  "description": "Velocity CMS for Astro: an open source CMS with its editor at /admin, pages built from sections on the live page, forms and a built-in CRM, on SQLite. The integration, a live loader for pages rendered on demand and a Content Layer loader for static builds.",
   "type": "module",
   "license": "MIT",
+  "keywords": ["astro-integration", "astro-loader", "withastro", "astro", "cms", "headless-cms", "velocity-cms", "visual-editor", "page-builder", "forms", "crm", "sqlite", "libsql"],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Velocity-Astro/velocity-cms.git",
