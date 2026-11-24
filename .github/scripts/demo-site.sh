@@ -5,7 +5,7 @@
 # links and passkeys are made for it, so the project must answer there. This is the one list
 # of demos; the Demo and Demo sign-in link workflows both read it.
 #
-#   DEMO=<real-estate|restaurant> [DEMO_MAKE_DATABASE=true] bash .github/scripts/demo-site.sh
+#   DEMO=<real-estate|restaurant|law-firm> [DEMO_MAKE_DATABASE=true] bash .github/scripts/demo-site.sh
 #
 # Real estate keeps the database it has always had, from the TURSO_DATABASE_URL and
 # TURSO_AUTH_TOKEN secrets (here FIXED_DATABASE_URL and FIXED_DATABASE_TOKEN). A newer demo has
@@ -33,8 +33,14 @@ case "${DEMO:-}" in
     site=https://restaurant.deployvelocity.com
     pages="/ /demo/ /es/ /menu/ /evenings/barolo-dinner/ /reserve/ /private-dining/ /gift-cards/"
     ;;
+  law-firm)
+    project=velocity-cms-law-firm-demo
+    database=velocity-cms-law-firm-demo
+    site=https://lawfirm.deployvelocity.com
+    pages="/ /demo/ /es/ /practice-areas/ /practice-areas/family-law/ /attorneys/marian-ashcombe/ /what-to-expect/ /consultation/ /careers/"
+    ;;
   *)
-    fail "There is no demo called \"${DEMO:-}\". The demos are real-estate and restaurant."
+    fail "There is no demo called \"${DEMO:-}\". The demos are real-estate, restaurant and law-firm."
     ;;
 esac
 

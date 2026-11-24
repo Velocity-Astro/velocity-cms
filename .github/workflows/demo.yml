@@ -1,8 +1,8 @@
 name: Demo
 
-# Deploys each Premium template that has a demo on the CMS (real estate, restaurant) to its own
-# Vercel project, which answers at the template's demo domain (realestate.deployvelocity.com,
-# restaurant.deployvelocity.com). A template's static demo is another project and is not touched.
+# Deploys each Premium template that has a demo on the CMS (real estate, restaurant, law firm) to
+# its own Vercel project, which answers at the template's demo domain (realestate.deployvelocity.com,
+# restaurant.deployvelocity.com, lawfirm.deployvelocity.com). A template's static demo is another project and is not touched.
 #
 # The demos are listed in .github/scripts/demo-site.sh, with the project and database of each.
 # Real estate has its database in two secrets. A newer demo needs none of its own: the workflow
@@ -20,7 +20,7 @@ on:
       demo:
         description: Which demo to deploy
         type: choice
-        options: [all, real-estate, restaurant]
+        options: [all, real-estate, restaurant, law-firm]
         default: all
       reset:
         description: Erase the demo first (everything but its owners) and bring the sample content back
@@ -59,7 +59,7 @@ jobs:
       fail-fast: false
       matrix:
         # Every demo, or the one a run by hand asked for.
-        demo: ${{ fromJSON((github.event_name != 'workflow_dispatch' || inputs.demo == 'all') && '["real-estate", "restaurant"]' || format('["{0}"]', inputs.demo)) }}
+        demo: ${{ fromJSON((github.event_name != 'workflow_dispatch' || inputs.demo == 'all') && '["real-estate", "restaurant", "law-firm"]' || format('["{0}"]', inputs.demo)) }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
