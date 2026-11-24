@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+## 0.1.0-beta.23
+
 - **Connect Claude or ChatGPT by pasting one address.** Give the app your site's MCP address (`https://your-site/api/cms/mcp`) as a custom connector. It sends you to the editor, you sign in with your passkey or an email link, choose what it may do (drafts only, publish, read contacts and forms) and press Allow. There is no token to copy and nothing to set up: every site now speaks OAuth 2.1 as the Model Context Protocol asks for it (it says where to sign in, apps register themselves, PKCE, tokens that renew themselves). Connected apps are listed under Settings, Access tokens, where an owner disconnects one at once. Only an owner can connect an app, it acts as an editor or an author like a token, and it stops when whoever connected it is no longer an owner. Access tokens work as before.
 - **Agents read formatted text as markdown.** Over MCP and the content commands, formatted text comes back as `{ "markdown": "..." }`, which is what a tool takes, where it came back as the stored document before. What an agent reads it can change and send straight back. Markdown takes a backslash before a mark that is meant as itself (`snake\_case`).
 
