@@ -1,6 +1,6 @@
 {
   "name": "@velocity-astro/cms-api",
-  "version": "0.1.0-beta.22",
+  "version": "0.1.0-beta.23",
   "description": "The Velocity CMS over HTTP: what the editor, the CLI and plugins call. Built on web-standard Request and Response, so it runs wherever the site does.",
   "type": "module",
   "license": "MIT",
