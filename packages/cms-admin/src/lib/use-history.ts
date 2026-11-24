@@ -18,6 +18,7 @@ interface Steps<T> {
 type Said<T> =
   | { readonly type: 'set'; readonly next: (current: T) => T; readonly mark: string | undefined; readonly at: number; readonly same: (a: T, b: T) => boolean }
   | { readonly type: 'settle' | 'restart'; readonly value: T }
+  | { readonly type: 'rebase'; readonly onto: (value: T) => T }
   | { readonly type: 'undo' | 'redo' };
 
 function steps<T>(state: Steps<T>, said: Said<T>): Steps<T> {
@@ -34,6 +35,7 @@ function steps<T>(state: Steps<T>, said: Said<T>): Steps<T> {
     };
   }
   if (said.type === 'settle') return { ...state, present: said.value, mark: undefined };
+  if (said.type === 'rebase') return { ...state, past: state.past.map(said.onto), present: said.onto(state.present), future: state.future.map(said.onto), mark: undefined };
   if (said.type === 'restart') return { past: [], present: said.value, future: [], mark: undefined, at: 0 };
   if (said.type === 'undo') {
     const last = state.past.at(-1);
@@ -52,6 +54,11 @@ export interface History<T> {
   readonly set: (next: (current: T) => T, mark?: string) => void;
   /** Takes a value as what is held now without a step: what the server made of a save. */
   readonly settle: (value: T) => void;
+  /**
+   * Changes the value and every step with it, without a step of its own: what someone else saved
+   * is brought into each, so a step back takes back only what was done here.
+   */
+  readonly rebase: (onto: (value: T) => T) => void;
   /** Starts again from a value, with nothing to take back. */
   readonly restart: (value: T) => void;
   readonly undo: () => void;
@@ -68,8 +75,9 @@ export function useHistory<T extends object>(start: T, same: (a: T, b: T) => boo
   const [state, say] = useReducer(steps<T>, { past: [], present: start, future: [], mark: undefined, at: 0 });
   const set = useCallback((next: (current: T) => T, mark?: string) => say({ type: 'set', next, mark, at: Date.now(), same }), [same]);
   const settle = useCallback((value: T) => say({ type: 'settle', value }), []);
+  const rebase = useCallback((onto: (value: T) => T) => say({ type: 'rebase', onto }), []);
   const restart = useCallback((value: T) => say({ type: 'restart', value }), []);
   const undo = useCallback(() => say({ type: 'undo' }), []);
   const redo = useCallback(() => say({ type: 'redo' }), []);
-  return { value: state.present, set, settle, restart, undo, redo, canUndo: state.past.length > 0, canRedo: state.future.length > 0 };
+  return { value: state.present, set, settle, rebase, restart, undo, redo, canUndo: state.past.length > 0, canRedo: state.future.length > 0 };
 }

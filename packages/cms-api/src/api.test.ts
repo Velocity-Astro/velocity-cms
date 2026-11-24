@@ -141,6 +141,15 @@ describe('writing', () => {
   const create = async (data: Record<string, unknown> = {}) =>
     (await call('POST', '/entries', { type: 'listings', slug: 'lake-house', data })).body as unknown as Entry;
 
+  it('tells an open editor who else has the entry open and what revision it is at, by name and nothing more', async () => {
+    const draft = await create({ [fieldId('title')]: 'Lake house' });
+    expect((await call('POST', `/entries/${draft.id}/presence`, {})).body).toEqual({ revision: 1, others: [] });
+    authenticator.session = { user: { id: 'u2', email: 'ben@example.com', name: 'Ben' }, actor: { kind: 'user', id: 'u2', role: 'author' } };
+    expect((await call('POST', `/entries/${draft.id}/presence`, {})).body).toEqual({ revision: 1, others: [{ id: dana.id, kind: 'user', name: dana.name }] });
+    expect((await call('POST', `/entries/${draft.id}/presence`, { name: 'Somebody else' })).status).toBe(400);
+    expect((await call('POST', '/entries/missing/presence', {})).status).toBe(404);
+  });
+
   it('saves, publishes and unpublishes, each as its own step', async () => {
     const draft = await create({ [fieldId('title')]: 'Lake house' });
     const saved = await call('PATCH', `/entries/${draft.id}`, { slug: 'lake-house', data: { [fieldId('title')]: 'Lake house, renovated' }, expectedRevision: 1 });

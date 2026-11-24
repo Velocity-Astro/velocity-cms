@@ -1,4 +1,4 @@
-import type { FormsSettings, FormsSettingsChanges, GeneralSettings, GeneralSettingsChanges, EmailSettings, EmailSettingsChanges, StorageSettings, StorageSettingsChanges, ContactImportReport, ContactImportRow, CustomFields, CustomFieldsChanges, Contact, ContactChanges, Deal, DealChanges, DealSubject, Forecast, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginTask, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Revision, Role, SiteImage, TypePlace } from '@velocity-astro/cms-core';
+import type { FormsSettings, FormsSettingsChanges, GeneralSettings, GeneralSettingsChanges, EmailSettings, EmailSettingsChanges, StorageSettings, StorageSettingsChanges, ContactImportReport, ContactImportRow, CustomFields, CustomFieldsChanges, Contact, ContactChanges, Deal, DealChanges, DealSubject, Forecast, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginTask, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, EntryPresence, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Revision, Role, SiteImage, TypePlace } from '@velocity-astro/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
@@ -284,6 +284,11 @@ export interface AdminClient {
   scheduleEntry(id: string, input: { readonly at: string; readonly expectedRevision: number }): Promise<Entry>;
   /** Takes an entry off the schedule. It stays as it is. */
   unscheduleEntry(id: string): Promise<Entry>;
+  /**
+   * Says this editor has the entry open, and answers with the entry's revision now and who else is
+   * there: people with it open, and agents that worked on it a moment ago. Asked every few seconds.
+   */
+  entryPresence(id: string): Promise<EntryPresence>;
   /** Every save of an entry, the latest first. */
   entryHistory(id: string): Promise<Revision[]>;
   /** Brings back what the entry held at an earlier revision, as a new save. What visitors see stays. */

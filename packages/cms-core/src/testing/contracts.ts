@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ConflictError } from '../errors.js';
-import type { Contact, ContactNote, ContentTypeDef, Entry, FormDef, MediaFile, Deal, Pipeline, Submission, CustomFields, FieldDef } from '../model.js';
-import type { ContactRepository, CustomFieldsStore, DealRepository, PipelineStore, SettingsStore, EntryRepository, FormRepository, SubmissionRepository, MediaRepository, MediaStore, PluginStore, SchemaRepository, SearchDocument, SearchIndex } from '../ports.js';
+import type { Contact, ContactNote, ContentTypeDef, Entry, FormDef, MediaFile, Deal, Pipeline, Presence, Submission, CustomFields, FieldDef } from '../model.js';
+import type { ContactRepository, CustomFieldsStore, DealRepository, PipelineStore, PresenceStore, SettingsStore, EntryRepository, FormRepository, SubmissionRepository, MediaRepository, MediaStore, PluginStore, SchemaRepository, SearchDocument, SearchIndex } from '../ports.js';
 
 /**
  * The contract tests for storage adapters.
@@ -833,6 +833,42 @@ export function pipelineStoreContract(name: string, create: () => Promise<Pipeli
       await store.save(second, 1);
       await expect(store.save({ ...second, revision: 3 }, 1)).rejects.toBeInstanceOf(ConflictError);
       expect(await store.get()).toEqual(second);
+    });
+  });
+}
+
+/** Run this against every `PresenceStore` adapter. */
+export function presenceStoreContract(name: string, create: () => Promise<PresenceStore>): void {
+  describe(`${name}: PresenceStore contract`, () => {
+    const at = (seconds: number) => new Date(Date.UTC(2026, 0, 1, 12, 0, seconds)).toISOString();
+    const mark = (overrides: Partial<Presence> = {}): Presence => ({ entryId: 'e1', actorId: 'u1', kind: 'user', name: 'Maya Ellison', until: at(30), ...overrides });
+    const byActor = (list: Presence[]) => [...list].sort((a, b) => a.actorId.localeCompare(b.actorId));
+
+    it('says who is at an entry until their time runs out, each entry by itself', async () => {
+      const store = await create();
+      expect(await store.at('e1', at(0))).toEqual([]);
+      await store.mark(mark(), at(0));
+      await store.mark(mark({ actorId: 't1', kind: 'agent', name: 'Claude', until: at(120) }), at(0));
+      await store.mark(mark({ entryId: 'e2', actorId: 'u2', name: 'Sam' }), at(0));
+      expect(byActor(await store.at('e1', at(10)))).toEqual([mark({ actorId: 't1', kind: 'agent', name: 'Claude', until: at(120) }), mark()]);
+      expect(await store.at('e2', at(10))).toEqual([mark({ entryId: 'e2', actorId: 'u2', name: 'Sam' })]);
+      // At the very moment it runs out, it has run out.
+      expect((await store.at('e1', at(30))).map((one) => one.actorId)).toEqual(['t1']);
+      expect(await store.at('e1', at(120))).toEqual([]);
+    });
+
+    it('keeps one mark for each person at an entry: saying so again moves the time and takes the new name', async () => {
+      const store = await create();
+      await store.mark(mark(), at(0));
+      await store.mark(mark({ name: 'Maya E.', until: at(40) }), at(10));
+      expect(await store.at('e1', at(35))).toEqual([mark({ name: 'Maya E.', until: at(40) })]);
+    });
+
+    it('goes on working after what ran out is cleared away', async () => {
+      const store = await create();
+      await store.mark(mark({ until: at(5) }), at(0));
+      await store.mark(mark({ actorId: 'u2', name: 'Sam', until: at(60) }), at(20));
+      expect(await store.at('e1', at(21))).toEqual([mark({ actorId: 'u2', name: 'Sam', until: at(60) })]);
     });
   });
 }

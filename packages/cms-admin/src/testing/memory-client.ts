@@ -54,6 +54,7 @@ import {
   type PreviewLink,
   type Role,
   type SiteImage,
+  type EntryPresence,
 } from '@velocity-astro/cms-core';
 import {
   InMemoryEntryRepository,
@@ -323,6 +324,22 @@ export class MemoryAdminClient implements AdminClient {
 
   publishEntry(id: string, expectedRevision: number): Promise<Entry> {
     return this.#request((actor) => this.#cms.content.publish(actor, id, expectedRevision));
+  }
+
+  entryPresence(id: string): Promise<EntryPresence> {
+    return this.#request((actor) => this.#cms.presence.here(actor, id, this.#user?.name ?? ''));
+  }
+
+  /** Someone else has an entry open in their editor, as a test or the preview says. They stay for half a minute. */
+  async openedBy(id: string, person: { readonly id: string; readonly name: string }): Promise<void> {
+    await this.#ready;
+    await this.#cms.presence.here({ kind: 'user', id: person.id, role: 'editor' }, id, person.name);
+  }
+
+  /** An agent just worked on an entry, as a test or the preview says. */
+  async touchedByAgent(id: string, agent: { readonly id: string; readonly name: string }): Promise<void> {
+    await this.#ready;
+    await this.#cms.presence.touched({ kind: 'agent', id: agent.id, role: 'editor', permissions: ['entry:read', 'entry:write'] }, id, agent.name);
   }
 
   unpublishEntry(id: string): Promise<Entry> {

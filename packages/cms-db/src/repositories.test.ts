@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, expect, it } from 'vitest';
 import { createCms } from '@velocity-astro/cms-core';
-import { contactRepositoryContract, dealRepositoryContract, pipelineStoreContract, settingsStoreContract, customFieldsStoreContract, entryRepositoryContract, formRepositoryContract, submissionRepositoryContract, mediaRepositoryContract, pluginStoreContract, schemaRepositoryContract, searchIndexContract } from '@velocity-astro/cms-core/testing';
-import { openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqliteDealRepository, SqlitePipelineStore, SqliteSettingsStore, SqliteCustomFieldsStore, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Database } from './index.js';
+import { contactRepositoryContract, dealRepositoryContract, pipelineStoreContract, presenceStoreContract, settingsStoreContract, customFieldsStoreContract, entryRepositoryContract, formRepositoryContract, submissionRepositoryContract, mediaRepositoryContract, pluginStoreContract, schemaRepositoryContract, searchIndexContract } from '@velocity-astro/cms-core/testing';
+import { openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqliteDealRepository, SqlitePipelineStore, SqlitePresenceStore, SqliteSettingsStore, SqliteCustomFieldsStore, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Database } from './index.js';
 
 const opened: Database[] = [];
 const memory = async () => {
@@ -20,6 +20,7 @@ submissionRepositoryContract('SqliteSubmissionRepository', async () => new Sqlit
 contactRepositoryContract('SqliteContactRepository', async () => new SqliteContactRepository(await memory()));
 dealRepositoryContract('SqliteDealRepository', async () => new SqliteDealRepository(await memory()));
 pipelineStoreContract('SqlitePipelineStore', async () => new SqlitePipelineStore(await memory()));
+presenceStoreContract('SqlitePresenceStore', async () => new SqlitePresenceStore(await memory()));
 settingsStoreContract('SqliteSettingsStore', async () => new SqliteSettingsStore(await memory()));
 customFieldsStoreContract('SqliteCustomFieldsStore', async () => new SqliteCustomFieldsStore(await memory()));
 schemaRepositoryContract('SqliteSchemaRepository', async () => new SqliteSchemaRepository(await memory()));

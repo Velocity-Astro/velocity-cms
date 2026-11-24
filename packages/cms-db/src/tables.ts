@@ -190,6 +190,22 @@ export const deals = sqliteTable(
 );
 
 /**
+ * Who is at which entry now: a person with it open in the editor, or an agent that just worked on
+ * it. One row for each of them at each entry, of no use once `until` has passed, and cleared away then.
+ */
+export const entryPresence = sqliteTable(
+  'entry_presence',
+  {
+    entryId: text('entry_id').notNull(),
+    actorId: text('actor_id').notNull(),
+    kind: text('kind').$type<'user' | 'agent'>().notNull(),
+    name: text('name').notNull(),
+    until: text('until').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.entryId, table.actorId] }), index('entry_presence_until').on(table.until)],
+);
+
+/**
  * Small things a site keeps one of, each stored whole as JSON under its name: the pipeline's
  * stages today. `revision` is repeated beside it for the check a save makes.
  */

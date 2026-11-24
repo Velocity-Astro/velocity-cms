@@ -546,6 +546,32 @@ export interface Forecast {
 }
 
 /** Someone on the team, as far as assigning work to them needs. */
+/** Someone said to be at an entry until a time. */
+export interface Presence {
+  readonly entryId: string;
+  readonly actorId: string;
+  /** A person with the entry open, or an agent that just worked on it. */
+  readonly kind: 'user' | 'agent';
+  /** What they are called, as it was when they said so. */
+  readonly name: string;
+  readonly until: Timestamp;
+}
+
+/** Someone else at an entry, as the editor shows them. */
+export interface PresentOther {
+  readonly id: string;
+  readonly kind: 'user' | 'agent';
+  readonly name: string;
+}
+
+/** What an open editor is told each time it says it is still there. */
+export interface EntryPresence {
+  /** The entry's revision now, so an editor that holds an older one asks for the entry again. */
+  readonly revision: number;
+  /** Who else is there: people with the entry open, and agents that worked on it a moment ago. */
+  readonly others: readonly PresentOther[];
+}
+
 export interface TeamMember {
   readonly id: string;
   readonly name: string;

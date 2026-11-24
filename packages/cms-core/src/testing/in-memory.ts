@@ -1,5 +1,5 @@
 import { ConflictError } from '../errors.js';
-import type { Contact, ContactNote, CustomFields, Deal, Pipeline, ContentTypeDef, Entry, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus } from '../model.js';
+import type { Contact, ContactNote, CustomFields, Deal, Pipeline, Presence, ContentTypeDef, Entry, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus } from '../model.js';
 import type {
   Clock,
   ContactQuery,
@@ -8,6 +8,7 @@ import type {
   DealRepository,
   StageTotal,
   PipelineStore,
+  PresenceStore,
   SettingsStore,
   CustomFieldsStore,
   EntryQuery,
@@ -453,6 +454,19 @@ export class InMemoryPipelineStore implements PipelineStore {
     if ((this.#pipeline?.revision ?? null) !== expectedRevision) throw new ConflictError('The stages were changed by someone else. Reload them and try again.');
     this.#pipeline = pipeline;
     return pipeline;
+  }
+}
+
+export class InMemoryPresenceStore implements PresenceStore {
+  readonly #marks = new Map<string, Presence>();
+
+  async mark(presence: Presence, now: string): Promise<void> {
+    for (const [key, one] of this.#marks) if (one.until <= now) this.#marks.delete(key);
+    this.#marks.set(`${presence.entryId}\n${presence.actorId}`, presence);
+  }
+
+  async at(entryId: string, now: string): Promise<Presence[]> {
+    return [...this.#marks.values()].filter((one) => one.entryId === entryId && one.until > now);
   }
 }
 

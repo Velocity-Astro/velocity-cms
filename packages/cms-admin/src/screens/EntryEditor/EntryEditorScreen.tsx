@@ -59,7 +59,8 @@ export function EntryEditorScreen() {
 
   if (!isNew) {
     if (entry.isPending) return <LoadingState shape="form" width="wide" />;
-    if (entry.isError) {
+    // Only when there is nothing to show: an entry that could not be asked for again is still open, with what was typed.
+    if (entry.isError && entry.data === undefined) {
       const isMissing = entry.error instanceof AdminRequestError && entry.error.code === 'not_found';
       return isMissing ? notFound : <ErrorState error={entry.error} onRetry={() => void entry.refetch()} />;
     }

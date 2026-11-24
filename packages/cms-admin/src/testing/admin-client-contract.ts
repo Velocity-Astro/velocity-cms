@@ -143,6 +143,15 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       });
     });
 
+    it('says an entry is open here, and answers with its revision and nobody else while nobody else is there', async () => {
+      const entry = await client.getEntry('e2');
+      expect(await client.entryPresence('e2')).toEqual({ revision: entry.revision, others: [] });
+      const saved = await client.updateEntry('e2', { slug: entry.slug, data: entry.data, expectedRevision: entry.revision });
+      // Whoever asks is never one of the others.
+      expect(await client.entryPresence('e2')).toEqual({ revision: saved.revision, others: [] });
+      await expect(client.entryPresence('nothing')).rejects.toMatchObject({ code: 'not_found' });
+    });
+
     it('publishes and unpublishes', async () => {
       const published = await client.publishEntry('e2', 1);
       expect(published).toMatchObject({ status: 'published', published: { slug: '18-alder-court' } });

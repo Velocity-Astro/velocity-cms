@@ -1,5 +1,5 @@
 import { MutationCache, QueryCache, QueryClient, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { FormsSettingsChanges, GeneralSettingsChanges, EmailSettingsChanges, StorageSettingsChanges, ContactImportReport, ContactImportRow, ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, DealChanges, NewDeal, Page, PipelineChanges, CustomFieldsChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity-astro/cms-core';
+import type { PresentOther, FormsSettingsChanges, GeneralSettingsChanges, EmailSettingsChanges, StorageSettingsChanges, ContactImportReport, ContactImportRow, ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, DealChanges, NewDeal, Page, PipelineChanges, CustomFieldsChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity-astro/cms-core';
 import type { ConnectionAnswer, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, ImageList, NewAccessToken, NewEntry, NewPerson, Profile, ProfileChanges, NewType, NewTypeField, SubmissionListQuery } from './admin-client.js';
 import { AdminRequestError } from './errors.js';
 import { useClient } from './client-context.js';
@@ -30,6 +30,9 @@ const keys = {
   trash: ['entries', 'trash'] as const,
   entries: (query: EntryListQuery) => ['entries', query] as const,
   entry: (id: string) => ['entry', id] as const,
+  entryPresence: (id: string) => ['entry-presence', id] as const,
+  /** The last revision of an entry this editor made itself. Not a request: a note kept beside them. */
+  entryWritten: (id: string) => ['entry-written', id] as const,
   forms: ['forms'] as const,
   trashedForms: ['forms', 'trash'] as const,
   /** Everything about what forms were sent starts with this, so one call marks it all out of date. */
@@ -293,21 +296,80 @@ export function useJustUploaded(): ReadonlySet<string> {
   return new Set(names.data);
 }
 
-/** One entry. Not fetched while `id` is `null`, which is how a new entry's screen asks. */
+/** How often an open entry's editor says it is still there, in milliseconds, and learns who else is and whether the entry moved on. */
+export const ENTRY_WATCH_MS = 5_000;
+
+/**
+ * One entry. Not fetched while `id` is `null`, which is how a new entry's screen asks.
+ *
+ * An entry is open for a long time, and someone else (a person, or an agent over MCP) may save it
+ * meanwhile: it is asked for again whenever its tab is come back to, and whenever
+ * `useEntryPresence` hears that it moved on. An answer that says nothing new changes nothing.
+ */
 export function useEntry(id: string | null) {
   const client = useClient();
   return useQuery({
     queryKey: keys.entry(id ?? ''),
     queryFn: () => client.getEntry(id ?? ''),
     enabled: id !== null,
+    refetchOnWindowFocus: 'always',
   });
+}
+
+const NOBODY: readonly PresentOther[] = [];
+
+/**
+ * Who else is at an entry while it is open here: people with it open in their editor, and agents
+ * that worked on it a moment ago. Asking is also how this editor says it is there, every few
+ * seconds while its tab is in view, and how it learns that the entry was saved somewhere else:
+ * the entry is then asked for again, and its form brings the newer version in.
+ */
+export function useEntryPresence(id: string | null): readonly PresentOther[] {
+  const client = useClient();
+  const cache = useQueryClient();
+  const presence = useQuery({
+    queryKey: keys.entryPresence(id ?? ''),
+    queryFn: async () => {
+      const now = await client.entryPresence(id ?? '');
+      const held = cache.getQueryData<Entry>(keys.entry(id ?? ''));
+      if (held !== undefined && now.revision > held.revision) void cache.invalidateQueries({ queryKey: keys.entry(id ?? ''), exact: true });
+      return now;
+    },
+    enabled: id !== null,
+    refetchInterval: ENTRY_WATCH_MS,
+    refetchOnWindowFocus: 'always',
+    // Who was there a while ago says nothing of who is there now.
+    staleTime: 0,
+    gcTime: 0,
+  });
+  // The same list while nobody came or went, so nothing is drawn again every few seconds.
+  return presence.data?.others ?? NOBODY;
+}
+
+/** Asks for an entry again now, and answers once it is here: after a save was refused because someone else saved first. */
+export function useRefreshEntry() {
+  const client = useClient();
+  const cache = useQueryClient();
+  return (id: string): Promise<Entry> => cache.fetchQuery({ queryKey: keys.entry(id), queryFn: () => client.getEntry(id), staleTime: 0 });
+}
+
+/**
+ * Says whether a revision of an entry was made from this editor (a save, a publish, a schedule),
+ * so a form can tell its own changes from someone else's.
+ */
+export function useWroteEntry() {
+  const cache = useQueryClient();
+  return (id: string, revision: number) => cache.getQueryData<number>(keys.entryWritten(id)) === revision;
 }
 
 /** What every change to an entry does afterwards: show the new version and refresh the lists. */
 function useEntryChanged() {
   const cache = useQueryClient();
   return (entry: Entry) => {
+    // An answer still on its way was asked for before this change, and would put the older version back.
+    void cache.cancelQueries({ queryKey: keys.entry(entry.id), exact: true });
     cache.setQueryData(keys.entry(entry.id), entry);
+    cache.setQueryData(keys.entryWritten(entry.id), entry.revision);
     void cache.invalidateQueries({ queryKey: keys.entryLists });
     // Every change is a new line in the entry's history.
     void cache.invalidateQueries({ queryKey: [...keys.entry(entry.id), 'history'] });
