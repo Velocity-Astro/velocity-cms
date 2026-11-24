@@ -1,10 +1,16 @@
 {
   "name": "@velocity-astro/cms-admin",
-  "version": "0.1.0-beta.21",
+  "version": "0.1.0-beta.22",
   "description": "The Velocity CMS editor: the screens people use to manage content. Built only from cms-ui parts.",
   "type": "module",
   "license": "MIT",
-  "keywords": ["velocity-cms", "cms", "astro", "editor", "react"],
+  "keywords": [
+    "velocity-cms",
+    "cms",
+    "astro",
+    "editor",
+    "react"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Velocity-Astro/velocity-cms.git",
