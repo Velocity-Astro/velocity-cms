@@ -12,6 +12,10 @@ export type SettingsAreaId = (typeof SETTINGS_AREAS)[number];
 export const paths = {
   home: '/',
   signIn: '/sign-in',
+  /** Sign-in for someone on their way to another screen of the editor, which they land on afterwards. */
+  signInThen: (next: string) => `/sign-in?next=${encodeURIComponent(next)}`,
+  /** Where an app that asks to be connected sends the person, with what it asked in the query. */
+  connect: '/connect',
   people: '/people',
   /** The signed-in person's own details. */
   profile: '/profile',

@@ -16,6 +16,8 @@ const LOOKS_LIKE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** What the address carries when a sign-in link was expired or already used. */
 const LINK_FAILED = 'link';
+/** What the address carries for someone who was on their way to another screen: that screen's address. */
+const NEXT = 'next';
 
 /** Sign in with a passkey, or ask for a sign-in link by email. */
 export function SignInScreen({ siteName }: SignInScreenProps) {
@@ -29,8 +31,11 @@ export function SignInScreen({ siteName }: SignInScreenProps) {
   // A sign-in link that no longer works sends the person back here, saying so in the address.
   const [search] = useSearchParams();
   const linkFailed = search.has(LINK_FAILED) || search.has('error');
+  // Someone sent here on their way to connect an app goes on to it once they are signed in.
+  const asked = search.get(NEXT);
+  const next = asked?.startsWith(`${paths.connect}?`) === true ? asked : undefined;
 
-  if (session.data) return <Navigate to={paths.home} replace />;
+  if (session.data) return <Navigate to={next ?? paths.home} replace />;
 
   const brand = (
     <Inline gap={2} align="center">
@@ -41,7 +46,7 @@ export function SignInScreen({ siteName }: SignInScreenProps) {
 
   if (sendLink.isSuccess) {
     return (
-      <AuthShell brand={brand} title={messages.signIn.linkSentTitle} description={messages.signIn.linkSent(sendLink.variables)}>
+      <AuthShell brand={brand} title={messages.signIn.linkSentTitle} description={messages.signIn.linkSent(sendLink.variables.email)}>
         <Button variant="secondary" fullWidth onPress={() => sendLink.reset()}>
           {messages.signIn.useAnotherEmail}
         </Button>
@@ -54,14 +59,14 @@ export function SignInScreen({ siteName }: SignInScreenProps) {
     if (address === '') return setEmailError(messages.signIn.emailMissing);
     if (!LOOKS_LIKE_EMAIL.test(address)) return setEmailError(messages.signIn.emailInvalid);
     setEmailError(undefined);
-    sendLink.mutate(address);
+    sendLink.mutate({ email: address, next });
   };
 
   const failure =
     sendLink.error?.message ?? (passkey.isError ? messages.signIn.passkeyFailed : linkFailed ? messages.signIn.linkFailed : undefined);
 
   return (
-    <AuthShell brand={brand} title={messages.signIn.title} description={messages.signIn.description}>
+    <AuthShell brand={brand} title={messages.signIn.title} description={next === undefined ? messages.signIn.description : messages.signIn.toConnect}>
       <Stack gap={3}>
         <Form onSubmit={submit} label={messages.signIn.title}>
           <TextField
@@ -88,7 +93,7 @@ export function SignInScreen({ siteName }: SignInScreenProps) {
           onPress={() =>
             passkey.mutate(undefined, {
               onSuccess: (user) => {
-                go(paths.home);
+                go(next ?? paths.home);
                 toast({ title: messages.signIn.signedIn(user.name), tone: 'success' });
               },
             })

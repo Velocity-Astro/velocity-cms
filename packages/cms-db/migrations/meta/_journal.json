@@ -120,6 +120,13 @@
       "when": 1795320836667,
       "tag": "0016_access_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1795538291106,
+      "tag": "0017_connected_apps",
+      "breakpoints": true
     }
   ]
 }

@@ -67,6 +67,34 @@ export interface NewAccessToken {
   readonly days: number;
 }
 
+/** An app that asks to be connected, as the person who decides is shown it. */
+export interface AskedConnection {
+  /** What the app calls itself. */
+  readonly appName: string;
+  /** The host the person is sent back to afterwards, such as `claude.ai`. */
+  readonly returnsTo: string;
+  /** Whether that is the person's own computer rather than a site. */
+  readonly isLocal: boolean;
+}
+
+/** What the person decided about an app: no, or yes with what it may do. */
+export type ConnectionAnswer = { readonly allow: false } | { readonly allow: true; readonly role: Role; readonly publish: boolean; readonly personalData: boolean };
+
+/** An app an owner connected, such as Claude given the site's MCP address. */
+export interface ConnectedApp {
+  readonly id: string;
+  readonly name: string;
+  /** The host it was sent back to when it was connected. */
+  readonly returnsTo: string;
+  readonly role: Role;
+  readonly publish: boolean;
+  readonly personalData: boolean;
+  readonly lastUsedAt: string | null;
+  readonly createdAt: string;
+  /** Who connected it, by name. */
+  readonly connectedBy: string;
+}
+
 /** A token just made: what is shown of it, and the token itself, which is shown this once. */
 export interface MadeAccessToken {
   readonly token: AccessToken;
@@ -197,9 +225,10 @@ export interface AdminClient {
   getSession(): Promise<SessionUser | null>;
   /**
    * Emails a sign-in link. Resolves the same way whether or not the address belongs to someone,
-   * so the screen cannot be used to find out who has an account.
+   * so the screen cannot be used to find out who has an account. `next` is the editor's address
+   * the link lands on, for someone who was on their way somewhere; left out, the editor's first screen.
    */
-  requestSignInLink(email: string): Promise<void>;
+  requestSignInLink(email: string, next?: string): Promise<void>;
   /** Asks the browser for a passkey and signs in with it. */
   signInWithPasskey(): Promise<SessionUser>;
   signOut(): Promise<void>;
@@ -374,6 +403,14 @@ export interface AdminClient {
   createToken(token: NewAccessToken): Promise<MadeAccessToken>;
   /** Takes an access token away, at once. Owners only. */
   revokeToken(id: string): Promise<void>;
+  /** What an app asked for, from the query its request for approval carried. Refused when the request is not sound. Owners only. */
+  askedConnection(query: string): Promise<AskedConnection>;
+  /** Records the person's answer to an app. The answer says where their browser goes next: back to the app. Owners only. */
+  answerConnection(query: string, answer: ConnectionAnswer): Promise<{ readonly redirect: string }>;
+  /** The apps connected to the site, newest first. Owners only. */
+  listConnections(): Promise<readonly ConnectedApp[]>;
+  /** Takes a connected app away, at once. Owners only. */
+  disconnect(id: string): Promise<void>;
   /** Asks the browser to make a passkey for the signed-in person, called `name` in their list. */
   addPasskey(name: string): Promise<void>;
   /** The plugins the site named in its config, running or not, by name. Owners only. */

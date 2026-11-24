@@ -112,6 +112,38 @@ describe('Markdown', () => {
   });
 });
 
+describe('richTextToMarkdown', () => {
+  it('writes what the reader reads back as the same text', async () => {
+    const { richTextFromMarkdown, richTextToMarkdown, richTextHtml } = await import('./rich-text.js');
+    const markdown = [
+      '## Title',
+      'A **bold** and _slanted_ [link](https://example.com), **_both_**, `pnpm add <name>` and **`check`**.\nA second line.',
+      '- one\n- two\n  - inner\n  - **more**',
+      '1. first\n2. second',
+      '> quoted\n>\n> twice',
+      '### Smaller',
+    ].join('\n\n');
+    const text = richTextFromMarkdown(markdown);
+    expect(richTextToMarkdown(text)).toBe(markdown);
+    expect(richTextHtml(richTextFromMarkdown(richTextToMarkdown(text)))).toBe(richTextHtml(text));
+  });
+
+  it('guards words that would be read as marks, so they come back as words', async () => {
+    const { richTextFromMarkdown, richTextToMarkdown } = await import('./rich-text.js');
+    const words = ['snake_case_name and 2 * 3 * 4', '# not a heading', '- not a list', '1. not a list either', '> not a quote', 'a [bracket] and a back\\slash and a `tick'];
+    const text = { type: 'doc' as const, content: words.map((line) => ({ type: 'paragraph' as const, content: [{ type: 'text' as const, text: line }] })) };
+    const markdown = richTextToMarkdown(text);
+    expect(markdown).toContain('snake\\_case\\_name');
+    expect(richTextFromMarkdown(markdown)).toEqual(text);
+  });
+
+  it('writes nothing for text with nothing in it', async () => {
+    const { richTextToMarkdown } = await import('./rich-text.js');
+    expect(richTextToMarkdown({ type: 'doc', content: [] })).toBe('');
+    expect(richTextToMarkdown({ type: 'doc', content: [{ type: 'paragraph' }] })).toBe('');
+  });
+});
+
 describe('limitRichText', () => {
   const parsed = richTextSchema.parse(sample);
 

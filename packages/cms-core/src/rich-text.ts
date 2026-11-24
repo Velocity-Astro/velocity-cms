@@ -254,17 +254,23 @@ function markdownInline(text: string): RichTextInline[] {
     const lines = words.split('\n');
     lines.forEach((line, index) => {
       if (index > 0) parts.push({ type: 'hardBreak' });
-      if (line !== '') parts.push(marks.length > 0 ? { type: 'text', text: line, marks } : { type: 'text', text: line });
+      if (line === '') return;
+      // Words in pieces (a guarded mark between them) are one run of text when they carry the same marks.
+      const last = index === 0 ? parts.at(-1) : undefined;
+      if (last?.type === 'text' && JSON.stringify(last.marks ?? []) === JSON.stringify(marks)) parts[parts.length - 1] = { ...last, text: last.text + line };
+      else parts.push(marks.length > 0 ? { type: 'text', text: line, marks } : { type: 'text', text: line });
     });
   };
   const walk = (rest: string, marks: readonly RichTextMark[]) => {
-    const pattern = /!\[[^\]]*\]\([^)]*\)|\[([^\]]+)\]\(([^)\s]+)\)|\*\*(.+?)\*\*|__(.+?)__|\*(.+?)\*|_(.+?)_|`([^`]+)`/;
+    // A backslash before a mark means the mark itself. It comes first, so what it guards is never read as markup.
+    const pattern = /\\([\\`*_[\](){}#>+\-.!])|!\[[^\]]*\]\([^)]*\)|\[((?:\\.|[^\]\\])+)\]\(([^)\s]+)\)|\*\*((?:\\.|[^\\])+?)\*\*|__((?:\\.|[^\\])+?)__|\*((?:\\.|[^\\])+?)\*|_((?:\\.|[^\\])+?)_|`([^`]+)`/;
     while (rest !== '') {
       const found = pattern.exec(rest);
       if (!found) return add(rest, marks);
       add(rest.slice(0, found.index), marks);
-      const [, label, href, strong, strongToo, em, emToo, code] = found;
-      if (found[0].startsWith('![')) {
+      const [, escaped, label, href, strong, strongToo, em, emToo, code] = found;
+      if (escaped !== undefined) add(escaped, marks);
+      else if (found[0].startsWith('![')) {
         // A picture has no place in formatted text: it is left out, and an import says so.
       } else if (label !== undefined && href !== undefined) walk(label, isSafeLink(href) ? [...marks, { type: 'link', attrs: { href } }] : marks);
       else if (strong !== undefined || strongToo !== undefined) walk(strong ?? strongToo ?? '', [...marks, { type: 'bold' }]);
@@ -275,4 +281,64 @@ function markdownInline(text: string): RichTextInline[] {
   };
   walk(text, []);
   return parts;
+}
+
+const MARK_ORDER = { link: 0, bold: 1, italic: 2, code: 3 } as const satisfies Record<RichTextMark['type'], number>;
+/** Words as markdown takes them for words: whatever would be read as a mark gets a backslash. */
+const markdownWords = (text: string) => text.replace(/[\\`*_[\]]/g, '\\$&');
+/** The start of a line that would be read as a heading, a quote or a list item, guarded. */
+const markdownLineStart = (line: string) => line.replace(/^(\s*)([#>+-])/, '$1\\$2').replace(/^(\s*\d+)([.)]\s)/, '$1\\$2');
+
+function inlineMarkdown(nodes: readonly RichTextInline[] | undefined): string {
+  const text = (nodes ?? [])
+    .map((node) => {
+      if (node.type === 'hardBreak') return '\n';
+      const marks = [...(node.marks ?? [])].sort((a, b) => MARK_ORDER[b.type] - MARK_ORDER[a.type]);
+      // Code is the innermost and holds its words as they are; a link is the outermost.
+      return marks.reduce(
+        (inside, applied) => {
+          if (applied.type === 'code') return `\`${node.text}\``;
+          if (applied.type === 'bold') return `**${inside}**`;
+          if (applied.type === 'italic') return `_${inside}_`;
+          return isSafeLink(applied.attrs.href) ? `[${inside}](${applied.attrs.href})` : inside;
+        },
+        marks.some((applied) => applied.type === 'code') ? node.text : markdownWords(node.text),
+      );
+    })
+    .join('');
+  return text.split('\n').map(markdownLineStart).join('\n');
+}
+
+function blockMarkdown(node: RichTextBlock): string {
+  if (node.type === 'paragraph') return inlineMarkdown(node.content);
+  if (node.type === 'heading') return `${'#'.repeat(node.attrs.level)} ${inlineMarkdown(node.content).replace(/\n/g, ' ')}`;
+  if (node.type === 'blockquote')
+    return blocksMarkdown(node.content)
+      .split('\n')
+      .map((line) => (line === '' ? '>' : `> ${line}`))
+      .join('\n');
+  return node.content
+    .map((item, index) => {
+      const [first, ...rest] = item.content;
+      const lead = first?.type === 'paragraph' ? inlineMarkdown(first.content).replace(/\n/g, ' ') : '';
+      const inner = (first?.type === 'paragraph' ? rest : item.content).map(blockMarkdown).filter((block) => block !== '');
+      const under = inner.flatMap((block) => block.split('\n')).map((line) => `  ${line}`);
+      return [`${node.type === 'orderedList' ? `${index + 1}.` : '-'} ${lead}`, ...under].join('\n');
+    })
+    .join('\n');
+}
+
+const blocksMarkdown = (blocks: readonly RichTextBlock[]) =>
+  blocks
+    .map(blockMarkdown)
+    .filter((block) => block !== '')
+    .join('\n\n');
+
+/**
+ * Formatted text as markdown: what `richTextFromMarkdown` reads back as the same text. This is
+ * how an agent, a command or an export is handed formatted text, so that what it reads is what
+ * it would write.
+ */
+export function richTextToMarkdown(text: RichText): string {
+  return blocksMarkdown(text.content);
 }

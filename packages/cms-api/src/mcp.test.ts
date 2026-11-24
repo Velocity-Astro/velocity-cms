@@ -93,7 +93,11 @@ describe('the MCP endpoint', () => {
 
     const added = await tool('add_section', { id, block: 'text', data: { body: { markdown: '## Who we are\n\nA **small** team.' } } });
     expect(added.sections?.map((section) => section.block)).toEqual(['hero', 'text']);
-    expect(added.sections?.[1]?.data['body']).toMatchObject({ type: 'doc', content: [{ type: 'heading' }, { type: 'paragraph' }] });
+    // Formatted text is read as it is written, and kept as formatted text.
+    expect(added.sections?.[1]?.data['body']).toEqual({ markdown: '## Who we are\n\nA **small** team.' });
+    const kept = (await cms.content.get(owner, id)).data;
+    expect(JSON.stringify(kept)).toContain('"type":"heading"');
+    expect(JSON.stringify(await tool('get_entry', { id }))).not.toContain('"type":"doc"');
 
     const [hero, text] = added.sections ?? [];
     const moved = await tool('move_section', { id, section: text?.id, to: 0 });

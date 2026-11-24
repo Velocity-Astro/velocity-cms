@@ -1,6 +1,7 @@
 import { definePlugin, type ContentTypeDef, type Entry, type NewForm, type SiteImage } from '@velocity-astro/cms-core';
 import { tinyJpeg, tinyPng } from '@velocity-astro/cms-core/in-memory';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { SAMPLE_APP_QUERY } from './memory-connections.js';
 import type { AdminClient, Person } from '../client/admin-client.js';
 import type { SeedSubmission } from './memory-client.js';
 import { sampleContentTypes, sampleEntries, sampleForms, sampleSubmissions } from './sample-content.js';
@@ -473,6 +474,28 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       await client.revokeToken(token.id);
       expect(await client.listTokens()).toEqual([]);
       await expect(client.revokeToken(token.id)).rejects.toMatchObject({ code: 'not_found' });
+    });
+
+    it('answers an app that asks to be connected, lists the connected apps and takes one away', async () => {
+      expect(await client.listConnections()).toEqual([]);
+      expect(await client.askedConnection(SAMPLE_APP_QUERY)).toEqual({ appName: 'Claude', returnsTo: 'claude.ai', isLocal: false });
+      await expect(client.askedConnection('client_id=nobody')).rejects.toMatchObject({ code: 'validation_failed' });
+
+      const refused = await client.answerConnection(SAMPLE_APP_QUERY, { allow: false });
+      expect(new URL(refused.redirect).searchParams.get('error')).toBe('access_denied');
+      expect(await client.listConnections()).toEqual([]);
+      await expect(client.answerConnection(SAMPLE_APP_QUERY, { allow: true, role: 'owner', publish: true, personalData: true })).rejects.toMatchObject({ code: 'validation_failed', issues: [{ path: ['role'] }] });
+
+      const allowed = await client.answerConnection(SAMPLE_APP_QUERY, { allow: true, role: 'editor', publish: true, personalData: false });
+      const back = new URL(allowed.redirect);
+      expect(back.origin + back.pathname).toBe('https://claude.ai/api/mcp/auth_callback');
+      expect(back.searchParams.get('code')).toBeTruthy();
+      expect(back.searchParams.get('state')).toBe('sample-state');
+      const [app] = await client.listConnections();
+      expect(app).toMatchObject({ name: 'Claude', returnsTo: 'claude.ai', role: 'editor', publish: true, personalData: false, connectedBy: 'Dana', lastUsedAt: null });
+      await client.disconnect(app?.id ?? '');
+      expect(await client.listConnections()).toEqual([]);
+      await expect(client.disconnect(app?.id ?? '')).rejects.toMatchObject({ code: 'not_found' });
     });
 
     it('lists the site\'s plugins with how each is doing', async () => {

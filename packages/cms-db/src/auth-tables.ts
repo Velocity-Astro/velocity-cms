@@ -128,3 +128,68 @@ export const authToken = sqliteTable(
   },
   (table) => [index('auth_token_user_id').on(table.userId)],
 );
+
+/**
+ * An app that asked to connect by itself (OAuth's dynamic client registration), such as Claude
+ * or ChatGPT: what it calls itself and where it may send a person back to. Anyone may register
+ * one, so a row here grants nothing: only a connection an owner approved does.
+ */
+export const authApp = sqliteTable('auth_app', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  /** The addresses it may send a person back to, as a JSON list. */
+  redirectUris: text('redirect_uris').notNull(),
+  /** Whether an owner ever approved it. One nobody approved is cleared away after a while. */
+  approved: integer('approved', { mode: 'boolean' }).default(false).notNull(),
+  createdAt: createdAt(),
+});
+
+/**
+ * An app an owner connected: what an access token is to a script, made by pressing Allow. It
+ * acts as an editor or an author, publishes and reads personal data only when the owner allowed
+ * it, and stops when it is taken away, when its tokens are no longer renewed (`expires_at`), or
+ * when the person who connected it can no longer manage people.
+ */
+export const authConnection = sqliteTable(
+  'auth_connection',
+  {
+    id: text('id').primaryKey(),
+    appId: text('app_id')
+      .notNull()
+      .references(() => authApp.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => authUser.id, { onDelete: 'cascade' }),
+    role: text('role').notNull(),
+    canPublish: integer('can_publish', { mode: 'boolean' }).default(false).notNull(),
+    personalData: integer('personal_data', { mode: 'boolean' }).default(false).notNull(),
+    /** When the last thing that renews it ends: its code at first, then its newest renewing token. */
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+    lastUsedAt: integer('last_used_at', { mode: 'timestamp_ms' }),
+    createdAt: createdAt(),
+  },
+  (table) => [index('auth_connection_app_id').on(table.appId), index('auth_connection_user_id').on(table.userId)],
+);
+
+/**
+ * What a connected app holds, each kept only as a hash: the code it trades once for its first
+ * tokens (`code`), the token it sends with each request (`access`) and the one it trades for
+ * the next pair (`refresh`). A code and a renewing token are used once (`used_at`).
+ */
+export const authConnectionSecret = sqliteTable(
+  'auth_connection_secret',
+  {
+    hash: text('hash').primaryKey(),
+    connectionId: text('connection_id')
+      .notNull()
+      .references(() => authConnection.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+    usedAt: integer('used_at', { mode: 'timestamp_ms' }),
+    /** A code only: where the app said it would be sent back to, and the challenge it must answer. */
+    redirectUri: text('redirect_uri'),
+    challenge: text('challenge'),
+    createdAt: createdAt(),
+  },
+  (table) => [index('auth_connection_secret_connection_id').on(table.connectionId)],
+);

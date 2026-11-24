@@ -48,6 +48,23 @@ try {
   expect('the editor is served', (await get('/admin')).status === 200);
   expect('nobody is signed in', (await get('/api/cms/session')).text.includes('null'));
   expect('the API refuses a stranger', (await get('/api/cms/entries?type=pages')).status === 401);
+  // An app given only the MCP address finds its own way to sign-in, registers and is sent on to the editor.
+  const mcp = await fetch(`${origin}/api/cms/mcp`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize' }) });
+  const found = /resource_metadata="([^"]+)"/.exec(mcp.headers.get('www-authenticate') ?? '')?.[1] ?? '';
+  expect('the MCP server tells an app where to sign in', mcp.status === 401 && found === `${origin}/.well-known/oauth-protected-resource/api/cms/mcp`);
+  const resource = await fetch(found).then((response) => response.json(), () => ({}));
+  expect('it names the server apps sign in with', resource.resource === `${origin}/api/cms/mcp` && resource.authorization_servers?.[0] === origin);
+  const oauth = await fetch(`${origin}/.well-known/oauth-authorization-server`).then((response) => response.json(), () => ({}));
+  expect('that server says where an app registers', oauth.registration_endpoint === `${origin}/api/cms/oauth/register` && oauth.code_challenge_methods_supported?.includes('S256'));
+  const callback = 'https://app.example/callback';
+  const app = await fetch(oauth.registration_endpoint ?? origin, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ client_name: 'Check', redirect_uris: [callback] }) }).then((response) => response.json(), () => ({}));
+  const asked = new URLSearchParams({ response_type: 'code', client_id: app.client_id ?? '', redirect_uri: callback, code_challenge: 'c'.repeat(43), code_challenge_method: 'S256', state: 's' });
+  const approval = await fetch(`${oauth.authorization_endpoint}?${asked}`, { redirect: 'manual' });
+  expect('an app that registered is sent to the editor to be approved', approval.status === 302 && approval.headers.get('location') === `${origin}/admin/connect?${asked}`);
+  expect('the approval screen is the editor', (await get(`/admin/connect?${asked}`)).status === 200);
+  // An app posts a form from its own server, with no page behind it: the site must take that, and refuse the code.
+  const traded = await fetch(oauth.token_endpoint ?? origin, { method: 'POST', body: new URLSearchParams({ grant_type: 'authorization_code', code: 'vcms_code_none', client_id: app.client_id ?? '', code_verifier: 'v'.repeat(43) }) });
+  expect('a code nobody was given gets no token', traded.status === 400 && (await traded.json()).error === 'invalid_grant');
   expect('the sitemap lists the pages', (await get('/sitemap-live.xml')).text.includes('/contact/'));
   // A post with no true mark of when its form was drawn is taken and kept as spam, and answered like any other.
   const action = /<form action="([^"]+)"/.exec(contact.text)?.[1] ?? '';

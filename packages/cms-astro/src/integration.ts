@@ -73,6 +73,7 @@ export interface VelocityCmsOptions {
  * - `/admin`: the editor, whose image fields choose from the folder named by `images`
  * - `/api/cms/*`: the API the editor calls
  * - `/api/cms/auth/*`: sign-in with an email link or a passkey
+ * - `/api/cms/oauth/*` and `/.well-known/oauth-*`: how an app such as Claude connects by itself, given the MCP address
  *
  * Uploads are kept in a folder beside a database that is a file, or in an S3-compatible bucket
  * named by the `VELOCITY_CMS_S3_*` environment variables (see `mediaStoreFromEnv`). A host with
@@ -117,6 +118,10 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
         injectRoute({ pattern: '/api/cms/submit/[form]', entrypoint: route('submit.ts') });
         injectRoute({ pattern: '/api/cms/schedule', entrypoint: route('schedule.ts') });
         injectRoute({ pattern: '/api/cms/auth/[...path]', entrypoint: route('auth.ts') });
+        // How an app such as Claude connects by itself, given only the MCP server's address.
+        injectRoute({ pattern: '/api/cms/oauth/[...path]', entrypoint: route('connect.ts') });
+        injectRoute({ pattern: '/.well-known/oauth-protected-resource/[...path]', entrypoint: route('connect.ts') });
+        injectRoute({ pattern: '/.well-known/oauth-authorization-server/[...path]', entrypoint: route('connect.ts') });
         injectRoute({ pattern: '/api/cms/[...path]', entrypoint: route('api.ts') });
         injectRoute({ pattern: `${ADMIN_PATH}/[...path]`, entrypoint: route('admin.ts') });
 

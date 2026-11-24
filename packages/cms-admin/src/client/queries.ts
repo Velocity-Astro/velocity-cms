@@ -1,6 +1,6 @@
 import { MutationCache, QueryCache, QueryClient, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FormsSettingsChanges, GeneralSettingsChanges, EmailSettingsChanges, StorageSettingsChanges, ContactImportReport, ContactImportRow, ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, DealChanges, NewDeal, Page, PipelineChanges, CustomFieldsChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity-astro/cms-core';
-import type { ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, ImageList, NewAccessToken, NewEntry, NewPerson, Profile, ProfileChanges, NewType, NewTypeField, SubmissionListQuery } from './admin-client.js';
+import type { ConnectionAnswer, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, ImageList, NewAccessToken, NewEntry, NewPerson, Profile, ProfileChanges, NewType, NewTypeField, SubmissionListQuery } from './admin-client.js';
 import { AdminRequestError } from './errors.js';
 import { useClient } from './client-context.js';
 
@@ -18,6 +18,8 @@ const keys = {
   profile: ['profile'] as const,
   justUploaded: ['just-uploaded'] as const,
   tokens: ['tokens'] as const,
+  connections: ['connections'] as const,
+  askedConnection: (query: string) => ['connections', 'asked', query] as const,
   passkeys: ['passkeys'] as const,
   plugins: ['plugins'] as const,
   pluginEditors: ['plugin-editors'] as const,
@@ -895,6 +897,29 @@ export function useCreateToken() {
   return useMutation({ mutationFn: (token: NewAccessToken) => client.createToken(token), onSuccess: useTokensChanged() });
 }
 
+/** The apps connected to the site. */
+export function useConnections() {
+  const client = useClient();
+  return useQuery({ queryKey: keys.connections, queryFn: () => client.listConnections() });
+}
+
+export function useDisconnect() {
+  const client = useClient();
+  const cache = useQueryClient();
+  return useMutation({ mutationFn: (id: string) => client.disconnect(id), onSuccess: () => void cache.invalidateQueries({ queryKey: keys.connections }) });
+}
+
+/** What an app asked for, read once: asking again would not change it. */
+export function useAskedConnection(query: string, isEnabled: boolean) {
+  const client = useClient();
+  return useQuery({ queryKey: keys.askedConnection(query), queryFn: () => client.askedConnection(query), enabled: isEnabled, retry: false, staleTime: Infinity });
+}
+
+export function useAnswerConnection(query: string) {
+  const client = useClient();
+  return useMutation({ mutationFn: (answer: ConnectionAnswer) => client.answerConnection(query, answer) });
+}
+
 export function useRevokeToken() {
   const client = useClient();
   return useMutation({ mutationFn: (id: string) => client.revokeToken(id), onSuccess: useTokensChanged() });
@@ -984,7 +1009,7 @@ export function useRemovePasskey() {
 
 export function useRequestSignInLink() {
   const client = useClient();
-  return useMutation({ mutationFn: (email: string) => client.requestSignInLink(email) });
+  return useMutation({ mutationFn: ({ email, next }: { readonly email: string; readonly next?: string | undefined }) => client.requestSignInLink(email, next) });
 }
 
 export function useSignInWithPasskey() {

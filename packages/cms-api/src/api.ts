@@ -5,6 +5,7 @@ import { ApiError, errorResponse, isFault, json } from './http.js';
 import { McpEndpoint } from './mcp.js';
 import type { People, Profiles } from './people.js';
 import { Router } from './router.js';
+import type { Connections } from './connections.js';
 import type { Tokens } from './tokens.js';
 
 export interface CmsApiOptions {
@@ -16,6 +17,8 @@ export interface CmsApiOptions {
   readonly profiles?: Profiles;
   /** Access tokens for agents and scripts. Without it the API has nothing under `/tokens`. */
   readonly tokens?: Tokens;
+  /** Apps that connect by themselves, such as Claude given the MCP address. Without it the API has nothing under `/connections`. */
+  readonly connections?: Connections;
   /** Where the API is mounted on the site. Defaults to `/api/cms`. */
   readonly basePath?: string;
   /** The language an entry is written in when the request names none. Defaults to `en`. */
@@ -66,6 +69,9 @@ const pluginValues = z.strictObject({ values: z.record(z.string(), z.unknown()) 
 // A secret to save, or `null` to take the saved one away.
 const pluginSecret = z.strictObject({ value: z.string().nullable() });
 const newToken = z.strictObject({ name: z.string().max(200), role: z.string(), publish: z.boolean(), personalData: z.boolean(), days: z.number().int() });
+// The query an app's request for approval carried, as the editor's address holds it.
+const connectionAsked = z.strictObject({ query: z.string().max(8000) });
+const connectionAnswer = z.strictObject({ query: z.string().max(8000), allow: z.boolean(), role: z.string().optional(), publish: z.boolean().optional(), personalData: z.boolean().optional() });
 const newPerson = z.strictObject({ email: z.string(), name: z.string(), role: z.string() });
 const personChange = z.strictObject({ role: z.string().optional(), name: z.string().max(1000).optional() });
 const profileChanges = z.strictObject({ name: z.string().max(1000).optional(), image: z.string().max(200_000).nullable().optional() });
@@ -557,6 +563,12 @@ export class CmsApi {
     // The Model Context Protocol, for AI agents: the same services, as tools. See `mcp.ts`.
     const mcp = new McpEndpoint({ cms: options.cms, defaultLocale });
     this.#router.add('POST', '/mcp', async (call) => {
+      // An app that was given only this address learns from the refusal where to sign in.
+      if (!call.session && options.connections) {
+        throw new ApiError(401, 'unauthenticated', 'Connect this app to the site first, or send an access token.', {
+          'www-authenticate': `Bearer resource_metadata="${options.connections.resourceMetadata}"`,
+        });
+      }
       const who = actor(call);
       const answer = await mcp.handle(who, await this.#body(call.request));
       return answer === null ? new Response(null, { status: 202, headers: { 'cache-control': 'no-store' } }) : json(answer);
@@ -574,6 +586,27 @@ export class CmsApi {
         })
         .add('DELETE', '/tokens/:id', async (call) => {
           await tokens.revokeToken(actor(call), param(call, 'id'));
+          return json({});
+        });
+    }
+
+    const { connections } = options;
+    if (connections) {
+      this.#router
+        .add('GET', '/connections', async (call) => json({ items: await connections.listConnections(actor(call)) }))
+        .add('POST', '/connections/asked', async (call) => {
+          const who = actor(call);
+          const { query } = parse(connectionAsked, await this.#body(call.request));
+          return json(await connections.asked(who, query));
+        })
+        .add('POST', '/connections/answer', async (call) => {
+          const who = actor(call);
+          const { query, role, ...answer } = parse(connectionAnswer, await this.#body(call.request));
+          // Which roles an app may take is the connections' to say, in their own words.
+          return json(await connections.answer(who, query, answer.allow ? { allow: true, role: (role ?? '') as Role, publish: answer.publish ?? false, personalData: answer.personalData ?? false } : { allow: false }));
+        })
+        .add('DELETE', '/connections/:id', async (call) => {
+          await connections.disconnect(actor(call), param(call, 'id'));
           return json({});
         });
     }

@@ -62,8 +62,9 @@ import {
   InMemoryMediaStore,
   InMemorySchemaRepository,
 } from '@velocity-astro/cms-core/in-memory';
-import type { AccessToken, AdminClient, MadeAccessToken, NewAccessToken, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, Profile, ProfileChanges, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from '../client/admin-client.js';
+import type { AccessToken, AdminClient, AskedConnection, ConnectedApp, ConnectionAnswer, MadeAccessToken, NewAccessToken, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, Profile, ProfileChanges, NewType, NewTypeField, Passkey, Person, PluginCall, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from '../client/admin-client.js';
 import { MemoryPeople } from './memory-people.js';
+import { MemoryConnections } from './memory-connections.js';
 import { MemoryTokens } from './memory-tokens.js';
 import { MemoryChallengeRoom, MemoryMailRoom, MemoryStorageRoom } from './memory-mail.js';
 import { AdminRequestError, type RequestErrorCode } from '../client/errors.js';
@@ -132,6 +133,8 @@ const PREVIEW_SECRET = 'memory-admin-client-preview-secret';
 export class MemoryAdminClient implements AdminClient {
   /** Every address a sign-in link was asked for, in order. */
   readonly linkRequests: string[] = [];
+  /** Where each of those links was asked to land in the editor, or `null` for its first screen. */
+  readonly linkLandings: (string | null)[] = [];
   readonly #passkeys: Passkey[] = [];
   #passkeysMade = 0;
   /** Set to make the next request fail with this message. */
@@ -149,6 +152,7 @@ export class MemoryAdminClient implements AdminClient {
   readonly challenge = new MemoryChallengeRoom();
   readonly #people: MemoryPeople;
   readonly #tokens: MemoryTokens;
+  readonly #connections: MemoryConnections;
   /** Settles once the content given to the constructor is in place. Every request waits for it. */
   readonly #ready: Promise<void>;
   readonly #delay: number;
@@ -163,6 +167,7 @@ export class MemoryAdminClient implements AdminClient {
     this.#shown = options.showUploads === true ? new Map() : null;
     this.#people = new MemoryPeople(options.people ?? (options.user ? [options.user] : []));
     this.#tokens = new MemoryTokens(this.#people);
+    this.#connections = new MemoryConnections(this.#people);
     const types = new InMemorySchemaRepository();
     const entries = new InMemoryEntryRepository();
     const storage = { files: new InMemoryMediaRepository(), store: new InMemoryMediaStore() };
@@ -190,9 +195,10 @@ export class MemoryAdminClient implements AdminClient {
     return this.#user;
   }
 
-  async requestSignInLink(email: string): Promise<void> {
+  async requestSignInLink(email: string, next?: string): Promise<void> {
     this.#failIfAsked();
     this.linkRequests.push(email);
+    this.linkLandings.push(next ?? null);
   }
 
   async signInWithPasskey(): Promise<SessionUser> {
@@ -614,6 +620,22 @@ export class MemoryAdminClient implements AdminClient {
 
   revokeToken(id: string): Promise<void> {
     return this.#request((actor) => this.#tokens.revokeToken(actor, id));
+  }
+
+  askedConnection(query: string): Promise<AskedConnection> {
+    return this.#request((actor) => this.#connections.asked(actor, query));
+  }
+
+  answerConnection(query: string, answer: ConnectionAnswer): Promise<{ readonly redirect: string }> {
+    return this.#request((actor) => this.#connections.answer(actor, query, answer));
+  }
+
+  listConnections(): Promise<readonly ConnectedApp[]> {
+    return this.#request((actor) => this.#connections.listConnections(actor));
+  }
+
+  disconnect(id: string): Promise<void> {
+    return this.#request((actor) => this.#connections.disconnect(actor, id));
   }
 
   /** The name of every passkey the person has, in the order they were added. */

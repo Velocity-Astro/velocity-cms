@@ -1,4 +1,4 @@
-export { authAccount, authPasskey, authSession, authToken, authUser, authVerification } from './auth-tables.js';
+export { authAccount, authApp, authConnection, authConnectionSecret, authPasskey, authSession, authToken, authUser, authVerification } from './auth-tables.js';
 export { openDatabase, type Database, type DatabaseOptions, type Db } from './database.js';
 export { SqliteEntryRepository } from './entry-repository.js';
 export { SqliteFormRepository } from './form-repository.js';

@@ -1,4 +1,5 @@
 import type { RouteObject } from 'react-router';
+import { ConnectScreen } from '../screens/Connect/ConnectScreen.js';
 import { ContactScreen } from '../screens/Contact/ContactScreen.js';
 import { DealsScreen } from '../screens/Deals/DealsScreen.js';
 import { ContactsScreen } from '../screens/Contacts/ContactsScreen.js';
@@ -30,6 +31,8 @@ export function createRoutes(siteName: string): RouteObject[] {
       errorElement: <RouteError />,
       children: [
         { path: 'sign-in', element: <SignInScreen siteName={siteName} /> },
+        // An app asking to be connected: one question, outside the editor's frame.
+        { path: 'connect', element: <ConnectScreen siteName={siteName} /> },
         {
           element: <AdminLayout siteName={siteName} />,
           children: [

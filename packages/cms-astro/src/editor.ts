@@ -89,7 +89,9 @@ export class EditorHost {
       mailer: options.mailer,
       basePath: authPath,
       adminPath,
+      apiPath,
       access: cms.access,
+      ...(options.onFault && { onFault: options.onFault }),
     });
     if (options.images) cms.media.include(options.images);
     this.#api = new CmsApi({
@@ -98,6 +100,7 @@ export class EditorHost {
       people: this.auth,
       profiles: this.auth,
       tokens: this.auth,
+      connections: this.auth,
       basePath: apiPath,
       ...(options.onFault && { onFault: options.onFault }),
     });
@@ -157,6 +160,15 @@ export class EditorHost {
   /** Answers a request to the API. */
   api(request: Request): Promise<Response> {
     return this.#api.handle(request);
+  }
+
+  /**
+   * Answers a request to an app's own side of connecting (OAuth): the addresses under
+   * `/.well-known/` an app finds its way by, and `<api>/oauth/`, where it registers and trades a
+   * code for tokens. The person's side is the editor's, through the API.
+   */
+  connect(request: Request): Promise<Response> {
+    return this.auth.connect(request);
   }
 
   /** Answers a request to one of the sign-in addresses. */

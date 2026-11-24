@@ -3,4 +3,5 @@ export type { ApiSession, ApiUser, Authenticator, SessionPerson } from './authen
 export type { NewPerson, People, Person, Profile, ProfileChanges, Profiles } from './people.js';
 export { ApiError, type ApiErrorBody, type ApiErrorCode } from './http.js';
 export type { AccessToken, MadeAccessToken, NewAccessToken, Tokens } from './tokens.js';
+export type { AskedConnection, ConnectedApp, ConnectionAnswer, Connections } from './connections.js';
 export { McpEndpoint, MCP_TOOLS, type McpTool } from './mcp.js';

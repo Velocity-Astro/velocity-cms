@@ -1,5 +1,5 @@
 import { readImage, type FormsSettings, type FormsSettingsChanges, type GeneralSettings, type GeneralSettingsChanges, type EmailSettings, type EmailSettingsChanges, type StorageSettings, type StorageSettingsChanges, type ContactImportReport, type ContactImportRow, type CustomFields, type CustomFieldsChanges, type Contact, type ContactChanges, type Deal, type DealChanges, type Forecast, type NewDeal, type Pipeline, type PipelineChanges, type TeamMember, type ContactNote, type NewContact, type TimelineItem, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PluginSettings, type PluginTask, type PluginEditorInfo, type PluginRouteMethod, type EntryData, type FormChanges, type FormDef, type NewForm, type PreviewLink, type Revision, type SiteImage, type Submission, type SubmissionStatus } from '@velocity-astro/cms-core';
-import type { AccessToken, AdminClient, MadeAccessToken, NewAccessToken, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, Profile, ProfileChanges, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from './admin-client.js';
+import type { AccessToken, AdminClient, AskedConnection, ConnectedApp, ConnectionAnswer, MadeAccessToken, NewAccessToken, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, Profile, ProfileChanges, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from './admin-client.js';
 import { AdminRequestError, type RequestErrorCode, type RequestIssue } from './errors.js';
 
 /**
@@ -7,7 +7,7 @@ import { AdminRequestError, type RequestErrorCode, type RequestIssue } from './e
  * for passkeys, its own conversation with the browser, so the client is handed it ready-made.
  */
 export interface AuthClient {
-  requestSignInLink(email: string): Promise<void>;
+  requestSignInLink(email: string, next?: string): Promise<void>;
   /** Resolves once the browser holds a session. Who it is for is then asked of the API. */
   signInWithPasskey(): Promise<unknown>;
   signOut(): Promise<void>;
@@ -46,8 +46,8 @@ export class HttpAdminClient implements AdminClient {
     return (await this.#get<{ user: SessionUser | null }>('/session')).user;
   }
 
-  requestSignInLink(email: string): Promise<void> {
-    return this.#auth.requestSignInLink(email);
+  requestSignInLink(email: string, next?: string): Promise<void> {
+    return this.#auth.requestSignInLink(email, next);
   }
 
   async signInWithPasskey(): Promise<SessionUser> {
@@ -448,6 +448,22 @@ export class HttpAdminClient implements AdminClient {
 
   async revokeToken(id: string): Promise<void> {
     await this.#send('DELETE', `/tokens/${encodeURIComponent(id)}`, {});
+  }
+
+  askedConnection(query: string): Promise<AskedConnection> {
+    return this.#send('POST', '/connections/asked', { query });
+  }
+
+  answerConnection(query: string, answer: ConnectionAnswer): Promise<{ readonly redirect: string }> {
+    return this.#send('POST', '/connections/answer', { query, ...answer });
+  }
+
+  async listConnections(): Promise<readonly ConnectedApp[]> {
+    return (await this.#get<{ items: ConnectedApp[] }>('/connections')).items;
+  }
+
+  async disconnect(id: string): Promise<void> {
+    await this.#send('DELETE', `/connections/${encodeURIComponent(id)}`, {});
   }
 
   addPasskey(name: string): Promise<void> {
