@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+## 0.1.0-beta.22
+
 - **Found from Astro.** `@velocity-astro/cms-astro` names itself an Astro integration and a content loader in its keywords, so `astro add @velocity-astro/cms-astro` adds it to a site's config and Astro's integrations library lists it. Every package has keywords for a search on npm.
 
 ## 0.1.0-beta.21

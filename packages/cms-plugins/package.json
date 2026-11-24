@@ -1,10 +1,17 @@
 {
   "name": "@velocity-astro/cms-plugins",
-  "version": "0.1.0-beta.21",
+  "version": "0.1.0-beta.22",
   "description": "The plugins that come with Velocity CMS. Every site lists them under Plugins, switched off until an owner activates one.",
   "type": "module",
   "license": "MIT",
-  "keywords": ["velocity-cms", "cms", "astro", "plugins", "seo", "analytics"],
+  "keywords": [
+    "velocity-cms",
+    "cms",
+    "astro",
+    "plugins",
+    "seo",
+    "analytics"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Velocity-Astro/velocity-cms.git",
