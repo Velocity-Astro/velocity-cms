@@ -22,20 +22,25 @@ const port = 4391;
 const origin = `http://localhost:${port}`;
 const workers = process.argv.includes('--workers');
 const secret = randomBytes(32).toString('base64url');
-// On Workers the database is the D1 binding of wrangler.jsonc, kept for this run in a folder of its own.
+// On Workers the database is the D1 binding of wrangler.jsonc and uploads go to its R2 bucket, both kept for this run in a folder of its own.
 const state = path.join(work, 'state');
-const database = workers ? { VELOCITY_CMS_DATABASE_URL: 'd1:DB', VELOCITY_CMS_WRANGLER_STATE: state, CMS_WORKERS: '1' } : { VELOCITY_CMS_DATABASE_URL: `file:${path.join(work, 'data.db')}` };
+const database = workers ? { VELOCITY_CMS_DATABASE_URL: 'd1:DB', VELOCITY_CMS_R2_BUCKET: 'MEDIA', VELOCITY_CMS_WRANGLER_STATE: state, CMS_WORKERS: '1' } : { VELOCITY_CMS_DATABASE_URL: `file:${path.join(work, 'data.db')}` };
 const env = { ...process.env, ...database, VELOCITY_CMS_SECRET: secret, VELOCITY_CMS_ORIGIN: origin, SITE_URL: origin, PORT: String(port), HOST: '127.0.0.1' };
 const run = (command, args) => execFileSync(command, args, { cwd: root, env, stdio: 'inherit' });
 
 run('node', ['cms/seed.mjs']);
 run('node', ['cms/seed.mjs']);
+// An owner, and a token of theirs that may publish, for the check that a publish is on the site at once.
+// Made before the site starts: on Workers the command and the site must not hold the local database together.
+const cli = (args, more = {}) => execFileSync('npx', ['velocity-cms', ...args], { cwd: root, env: { ...env, ...more }, encoding: 'utf8' });
+cli(['owner', 'check@example.com', 'Check']);
+const token = /vcms_[\w-]+/.exec(cli(['token', 'the starter check', '--publish']))?.[0] ?? '';
 run('npx', ['astro', 'build']);
 // Wrangler is started by its own file, not through npx, so that stopping it stops the runtime it started.
 const wrangler = () => path.join(path.dirname(createRequire(import.meta.url).resolve('wrangler/package.json')), 'bin', 'wrangler.js');
 const given = (name) => ['--var', `${name}:${env[name]}`];
 const server = workers
-  ? spawn('node', [wrangler(), 'dev', '--config', 'dist/server/wrangler.json', '--port', String(port), '--persist-to', state, ...given('VELOCITY_CMS_DATABASE_URL'), ...given('VELOCITY_CMS_SECRET'), ...given('VELOCITY_CMS_ORIGIN')], { cwd: root, env, stdio: 'inherit' })
+  ? spawn('node', [wrangler(), 'dev', '--config', 'dist/server/wrangler.json', '--port', String(port), '--persist-to', state, ...given('VELOCITY_CMS_DATABASE_URL'), ...given('VELOCITY_CMS_R2_BUCKET'), ...given('VELOCITY_CMS_SECRET'), ...given('VELOCITY_CMS_ORIGIN')], { cwd: root, env, stdio: 'inherit' })
   : spawn('node', ['dist/server/entry.mjs'], { cwd: root, env, stdio: 'inherit' });
 let failed = 0;
 const expect = (what, ok) => {
@@ -79,6 +84,17 @@ try {
   // An app posts a form from its own server, with no page behind it: the site must take that, and refuse the code.
   const traded = await fetch(oauth.token_endpoint ?? origin, { method: 'POST', body: new URLSearchParams({ grant_type: 'authorization_code', code: 'vcms_code_none', client_id: app.client_id ?? '', code_verifier: 'v'.repeat(43) }) });
   expect('a code nobody was given gets no token', traded.status === 400 && (await traded.json()).error === 'invalid_grant');
+  // A publish is on the site at once. The address is asked for first, so that an answer kept from before would show.
+  expect('a page nobody made answers 404', (await get('/made-by-the-check/')).status === 404);
+  cli(['create', 'pages', 'made-by-the-check', '--data', JSON.stringify({ title: 'Made by the check' }), '--publish'], { VELOCITY_CMS_TOKEN: token });
+  const made = await get('/made-by-the-check/');
+  expect('a page is on the site as soon as it is published', made.status === 200 && made.text.includes('Made by the check'));
+  // An upload is kept and served back: in a folder beside the database, or on Workers in the R2 bucket.
+  const picture = path.join(work, 'pixel.png');
+  fs.writeFileSync(picture, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64'));
+  const uploaded = cli(['upload', picture, '--json'], { VELOCITY_CMS_TOKEN: token });
+  const image = await fetch(origin + (/"(?:url|src)":\s*"([^"]+)"/.exec(uploaded)?.[1] ?? '/none'));
+  expect('an uploaded image is kept and served', image.ok && (image.headers.get('content-type') ?? '').startsWith('image/'));
   expect('the sitemap lists the pages', (await get('/sitemap-live.xml')).text.includes('/contact/'));
   // A post with no true mark of when its form was drawn is taken and kept as spam, and answered like any other.
   const action = /<form action="([^"]+)"/.exec(contact.text)?.[1] ?? '';

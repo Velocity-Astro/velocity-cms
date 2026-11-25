@@ -1,8 +1,7 @@
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import type { D1Binding } from '@velocity-astro/cms-db';
-import type { BoundDatabase } from './d1-binding.js';
+import type { Bound } from './d1-binding.js';
 
 interface Wrangler {
   getPlatformProxy(options: { environment?: string; persist?: { path: string } }): Promise<{ env: Record<string, unknown>; dispose(): Promise<void> }>;
@@ -22,25 +21,50 @@ async function siteWrangler(): Promise<Wrangler> {
   return { getPlatformProxy };
 }
 
+/** One stand-in for the Worker's bindings for the whole program, started on first use and let go when nobody holds it. */
+let proxy: Promise<{ env: Record<string, unknown>; dispose(): Promise<void> }> | undefined;
+let holders = 0;
+
 /**
- * The D1 database Wrangler binds under `name` for a program on this computer.
+ * What Wrangler binds under `name` for a program on this computer, or `null` for nothing.
  *
  * `CLOUDFLARE_ENV` names the environment of the Wrangler config to read, as it does for Wrangler.
  * `VELOCITY_CMS_WRANGLER_STATE` is where local data is kept when it is not `.wrangler/state`:
  * the folder given to `wrangler dev --persist-to`.
  */
-export async function wranglerBinding(name: string): Promise<BoundDatabase> {
-  const { getPlatformProxy } = await siteWrangler();
-  const environment = process.env.CLOUDFLARE_ENV || undefined;
-  const state = process.env.VELOCITY_CMS_WRANGLER_STATE || undefined;
-  const proxy = await getPlatformProxy({
-    ...(environment !== undefined && { environment }),
-    ...(state !== undefined && { persist: { path: path.join(path.resolve(state), 'v3') } }),
-  });
-  const binding = proxy.env[name] as D1Binding | undefined;
-  if (!binding || typeof binding.prepare !== 'function') {
-    await proxy.dispose();
-    throw new Error(`The Wrangler config has no D1 database bound as "${name}". Add it to d1_databases.`);
+export async function wranglerBinding(name: string): Promise<Bound<unknown> | null> {
+  if (!proxy) {
+    const environment = process.env.CLOUDFLARE_ENV || undefined;
+    const state = process.env.VELOCITY_CMS_WRANGLER_STATE || undefined;
+    proxy = siteWrangler().then(({ getPlatformProxy }) =>
+      getPlatformProxy({
+        ...(environment !== undefined && { environment }),
+        ...(state !== undefined && { persist: { path: path.join(path.resolve(state), 'v3') } }),
+      }),
+    );
+    // A stand-in that could not be started is not remembered, so the next use says why again.
+    proxy.catch(() => (proxy = undefined));
   }
-  return { binding, release: () => proxy.dispose() };
+  const started = await proxy;
+  const binding = started.env[name];
+  if (binding === undefined || binding === null) {
+    if (holders === 0) {
+      proxy = undefined;
+      await started.dispose();
+    }
+    return null;
+  }
+  holders += 1;
+  let held = true;
+  return {
+    binding,
+    release: async () => {
+      if (!held) return;
+      held = false;
+      holders -= 1;
+      if (holders > 0) return;
+      proxy = undefined;
+      await started.dispose();
+    },
+  };
 }

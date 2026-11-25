@@ -8,6 +8,7 @@ import { d1Binding, inWorker } from './d1-binding.js';
 import { currentSite } from './hosted.js';
 import { SharpImageOptimizer } from './image-optimizer.js';
 import { bucketFromEnv, folderFromEnv } from './media-store.js';
+import { r2FromEnv } from './r2-store.js';
 import { SiteMediaStore } from './site-storage.js';
 import { SiteChallenge } from './challenge.js';
 import { siteSecret } from './secret.js';
@@ -63,7 +64,8 @@ export async function connect(options: ConnectionOptions): Promise<Connection> {
   // named in the editor, then in a folder beside a database that is a file.
   const store: SiteMediaStore = new SiteMediaStore({
     account: () => cms.settings.bucketAccount(),
-    fixed: site ? site.media : bucketFromEnv(),
+    // On Cloudflare Workers, the R2 bucket the Worker is bound to; anywhere, a bucket named by its address and keys.
+    fixed: site ? site.media : (r2FromEnv() ?? bucketFromEnv()),
     hosted: site !== undefined,
     folder: site ? undefined : folderFromEnv(url),
     lookup: lookUp,

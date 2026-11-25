@@ -1,5 +1,6 @@
 import { defineConfig, memoryCache } from 'astro/config';
 import cloudflare from '@astrojs/cloudflare';
+import { cacheCloudflare } from '@astrojs/cloudflare/cache';
 import node from '@astrojs/node';
 import velocityCms from '@velocity-astro/cms-astro';
 
@@ -15,6 +16,7 @@ export default defineConfig({
   ...(process.env.CMS_SITES && { security: { allowedDomains: [{ hostname: '**.test' }] } }),
   integrations: [velocityCms({ siteName: 'Starter', entryPages: ['pages'], ...(process.env.CMS_SITES && { sites: process.env.CMS_SITES }) })],
   // A page drawn from the CMS is kept until a publish clears it. A day is the backstop.
-  cache: { provider: memoryCache() },
+  // On Workers the pages are kept by Cloudflare's own cache, which every copy of the Worker shares.
+  cache: { provider: process.env.CMS_WORKERS ? cacheCloudflare() : memoryCache() },
   routeRules: { '/[...path]': { maxAge: 86400, tags: ['cms'] } },
 });
