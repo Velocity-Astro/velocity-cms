@@ -115,7 +115,7 @@ Open the link `init` printed once the site is running, then open Pages and chang
 ## Known limits
 
 - SQLite, libSQL and Cloudflare D1 only.
-- On Cloudflare Workers it has run in the Workers runtime on a computer and in CI, and not yet on a deployed site.
+- On Cloudflare Workers it is experimental. It has run on a deployed Worker with D1, R2 and the Images binding: pages, the editor, publishing with Cloudflare's cache cleared, scheduled publishing, uploads and forms. Email, passkeys and plugins that send out have not been tried there.
 - The editor is in English. The site can be in any language.
 - The Mailchimp, Slack and HubSpot plugins pass their tests but have not run against the real services.
 - Forms have no file uploads and send nothing to the visitor.
