@@ -771,6 +771,23 @@ it('brings what someone else saved together with what was typed here, and saves 
   expect((await field('Price')).value).toBe('725,000');
 }, 15_000);
 
+it('gets the latest version when asked, and says so when there is nothing newer', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/content/listings/e1', signedIn());
+  await user.type(await field('Title'), ' East');
+  // Saved elsewhere, and nothing has told this tab yet.
+  await savedElsewhere(client, 'e1', { 'f-price': 725000 });
+  await user.click(screen.getByRole('button', { name: 'Get the latest version' }));
+
+  await waitFor(async () => expect((await field('Price')).value).toBe('725,000'));
+  // What was typed here stays.
+  expect((await field('Title')).value).toBe('6214 Lakeshore Drive East');
+
+  await waitFor(() => expect(saveBar().getByText(/^Saved /)).toBeTruthy(), { timeout: 6000 });
+  await user.click(screen.getByRole('button', { name: 'Get the latest version' }));
+  expect(await screen.findByText('You have the latest version')).toBeTruthy();
+}, 15_000);
+
 it('never saves over a newer version it has not taken in: a refused save brings it in and is made again', async () => {
   const user = userEvent.setup();
   const { client } = renderApp('/content/listings/e1', signedIn());
