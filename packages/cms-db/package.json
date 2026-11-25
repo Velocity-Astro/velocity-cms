@@ -37,7 +37,8 @@
     "!dist/**/*.test.*"
   ],
   "scripts": {
-    "migrations:generate": "drizzle-kit generate"
+    "migrations:generate": "drizzle-kit generate && node scripts/bundle-migrations.mjs",
+    "migrations:bundle": "node scripts/bundle-migrations.mjs"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",

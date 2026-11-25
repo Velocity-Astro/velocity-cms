@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { createCms, type Actor, type Cms, type NameLookup, type SearchIndex } from '@velocity-astro/cms-core';
 import { AuthTeam } from '@velocity-astro/cms-auth/team';
-import { openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqliteDealRepository, SqlitePipelineStore, SqlitePresenceStore, SqliteSettingsStore, SqliteCustomFieldsStore, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Db } from '@velocity-astro/cms-db';
+import { d1Client, type D1Binding, openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqliteDealRepository, SqlitePipelineStore, SqlitePresenceStore, SqliteSettingsStore, SqliteCustomFieldsStore, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Db } from '@velocity-astro/cms-db';
 import { currentSite } from './hosted.js';
 import { SharpImageOptimizer } from './image-optimizer.js';
 import { bucketFromEnv, folderFromEnv } from './media-store.js';
@@ -50,7 +50,20 @@ export async function connect(options: ConnectionOptions): Promise<Connection> {
   // A database that is a file is made on first use, and so is the folder it sits in.
   const file = /^file:(?!:memory:)([^?]+)/.exec(url)?.[1];
   if (file !== undefined) mkdirSync(path.dirname(path.resolve(file.replace(/^\/\/(?=\/)/, ''))), { recursive: true });
-  const database = await openDatabase({ url, ...(authToken !== undefined && { authToken }) });
+  // `d1:<binding>` is a Cloudflare D1 database, reached through the Worker's binding of that name.
+  const d1 = /^d1:(\w+)$/.exec(url)?.[1];
+  let database;
+  if (d1 !== undefined) {
+    const workers = 'cloudflare:workers';
+    const { env } = (await import(/* @vite-ignore */ workers)) as { env: Record<string, D1Binding | undefined> };
+    const binding = env[d1];
+    if (!binding) throw new Error(`There is no D1 database bound as "${d1}". Add it to d1_databases in the Wrangler config.`);
+    database = await openDatabase({ url, client: d1Client(binding) });
+  } else {
+    // A hosted database on a host with no disk: the migrations come from the bundle.
+    const noDisk = typeof navigator !== 'undefined' && navigator.userAgent === 'Cloudflare-Workers';
+    database = await openDatabase({ url, ...(authToken !== undefined && { authToken }), ...(noDisk && { bundledMigrations: true }) });
+  }
   // A hosted site keeps uploads where its host says, and nowhere a setting of the server names.
   // A site of its own keeps them where the server's settings say, then in the bucket an owner
   // named in the editor, then in a folder beside a database that is a file.

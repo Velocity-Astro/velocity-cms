@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { AstroIntegration } from 'astro';
@@ -14,6 +15,9 @@ const SITES = 'virtual:velocity-cms/sites';
 const IMAGE_FILES = '**/*.{jpg,jpeg,png,webp,avif,gif}';
 const ADMIN_PATH = '/admin';
 const route = (file: string) => fileURLToPath(new URL(`../routes/${file}`, import.meta.url));
+const EDITOR_DIRECTORY = '@velocity-astro/cms-admin/app-directory';
+/** Where the built editor is on the machine that builds the site. */
+const editorDirectory = (): string => path.join(path.dirname(createRequire(import.meta.url).resolve('@velocity-astro/cms-admin/package.json')), 'app-dist');
 
 export interface VelocityCmsOptions {
   /** Addresses to leave out of the sitemap, such as search results: `['/search/', '/es/buscar/']`. */
@@ -91,6 +95,7 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
   let clientDir = '';
   let site: string | undefined;
   let root = '';
+  let workers = false;
   return {
     name: PACKAGE,
     hooks: {
@@ -125,13 +130,23 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
         injectRoute({ pattern: '/api/cms/[...path]', entrypoint: route('api.ts') });
         injectRoute({ pattern: `${ADMIN_PATH}/[...path]`, entrypoint: route('admin.ts') });
 
+        // Cloudflare Workers have no node_modules to load from at run time: everything is bundled.
+        workers = config.integrations.some((one) => one.name === '@astrojs/cloudflare') || config.adapter?.name === '@astrojs/cloudflare';
         const external = { resolve: { external: [PACKAGE] } };
         updateConfig({
           vite: {
-            ssr: { external: [PACKAGE] },
-            // Astro builds prerendered pages in their own Vite environment, which does not read `ssr`.
-            environments: { ssr: external, prerender: external, astro: external },
+            ...(!workers && { ssr: { external: [PACKAGE] }, environments: { ssr: external, prerender: external, astro: external } }),
             plugins: [
+              {
+                // With no disk at run time, the editor's page is bundled and its files are copied into the site's own.
+                name: 'velocity-cms:editor-files',
+                enforce: 'pre' as const,
+                resolveId: (id: string) => (workers && id === EDITOR_DIRECTORY ? `\0${EDITOR_DIRECTORY}` : undefined),
+                load: (id: string) =>
+                  id === `\0${EDITOR_DIRECTORY}`
+                    ? `export const appDirectory = '';\nexport const editorTemplate = ${JSON.stringify(fs.readFileSync(path.join(editorDirectory(), 'index.html'), 'utf8'))};`
+                    : undefined,
+              },
               {
                 name: 'velocity-cms:options',
                 resolveId: (id: string) => (id === OPTIONS || id === MAILER || id === IMAGES || id === PLUGINS || id === SITES ? `\0${id}` : undefined),
@@ -177,6 +192,10 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
       // Every page is drawn when it is asked for, for the site whose host name asked.
       'astro:route:setup': ({ route: page }) => {
         if (options.sites) page.prerender = false;
+      },
+      'astro:build:done': () => {
+        if (!workers) return;
+        fs.cpSync(path.join(editorDirectory(), 'assets'), path.join(clientDir, ADMIN_PATH.replace(/^\//, ''), 'assets'), { recursive: true });
       },
       'astro:config:done': ({ config }) => {
         clientDir = fileURLToPath(config.adapter ? config.build.client : config.outDir);

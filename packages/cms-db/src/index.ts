@@ -1,5 +1,6 @@
 export { authAccount, authApp, authConnection, authConnectionSecret, authPasskey, authSession, authToken, authUser, authVerification } from './auth-tables.js';
 export { openDatabase, type Database, type DatabaseOptions, type Db } from './database.js';
+export { d1Client, type D1Binding, type D1Statement } from './d1-client.js';
 export { SqliteEntryRepository } from './entry-repository.js';
 export { SqliteFormRepository } from './form-repository.js';
 export { SqliteSubmissionRepository } from './submission-repository.js';

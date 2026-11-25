@@ -4,6 +4,9 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **Runs on Cloudflare Workers, with a D1 database (experimental).** With the `@astrojs/cloudflare` adapter the CMS is bundled into the Worker, the editor's files are served as the site's own, and `VELOCITY_CMS_DATABASE_URL=d1:<binding>` opens the D1 database bound under that name. D1 holds no transaction open, so each save is sent as one batch that is kept whole or not at all, and is refused when what it was decided from changed meanwhile. Not yet there on Workers: the setup commands (`init`, `owner`, `link`, `seed`), uploads, and a page cache shared between copies. Node and Vercel sites are unchanged.
+- The database's migrations are also bundled with the code (`migrations.generated.ts`), for a host with no disk to read them from. A database migrated one way is left alone by the other.
+
 ## 0.1.0-beta.24
 
 - **A connected app arrives knowing how to work on your site.** The MCP server now publishes skills beside its tools ("Skills over MCP", which Claude and VS Code load by themselves): the playbook for building a page from the template's sections, for writing, translating, scheduling and publishing content, for following up on leads, and for bringing content in from somewhere else. Each ends with what your site has today (its content types, the blocks its pages are built from, whether the connection may publish), and the one about leads is offered only to a connection that may read contacts. The `cms-add-section` skill is published too, so an agent sent to `design_new_section` can read every step. A skill adds no power: the tools still check everything. An app that loads no skills by itself finds them as resources (`skill://cms-build-page/SKILL.md`), and the server's instructions say so.
