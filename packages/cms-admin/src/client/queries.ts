@@ -1,7 +1,7 @@
 import { MutationCache, QueryCache, QueryClient, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { PresentOther, PresenceSaid, FormsSettingsChanges, GeneralSettingsChanges, EmailSettingsChanges, StorageSettingsChanges, ContactImportReport, ContactImportRow, ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, DealChanges, NewDeal, Page, PipelineChanges, CustomFieldsChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity-astro/cms-core';
 import type { ConnectionAnswer, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, ImageList, NewAccessToken, NewEntry, NewPerson, Profile, ProfileChanges, NewType, NewTypeField, SubmissionListQuery } from './admin-client.js';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { AdminRequestError } from './errors.js';
 import { useClient } from './client-context.js';
 
@@ -359,6 +359,18 @@ export function useEntryPresence(id: string | null, said?: () => PresenceSaid): 
     staleTime: 0,
     gcTime: 0,
   });
+  // A window that was behind another, or a computer that slept, may not have asked for a while and
+  // is not always told it is in view again: coming back to it asks at once.
+  const { refetch } = presence;
+  useEffect(() => {
+    if (id === null) return;
+    const ask = () => void refetch();
+    const events = ['focus', 'pageshow', 'online'] as const;
+    for (const event of events) window.addEventListener(event, ask);
+    return () => {
+      for (const event of events) window.removeEventListener(event, ask);
+    };
+  }, [id, refetch]);
   // The same lists while nobody came or went, so nothing is drawn again every few seconds.
   return { others: presence.data?.others ?? NOBODY, savedBy: presence.data?.savedBy ?? NOBODY, revision: presence.data?.revision ?? 0, ask: () => void presence.refetch() };
 }

@@ -1,7 +1,7 @@
 import type { ContentTypeDef, Entry, EntryData, FieldDef, PresentOther } from '@velocity-astro/cms-core';
 import { HOME_SLUG, SLUG_PATH, hasOwnPages, isSlug, isSlugPath, liveFields, takesSlugPath } from '@velocity-astro/cms-core';
 import { Box, Button, Card, ConfirmDialog, Dialog, Fieldset, Form, Grid, IconButton, Menu, PageBody, SaveBar, Split, Stack, Tag, Text, TextField, Workbench, toast } from '@velocity-astro/cms-ui';
-import { Bot, CalendarClock, Copy, Ellipsis, ExternalLink, Eye, EyeOff, GitCompareArrows, History, Languages, Palette, PanelRightClose, PanelRightOpen, Redo2, Save, Trash2, Undo2, Users } from 'lucide-react';
+import { RefreshCw, Bot, CalendarClock, Copy, Ellipsis, ExternalLink, Eye, EyeOff, GitCompareArrows, History, Languages, Palette, PanelRightClose, PanelRightOpen, Redo2, Save, Trash2, Undo2, Users } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { paths } from '../../app/paths.js';
@@ -341,6 +341,25 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
     // `take` and what is held are read as they are when the newer version arrives.
   }, [entry, base, running, autosaveTurn, company.revision, waitedFor]);
 
+  // Asked for by hand: the entry as it is saved now, brought in like any newer version. What others
+  // save arrives by itself within seconds; this is for whoever would rather not wait, or wonders.
+  const [isGettingLatest, setGettingLatest] = useState(false);
+  async function getLatest() {
+    if (entry === null || base === null || isGettingLatest) return;
+    setGettingLatest(true);
+    try {
+      company.ask();
+      const now = await refresh(entry.id);
+      // A newer one is brought in, and said, by the form itself. A question still open is shown again.
+      if (now.revision <= base.revision) toast({ title: messages.editor.latestAlready, tone: 'success' });
+      else if (clashesWith(now).length > 0) setReviewing(true);
+    } catch {
+      toast({ title: messages.editor.latestFailed, description: messages.editor.latestFailedDescription, tone: 'danger' });
+    } finally {
+      setGettingLatest(false);
+    }
+  }
+
   /** Someone else, as the form calls them: by name, as somebody's agent, or as someone when nobody can say. */
   const me = session.data?.id;
   function whoIs(one: PresentOther | undefined): string {
@@ -552,6 +571,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   const more = [
     ...(isPhone && isClashing ? [{ id: 'review', label: messages.editor.clashReview, icon: GitCompareArrows }] : []),
     ...(isPhone && hasPage ? [{ id: 'preview', label: messages.editor.preview, icon: Eye }] : []),
+    ...(isPhone && entry !== null ? [{ id: 'latest', label: messages.editor.getLatest, icon: RefreshCw }] : []),
     ...(liveAddress !== null ? [{ id: 'view', label: messages.editor.viewOnSite, icon: ExternalLink }] : []),
     ...(entry?.status === 'published' ? [{ id: 'unpublish', label: messages.editor.unpublish, icon: EyeOff }] : []),
     // A single page is its type's one entry: there is no second, and it is taken off the site, not thrown away.
@@ -673,6 +693,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   const onMore = (id: string) => {
     if (id.startsWith('language:')) return onSwitch?.(id.slice('language:'.length));
     if (id === 'review') return setReviewing(true);
+    if (id === 'latest') return void getLatest();
     if (id === 'preview') return void preview();
     if (id === 'save') return void run('save');
     if (id === 'undo') return undo();
@@ -731,6 +752,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
           {messages.editor.clashReview}
         </Button>
       )}
+      {!isPhone && entry !== null && <IconButton label={messages.editor.getLatest} icon={RefreshCw} isDisabled={isBusy || isGettingLatest} onPress={() => void getLatest()} />}
       {!isPhone && (
         <>
           <IconButton label={messages.editor.undo} icon={Undo2} isDisabled={isBusy || !history.canUndo} onPress={undo} />
@@ -806,6 +828,9 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
                           <Button variant="secondary" icon={GitCompareArrows} onPress={() => setReviewing(true)}>
                             {messages.editor.clashReview}
                           </Button>
+                        )}
+                        {!isPhone && entry !== null && (
+                          <IconButton label={messages.editor.getLatest} icon={RefreshCw} isDisabled={isBusy || isGettingLatest} onPress={() => void getLatest()} />
                         )}
                         {!isPhone && (
                           <>
