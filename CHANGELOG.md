@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+## 0.1.0-beta.25
+
 - **Get the latest version, with one button.** An entry's bar has a button (in the menu on a phone) that asks for the entry as it is saved now and brings it into the form, with whatever you typed, as the editor does by itself every few seconds. It says so when you already have the latest. A window you come back to, or a computer that wakes, now asks at once instead of waiting for its next turn.
 
 ## 0.1.0-beta.24
