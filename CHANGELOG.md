@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **Get the latest version, with one button.** An entry's bar has a button (in the menu on a phone) that asks for the entry as it is saved now and brings it into the form, with whatever you typed, as the editor does by itself every few seconds. It says so when you already have the latest. A window you come back to, or a computer that wakes, now asks at once instead of waiting for its next turn.
+
 ## 0.1.0-beta.24
 
 - **A connected app arrives knowing how to work on your site.** The MCP server now publishes skills beside its tools ("Skills over MCP", which Claude and VS Code load by themselves): the playbook for building a page from the template's sections, for writing, translating, scheduling and publishing content, for following up on leads, and for bringing content in from somewhere else. Each ends with what your site has today (its content types, the blocks its pages are built from, whether the connection may publish), and the one about leads is offered only to a connection that may read contacts. The `cms-add-section` skill is published too, so an agent sent to `design_new_section` can read every step. A skill adds no power: the tools still check everything. An app that loads no skills by itself finds them as resources (`skill://cms-build-page/SKILL.md`), and the server's instructions say so.
