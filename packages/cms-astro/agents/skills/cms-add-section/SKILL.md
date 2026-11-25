@@ -1,6 +1,6 @@
 ---
 name: cms-add-section
-description: Add a kind of section (a block) that editors can add to pages in Velocity CMS, such as a pricing table, a gallery or testimonials: its fields in the model, its component built from the site's own components, the block map entry, and named looks instead of free colours. Use when asked to add a section, a block, or something editors can put on pages.
+description: Add a kind of section (a block) that editors can add to pages in Velocity CMS, such as a pricing table, a gallery or testimonials, with its fields in the model, its component built from the site's own components, the block map entry, and named looks instead of free colours. Use when asked to add a section, a block, or something editors can put on pages.
 ---
 
 # Add a section editors can use

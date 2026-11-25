@@ -26,6 +26,7 @@ import {
   type PipelineChanges,
 } from '@velocity-astro/cms-core';
 import { z } from 'zod';
+import { SKILLS_EXTENSION, skillsFor } from './mcp-skills.js';
 
 /**
  * The Model Context Protocol, spoken over the API (`POST /api/cms/mcp`), so an AI agent such as
@@ -41,10 +42,27 @@ import { z } from 'zod';
  *
  * The transport is the protocol's "streamable HTTP" in its plain form: one JSON-RPC message (or
  * a list of them) in, the answer as JSON out. Nothing is streamed and no session is kept.
+ *
+ * It speaks both eras of the protocol. A client that opens with `initialize` is answered as the
+ * revisions up to 2025-11-25 say. A client of revision 2026-07-28 sends no `initialize`: each of
+ * its requests names the version in `_meta`, it may ask `server/discover` what the server can do,
+ * and every answer says it is complete and how long it may be kept. Since no session was ever
+ * kept here, the two differ only in how a request and its answer are dressed.
+ *
+ * Beside its tools it publishes skills (`mcp-skills.ts`): `skills/list` and `skills/get` name
+ * them, and each is read like any resource, at `skill://<name>/SKILL.md`.
  */
 
-/** The versions of the protocol this server speaks, newest first. */
+/** The versions of the protocol that open with `initialize`, newest first. */
 const PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'] as const;
+/** The version whose requests each say who is asking, with no `initialize`. */
+const STATELESS_VERSION = '2026-07-28';
+const VERSION_KEY = 'io.modelcontextprotocol/protocolVersion';
+const SERVER_KEY = 'io.modelcontextprotocol/serverInfo';
+/** How long a client may keep a list or a skill before asking again, in milliseconds. */
+const KEPT_FOR_MS = 300_000;
+/** What this server can do, as both eras are told. */
+const CAPABILITIES = { tools: { listChanged: false }, resources: { listChanged: false }, extensions: { [SKILLS_EXTENSION]: {} } };
 const SERVER = { name: 'velocity-cms', title: 'Velocity CMS', version: '1' };
 
 const INSTRUCTIONS = `This is a site's content in Velocity CMS.
@@ -53,7 +71,8 @@ Values are written by field key. Formatted text (richtext) is read as {"markdown
 A page built from sections (a "blocks" field) is built from the blocks its content type lists, each with its own fields: read get_content_type or list_blocks first, then add_section, update_section, move_section, remove_section or set_sections. A look is one of the choices a field offers.
 An idea the blocks cannot show is welcome: a new kind of section is a block in the site's model with a component of the same key in its code, so it is drawn on the theme and editors can change it. design_new_section gives the site's colours, fonts and blocks to design from and the steps to add one; once it is deployed, these tools use it like any other.
 What you write is a draft until it is published. Publishing needs a token that allows it; otherwise tell the person the draft is ready for them to publish in the editor.
-Contacts, deals and what visitors sent are personal data: they are there only when the token allows it, and never belong on a page.`;
+Contacts, deals and what visitors sent are personal data: they are there only when the token allows it, and never belong on a page.
+This server publishes skills: the playbook for building a page (cms-build-page), writing and publishing content (cms-write-content), following up on leads (cms-follow-up-leads) and bringing content in (cms-bring-content-in). If your app has not loaded them, read the one for the job before starting it, as a resource: resources/list names them, such as skill://cms-build-page/SKILL.md.`;
 
 export interface McpEndpointOptions {
   readonly cms: Cms;
@@ -376,7 +395,7 @@ export const MCP_TOOLS: readonly McpTool[] = [
           'In the site\'s code, describe the block in the model (usually cms/model.mjs) on the blocks field of the types that should take it: { key, label, description, icon, group, fields }. Keys start with a lowercase letter and are permanent.',
           'Give each look a select field with named choices (and swatches for colours) drawn from the theme above, never a free colour, size or class. Text, pictures, links, lists and forms are fields of their own, so editors can change them.',
           'Write its component, of the same key, in the block map (export const blocks = { ... }): every prop optional, wrapped with sectionMark(section.id, section.data), each field marked with fieldMark(key).',
-          'Run the seed, then `npx velocity-cms check`, and build the site. The cms-add-section skill has each step in full.',
+          'Run the seed, then `npx velocity-cms check`, and build the site. The cms-add-section skill has each step in full: this server publishes it, at skill://cms-add-section/SKILL.md.',
           'Once the site is deployed, add_section can place it on any page whose type takes it.',
         ],
       };
@@ -761,7 +780,22 @@ export const MCP_TOOLS: readonly McpTool[] = [
   }),
 ];
 
-const RPC_ERRORS = { parse: -32700, invalidRequest: -32600, methodNotFound: -32601, invalidParams: -32602, internal: -32603 } as const;
+const RPC_ERRORS = { parse: -32700, invalidRequest: -32600, methodNotFound: -32601, invalidParams: -32602, internal: -32603, headerMismatch: -32020, unsupportedVersion: -32022 } as const;
+
+/** The version a request names for itself, which only a client of the stateless revision does. */
+function versionOf(message: unknown): unknown {
+  const params = isObject(message) ? message['params'] : undefined;
+  const meta = isObject(params) ? params['_meta'] : undefined;
+  return isObject(meta) ? meta[VERSION_KEY] : undefined;
+}
+
+/** What a request's sender said beside it. */
+export interface McpAsker {
+  /** What whoever asks is called, shown to people who have the same entry open. */
+  readonly name?: string | undefined;
+  /** The request's `MCP-Protocol-Version` header, when it has one. */
+  readonly version?: string | null | undefined;
+}
 
 /** Answers MCP's JSON-RPC messages for one actor. Faults are the API's to report; a refusal is the tool's answer. */
 export class McpEndpoint {
@@ -774,14 +808,28 @@ export class McpEndpoint {
 
   /** The answer to a message or a list of them, or `null` when nothing needs one (notifications). */
   async handle(actor: Actor, body: unknown, name?: string): Promise<unknown> {
-    if (Array.isArray(body)) {
-      const answers = (await Promise.all(body.map((message) => this.#one(actor, message, name)))).filter((answer) => answer !== null);
-      return answers.length > 0 ? answers : null;
-    }
-    return this.#one(actor, body, name);
+    return (await this.respond(actor, body, { name })).body;
   }
 
-  async #one(actor: Actor, message: unknown, name: string | undefined): Promise<unknown> {
+  /**
+   * The answer with the HTTP status it travels under. The stateless revision says a refusal's
+   * status as well as its code (a version this server does not speak, a method it does not have),
+   * which is how its clients tell a server of their era from an older one.
+   */
+  async respond(actor: Actor, body: unknown, asker: McpAsker = {}): Promise<{ readonly status: number; readonly body: unknown }> {
+    if (Array.isArray(body)) {
+      const answers = (await Promise.all(body.map((message) => this.#one(actor, message, asker)))).filter((answer) => answer !== null);
+      return answers.length > 0 ? { status: 200, body: answers } : { status: 202, body: null };
+    }
+    const answer = await this.#one(actor, body, asker);
+    if (answer === null) return { status: 202, body: null };
+    const code = isObject(answer) && isObject(answer['error']) ? answer['error']['code'] : undefined;
+    if (code === RPC_ERRORS.unsupportedVersion || code === RPC_ERRORS.headerMismatch) return { status: 400, body: answer };
+    if (code === RPC_ERRORS.methodNotFound && versionOf(body) !== undefined) return { status: 404, body: answer };
+    return { status: 200, body: answer };
+  }
+
+  async #one(actor: Actor, message: unknown, asker: McpAsker): Promise<unknown> {
     if (!isObject(message) || typeof message['method'] !== 'string') {
       // A response sent to us (we ask nothing of the client) or something that is no message.
       return isObject(message) && ('result' in message || 'error' in message) ? null : failure(null, RPC_ERRORS.invalidRequest, 'This is not a JSON-RPC request.');
@@ -789,28 +837,68 @@ export class McpEndpoint {
     const { id, method, params } = message as RpcMessage;
     // A notification (no id) is answered with nothing, whatever it says.
     if (id === undefined) return null;
-    const answer = (result: unknown) => ({ jsonrpc: '2.0', id, result });
+    const version = versionOf(message);
+    const stateless = version !== undefined;
+    if (stateless && version !== STATELESS_VERSION) {
+      return failure(id, RPC_ERRORS.unsupportedVersion, 'Unsupported protocol version', { supported: [STATELESS_VERSION, ...PROTOCOL_VERSIONS], requested: version });
+    }
+    if (stateless && typeof asker.version === 'string' && asker.version !== version) {
+      return failure(id, RPC_ERRORS.headerMismatch, 'The MCP-Protocol-Version header and the version in the request\'s _meta differ. Send the same in both.');
+    }
+    // The stateless revision has every answer say it is whole and, for what may be kept, for how
+    // long. What is listed follows who asks, so nothing kept may be shared between askers. The
+    // skills extension asks the same of its own methods in either era.
+    const dressed = stateless || String(method).startsWith('skills/');
+    const answer = (result: Record<string, unknown>, kept = false) => ({
+      jsonrpc: '2.0',
+      id,
+      result: dressed ? { resultType: 'complete', ...result, ...(kept && { ttlMs: KEPT_FOR_MS, cacheScope: 'private' }), ...(stateless && { _meta: { [SERVER_KEY]: SERVER } }) } : result,
+    });
+    const { cms, defaultLocale } = this.#options;
     switch (method) {
       case 'initialize': {
         const asked = isObject(params) ? params['protocolVersion'] : undefined;
-        const protocolVersion = PROTOCOL_VERSIONS.find((version) => version === asked) ?? PROTOCOL_VERSIONS[0];
-        return answer({ protocolVersion, capabilities: { tools: { listChanged: false } }, serverInfo: SERVER, instructions: INSTRUCTIONS });
+        const protocolVersion = PROTOCOL_VERSIONS.find((one) => one === asked) ?? PROTOCOL_VERSIONS[0];
+        return answer({ protocolVersion, capabilities: CAPABILITIES, serverInfo: SERVER, instructions: INSTRUCTIONS });
       }
+      case 'server/discover':
+        return answer({ supportedVersions: [STATELESS_VERSION], capabilities: CAPABILITIES, instructions: INSTRUCTIONS }, true);
       case 'ping':
         return answer({});
       case 'tools/list':
-        return answer({ tools: [...this.#tools.values()].filter((one) => this.#offered(actor, one)).map(listed) });
+        return answer({ tools: [...this.#tools.values()].filter((one) => this.#offered(actor, one)).map(listed) }, true);
       case 'tools/call':
-        return answer(await this.#call(actor, params, name));
-      case 'resources/list':
-        return answer({ resources: [] });
+        return answer(await this.#call(actor, params, asker.name));
+      case 'skills/list':
+        return answer({ skills: (await skillsFor(cms, actor, defaultLocale)).map((skill) => skill.listed) }, true);
+      case 'skills/get': {
+        const skill = await this.#skill(actor, params);
+        return skill ? answer({ skill: skill.listed }, true) : failure(id, RPC_ERRORS.invalidParams, 'This server has no skill at that address. skills/list names them.');
+      }
+      case 'resources/list': {
+        // A skill is also an ordinary resource, for an app that does not load skills by itself.
+        const skills = await skillsFor(cms, actor, defaultLocale);
+        return answer({ resources: skills.map(({ listed: skill }) => ({ uri: skill.uri, name: skill.frontmatter.name, description: skill.frontmatter.description, mimeType: 'text/markdown', size: skill.resources[0]?.size })) }, true);
+      }
+      case 'resources/read': {
+        const skill = await this.#skill(actor, params);
+        return skill
+          ? answer({ contents: [{ uri: skill.listed.uri, mimeType: 'text/markdown', text: skill.text }] }, true)
+          : failure(id, RPC_ERRORS.invalidParams, 'This server has no resource at that address. resources/list names them.');
+      }
       case 'resources/templates/list':
-        return answer({ resourceTemplates: [] });
+        return answer({ resourceTemplates: [] }, true);
       case 'prompts/list':
-        return answer({ prompts: [] });
+        return answer({ prompts: [] }, true);
       default:
         return failure(id, RPC_ERRORS.methodNotFound, `This server has no method "${String(method)}".`);
     }
+  }
+
+  /** The skill at the address asked for, if whoever asks is offered it. */
+  async #skill(actor: Actor, params: unknown) {
+    const uri = isObject(params) ? params['uri'] : undefined;
+    return (await skillsFor(this.#options.cms, actor, this.#options.defaultLocale)).find((skill) => skill.listed.uri === uri);
   }
 
   /** Every tool is listed, except those about personal data for an actor that may not read it. */
@@ -855,6 +943,6 @@ function refusal(text: string) {
   return { content: [{ type: 'text', text }], isError: true };
 }
 
-function failure(id: unknown, code: number, message: string) {
-  return { jsonrpc: '2.0', id: id ?? null, error: { code, message } };
+function failure(id: unknown, code: number, message: string, data?: Record<string, unknown>) {
+  return { jsonrpc: '2.0', id: id ?? null, error: { code, message, ...(data && { data }) } };
 }
