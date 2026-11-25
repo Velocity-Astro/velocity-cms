@@ -579,8 +579,8 @@ export class CmsApi {
         });
       }
       const who = actor(call);
-      const answer = await mcp.handle(who, await this.#body(call.request), call.session?.user.name);
-      return answer === null ? new Response(null, { status: 202, headers: { 'cache-control': 'no-store' } }) : json(answer);
+      const answer = await mcp.respond(who, await this.#body(call.request), { name: call.session?.user.name, version: call.request.headers.get('mcp-protocol-version') });
+      return answer.body === null ? new Response(null, { status: answer.status, headers: { 'cache-control': 'no-store' } }) : json(answer.body, answer.status);
     });
 
     const { tokens } = options;

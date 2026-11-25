@@ -156,6 +156,12 @@ nothing, so the template keeps its own values as the fallback.
 - `npx velocity-cms types | entries | entry | create | update | publish | import | export |
   upload | forms | pipeline` work over the site's API. `npx velocity-cms mcp` is an MCP server
   for an agent on this computer, and every site serves the same tools at `/api/cms/mcp`.
+- The MCP server publishes skills beside its tools, for an app that works on content without
+  this code: `cms-build-page`, `cms-write-content`, `cms-bring-content-in`, `cms-follow-up-leads`
+  (only where the connection may read contacts) and `cms-add-section`. An app that loads skills
+  over MCP gets them by itself; any other reads one as a resource, such as
+  `skill://cms-build-page/SKILL.md`. They are for content. For the site's code, use the `cms-*`
+  skills in this folder.
 - Values are written by field key. Formatted text takes a string or `{ "markdown": "..." }`. A
   page is laid out from the blocks its type allows (`list_blocks`, `add_section`,
   `set_sections`), with their own fields and named looks. For an idea no block can show, make a

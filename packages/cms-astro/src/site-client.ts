@@ -46,8 +46,13 @@ export class SiteClient {
 
   /** Hands one JSON-RPC message to the site's MCP server as it is, and its answer back (`null` for a notification). */
   async relay(message: string): Promise<string | null> {
-    const response = await this.#post('/mcp', 'application/json', message);
-    return response.status === 202 ? null : response.text();
+    const response = await this.#send('/mcp', 'application/json', message);
+    if (response.status === 202) return null;
+    if (response.ok) return response.text();
+    // A refusal in the protocol's own words (a version or a method the server does not have)
+    // travels under a 400 or a 404, and is the agent's to read.
+    const text = await response.clone().text();
+    return text.includes('"jsonrpc"') ? text : (await this.#checked(response)).text();
   }
 
   /** Calls one of the site's MCP tools and returns what it answered, or throws its refusal. */
@@ -69,12 +74,19 @@ export class SiteClient {
   }
 
   async #post(path: string, contentType: string, body: string | Uint8Array): Promise<Response> {
-    let response: Response;
+    return this.#checked(await this.#send(path, contentType, body));
+  }
+
+  async #send(path: string, contentType: string, body: string | Uint8Array): Promise<Response> {
     try {
-      response = await this.#fetch(`${this.#base}${path}`, { method: 'POST', headers: { authorization: `Bearer ${this.#token}`, 'content-type': contentType, accept: 'application/json' }, body });
+      return await this.#fetch(`${this.#base}${path}`, { method: 'POST', headers: { authorization: `Bearer ${this.#token}`, 'content-type': contentType, accept: 'application/json' }, body });
     } catch {
       throw new SiteRefusal(`The site at ${new URL(this.#base).origin} did not answer. Is it running? Start it, or set VELOCITY_CMS_ORIGIN to its address.`);
     }
+  }
+
+  /** The response, or the refusal a person can act on. */
+  async #checked(response: Response): Promise<Response> {
     if (response.status === 401) throw new SiteRefusal('The site did not accept the token. Make a new one in the editor (Settings, Access tokens) or with `velocity-cms token`, and set VELOCITY_CMS_TOKEN.');
     if (response.status === 404) throw new SiteRefusal(`There is no Velocity CMS at ${new URL(this.#base).origin}, or it is older than this command. Check VELOCITY_CMS_ORIGIN, and update @velocity-astro/cms-astro.`);
     if (!response.ok) {

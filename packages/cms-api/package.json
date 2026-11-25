@@ -39,6 +39,9 @@
     "dist",
     "!dist/**/*.test.*"
   ],
+  "scripts": {
+    "skills": "node scripts/embed-skills.mjs"
+  },
   "dependencies": {
     "@velocity-astro/cms-core": "workspace:*"
   },
