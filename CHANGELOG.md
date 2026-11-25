@@ -10,6 +10,7 @@ Every package is released together under one version. While versions are `0.x`, 
   - Images are made lighter by Cloudflare's Images binding, since the library used elsewhere does not run in a Worker.
   - Pages are kept by Cloudflare's own cache with Astro's `cacheCloudflare()`, which every copy of the Worker shares and a publish clears. On a person's own computer that cache has nothing to clear, and a publish no longer fails over it.
   - `astro dev` works with the adapter: the development server sends the editor's files itself.
+  - A site that builds its ready-made pages in Node (the adapter's `prerenderEnvironment: 'node'`, for a page that needs a library a Worker cannot load) builds too: there the CMS is loaded from `node_modules`, as on any Node host.
 - The database's migrations are also bundled with the code (`migrations.generated.ts`), for a host with no disk to read them from. A database migrated one way is left alone by the other.
 
 ## 0.1.0-beta.24

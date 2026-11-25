@@ -143,7 +143,16 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
                 // With no disk at run time, the editor's page is bundled and its files are copied into the site's own.
                 name: 'velocity-cms:editor-files',
                 enforce: 'pre' as const,
-                resolveId: (id: string) => (workers && id === EDITOR_DIRECTORY ? `\0${EDITOR_DIRECTORY}` : undefined),
+                // A site on Workers may still build its ready-made pages in Node (the adapter's `prerenderEnvironment: 'node'`).
+                // There the package is loaded from node_modules, as on any Node host: it opens a database through a
+                // native module, which a bundle for Node cannot carry. Only a Worker's own bundle holds it whole.
+                resolveId(this: { environment?: { config: { consumer?: string; resolve: { conditions: readonly string[] } } } }, id: string) {
+                  if (!workers) return undefined;
+                  const here = this.environment?.config;
+                  const inNode = here !== undefined && here.consumer === 'server' && !here.resolve.conditions.includes('workerd');
+                  if (inNode && (id === PACKAGE || id.startsWith(`${PACKAGE}/`))) return { id, external: true };
+                  return !inNode && id === EDITOR_DIRECTORY ? `\0${EDITOR_DIRECTORY}` : undefined;
+                },
                 load: (id: string) =>
                   id === `\0${EDITOR_DIRECTORY}`
                     ? `export const appDirectory = '';\nexport const editorTemplate = ${JSON.stringify(fs.readFileSync(path.join(editorDirectory(), 'index.html'), 'utf8'))};`

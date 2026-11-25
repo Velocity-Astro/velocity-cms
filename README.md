@@ -78,6 +78,7 @@ VELOCITY_CMS_R2_BUCKET=MEDIA
 - **Pages are kept by Cloudflare's cache**, which every copy of the Worker shares and a publish clears: `cache: { provider: cacheCloudflare() }` from `@astrojs/cloudflare/cache`, in place of `memoryCache()`.
 - **Images are made lighter by Cloudflare's Images binding** (`IMAGES`, which the adapter adds), since the library used elsewhere does not run in a Worker.
 - **For the deployed Worker**, set the secret with `npx wrangler secret put VELOCITY_CMS_SECRET` and the other settings under `vars` in the Wrangler config.
+- **A page built ahead of time with a library a Worker cannot load** (`sharp`, for one) needs `cloudflare({ prerenderEnvironment: 'node' })`, so that it is built in Node.
 - **A save is kept whole or not at all.** D1 holds no transaction open, so each save is sent as one batch, and is refused as a conflict when what it was decided from changed meanwhile.
 
 [`examples/starter`](examples/starter) runs this way with `npm run check:workers`.
