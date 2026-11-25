@@ -53,6 +53,9 @@ export interface PageFocus {
   /** The page says the button of an empty place inside a section was pressed: the section, and the place's field as keys. */
   readonly slotted: PicturedListener;
   readonly onSlotted: (listener: PicturedListener) => () => void;
+  /** Who else is working in which section now: for a section's id, words that say who ("Ana Ruiz is here"). The entry's form says so. */
+  readonly company: Readonly<Record<string, string>>;
+  readonly setCompany: (company: Readonly<Record<string, string>>) => void;
   /** True for sections inside a section, which the field that holds the page answers for. */
   readonly isInside?: boolean;
 }
@@ -71,6 +74,7 @@ export type ActedListener = (id: string, action: PageSectionAction) => void;
 export type TypedListener = (id: string, field: string, words: string) => void;
 
 const NOWHERE: Readonly<Record<string, readonly string[]>> = {};
+const NOBODY: Readonly<Record<string, string>> = {};
 
 const PageFocusContext = createContext<PageFocus | null>(null);
 
@@ -81,6 +85,7 @@ export function PageFocusProvider({ children }: { readonly children: ReactNode }
   const [typable, setPlaces] = useState(NOWHERE);
   const listeners = useRef(new Set<TypedListener>());
   const [tools, setOffered] = useState<PageSectionTools | undefined>(undefined);
+  const [company, setTogether] = useState<Readonly<Record<string, string>>>(NOBODY);
   const acting = useRef(new Set<ActedListener>());
   const dragging = useRef(new Set<DraggedListener>());
   const picturing = useRef(new Set<PicturedListener>());
@@ -106,6 +111,8 @@ export function PageFocusProvider({ children }: { readonly children: ReactNode }
         listeners.current.add(listener);
         return () => void listeners.current.delete(listener);
       },
+      company,
+      setCompany: (next) => setTogether((last) => (JSON.stringify(last) === JSON.stringify(next) ? last : next)),
       tools,
       setTools: (next) => setOffered((last) => (JSON.stringify(last) === JSON.stringify(next) ? last : next)),
       acted: (id, action) => acting.current.forEach((listener) => listener(id, action)),
@@ -144,7 +151,7 @@ export function PageFocusProvider({ children }: { readonly children: ReactNode }
         return () => void slotting.current.delete(listener);
       },
     }),
-    [pressed, opened, openedAt, typable, tools],
+    [pressed, opened, openedAt, typable, tools, company],
   );
   return <PageFocusContext value={focus}>{children}</PageFocusContext>;
 }
@@ -169,6 +176,7 @@ export function PageFocusInside({ children }: { readonly children: ReactNode }) 
         ...focus,
         setTypable: () => undefined,
         setTools: () => undefined,
+        setCompany: () => undefined,
         onTyped: unheard,
         onActed: unheard,
         onDragged: unheard,

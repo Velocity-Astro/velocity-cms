@@ -1,5 +1,5 @@
 import type { FieldDef } from '@velocity-astro/cms-core';
-import { Grid, Spotlight, Stack } from '@velocity-astro/cms-ui';
+import { Grid, PresenceMark, Spotlight, Stack } from '@velocity-astro/cms-ui';
 import { createContext, useContext } from 'react';
 import { useFieldTypes } from '../client/queries.js';
 import { useFieldControls } from './field-control.js';
@@ -24,6 +24,12 @@ export interface FieldGridProps {
    * while nothing is pointed at, so a field is not drawn anew the first time one is.
    */
   readonly spotlight?: { readonly key?: string | undefined; readonly at?: number | undefined };
+  /**
+   * Given by a form several people may have open at once: for a field's id, words that say who else
+   * is at it now, and what to call when this person comes to a field. Only the entry's own fields
+   * are told apart, so a grid inside another is not given it.
+   */
+  readonly company?: { readonly labels: Readonly<Record<string, string>>; readonly onEnter: (fieldId: string) => void };
 }
 
 /** How many small controls share a row in the grid a grid sits in, for one that does not say. */
@@ -34,7 +40,7 @@ const PerRowContext = createContext<1 | 3>(3);
  * choices) share a row, and everything else takes a row of its own. The order of the fields is
  * kept, so the form reads the way the content type was set up.
  */
-export function FieldGrid({ fields, values, onChange, pathOf, problems, perRow: asked, spotlight }: FieldGridProps) {
+export function FieldGrid({ fields, values, onChange, pathOf, problems, perRow: asked, spotlight, company }: FieldGridProps) {
   const inherited = useContext(PerRowContext);
   const perRow = asked ?? inherited;
   const controls = useFieldControls();
@@ -62,13 +68,21 @@ export function FieldGrid({ fields, values, onChange, pathOf, problems, perRow: 
       problems={problems}
     />
   );
-  const editor = (field: FieldDef) =>
+  const pointed = (field: FieldDef) =>
     spotlight === undefined ? (
       control(field)
     ) : (
       <Spotlight key={field.id} at={spotlight.key === field.key ? spotlight.at : undefined}>
         {control(field)}
       </Spotlight>
+    );
+  const editor = (field: FieldDef) =>
+    company === undefined ? (
+      pointed(field)
+    ) : (
+      <PresenceMark key={field.id} label={company.labels[field.id]} onEnter={() => company.onEnter(field.id)}>
+        {pointed(field)}
+      </PresenceMark>
     );
   return (
     <PerRowContext value={perRow}>

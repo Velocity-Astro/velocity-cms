@@ -138,6 +138,7 @@ export function PagePane({ entry, data, title, width, onWidthChange, isWhole, on
           onSectionSwatch: focus.swatched,
           onSectionSlot: focus.slotted,
           ...(focus.tools !== undefined && { tools: focus.tools }),
+          company: focus.company,
         })}
         {...(focus?.opened !== undefined && { shownSectionId: focus.opened, shownAt: focus.openedAt })}
       />

@@ -864,6 +864,15 @@ export function presenceStoreContract(name: string, create: () => Promise<Presen
       expect(await store.at('e1', at(35))).toEqual([mark({ name: 'Maya E.', until: at(40) })]);
     });
 
+    it('keeps where someone is and whose agent one is, and forgets the place when a later mark does not say', async () => {
+      const store = await create();
+      await store.mark(mark({ at: 'f1/s1/f2' }), at(0));
+      await store.mark(mark({ actorId: 'u1:agent', kind: 'agent', of: 'u1', until: at(120) }), at(0));
+      expect(byActor(await store.at('e1', at(1)))).toEqual([mark({ at: 'f1/s1/f2' }), mark({ actorId: 'u1:agent', kind: 'agent', of: 'u1', until: at(120) })]);
+      await store.mark(mark({ until: at(40) }), at(10));
+      expect((await store.at('e1', at(11))).find((one) => one.actorId === 'u1')).toEqual(mark({ until: at(40) }));
+    });
+
     it('goes on working after what ran out is cleared away', async () => {
       const store = await create();
       await store.mark(mark({ until: at(5) }), at(0));

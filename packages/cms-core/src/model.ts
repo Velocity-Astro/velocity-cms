@@ -552,9 +552,13 @@ export interface Presence {
   readonly actorId: string;
   /** A person with the entry open, or an agent that just worked on it. */
   readonly kind: 'user' | 'agent';
-  /** What they are called, as it was when they said so. */
+  /** What they are called, as it was when they said so. An agent in a person's own session is called by that person's name. */
   readonly name: string;
   readonly until: Timestamp;
+  /** Where in the entry they are, as their editor said it: a field's id, then the ids of the section and its field. See `PresenceService`. */
+  readonly at?: string;
+  /** For an agent that works in a person's own session, as that person: the person's id. */
+  readonly of?: string;
 }
 
 /** Someone else at an entry, as the editor shows them. */
@@ -562,6 +566,10 @@ export interface PresentOther {
   readonly id: string;
   readonly kind: 'user' | 'agent';
   readonly name: string;
+  /** Where in the entry they are, when their editor said. */
+  readonly at?: string;
+  /** For an agent that works in a person's own session: that person's id. */
+  readonly of?: string;
 }
 
 /** What an open editor is told each time it says it is still there. */
@@ -570,6 +578,20 @@ export interface EntryPresence {
   readonly revision: number;
   /** Who else is there: people with the entry open, and agents that worked on it a moment ago. */
   readonly others: readonly PresentOther[];
+  /**
+   * Who saved the entry since the revision the editor said it holds, latest first, when it holds an
+   * older one. Someone who cannot be named any more has an empty name; the asker's own saves made
+   * elsewhere (another tab) carry the asker's id.
+   */
+  readonly savedBy?: readonly PresentOther[];
+}
+
+/** What an open editor says of itself each time it says it is still there. */
+export interface PresenceSaid {
+  /** Where in the entry its person is. Left out, nowhere in particular. */
+  readonly at?: string;
+  /** The revision its form holds, so it is told who saved since. */
+  readonly revision?: number;
 }
 
 export interface TeamMember {

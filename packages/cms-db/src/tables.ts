@@ -201,6 +201,10 @@ export const entryPresence = sqliteTable(
     kind: text('kind').$type<'user' | 'agent'>().notNull(),
     name: text('name').notNull(),
     until: text('until').notNull(),
+    /** Where in the entry they are, when their editor said. */
+    at: text('at'),
+    /** For an agent in a person's own session: that person's id. */
+    of: text('of'),
   },
   (table) => [primaryKey({ columns: [table.entryId, table.actorId] }), index('entry_presence_until').on(table.until)],
 );

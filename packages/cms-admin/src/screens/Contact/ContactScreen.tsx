@@ -13,7 +13,9 @@ import { CustomValueFields, useCustomValues } from '../../fields/custom-values.j
 import { localized } from '../../lib/content.js';
 import { downloadText } from '../../lib/download.js';
 import { relativeTime } from '../../lib/relative-time.js';
+import { ChangedElsewhere } from '../../app/ChangedElsewhere.js';
 import { useClosing } from '../../lib/use-closing.js';
+import { isConflict, useDraft } from '../../lib/use-draft.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 import { useSourceOf } from '../Contacts/contact-source.js';
 import { answerText } from '../Form/form-fields.js';
@@ -302,9 +304,11 @@ function EditContactDialog({ contact, onClose }: { readonly contact: Contact; re
   const { close, dialog } = useClosing(onClose);
   const messages = useMessages();
   const update = useUpdateContact();
-  const [name, setName] = useState(contact.name ?? '');
-  const [email, setEmail] = useState(contact.email);
-  const [phone, setPhone] = useState(contact.phone ?? '');
+  // Only what is changed here is held: the rest is the contact as it is now, so what someone else saved meanwhile is kept.
+  const draft = useDraft({ name: contact.name ?? '', email: contact.email, phone: contact.phone ?? '' });
+  const { name, email, phone } = draft.values;
+  const { changed } = draft;
+  const named = { name: messages.contacts.name, email: messages.contacts.email, phone: messages.contacts.phone };
   const [problems, setProblems] = useState(NO_PROBLEMS);
   const custom = useCustomValues('contact', contact.data);
 
@@ -312,7 +316,16 @@ function EditContactDialog({ contact, onClose }: { readonly contact: Contact; re
     if (email.trim() === '') return setProblems({ email: messages.contacts.emailNeeded });
     setProblems(NO_PROBLEMS);
     update.mutate(
-      { id: contact.id, changes: { email, name: name.trim() === '' ? null : name, phone: phone.trim() === '' ? null : phone, ...custom.toSend(), expectedRevision: contact.revision } },
+      {
+        id: contact.id,
+        changes: {
+          ...('email' in changed && { email }),
+          ...('name' in changed && { name: name.trim() === '' ? null : name }),
+          ...('phone' in changed && { phone: phone.trim() === '' ? null : phone }),
+          ...custom.toSend(),
+          expectedRevision: contact.revision,
+        },
+      },
       {
         onSuccess: (saved) => {
           toast({ title: messages.contacts.saved(saved.name ?? saved.email), tone: 'success' });
@@ -321,7 +334,7 @@ function EditContactDialog({ contact, onClose }: { readonly contact: Contact; re
         onError: (error) => {
           if (error instanceof AdminRequestError) setProblems(Object.fromEntries(error.issues.map((issue) => [String(issue.path[0]), issue.message])));
           custom.refused(error);
-          toast({ title: messages.contacts.notSaved, description: messageOf(error), tone: 'danger' });
+          toast({ title: messages.contacts.notSaved, description: isConflict(error) ? messages.app.savedElsewhere : messageOf(error), tone: 'danger' });
         },
       },
     );
@@ -344,10 +357,11 @@ function EditContactDialog({ contact, onClose }: { readonly contact: Contact; re
       }
     >
       <Form label={messages.contacts.editTitle(contact.name ?? contact.email)} gap={4} onSubmit={send}>
-        <TextField label={messages.contacts.name} value={name} onChange={setName} autoFocus autoComplete="off" {...(problems['name'] !== undefined && { errorMessage: problems['name'] })} />
-        <TextField label={messages.contacts.email} type="email" value={email} onChange={setEmail} isRequired autoComplete="off" {...(problems['email'] !== undefined && { errorMessage: problems['email'] })} />
-        <TextField label={messages.contacts.phone} type="tel" value={phone} onChange={setPhone} autoComplete="off" {...(problems['phone'] !== undefined && { errorMessage: problems['phone'] })} />
+        <TextField label={messages.contacts.name} value={name} onChange={(next) => draft.set('name', next)} autoFocus autoComplete="off" {...(problems['name'] !== undefined && { errorMessage: problems['name'] })} />
+        <TextField label={messages.contacts.email} type="email" value={email} onChange={(next) => draft.set('email', next)} isRequired autoComplete="off" {...(problems['email'] !== undefined && { errorMessage: problems['email'] })} />
+        <TextField label={messages.contacts.phone} type="tel" value={phone} onChange={(next) => draft.set('phone', next)} autoComplete="off" {...(problems['phone'] !== undefined && { errorMessage: problems['phone'] })} />
         <CustomValueFields custom={custom} />
+        <ChangedElsewhere names={draft.clashes.map((key) => named[key])} />
       </Form>
     </Dialog>
   );

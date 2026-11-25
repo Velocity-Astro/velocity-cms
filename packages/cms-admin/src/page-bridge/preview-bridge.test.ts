@@ -378,6 +378,28 @@ const pointAt = (selector: string) => $(selector).dispatchEvent(new page.MouseEv
 const toolOf = (action: string) => $(`[data-cms-tool="${action}"]`) as HTMLButtonElement;
 const acts = () => (said as [{ type: string; id: string; action: string }, string][]).map(([message]) => message).filter((message) => message.type === 'act');
 
+it('outlines the sections the editor says someone else is working in, with their names as text, and stops when they leave', () => {
+  const company = (id: string) => $(`[data-cms-company="${id}"]`);
+  expect(company('s1')).toBeNull();
+  hear({ source: 'velocity-cms', type: 'company', sections: { s1: 'Maya <b>Ellison</b> is here', gone: 'Nobody', s2: 7 } });
+  expect(company('s1').style.display).toBe('block');
+  expect(company('s1').style.top).toBe('300px');
+  // A name is whatever a person called themselves: it is written as text, never as markup.
+  expect(company('s1').textContent).toBe('Maya <b>Ellison</b> is here');
+  expect(company('s1').querySelector('b')).toBeNull();
+  // In the bridge's own layer: nothing of the page is changed.
+  expect(company('s1').parentElement?.hasAttribute('data-cms-layer')).toBe(true);
+  expect($('[data-cms-section="s1"]').attributes).toHaveLength(1);
+  // What is no name is left out, and a section that is not on the page is not drawn.
+  expect(company('s2')).toBeNull();
+  expect(company('gone').style.display).toBe('none');
+  hear({ source: 'velocity-cms', type: 'company', sections: {} });
+  expect(company('s1')).toBeNull();
+  // Only the editor is listened to.
+  hear({ source: 'velocity-cms', type: 'company', sections: { s1: 'Someone' } }, { origin: 'https://elsewhere.example' });
+  expect(company('s1')).toBeNull();
+});
+
 it('shows no bar on a section until the editor says what can be done to it', () => {
   open();
   pointAt('h1');

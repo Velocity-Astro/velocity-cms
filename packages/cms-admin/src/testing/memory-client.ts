@@ -54,7 +54,7 @@ import {
   type PreviewLink,
   type Role,
   type SiteImage,
-  type EntryPresence,
+  type EntryPresence, type PresenceSaid,
 } from '@velocity-astro/cms-core';
 import {
   InMemoryEntryRepository,
@@ -326,14 +326,28 @@ export class MemoryAdminClient implements AdminClient {
     return this.#request((actor) => this.#cms.content.publish(actor, id, expectedRevision));
   }
 
-  entryPresence(id: string): Promise<EntryPresence> {
-    return this.#request((actor) => this.#cms.presence.here(actor, id, this.#user?.name ?? ''));
+  entryPresence(id: string, said: PresenceSaid = {}): Promise<EntryPresence> {
+    return this.#request((actor) => this.#cms.presence.here(actor, id, this.#user?.name ?? '', said));
   }
 
   /** Someone else has an entry open in their editor, as a test or the preview says. They stay for half a minute. */
-  async openedBy(id: string, person: { readonly id: string; readonly name: string }): Promise<void> {
+  async openedBy(id: string, person: { readonly id: string; readonly name: string; readonly at?: string }): Promise<void> {
     await this.#ready;
-    await this.#cms.presence.here({ kind: 'user', id: person.id, role: 'editor' }, id, person.name);
+    await this.#cms.presence.here({ kind: 'user', id: person.id, role: 'editor' }, id, person.name, { ...(person.at !== undefined && { at: person.at }) });
+  }
+
+  /** Someone else saves an entry from their own editor, as a test or the preview says: whatever they changed, by field id. */
+  async savedBy(id: string, person: { readonly id: string; readonly name: string }, changes: EntryData): Promise<Entry> {
+    await this.#ready;
+    const actor = { kind: 'user', id: person.id, role: 'editor' } as const;
+    await this.#cms.presence.here(actor, id, person.name);
+    const entry = await this.#cms.content.get(actor, id);
+    return this.#cms.content.update(actor, id, { slug: entry.slug, data: { ...entry.data, ...changes }, expectedRevision: entry.revision });
+  }
+
+  /** An agent just worked on an entry in the signed-in person's own session, as a test or the preview says. */
+  async touchedInSession(id: string): Promise<void> {
+    await this.#request((actor) => this.#cms.presence.touched(actor, id, this.#user?.name ?? ''));
   }
 
   /** An agent just worked on an entry, as a test or the preview says. */

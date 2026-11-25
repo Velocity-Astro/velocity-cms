@@ -12,13 +12,15 @@ export class SqlitePresenceStore implements PresenceStore {
     await this.db
       .insert(entryPresence)
       .values(presence)
-      .onConflictDoUpdate({ target: [entryPresence.entryId, entryPresence.actorId], set: { kind: presence.kind, name: presence.name, until: presence.until } });
+      // A mark replaces the one before it whole: where they were is forgotten when the new one does not say.
+      .onConflictDoUpdate({ target: [entryPresence.entryId, entryPresence.actorId], set: { kind: presence.kind, name: presence.name, until: presence.until, at: presence.at ?? null, of: presence.of ?? null } });
   }
 
   async at(entryId: string, now: string): Promise<Presence[]> {
-    return this.db
+    const rows = await this.db
       .select()
       .from(entryPresence)
       .where(and(eq(entryPresence.entryId, entryId), gt(entryPresence.until, now)));
+    return rows.map(({ at, of, ...row }) => ({ ...row, ...(at !== null && { at }), ...(of !== null && { of }) }));
   }
 }
