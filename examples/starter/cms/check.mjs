@@ -4,10 +4,14 @@
  * built and started, and its pages, the editor and a form post are asked for.
  *
  *   npm run check
+ *
+ * With `--workers` (`npm run check:workers`) the same is asked of the site as a Cloudflare Worker:
+ * built with the Cloudflare adapter, run in the Workers runtime by Wrangler, on a local D1 database.
  */
 import { execFileSync, spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,20 +20,30 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const work = fs.mkdtempSync(path.join(os.tmpdir(), 'velocity-cms-starter-'));
 const port = 4391;
 const origin = `http://localhost:${port}`;
-const env = { ...process.env, VELOCITY_CMS_DATABASE_URL: `file:${path.join(work, 'data.db')}`, VELOCITY_CMS_SECRET: randomBytes(32).toString('base64url'), VELOCITY_CMS_ORIGIN: origin, SITE_URL: origin, PORT: String(port), HOST: '127.0.0.1' };
+const workers = process.argv.includes('--workers');
+const secret = randomBytes(32).toString('base64url');
+// On Workers the database is the D1 binding of wrangler.jsonc, kept for this run in a folder of its own.
+const state = path.join(work, 'state');
+const database = workers ? { VELOCITY_CMS_DATABASE_URL: 'd1:DB', VELOCITY_CMS_WRANGLER_STATE: state, CMS_WORKERS: '1' } : { VELOCITY_CMS_DATABASE_URL: `file:${path.join(work, 'data.db')}` };
+const env = { ...process.env, ...database, VELOCITY_CMS_SECRET: secret, VELOCITY_CMS_ORIGIN: origin, SITE_URL: origin, PORT: String(port), HOST: '127.0.0.1' };
 const run = (command, args) => execFileSync(command, args, { cwd: root, env, stdio: 'inherit' });
 
 run('node', ['cms/seed.mjs']);
 run('node', ['cms/seed.mjs']);
 run('npx', ['astro', 'build']);
-const server = spawn('node', ['dist/server/entry.mjs'], { cwd: root, env, stdio: 'inherit' });
+// Wrangler is started by its own file, not through npx, so that stopping it stops the runtime it started.
+const wrangler = () => path.join(path.dirname(createRequire(import.meta.url).resolve('wrangler/package.json')), 'bin', 'wrangler.js');
+const given = (name) => ['--var', `${name}:${env[name]}`];
+const server = workers
+  ? spawn('node', [wrangler(), 'dev', '--config', 'dist/server/wrangler.json', '--port', String(port), '--persist-to', state, ...given('VELOCITY_CMS_DATABASE_URL'), ...given('VELOCITY_CMS_SECRET'), ...given('VELOCITY_CMS_ORIGIN')], { cwd: root, env, stdio: 'inherit' })
+  : spawn('node', ['dist/server/entry.mjs'], { cwd: root, env, stdio: 'inherit' });
 let failed = 0;
 const expect = (what, ok) => {
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`);
   if (!ok) failed += 1;
 };
 try {
-  for (let tries = 0; tries < 50; tries += 1) {
+  for (let tries = 0; tries < (workers ? 300 : 50); tries += 1) {
     if (await fetch(origin).then((response) => response.ok, () => false)) break;
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
@@ -79,4 +93,4 @@ if (failed > 0) {
   console.error(`\n${failed} check${failed === 1 ? '' : 's'} failed.`);
   process.exit(1);
 }
-console.log('\nThe starter works.');
+console.log(workers ? '\nThe starter works as a Cloudflare Worker.' : '\nThe starter works.');

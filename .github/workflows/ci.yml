@@ -33,6 +33,9 @@ jobs:
       - run: pnpm --filter velocity-cms-starter check
       # Two sites from that one copy: each reads only its own database, and an unknown host has no site.
       - run: pnpm --filter velocity-cms-starter check:hosted
+      # The same site as a Cloudflare Worker on a D1 database, in the Workers runtime. A line that reads a path
+      # from disk as a module loads takes every address down there, and no test in Node would notice.
+      - run: pnpm --filter velocity-cms-starter check:workers
 
   stories:
     name: Design system stories (accessibility)

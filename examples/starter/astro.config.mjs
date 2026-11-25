@@ -1,12 +1,14 @@
 import { defineConfig, memoryCache } from 'astro/config';
+import cloudflare from '@astrojs/cloudflare';
 import node from '@astrojs/node';
 import velocityCms from '@velocity-astro/cms-astro';
 
 export default defineConfig({
   // The site's address. Sign-in links lead here once the site is deployed.
   site: process.env.SITE_URL || 'http://localhost:4321',
-  // The editor and live pages run on a server.
-  adapter: node({ mode: 'standalone' }),
+  // The editor and live pages run on a server. CMS_WORKERS is for `npm run check:workers`, which runs
+  // this site as a Cloudflare Worker on a D1 database (wrangler.jsonc). A site of its own names one adapter.
+  adapter: process.env.CMS_WORKERS ? cloudflare() : node({ mode: 'standalone' }),
   // CMS_SITES is for `npm run check:hosted`, which runs two sites from this one copy. A site of its own leaves it unset.
   // A copy that runs many sites must also say which host names it answers to: Astro takes a request's
   // host name at its word only when it is listed here, and a site is chosen by that name.

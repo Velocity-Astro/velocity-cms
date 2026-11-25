@@ -4,7 +4,7 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
-- **Runs on Cloudflare Workers, with a D1 database (experimental).** With the `@astrojs/cloudflare` adapter the CMS is bundled into the Worker, the editor's files are served as the site's own, and `VELOCITY_CMS_DATABASE_URL=d1:<binding>` opens the D1 database bound under that name. D1 holds no transaction open, so each save is sent as one batch that is kept whole or not at all, and is refused when what it was decided from changed meanwhile. Not yet there on Workers: the setup commands (`init`, `owner`, `link`, `seed`), uploads, and a page cache shared between copies. Node and Vercel sites are unchanged.
+- **Runs on Cloudflare Workers, with a D1 database (experimental).** With the `@astrojs/cloudflare` adapter the CMS is bundled into the Worker, the editor's files are served as the site's own, and `VELOCITY_CMS_DATABASE_URL=d1:<binding>` opens the D1 database bound under that name. D1 holds no transaction open, so each save is sent as one batch that is kept whole or not at all, and is refused when what it was decided from changed meanwhile. The `velocity-cms` command and a seed script reach that database through Wrangler, which the site installs: the local one `wrangler dev` uses, or the real one where the Wrangler config marks the binding `"remote": true`. Not yet there on Workers: uploads, and a page cache shared between copies. Node and Vercel sites are unchanged.
 - The database's migrations are also bundled with the code (`migrations.generated.ts`), for a host with no disk to read them from. A database migrated one way is left alone by the other.
 
 ## 0.1.0-beta.24
