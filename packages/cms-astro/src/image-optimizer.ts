@@ -1,6 +1,5 @@
 import type sharp from 'sharp';
 import { IMAGE_LONGEST_SIDE, type ImageOptimizer } from '@velocity-astro/cms-core';
-import { inWorker } from './d1-binding.js';
 
 /** Only its type is named here: the library itself is loaded when the first image arrives. */
 type Sharp = typeof sharp;
@@ -95,10 +94,5 @@ export class SharpImageOptimizer implements ImageOptimizer {
 }
 
 function unavailable(error: unknown): void {
-  // A Worker cannot load sharp at all (it is built for Node), so installing it would change nothing there.
-  if (inWorker()) {
-    console.warn('[velocity-cms] Uploads are kept as they arrive: the image library "sharp" does not run on Cloudflare Workers, so images are not made lighter here.');
-    return;
-  }
   console.warn('[velocity-cms] Uploads are kept as they arrive, since the image library "sharp" could not be loaded. Install it (`npm install sharp`) to have them made lighter.', error);
 }

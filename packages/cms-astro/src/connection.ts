@@ -6,7 +6,7 @@ import { AuthTeam } from '@velocity-astro/cms-auth/team';
 import { d1Client, openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqliteDealRepository, SqlitePipelineStore, SqlitePresenceStore, SqliteSettingsStore, SqliteCustomFieldsStore, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Db } from '@velocity-astro/cms-db';
 import { d1Binding, inWorker } from './d1-binding.js';
 import { currentSite } from './hosted.js';
-import { SharpImageOptimizer } from './image-optimizer.js';
+import { siteImageOptimizer } from './site-optimizer.js';
 import { bucketFromEnv, folderFromEnv } from './media-store.js';
 import { r2FromEnv } from './r2-store.js';
 import { SiteMediaStore } from './site-storage.js';
@@ -43,12 +43,16 @@ export interface Connection {
 const lookUp: NameLookup = async (host) => (await lookup(host, { all: true })).map((found) => found.address);
 
 /** One for the whole server: it holds a library and nothing of any site. */
-const optimizer = new SharpImageOptimizer();
+const optimizer = siteImageOptimizer();
 
 export async function connect(options: ConnectionOptions): Promise<Connection> {
   const site = currentSite();
   const authToken = site ? site.database.authToken : (options.authToken ?? (process.env.VELOCITY_CMS_DATABASE_TOKEN || undefined));
   const url = resolveUrl(options);
+  // A Worker has no disk for a database that is a file, which is what a site with no address set would open.
+  if (inWorker() && !/^(d1|libsql|https?|wss?):/.test(url)) {
+    throw new Error('On Cloudflare Workers the database is a D1 database the Worker is bound to. Set VELOCITY_CMS_DATABASE_URL=d1:<binding>, such as d1:DB, with that binding under d1_databases in the Wrangler config. While developing, a Worker reads its settings from .env or .dev.vars, not from the shell.');
+  }
   // A database that is a file is made on first use, and so is the folder it sits in.
   const file = /^file:(?!:memory:)([^?]+)/.exec(url)?.[1];
   if (file !== undefined) mkdirSync(path.dirname(path.resolve(file.replace(/^\/\/(?=\/)/, ''))), { recursive: true });

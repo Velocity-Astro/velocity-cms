@@ -20,7 +20,7 @@ The demo is a real estate site on the CMS, with one click into its editor. Every
 | **Content** | Content types made in a visual builder or described in code. Drafts and published versions, trash, duplicate, history with restore, scheduled publishing, preview links, several languages. |
 | **Pages** | Pages built from sections, with the live page beside the form, or a visual editor that gives the page the window: words typed on the page, sections moved, added and removed there. Pages under pages, a home page, menus edited in the CMS. |
 | **Theme** | A site's colors and fonts set in the editor: a color picker with the template's palette, the template's fonts, tried on the page before they are published. |
-| **Media** | An image library with uploads, kept in a folder or any S3-compatible bucket. Each upload is made lighter and kept as WebP. |
+| **Media** | An image library with uploads, kept in a folder, any S3-compatible bucket, or on Cloudflare Workers an R2 bucket the Worker is bound to. Each upload is made lighter and kept as WebP. |
 | **Forms** | A form builder, forms as page sections, spam marking, an optional Cloudflare Turnstile check, notices by email, export and erase of what a person sent. |
 | **CRM** | Contacts with a timeline and notes, a pipeline board, owners and follow-up days, deals with a forecast, custom fields, CSV import. |
 | **Plugins** | A plugin API with settings, secrets and retried background work. Seven come with it, off until an owner switches one on: SEO (search titles, share image, Search Console and Bing codes), Analytics (Google Analytics, Tag Manager, cookie consent), Redirects, Webhooks, and the experimental Mailchimp, Slack and HubSpot. |
@@ -52,7 +52,35 @@ npx velocity-cms init you@example.com "Your Name"
 
 It installs the CMS, writes a secret to `.env`, keeps it out of git, adds `velocityCms()` to the Astro config and makes you the owner. It prints a link that signs you in at `/admin`. It can be run again and changes nothing that is there. What a site then needs is what the starter has: a description of its content (`cms/model.mjs`), a route that draws pages, and a component for each kind of section. The [docs](https://docs.deployvelocity.com/cms/install/) walk through each, and [Converting a template](docs/converting-a-template.md) takes an existing Astro site there step by step, for a person or a coding agent.
 
-A deployed site needs `VELOCITY_CMS_SECRET` and its address (`site` in the Astro config, or `VELOCITY_CMS_ORIGIN`) on the host, and a database: a file on a machine that keeps its disk, or a hosted libSQL database (`VELOCITY_CMS_DATABASE_URL`, `VELOCITY_CMS_DATABASE_TOKEN`) anywhere else. Node on a server and Vercel are tried. Netlify and Cloudflare are not yet.
+A deployed site needs `VELOCITY_CMS_SECRET` and its address (`site` in the Astro config, or `VELOCITY_CMS_ORIGIN`) on the host, and a database: a file on a machine that keeps its disk, or a hosted libSQL database (`VELOCITY_CMS_DATABASE_URL`, `VELOCITY_CMS_DATABASE_TOKEN`) anywhere else. Node on a server and Vercel are tried. Cloudflare Workers is experimental (below). Netlify is not tried yet.
+
+## On Cloudflare Workers (experimental)
+
+With `@astrojs/cloudflare` as the adapter, the CMS runs as a Worker: the content in a D1 database, uploads in an R2 bucket, both by binding, with no address or keys.
+
+```jsonc
+// wrangler.jsonc
+{
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [{ "binding": "DB", "database_name": "my-site", "database_id": "<from wrangler d1 create>" }],
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "my-site-media" }]
+}
+```
+
+```sh
+# .env, which a Worker reads while you develop. `npx velocity-cms init` fills these in from the Wrangler config.
+VELOCITY_CMS_DATABASE_URL=d1:DB
+VELOCITY_CMS_R2_BUCKET=MEDIA
+```
+
+- **The commands work as elsewhere.** `owner`, `link`, `token` and a seed script reach the D1 database through Wrangler, which the site installs: the local one `astro dev` and `wrangler dev` use, or the real one where the Wrangler config marks the binding `"remote": true`.
+- **Pages are kept by Cloudflare's cache**, which every copy of the Worker shares and a publish clears: `cache: { provider: cacheCloudflare() }` from `@astrojs/cloudflare/cache`, in place of `memoryCache()`.
+- **Images are made lighter by Cloudflare's Images binding** (`IMAGES`, which the adapter adds), since the library used elsewhere does not run in a Worker.
+- **For the deployed Worker**, set the secret with `npx wrangler secret put VELOCITY_CMS_SECRET` and the other settings under `vars` in the Wrangler config.
+- **A save is kept whole or not at all.** D1 holds no transaction open, so each save is sent as one batch, and is refused as a conflict when what it was decided from changed meanwhile.
+
+[`examples/starter`](examples/starter) runs this way with `npm run check:workers`.
 
 ## Working with an AI agent
 
@@ -85,7 +113,8 @@ Open the link `init` printed once the site is running, then open Pages and chang
 
 ## Known limits
 
-- SQLite and libSQL only.
+- SQLite, libSQL and Cloudflare D1 only.
+- On Cloudflare Workers it has run in the Workers runtime on a computer and in CI, and not yet on a deployed site.
 - The editor is in English. The site can be in any language.
 - The Mailchimp, Slack and HubSpot plugins pass their tests but have not run against the real services.
 - Forms have no file uploads and send nothing to the visitor.

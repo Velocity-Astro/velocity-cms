@@ -66,6 +66,23 @@ export function withIntegration(config: string): string | null {
   return `${added.slice(0, end)}\n${line}${added.slice(end)}`;
 }
 
+const WRANGLER_FILES = ['wrangler.jsonc', 'wrangler.json', 'wrangler.toml'];
+
+/**
+ * The names the site's Wrangler config binds its D1 databases and R2 buckets under, as far as
+ * they can be read without Wrangler: enough to fill in a setting, never to decide anything else.
+ */
+export function wranglerBindings(text: string): { d1: string[]; r2: string[] } {
+  const named = (list: string): string[] => {
+    // JSON: the list's own brackets, and every "binding" inside it. A binding holds no bracket.
+    const json = new RegExp(`"${list}"\\s*:\\s*\\[([^\\]]*)\\]`).exec(text)?.[1];
+    if (json !== undefined) return [...json.matchAll(/"binding"\s*:\s*"(\w+)"/g)].map(([, name]) => name ?? '');
+    // TOML: each [[list]] table, up to the next table.
+    return [...text.matchAll(new RegExp(`^\\s*\\[\\[${list}\\]\\]([^\\[]*)`, 'gm'))].flatMap(([, table]) => /^\s*binding\s*=\s*"(\w+)"/m.exec(table ?? '')?.[1] ?? []);
+  };
+  return { d1: named('d1_databases'), r2: named('r2_buckets') };
+}
+
 /**
  * Sets a site up for the CMS, in its folder: a secret and the database's place in `.env`, both
  * kept out of git, and the integration in the Astro config. It can be run again: it adds only
@@ -79,6 +96,12 @@ export function initSite({ dir, print, secret = () => randomBytes(32).toString('
     return { code: 1, env: {} };
   }
 
+  // A site on Cloudflare Workers keeps its content in a D1 database and its uploads in an R2 bucket,
+  // both named by the Wrangler config, and a Worker reads its settings from .env while developing.
+  const cloudflare = /@astrojs\/cloudflare/.test(fs.readFileSync(at(configFile), 'utf8'));
+  const wranglerFile = WRANGLER_FILES.find((file) => fs.existsSync(at(file)));
+  const bound = wranglerBindings(wranglerFile ? fs.readFileSync(at(wranglerFile), 'utf8') : '');
+
   // 1. The secret, in .env. A value that is there is never replaced: sessions and saved keys depend on it.
   const envText = fs.existsSync(at('.env')) ? fs.readFileSync(at('.env'), 'utf8') : '';
   const env = readEnvFile(envText);
@@ -90,6 +113,14 @@ export function initSite({ dir, print, secret = () => randomBytes(32).toString('
   if (!env['VELOCITY_CMS_ORIGIN']) {
     env['VELOCITY_CMS_ORIGIN'] = 'http://localhost:4321';
     lines.push("# The site's address on this computer. On your host, set it to the real one, such as https://example.com.", `VELOCITY_CMS_ORIGIN=${env['VELOCITY_CMS_ORIGIN']}`);
+  }
+  if (cloudflare && !env['VELOCITY_CMS_DATABASE_URL'] && bound.d1.length === 1) {
+    env['VELOCITY_CMS_DATABASE_URL'] = `d1:${bound.d1[0]}`;
+    lines.push(`# The content: the D1 database ${wranglerFile} binds as ${bound.d1[0]}.`, `VELOCITY_CMS_DATABASE_URL=${env['VELOCITY_CMS_DATABASE_URL']}`);
+  }
+  if (cloudflare && !env['VELOCITY_CMS_R2_BUCKET'] && bound.r2.length === 1) {
+    env['VELOCITY_CMS_R2_BUCKET'] = bound.r2[0] ?? '';
+    lines.push(`# Uploads: the R2 bucket ${wranglerFile} binds as ${bound.r2[0]}.`, `VELOCITY_CMS_R2_BUCKET=${env['VELOCITY_CMS_R2_BUCKET']}`);
   }
   if (lines.length > 0) {
     fs.writeFileSync(at('.env'), `${envText}${envText === '' || envText.endsWith('\n') ? '' : '\n'}${envText === '' ? '' : '\n'}${lines.join('\n')}\n`);
@@ -105,7 +136,8 @@ export function initSite({ dir, print, secret = () => randomBytes(32).toString('
   const bare = (entry: string) => entry.replace(/^\/|\/$/g, '');
   // Only what the CMS writes there is left out: the site's own files in that folder (its model, its seed) are kept.
   const whole = ignored.some((line) => bare(line) === DATA_FOLDER);
-  const missing = ['.env', ...(whole ? [] : KEPT_OUT)].filter((entry) => !ignored.some((line) => bare(line) === bare(entry)));
+  // On Workers there is no database file: what is left out is where Wrangler keeps the local stand-ins.
+  const missing = ['.env', ...(cloudflare ? ['.wrangler/', '.dev.vars'] : whole ? [] : KEPT_OUT)].filter((entry) => !ignored.some((line) => bare(line) === bare(entry)));
   if (missing.length > 0) {
     fs.writeFileSync(at('.gitignore'), `${ignoreText}${ignoreText === '' || ignoreText.endsWith('\n') ? '' : '\n'}${missing.join('\n')}\n`);
     print(`.gitignore: now leaves out ${missing.join(' and ')}.`);
@@ -130,6 +162,23 @@ export function initSite({ dir, print, secret = () => randomBytes(32).toString('
   }
   if (!/\bsite\s*:/.test(latest)) {
     print(`${configFile}: has no \`site\` yet. Set it to the site's address before you deploy, so sign-in links lead there.`);
+  }
+  if (cloudflare) {
+    if (!env['VELOCITY_CMS_DATABASE_URL']) {
+      print(
+        bound.d1.length > 1
+          ? `.env: ${wranglerFile} binds several D1 databases (${bound.d1.join(', ')}). Say which holds the content: VELOCITY_CMS_DATABASE_URL=d1:<binding>.`
+          : 'Cloudflare: the content needs a D1 database. Make one (`npx wrangler d1 create <name>`), add it to d1_databases in the Wrangler config, and set VELOCITY_CMS_DATABASE_URL=d1:<binding> in .env.',
+      );
+    }
+    if (!env['VELOCITY_CMS_R2_BUCKET']) {
+      print(
+        bound.r2.length > 1
+          ? `.env: ${wranglerFile} binds several R2 buckets (${bound.r2.join(', ')}). Say which keeps uploads: VELOCITY_CMS_R2_BUCKET=<binding>.`
+          : 'Cloudflare: uploads need an R2 bucket. Make one (`npx wrangler r2 bucket create <name>`), add it to r2_buckets in the Wrangler config, and set VELOCITY_CMS_R2_BUCKET=<binding> in .env.',
+      );
+    }
+    print('Cloudflare: .env is for this computer. For the deployed Worker, set the secret with `npx wrangler secret put VELOCITY_CMS_SECRET`, and VELOCITY_CMS_ORIGIN, VELOCITY_CMS_DATABASE_URL and VELOCITY_CMS_R2_BUCKET under "vars" in the Wrangler config.');
   }
   return { code: 0, env };
 }

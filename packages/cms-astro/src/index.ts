@@ -71,3 +71,4 @@ export { indexPages, indexSite, searchSite, toSearchDocument } from './site-sear
 export { NoSiteError, currentSite, hostedRequest, inSite, isHosted, siteCacheTag, useSiteRegistry, type HostedSite, type SiteRegistry } from './hosted.js';
 export { clearKeptPages, type PageCache } from './kept-pages.js';
 export { R2MediaStore, r2FromEnv, type R2Bucket } from './r2-store.js';
+export { CloudflareImageOptimizer, imagesOptimizerFromEnv, type CloudflareImageOptimizerOptions, type ImagesBinding } from './images-binding.js';

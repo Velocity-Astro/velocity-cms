@@ -1,8 +1,10 @@
 import fs from 'node:fs';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { AstroIntegration } from 'astro';
+import { EDITOR_FILE_TYPES } from './admin-files.js';
 import { loadCmsEnv } from './init.js';
 
 const PACKAGE = '@velocity-astro/cms-astro';
@@ -146,6 +148,22 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
                   id === `\0${EDITOR_DIRECTORY}`
                     ? `export const appDirectory = '';\nexport const editorTemplate = ${JSON.stringify(fs.readFileSync(path.join(editorDirectory(), 'index.html'), 'utf8'))};`
                     : undefined,
+                // A build copies the editor's files into the site's own. While developing there is no build,
+                // so the development server sends them itself, before the request reaches the Worker.
+                configureServer: (server: { middlewares: { use(handler: (request: IncomingMessage, response: ServerResponse, next: () => void) => void): void } }) => {
+                  if (!workers) return;
+                  const from = `${ADMIN_PATH}/assets/`;
+                  server.middlewares.use((request, response, next) => {
+                    const asked = (request.url ?? '').split('?')[0] ?? '';
+                    const name = asked.startsWith(from) ? asked.slice(from.length) : '';
+                    const type = EDITOR_FILE_TYPES[path.extname(name)];
+                    const file = path.join(editorDirectory(), 'assets', name);
+                    // One file name and nothing that could name a folder, of a kind the editor has.
+                    if (!/^[\w.-]+$/.test(name) || name.includes('..') || !type || !fs.existsSync(file)) return next();
+                    response.writeHead(200, { 'content-type': type, 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' });
+                    fs.createReadStream(file).pipe(response);
+                  });
+                },
               },
               {
                 name: 'velocity-cms:options',

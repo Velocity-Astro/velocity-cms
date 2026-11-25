@@ -1,6 +1,6 @@
 import { NotFoundError } from '@velocity-astro/cms-core';
 import { sharedConnection, SITE } from './connection.js';
-import { SharpImageOptimizer } from './image-optimizer.js';
+import { siteImageOptimizer } from './site-optimizer.js';
 
 /** Where an email loads the site's images from: one name, as a PNG. */
 export const MAIL_IMAGE_PATH = '/cms-mail';
@@ -10,7 +10,7 @@ export const MAIL_LOGO_HEIGHT = 40;
 /** The address of one of the site's images as an email loads it. */
 export const mailImageUrl = (origin: string, name: string): string => `${origin}${MAIL_IMAGE_PATH}/${encodeURIComponent(name)}.png`;
 
-let optimizer: SharpImageOptimizer | undefined;
+let optimizer: ReturnType<typeof siteImageOptimizer> | undefined;
 
 const notFound = () => new Response(null, { status: 404, headers: { 'cache-control': 'no-store' } });
 /** What an email client can show as it is, when no PNG can be made. */
@@ -54,7 +54,7 @@ export async function mailImage(file: string, origin: string | null): Promise<Re
     throw error;
   }
 
-  const png = await (optimizer ??= new SharpImageOptimizer()).png(bytes, MAIL_LOGO_HEIGHT * 2).catch(() => null);
+  const png = await (optimizer ??= siteImageOptimizer()).png(bytes, MAIL_LOGO_HEIGHT * 2).catch(() => null);
   if (png === null && !SHOWN_AS_IS.has(type)) return notFound();
   const body = png ?? bytes;
   return new Response(body, {

@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
+import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -26,6 +27,32 @@ const secret = randomBytes(32).toString('base64url');
 const state = path.join(work, 'state');
 const database = workers ? { VELOCITY_CMS_DATABASE_URL: 'd1:DB', VELOCITY_CMS_R2_BUCKET: 'MEDIA', VELOCITY_CMS_WRANGLER_STATE: state, CMS_WORKERS: '1' } : { VELOCITY_CMS_DATABASE_URL: `file:${path.join(work, 'data.db')}` };
 const env = { ...process.env, ...database, VELOCITY_CMS_SECRET: secret, VELOCITY_CMS_ORIGIN: origin, SITE_URL: origin, PORT: String(port), HOST: '127.0.0.1' };
+/** A PNG of soft colours with some grain, as a photo saved as a PNG would be: heavy as it is, light as a WebP. */
+function photo(width, height) {
+  const part = (type, data) => {
+    const body = Buffer.concat([Buffer.from(type), data]);
+    const size = Buffer.alloc(4);
+    size.writeUInt32BE(data.length);
+    const sum = Buffer.alloc(4);
+    sum.writeUInt32BE(zlib.crc32(body));
+    return Buffer.concat([size, body, sum]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header.set([8, 2, 0, 0, 0], 8);
+  const rows = Buffer.alloc(height * (1 + width * 3));
+  let grain = 7;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      grain = (grain * 1103515245 + 12345) & 0x7fffffff;
+      const at = y * (1 + width * 3) + 1 + x * 3;
+      rows.set([(x * 255) / width + (grain % 24), (y * 255) / height + ((grain >> 8) % 24), 120 + ((grain >> 16) % 24)].map((value) => Math.min(255, Math.floor(value))), at);
+    }
+  }
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), part('IHDR', header), part('IDAT', zlib.deflateSync(rows)), part('IEND', Buffer.alloc(0))]);
+}
+
 const run = (command, args) => execFileSync(command, args, { cwd: root, env, stdio: 'inherit' });
 
 run('node', ['cms/seed.mjs']);
@@ -89,12 +116,13 @@ try {
   cli(['create', 'pages', 'made-by-the-check', '--data', JSON.stringify({ title: 'Made by the check' }), '--publish'], { VELOCITY_CMS_TOKEN: token });
   const made = await get('/made-by-the-check/');
   expect('a page is on the site as soon as it is published', made.status === 200 && made.text.includes('Made by the check'));
-  // An upload is kept and served back: in a folder beside the database, or on Workers in the R2 bucket.
-  const picture = path.join(work, 'pixel.png');
-  fs.writeFileSync(picture, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64'));
+  // An upload is made lighter, kept and served back: in a folder beside the database, or on Workers in the R2 bucket.
+  const picture = path.join(work, 'photo.png');
+  fs.writeFileSync(picture, photo(480, 320));
   const uploaded = cli(['upload', picture, '--json'], { VELOCITY_CMS_TOKEN: token });
   const image = await fetch(origin + (/"(?:url|src)":\s*"([^"]+)"/.exec(uploaded)?.[1] ?? '/none'));
   expect('an uploaded image is kept and served', image.ok && (image.headers.get('content-type') ?? '').startsWith('image/'));
+  expect('and was made lighter on the way in', image.headers.get('content-type') === 'image/webp' && (await image.arrayBuffer()).byteLength < fs.statSync(picture).size);
   expect('the sitemap lists the pages', (await get('/sitemap-live.xml')).text.includes('/contact/'));
   // A post with no true mark of when its form was drawn is taken and kept as spam, and answered like any other.
   const action = /<form action="([^"]+)"/.exec(contact.text)?.[1] ?? '';

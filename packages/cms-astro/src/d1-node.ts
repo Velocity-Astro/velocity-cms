@@ -15,7 +15,7 @@ async function siteWrangler(): Promise<Wrangler> {
   } catch {
     throw new Error('A D1 database is reached from this computer through Wrangler, which this site does not have. Install it (`npm install --save-dev wrangler`) and run the command from the site\'s folder.');
   }
-  const loaded = (await import(pathToFileURL(entry).href)) as Partial<Wrangler> & { default?: Partial<Wrangler> };
+  const loaded = (await import(/* @vite-ignore */ pathToFileURL(entry).href)) as Partial<Wrangler> & { default?: Partial<Wrangler> };
   const getPlatformProxy = loaded.getPlatformProxy ?? loaded.default?.getPlatformProxy;
   if (!getPlatformProxy) throw new Error('This version of Wrangler cannot hand a program its bindings (getPlatformProxy). Update Wrangler.');
   return { getPlatformProxy };

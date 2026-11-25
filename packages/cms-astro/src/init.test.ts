@@ -104,6 +104,58 @@ describe('setting a site up', () => {
   });
 });
 
+describe('setting a site on Cloudflare Workers up', () => {
+  const WORKER = CONFIG.replace("import node from '@astrojs/node';", "import cloudflare from '@astrojs/cloudflare';").replace("node({ mode: 'standalone' })", 'cloudflare()');
+  const WRANGLER = `{
+  // The content and the uploads.
+  "name": "site",
+  "d1_databases": [{ "binding": "DB", "database_name": "site", "database_id": "0000" }],
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "site-media" }]
+}
+`;
+
+  it('names the database and the bucket the Wrangler config binds, and says how the deployed Worker gets its secret', () => {
+    write('astro.config.mjs', WORKER);
+    write('wrangler.jsonc', WRANGLER);
+    expect(initSite({ dir, print, secret: () => 's'.repeat(43) }).code).toBe(0);
+    expect(readEnvFile(read('.env'))).toEqual({ VELOCITY_CMS_SECRET: 's'.repeat(43), VELOCITY_CMS_ORIGIN: 'http://localhost:4321', VELOCITY_CMS_DATABASE_URL: 'd1:DB', VELOCITY_CMS_R2_BUCKET: 'MEDIA' });
+    expect(read('.gitignore').split('\n')).toEqual(expect.arrayContaining(['.env', '.wrangler/', '.dev.vars']));
+    expect(read('.gitignore')).not.toContain('data.db');
+    expect(printed.join('\n')).toContain('wrangler secret put VELOCITY_CMS_SECRET');
+    expect(printed.join('\n')).not.toMatch(/needs a D1 database|need an R2 bucket/);
+  });
+
+  it('reads a Wrangler config written as TOML', () => {
+    write('astro.config.mjs', WORKER);
+    write('wrangler.toml', 'name = "site"\n\n[[d1_databases]]\nbinding = "CONTENT"\ndatabase_name = "site"\n\n[[r2_buckets]]\nbinding = "UPLOADS"\nbucket_name = "site-media"\n');
+    initSite({ dir, print });
+    expect(readEnvFile(read('.env'))).toMatchObject({ VELOCITY_CMS_DATABASE_URL: 'd1:CONTENT', VELOCITY_CMS_R2_BUCKET: 'UPLOADS' });
+  });
+
+  it('says what to make when the Wrangler config binds neither, and never guesses among several', () => {
+    write('astro.config.mjs', WORKER);
+    initSite({ dir, print });
+    expect(readEnvFile(read('.env'))).not.toHaveProperty('VELOCITY_CMS_DATABASE_URL');
+    expect(printed.join('\n')).toMatch(/wrangler d1 create/);
+    expect(printed.join('\n')).toMatch(/wrangler r2 bucket create/);
+
+    printed = [];
+    fs.rmSync(path.join(dir, '.env'));
+    write('wrangler.jsonc', '{ "d1_databases": [{ "binding": "DB" }, { "binding": "ARCHIVE" }] }');
+    initSite({ dir, print });
+    expect(readEnvFile(read('.env'))).not.toHaveProperty('VELOCITY_CMS_DATABASE_URL');
+    expect(printed.join('\n')).toContain('several D1 databases (DB, ARCHIVE)');
+  });
+
+  it('leaves a site on another host exactly as before', () => {
+    write('astro.config.mjs', CONFIG);
+    write('wrangler.jsonc', WRANGLER);
+    initSite({ dir, print });
+    expect(readEnvFile(read('.env'))).not.toHaveProperty('VELOCITY_CMS_DATABASE_URL');
+    expect(printed.join('\n')).not.toContain('Cloudflare');
+  });
+});
+
 describe('the init command', () => {
   it('sets the site up and makes the first owner in one go', async () => {
     write('astro.config.mjs', CONFIG);

@@ -18,7 +18,8 @@ interface StaticFile {
   readonly type: string;
 }
 
-const TYPES: Readonly<Record<string, string>> = {
+/** What each kind of the editor's files is sent as. A kind that is not here is never sent. */
+export const EDITOR_FILE_TYPES: Readonly<Record<string, string>> = {
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml',
@@ -72,7 +73,7 @@ export class AdminFiles {
     }
     for (const name of fs.readdirSync(directory, { recursive: true }).map(String)) {
       const file = path.join(directory, name);
-      const type = TYPES[path.extname(name)];
+      const type = EDITOR_FILE_TYPES[path.extname(name)];
       if (type && fs.statSync(file).isFile()) this.#files.set(name.replaceAll('\\', '/'), { body: fs.readFileSync(file), type });
     }
     this.#template = fs.readFileSync(index, 'utf8');
