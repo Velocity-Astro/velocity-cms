@@ -4,6 +4,9 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **An open editor no longer saves over a newer version.** A tab left open while someone else saved the same entry (another person, an agent over MCP, you in another tab) could put its older values back with its next autosave. The form now saves only after the version its values came from, so an older tab is always refused.
+- **Working together: see who else is there, and their changes as they save.** An entry open in the editor shows who else has it open ("Maya is here too") and which agent just worked on it ("Claude is working on this"). What they save appears in your form within seconds, in the page beside it too, together with whatever you typed: a field, a field of a section, a section added, moved or removed. Undo still takes back only what you did. Only where you both changed the very same field does the editor stop saving and ask whether to keep yours or use the newer version. This adds a table (`entry_presence`), made when the site starts.
+
 ## 0.1.0-beta.23
 
 - **Connect Claude or ChatGPT by pasting one address.** Give the app your site's MCP address (`https://your-site/api/cms/mcp`) as a custom connector. It sends you to the editor, you sign in with your passkey or an email link, choose what it may do (drafts only, publish, read contacts and forms) and press Allow. There is no token to copy and nothing to set up: every site now speaks OAuth 2.1 as the Model Context Protocol asks for it (it says where to sign in, apps register themselves, PKCE, tokens that renew themselves). Connected apps are listed under Settings, Access tokens, where an owner disconnects one at once. Only an owner can connect an app, it acts as an editor or an author like a token, and it stops when whoever connected it is no longer an owner. Access tokens work as before.

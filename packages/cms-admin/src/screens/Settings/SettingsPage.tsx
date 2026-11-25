@@ -30,7 +30,8 @@ export function SettingsPagePanel({ type }: { readonly type: ContentTypeDef }) {
   if (entries.isPending || fieldTypes.isPending || (entryId !== null && entry.isPending)) return <LoadingState shape="form" />;
   if (entries.isError) return <ErrorState error={entries.error} onRetry={() => void entries.refetch()} />;
   if (fieldTypes.isError) return <ErrorState error={fieldTypes.error} onRetry={() => void fieldTypes.refetch()} />;
-  if (entryId !== null && entry.isError) return <ErrorState error={entry.error} onRetry={() => void entry.refetch()} />;
+  // Only when there is nothing to show: an entry that could not be asked for again is still open, with what was typed.
+  if (entryId !== null && entry.isError && entry.data === undefined) return <ErrorState error={entry.error} onRetry={() => void entry.refetch()} />;
 
   // The field that names the site, by the name the form shows it under.
   const naming = type.siteNamePath && fieldAt(type, {}, type.siteNamePath)?.field;

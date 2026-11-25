@@ -151,7 +151,7 @@ it('asks for a usable slug before sending anything', async () => {
   expect((await client.listEntries({ type: 'agents' })).total).toBe(0);
 });
 
-it('refuses to overwrite a save someone else made in the meantime', async () => {
+it('never overwrites a save someone else made in the meantime: a pressed save brings theirs in first', async () => {
   const user = userEvent.setup();
   const { client } = renderApp('/content/listings/e2', signedIn());
   const title = await field('Title');
@@ -160,10 +160,25 @@ it('refuses to overwrite a save someone else made in the meantime', async () => 
 
   await user.type(title, ' West');
   await user.click(screen.getByRole('button', { name: 'Save draft' }));
-  expect(await screen.findByText('Not saved')).toBeTruthy();
-  expect(screen.getByText(/saved by someone else while you were editing/)).toBeTruthy();
-  expect((await client.getEntry('e2')).data['f-title']).toBe('18 Alder Court');
-  // Nothing typed is lost.
+  expect(await screen.findByText('Draft saved')).toBeTruthy();
+  // Theirs is kept, and nothing typed is lost.
+  const kept = await client.getEntry('e2');
+  expect(kept.data['f-price']).toBe(1);
+  expect(kept.data['f-title']).toBe('18 Alder Court West');
+  expect(title.value).toBe('18 Alder Court West');
+  expect((await field('Price')).value).toBe('1');
+});
+
+it('asks, and saves nothing, when a pressed save meets a newer version of the very field that was typed in', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/content/listings/e2', signedIn());
+  const title = await field('Title');
+  await savedElsewhere(client, 'e2', { 'f-title': 'Changed by an agent' });
+
+  await user.type(title, ' West');
+  await user.click(screen.getByRole('button', { name: 'Save draft' }));
+  expect(await saveBar().findByText('Changed elsewhere. Not saved yet.')).toBeTruthy();
+  expect((await client.getEntry('e2')).data['f-title']).toBe('Changed by an agent');
   expect(title.value).toBe('18 Alder Court West');
 });
 
@@ -708,3 +723,144 @@ it('says so in the bar when the draft could not be saved by itself, keeps what w
   await user.click(screen.getByRole('button', { name: 'Save draft' }));
   expect(await screen.findByText('No connection')).toBeTruthy();
 }, 15_000);
+
+/** Someone else (another tab, an agent over MCP) saves the entry: the server has it, this editor does not yet. */
+async function savedElsewhere(client: MemoryAdminClient, id: string, change: Record<string, unknown>) {
+  const now = await client.getEntry(id);
+  return client.updateEntry(id, { slug: now.slug, data: { ...now.data, ...change }, expectedRevision: now.revision });
+}
+/** The tab is come back to, which is when an open entry is asked for again at once. */
+const comeBack = () => act(() => void window.dispatchEvent(new Event('visibilitychange')));
+
+it('shows what someone else saved while the entry was open', async () => {
+  const { client } = renderApp('/content/listings/e1', signedIn());
+  expect((await field('Title')).value).toBe('6214 Lakeshore Drive');
+  await savedElsewhere(client, 'e1', { 'f-title': 'Changed by an agent' });
+  const update = vi.spyOn(client, 'updateEntry');
+  comeBack();
+
+  await waitFor(async () => expect((await field('Title')).value).toBe('Changed by an agent'));
+  expect(await screen.findByText('This page was updated')).toBeTruthy();
+  // Nothing was typed here, so there is nothing to save, and nothing to take back.
+  expect(saveBar().getByText(/^Saved /)).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Save draft' })).toHaveProperty('disabled', true);
+  expect(update).not.toHaveBeenCalled();
+});
+
+it('brings what someone else saved together with what was typed here, and saves both', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/content/listings/e1', signedIn());
+  await user.type(await field('Title'), ' East');
+  const theirs = await savedElsewhere(client, 'e1', { 'f-price': 725000 });
+  const update = vi.spyOn(client, 'updateEntry');
+  comeBack();
+
+  await waitFor(async () => expect((await field('Price')).value).toBe('725,000'));
+  expect((await field('Title')).value).toBe('6214 Lakeshore Drive East');
+  await waitFor(() => expect(saveBar().getByText(/^Saved /)).toBeTruthy(), { timeout: 6000 });
+  // One save, made after theirs and holding both.
+  expect(update).toHaveBeenCalledTimes(1);
+  expect(update.mock.calls[0]?.[1].expectedRevision).toBe(theirs.revision);
+  const kept = await client.getEntry('e1');
+  expect(kept.data['f-title']).toBe('6214 Lakeshore Drive East');
+  expect(kept.data['f-price']).toBe(725000);
+  // A step back takes back what was typed here, and nothing of theirs.
+  await user.click(screen.getByRole('button', { name: 'Undo' }));
+  expect((await field('Title')).value).toBe('6214 Lakeshore Drive');
+  expect((await field('Price')).value).toBe('725,000');
+}, 15_000);
+
+it('never saves over a newer version it has not taken in: a refused save brings it in and is made again', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/content/listings/e1', signedIn());
+  await field('Title');
+  // Saved elsewhere, and this tab has not heard of it when it saves by itself.
+  await savedElsewhere(client, 'e1', { 'f-price': 725000 });
+  await user.type(await field('Title'), ' East');
+
+  await waitFor(async () => expect((await client.getEntry('e1')).data['f-title']).toBe('6214 Lakeshore Drive East'), { timeout: 9000 });
+  expect((await client.getEntry('e1')).data['f-price']).toBe(725000);
+  expect((await field('Price')).value).toBe('725,000');
+  await waitFor(() => expect(saveBar().getByText(/^Saved /)).toBeTruthy());
+}, 15_000);
+
+it('asks whose change stands when both changed the same field, and saves nothing until then', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/content/listings/e1', signedIn());
+  await user.type(await field('Title'), ' East');
+  await savedElsewhere(client, 'e1', { 'f-title': 'Changed by an agent', 'f-price': 725000 });
+  const update = vi.spyOn(client, 'updateEntry');
+  comeBack();
+
+  expect(await saveBar().findByText('Changed elsewhere. Not saved yet.')).toBeTruthy();
+  expect(await screen.findByText(/^Title was changed here and somewhere else\./)).toBeTruthy();
+  // What was typed stays in the form, and is not saved over theirs by itself.
+  expect((await field('Title')).value).toBe('6214 Lakeshore Drive East');
+  await new Promise((done) => setTimeout(done, 3500));
+  expect(update).not.toHaveBeenCalled();
+  expect((await client.getEntry('e1')).data['f-title']).toBe('Changed by an agent');
+  // Nor by a press of Save: it asks.
+  await user.click(screen.getByRole('button', { name: 'Save draft' }));
+  expect(await screen.findByText('Changed in both: Title. Which should stand there?')).toBeTruthy();
+  expect(update).not.toHaveBeenCalled();
+
+  await user.click(screen.getByRole('button', { name: 'Keep mine' }));
+  // Theirs is kept wherever only they made a change.
+  expect((await field('Price')).value).toBe('725,000');
+  await waitFor(async () => expect((await client.getEntry('e1')).data['f-title']).toBe('6214 Lakeshore Drive East'), { timeout: 6000 });
+  expect((await client.getEntry('e1')).data['f-price']).toBe(725000);
+}, 20_000);
+
+it('takes the newer version of a field both changed when the person says so', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/content/listings/e1', signedIn());
+  await user.type(await field('Title'), ' East');
+  await savedElsewhere(client, 'e1', { 'f-title': 'Changed by an agent' });
+  comeBack();
+
+  await user.click(await screen.findByRole('button', { name: 'Review changes' }));
+  await user.click(await screen.findByRole('button', { name: 'Use the newer version' }));
+  expect((await field('Title')).value).toBe('Changed by an agent');
+  expect(await screen.findByText('The newer version was used')).toBeTruthy();
+  expect(saveBar().getByText(/^Saved /)).toBeTruthy();
+  expect((await client.getEntry('e1')).data['f-title']).toBe('Changed by an agent');
+});
+
+it('keeps the form, and what was typed, when the entry cannot be asked for again', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/content/listings/e1', signedIn());
+  await user.type(await field('Title'), ' East');
+  const get = vi.spyOn(client, 'getEntry').mockRejectedValue(new Error('No connection'));
+  comeBack();
+  await waitFor(() => expect(get).toHaveBeenCalled());
+  expect((await field('Title')).value).toBe('6214 Lakeshore Drive East');
+});
+
+it('says who else has the entry open, and which agent is working on it', async () => {
+  const { client } = renderApp('/content/listings/e1', signedIn());
+  await field('Title');
+  expect(saveBar().queryByText(/here too|working on this/)).toBeNull();
+
+  await client.openedBy('e1', { id: 'u2', name: 'Maya Ellison' });
+  await client.touchedByAgent('e1', { id: 't1', name: 'Claude' });
+  comeBack();
+  expect(await saveBar().findByText('Maya Ellison is here too')).toBeTruthy();
+  expect(saveBar().getByText('Claude is working on this')).toBeTruthy();
+
+  await client.openedBy('e1', { id: 'u3', name: 'Sam' });
+  comeBack();
+  expect(await saveBar().findByText('Maya Ellison and Sam are here too')).toBeTruthy();
+});
+
+it('hears from the server that the entry moved on, and asks for it again', async () => {
+  const { client } = renderApp('/content/listings/e1', signedIn());
+  await field('Title');
+  await savedElsewhere(client, 'e1', { 'f-title': 'Changed by an agent' });
+  // Only who is there is asked about: the answer says the entry is newer than the one held.
+  const get = vi.spyOn(client, 'getEntry');
+  const presence = vi.spyOn(client, 'entryPresence');
+  comeBack();
+  await waitFor(async () => expect((await field('Title')).value).toBe('Changed by an agent'));
+  expect(presence).toHaveBeenCalled();
+  expect(get).toHaveBeenCalled();
+});

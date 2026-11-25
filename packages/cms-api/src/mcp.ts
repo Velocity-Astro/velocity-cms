@@ -773,15 +773,15 @@ export class McpEndpoint {
   }
 
   /** The answer to a message or a list of them, or `null` when nothing needs one (notifications). */
-  async handle(actor: Actor, body: unknown): Promise<unknown> {
+  async handle(actor: Actor, body: unknown, name?: string): Promise<unknown> {
     if (Array.isArray(body)) {
-      const answers = (await Promise.all(body.map((message) => this.#one(actor, message)))).filter((answer) => answer !== null);
+      const answers = (await Promise.all(body.map((message) => this.#one(actor, message, name)))).filter((answer) => answer !== null);
       return answers.length > 0 ? answers : null;
     }
-    return this.#one(actor, body);
+    return this.#one(actor, body, name);
   }
 
-  async #one(actor: Actor, message: unknown): Promise<unknown> {
+  async #one(actor: Actor, message: unknown, name: string | undefined): Promise<unknown> {
     if (!isObject(message) || typeof message['method'] !== 'string') {
       // A response sent to us (we ask nothing of the client) or something that is no message.
       return isObject(message) && ('result' in message || 'error' in message) ? null : failure(null, RPC_ERRORS.invalidRequest, 'This is not a JSON-RPC request.');
@@ -801,7 +801,7 @@ export class McpEndpoint {
       case 'tools/list':
         return answer({ tools: [...this.#tools.values()].filter((one) => this.#offered(actor, one)).map(listed) });
       case 'tools/call':
-        return answer(await this.#call(actor, params));
+        return answer(await this.#call(actor, params, name));
       case 'resources/list':
         return answer({ resources: [] });
       case 'resources/templates/list':
@@ -819,7 +819,7 @@ export class McpEndpoint {
     return !personal || this.#options.cms.access.can(actor, 'contact:read') || this.#options.cms.access.can(actor, 'submission:read');
   }
 
-  async #call(actor: Actor, params: unknown) {
+  async #call(actor: Actor, params: unknown, asker: string | undefined) {
     const name = isObject(params) ? params['name'] : undefined;
     const one = typeof name === 'string' ? this.#tools.get(name) : undefined;
     if (!one) return refusal(`There is no tool "${String(name)}". tools/list names them.`);
@@ -830,6 +830,10 @@ export class McpEndpoint {
     }
     try {
       const result = await one.run(parsed.data as never, { cms: this.#options.cms, actor, locale: this.#options.defaultLocale });
+      // A tool about one entry: whoever has that entry open in the editor sees an agent is at work on it.
+      const about = one.input.shape['id'] === entryId ? (parsed.data as { id?: unknown }).id : undefined;
+      // Never the tool's to fail over: the work is done.
+      if (typeof about === 'string') await this.#options.cms.presence.touched(actor, about, asker ?? '').catch(() => undefined);
       return { content: [{ type: 'text', text: JSON.stringify(result ?? {}, null, 2) }] };
     } catch (error) {
       // A refusal keeps the service's own words, which say what to do. A fault is the API's to report.

@@ -146,6 +146,19 @@ describe('the MCP endpoint', () => {
     expect(((await rpc('tools/list')).result?.['tools'] as { name: string }[]).map((one) => one.name)).toContain('list_contacts');
   });
 
+  it('shows whoever has an entry open that an agent is at work on it, by the token\'s name', async () => {
+    const page = await tool('create_entry', { type: 'pages', slug: 'about', data: { title: 'About' } });
+    const person: Actor = { kind: 'user', id: 'u1', role: 'editor' };
+    const id = String(page['id']);
+    // Making an entry is about no entry yet; reading or changing one is.
+    expect((await cms.presence.here(person, id, 'Dana')).others).toEqual([]);
+    await tool('get_entry', { id });
+    expect((await cms.presence.here(person, id, 'Dana')).others).toEqual([{ id: 't1', kind: 'agent', name: 'Claude' }]);
+    // A tool that was refused did no work there, and one about no entry marks nothing.
+    expect(await tool('get_entry', { id: 'missing' })).toHaveProperty('refused');
+    expect((await cms.presence.here(person, id, 'Dana')).others).toHaveLength(1);
+  });
+
   it('updates by key and leaves the rest alone', async () => {
     const page = await tool('create_entry', { type: 'pages', slug: 'team', data: { title: 'Team', body: [{ block: 'hero', data: { title: 'Us' } }] } });
     const updated = await tool('update_entry', { id: page['id'], data: { title: 'Our team' } });

@@ -3,7 +3,7 @@
  * an adapter package implements each one and proves it with the contract tests in `./testing`.
  */
 import type { Actor } from './access.js';
-import type { ContentTypeDef, Entry, EntryStatus, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus, Timestamp, Contact, ContactNote, Deal, DealSubject, Pipeline, TeamMember, CustomFields, MailFixedBy, SettingFixedBy, StorageKeeping } from './model.js';
+import type { ContentTypeDef, Entry, EntryStatus, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus, Timestamp, Contact, ContactNote, Deal, DealSubject, Pipeline, Presence, TeamMember, CustomFields, MailFixedBy, SettingFixedBy, StorageKeeping } from './model.js';
 
 export interface EntryQuery {
   readonly typeId?: string;
@@ -213,6 +213,17 @@ export interface CustomFieldsStore {
    * were saved before: fields that have moved on are refused with a `ConflictError`.
    */
   save(fields: CustomFields, expectedRevision: number | null): Promise<CustomFields>;
+}
+
+/** Where it is kept who is at which entry now. Nothing here lasts: what has run out is of no use to anyone. */
+export interface PresenceStore {
+  /**
+   * Says someone is at an entry until a time, in place of what was said of them there before.
+   * Whatever had run out by `now` may be cleared away.
+   */
+  mark(presence: Presence, now: Timestamp): Promise<void>;
+  /** Everyone said to be at an entry whose time has not run out at `now`. */
+  at(entryId: string, now: Timestamp): Promise<Presence[]>;
 }
 
 /** Who is on the team. Sign-in belongs to the host, so the host says. */

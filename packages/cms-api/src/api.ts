@@ -251,6 +251,8 @@ const dealChanges = z.strictObject({
   expectedRevision: z.number().int().positive(),
 });
 const newNote = z.strictObject({ text: z.string() });
+/** A request that says everything in its address. */
+const noBody = z.strictObject({});
 const scheduleRequest = z.strictObject({ at: z.string().max(40), expectedRevision: z.number().int().positive() });
 const revertRequest = z.strictObject({ revision: z.number().int().positive(), expectedRevision: z.number().int().positive() });
 const publishRequest = z.strictObject({ expectedRevision: z.number().int().positive() });
@@ -270,7 +272,7 @@ export class CmsApi {
   constructor(options: CmsApiOptions) {
     this.#options = options;
     this.#basePath = `/${(options.basePath ?? '/api/cms').split('/').filter(Boolean).join('/')}`;
-    const { schema, content, fields, media, previews, plugins, forms, submissions, contacts, pipeline, deals, customFields, settings } = options.cms;
+    const { schema, content, presence, fields, media, previews, plugins, forms, submissions, contacts, pipeline, deals, customFields, settings } = options.cms;
     const defaultLocale = options.defaultLocale ?? 'en';
 
     this.#router
@@ -383,6 +385,12 @@ export class CmsApi {
         return json(await content.publish(who, param(call, 'id'), expectedRevision));
       })
       .add('POST', '/entries/:id/preview', async (call) => json(await previews.link(actor(call), param(call, 'id'))))
+      // An open editor says it is still there, every few seconds, and learns who else is and whether the entry moved on.
+      .add('POST', '/entries/:id/presence', async (call) => {
+        const who = actor(call);
+        parse(noBody, await this.#body(call.request));
+        return json(await presence.here(who, param(call, 'id'), call.session?.user.name ?? ''));
+      })
       .add('POST', '/entries/:id/unpublish', async (call) => json(await content.unpublish(actor(call), param(call, 'id'))))
       .add('DELETE', '/entries/:id', async (call) => json(await content.trash(actor(call), param(call, 'id'))))
       .add('POST', '/entries/:id/duplicate', async (call) => json(await content.duplicate(actor(call), param(call, 'id')), 201))
@@ -570,7 +578,7 @@ export class CmsApi {
         });
       }
       const who = actor(call);
-      const answer = await mcp.handle(who, await this.#body(call.request));
+      const answer = await mcp.handle(who, await this.#body(call.request), call.session?.user.name);
       return answer === null ? new Response(null, { status: 202, headers: { 'cache-control': 'no-store' } }) : json(answer);
     });
 

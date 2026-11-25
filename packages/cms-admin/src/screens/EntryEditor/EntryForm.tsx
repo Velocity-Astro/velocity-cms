@@ -1,16 +1,17 @@
 import type { ContentTypeDef, Entry, EntryData, FieldDef } from '@velocity-astro/cms-core';
 import { HOME_SLUG, SLUG_PATH, hasOwnPages, isSlug, isSlugPath, liveFields, takesSlugPath } from '@velocity-astro/cms-core';
-import { Box, Button, Card, ConfirmDialog, Form, IconButton, Menu, PageBody, SaveBar, Split, Stack, Tag, TextField, Workbench, toast } from '@velocity-astro/cms-ui';
-import { CalendarClock, Copy, Ellipsis, ExternalLink, Eye, EyeOff, History, Languages, Palette, PanelRightClose, PanelRightOpen, Redo2, Save, Trash2, Undo2 } from 'lucide-react';
+import { Box, Button, Card, ConfirmDialog, Dialog, Form, IconButton, Menu, PageBody, SaveBar, Split, Stack, Tag, Text, TextField, Workbench, toast } from '@velocity-astro/cms-ui';
+import { Bot, CalendarClock, Copy, Ellipsis, ExternalLink, Eye, EyeOff, GitCompareArrows, History, Languages, Palette, PanelRightClose, PanelRightOpen, Redo2, Save, Trash2, Undo2, Users } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { paths } from '../../app/paths.js';
 import { AdminRequestError } from '../../client/errors.js';
-import { useCreateEntry, useDuplicateEntry, useSession, usePreviewEntry, usePublishEntry, useTrashEntry, useUnpublishEntry, useUpdateEntry } from '../../client/queries.js';
+import { useCreateEntry, useDuplicateEntry, useEntryPresence, useSession, usePreviewEntry, usePublishEntry, useRefreshEntry, useTrashEntry, useUnpublishEntry, useUpdateEntry, useWroteEntry } from '../../client/queries.js';
 import { HistoryDialog } from './HistoryDialog.js';
 import { ScheduleDialog, scheduledFor } from './ScheduleDialog.js';
 import { FieldGrid, PageFocusProvider, useControlFor } from '../../fields/index.js';
 import { entryAddress, entryState, entryTitle, languageName, localized, sameData, withValue, type EntryState } from '../../lib/content.js';
+import { mergeEntryData, type Prefer } from '../../lib/merge-entry.js';
 import { openPreviewTab } from '../../lib/preview-tab.js';
 import { openSite } from '../../lib/open-site.js';
 import { relativeTime } from '../../lib/relative-time.js';
@@ -38,6 +39,10 @@ const STATE_TONE = { draft: 'neutral', scheduled: 'info', published: 'success', 
 type Action = 'save' | 'publish' | 'unpublish' | 'preview' | 'trash' | 'duplicate';
 
 const NO_PROBLEMS: ReadonlyMap<string, string> = new Map();
+/** A save refused because the entry was saved by someone else since this form last had it. */
+/** Thrown where a save met a newer version that changed what the form changed: the form says so itself, and asks. */
+const CLASHED = Symbol('clashed');
+const isConflict = (error: unknown) => error instanceof AdminRequestError && error.code === 'conflict';
 /** How the address says the page has the whole window. */
 const VIEW = 'view';
 const VISUAL = 'visual';
@@ -77,6 +82,20 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   const duplicate = useDuplicateEntry();
   const previewLink = usePreviewEntry();
   const session = useSession();
+  // Who else is at this entry now. Asking is also how its form hears that it was saved somewhere else.
+  const others = useEntryPresence(entry?.id ?? null);
+  const refresh = useRefreshEntry();
+  const wrote = useWroteEntry();
+
+  // The entry as the server had it when the form last agreed with it: what the form's values come
+  // from, and the revision its saves follow. `entry` may be newer than this, when someone else (a
+  // person in another tab, an agent over MCP) saved meanwhile: the form never takes the newer
+  // revision without the newer values, or its next save would put its older ones back over them.
+  const [base, setBase] = useState(entry);
+  // The fields both this form and someone else changed, while that waits for the person to choose.
+  const [clash, setClash] = useState<readonly string[] | null>(null);
+  const [isReviewing, setReviewing] = useState(false);
+  const isBehind = entry !== null && base !== null && entry.revision > base.revision;
 
   // What the form holds, with the steps that led to it, so a change can be taken back.
   const history = useHistory<EntryData>(entry?.data ?? {}, sameData);
@@ -141,11 +160,11 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   const title = entryTitle(type, data);
   // A single page is its type's one entry, so it is named after the type and nobody has to name it.
   const isSingle = type.kind === 'single';
-  const slug = typedSlug ?? entry?.slug ?? (isSingle ? type.key : slugify(title ?? ''));
+  const slug = typedSlug ?? base?.slug ?? (isSingle ? type.key : slugify(title ?? ''));
   // A type whose address pattern says [...slug] has pages under other pages: services/roofing.
   const isDeep = takesSlugPath(type);
   const slugFits = isDeep ? isSlugPath(slug) : isSlug(slug);
-  const hasChanges = entry === null || slug !== entry.slug || !sameData(data, entry.data);
+  const hasChanges = base === null || slug !== base.slug || !sameData(data, base.data);
   const state = entry ? entryState(entry) : 'draft';
   // What would be lost by leaving now. A new entry nobody has typed in holds nothing, and a save
   // under way moves on by itself.
@@ -156,7 +175,6 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   // seconds at most. Only a saved entry does: a new one is made when its person says so. Nothing is
   // published by it, and it says nothing when it works: the bar does.
   const revision = useRef(entry?.revision ?? 0);
-  revision.current = Math.max(revision.current, entry?.revision ?? 0);
   const autosave = useRef<{ readonly data: EntryData; readonly slug: string; readonly done: Promise<Entry | null> } | null>(null);
   const autosaved = useRef<{ readonly data: EntryData; readonly slug: string } | null>(null);
   const held = useRef(data);
@@ -164,7 +182,9 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   const [autosaveFailed, setAutosaveFailed] = useState(false);
   const settleNow = history.settle;
   useEffect(() => {
-    if (entry === null || !hasChanges || running !== null || !slugFits) return;
+    if (entry === null || base === null || !hasChanges || running !== null || !slugFits) return;
+    // Someone else saved since: what they saved is brought in first, below.
+    if (isBehind) return;
     // What was tried is not tried again until something changes: a refusal would be met for ever.
     if (autosaved.current?.data === data && autosaved.current.slug === slug) return;
     const waiting = setTimeout(() => {
@@ -182,7 +202,12 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
           }
           return kept;
         },
-        () => {
+        (error: unknown) => {
+          // Someone else saved first: their version is asked for, brought in below, and this is tried again.
+          if (isConflict(error)) {
+            void refresh(entry.id).catch(() => setAutosaveFailed(true));
+            return null;
+          }
           // Quietly: the bar says it is not saved, and "Save draft" says why.
           setAutosaveFailed(true);
           return null;
@@ -196,10 +221,106 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
     }, AUTOSAVE_PAUSE_MS);
     return () => clearTimeout(waiting);
     // `keep` and the entry are read as they are when the pause ends.
-  }, [data, slug, hasChanges, running, slugFits, entry?.id, autosaveTurn]);
+  }, [data, slug, hasChanges, running, slugFits, entry?.id, autosaveTurn, isBehind]);
+
+  /** Takes a newer version as the one the form's values come from, with what the form should now hold. */
+  const said = useRef<(() => void) | null>(null);
+  const asked = useRef<(() => void) | null>(null);
+  function take(newer: Entry, prefer: Prefer, isOurs: boolean): EntryData {
+    if (base === null) return held.current;
+    const from = base.data;
+    const merged = mergeEntryData(from, held.current, newer.data, prefer).data;
+    const slugClashed = typedSlug !== null && typedSlug !== newer.slug && newer.slug !== base.slug;
+    const cameIn = merged !== held.current || (newer.slug !== base.slug && slug !== newer.slug && !(slugClashed && prefer === 'mine'));
+    // Every step is brought up to date, so a step back takes back what was typed here and nothing of theirs.
+    if (merged !== held.current) history.rebase((value) => mergeEntryData(from, value, newer.data, prefer).data);
+    if (typedSlug !== null && (typedSlug === newer.slug || (slugClashed && prefer === 'theirs'))) setTypedSlug(null);
+    revision.current = newer.revision;
+    setBase(newer);
+    setClash(null);
+    // The question, if one was asked, is answered.
+    asked.current?.();
+    asked.current = null;
+    setReviewing(false);
+    setAutosaveFailed(false);
+    // What is held now is new to the server, even when it was tried before.
+    autosaved.current = null;
+    if (!isOurs && cameIn) {
+      // One message at a time, however many saves an agent makes.
+      said.current?.();
+      said.current = toast({
+        title: messages.editor.updatedElsewhere,
+        description: sameData(merged, newer.data) ? messages.editor.updatedElsewhereDescription : messages.editor.updatedElsewhereKeptDescription,
+      });
+    }
+    return merged;
+  }
+
+  /** The fields both the form and a newer version changed, each differently. None: the two can be brought together. */
+  function clashesWith(newer: Entry): string[] {
+    if (base === null) return [];
+    return [
+      ...mergeEntryData(base.data, held.current, newer.data, 'mine').clashes,
+      ...(typedSlug !== null && typedSlug !== base.slug && newer.slug !== base.slug && newer.slug !== typedSlug ? [SLUG_PATH] : []),
+    ];
+  }
+
+  // What someone else saved is brought into the form as soon as it is seen: whatever only they
+  // changed is taken, whatever only this form changed is kept, and the person is asked only where
+  // both changed the same thing.
+  useEffect(() => {
+    if (entry === null) return;
+    // The entry this form just made.
+    if (base === null) {
+      revision.current = entry.revision;
+      setBase(entry);
+      return;
+    }
+    if (entry.revision <= base.revision) return;
+    // This editor's own doing (a publish, a time set, an earlier version brought back): nothing to bring together.
+    if (wrote(entry.id, entry.revision)) {
+      revision.current = entry.revision;
+      setBase(entry);
+      setClash(null);
+      autosaved.current = null;
+      return;
+    }
+    // A save of this form is on its way and will be refused: looked at again once it is back.
+    if (running !== null || autosave.current !== null) return;
+    const clashes = clashesWith(entry);
+    if (clashes.length === 0) return void take(entry, 'mine', false);
+    if (clash === null) {
+      asked.current = toast({ title: messages.editor.clashTitle, description: messages.editor.clashToast(namesOf(clashes), clashes.length), tone: 'danger' });
+    }
+    if (clash === null || clash.join() !== clashes.join()) setClash(clashes);
+    // `take` and what is held are read as they are when the newer version arrives.
+  }, [entry, base, running, autosaveTurn]);
+
+  /** The fields by the names the form shows them under. */
+  function namesOf(fields: readonly string[]): string {
+    const names = fields.map((id) => (id === SLUG_PATH ? messages.editor.slug : localized(type.fields.find((field) => field.id === id)?.label ?? { en: id }, locale)));
+    return new Intl.ListFormat(locale, { type: 'conjunction' }).format(names);
+  }
+
+  /** The person chose whose changes stand where both changed the same thing. */
+  function choose(prefer: Prefer) {
+    if (entry === null) return;
+    take(entry, prefer, true);
+    toast(
+      prefer === 'mine'
+        ? { title: messages.editor.clashKept, description: messages.editor.clashKeptDescription }
+        : { title: messages.editor.clashTaken, description: messages.editor.clashTakenDescription },
+    );
+  }
 
   /** Shows why the server refused: on the fields when it named them, and always in a message. */
   function report(what: string, error: unknown) {
+    // Someone else saved first. Their version is on its way into the form: this is no fault of what was typed.
+    if (isConflict(error)) {
+      if (entry !== null) void refresh(entry.id).catch(() => undefined);
+      toast({ title: what, description: messages.editor.savedElsewhereFirst, tone: 'danger' });
+      return;
+    }
     const issues = error instanceof AdminRequestError ? error.issues : [];
     const aboutSlug = issues.find((issue) => issue.path[0] === SLUG_PATH);
     if (aboutSlug) setSlugProblem(aboutSlug.message);
@@ -215,6 +336,8 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   async function saved(): Promise<Entry> {
     if (entry === null) {
       const created = await create.mutateAsync({ type: type.key, slug, data });
+      revision.current = created.revision;
+      setBase(created);
       onCreated(created);
       return created;
     }
@@ -223,18 +346,31 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
     if (before !== null) {
       const kept = await before.done;
       if (kept !== null && before.data === data && before.slug === slug) return kept;
-    } else if (!hasChanges) return entry;
-    return keep(entry.id, slug, data);
+    } else if (!hasChanges && base !== null) return base;
+    try {
+      return await keep(entry.id, slug, held.current);
+    } catch (error) {
+      if (!isConflict(error)) throw error;
+      // Saved somewhere else first. The newer version is brought in, and the save made again after it:
+      // unless both changed the same thing, which is the person's to settle.
+      const newer = await refresh(entry.id);
+      if (clashesWith(newer).length > 0) throw CLASHED;
+      const merged = take(newer, 'mine', false);
+      return keep(entry.id, typedSlug ?? newer.slug, merged);
+    }
   }
 
   /** Sends the working version to the server, as a save after the last one this form made. */
   async function keep(id: string, slugNow: string, dataNow: EntryData): Promise<Entry> {
     const kept = await update.mutateAsync({ id, changes: { slug: slugNow, data: dataNow, expectedRevision: revision.current } });
-    revision.current = Math.max(revision.current, kept.revision);
+    revision.current = kept.revision;
+    setBase(kept);
     return kept;
   }
 
   async function run(action: 'save' | 'publish') {
+    // Nothing is saved over someone else's changes until the person has chosen.
+    if (clash !== null && isBehind) return setReviewing(true);
     if (!slugFits) {
       setSlugProblem(slug === '' ? messages.editor.slugMissing : isDeep ? messages.editor.slugPathInvalid : messages.editor.slugInvalid);
       return;
@@ -248,7 +384,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
       history.settle(current.data);
       setTypedSlug(null);
     } catch (error) {
-      report(messages.editor.notSaved, error);
+      if (error !== CLASHED) report(messages.editor.notSaved, error);
       setRunning(null);
       return;
     }
@@ -267,6 +403,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
 
   /** Saves what was typed, then shows the page as it would be in a new tab. */
   async function preview() {
+    if (clash !== null && isBehind) return setReviewing(true);
     if (!slugFits) {
       setSlugProblem(slug === '' ? messages.editor.slugMissing : isDeep ? messages.editor.slugPathInvalid : messages.editor.slugInvalid);
       return;
@@ -287,7 +424,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
       }
     } catch (error) {
       tab.close();
-      report(messages.editor.notSaved, error);
+      if (error !== CLASHED) report(messages.editor.notSaved, error);
     }
     setRunning(null);
   }
@@ -358,7 +495,9 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   const hasPage = hasOwnPages(type);
   // On a phone the bar keeps to what is pressed most: the rest is behind the one button.
   const isPhone = useNarrow();
+  const isClashing = clash !== null && isBehind;
   const more = [
+    ...(isPhone && isClashing ? [{ id: 'review', label: messages.editor.clashReview, icon: GitCompareArrows }] : []),
     ...(isPhone && hasPage ? [{ id: 'preview', label: messages.editor.preview, icon: Eye }] : []),
     ...(liveAddress !== null ? [{ id: 'view', label: messages.editor.viewOnSite, icon: ExternalLink }] : []),
     ...(entry?.status === 'published' ? [{ id: 'unpublish', label: messages.editor.unpublish, icon: EyeOff }] : []),
@@ -421,7 +560,9 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   const savedNote =
     entry === null
       ? messages.editor.notSavedYet
-      : hasChanges
+      : isClashing
+        ? messages.editor.changedElsewhere
+        : hasChanges
         ? autosaveFailed
           ? messages.editor.notAutosaved
           : messages.editor.unsavedChanges
@@ -439,15 +580,31 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   /** A card in the form's column beside the page, where there is room for one field per row. */
   const narrowCard = (section: (typeof sections)[number]) => card({ ...section, aside: true });
 
+  // People with this entry open, and agents that just worked on it: said beside its state, so nobody is surprised by the other.
+  const listed = (those: readonly { readonly name: string }[]) => new Intl.ListFormat(locale, { type: 'conjunction' }).format(those.map((one) => one.name));
+  const people = others.filter((one) => one.kind === 'user' && one.name !== '');
+  const agents = others.filter((one) => one.kind === 'agent' && one.name !== '');
   const heading = isSingle ? typeName : (title ?? (entry ? messages.contentList.untitled : messages.editor.newTitle));
   const status = (
     <>
       <Tag tone={STATE_TONE[state]}>{messages.status[state]}</Tag>
       {entry?.publishProblem !== undefined && <Tag tone="danger">{messages.editor.missedSchedule}</Tag>}
+      {/* While a question waits for the person, the bar keeps its room for that. */}
+      {!isClashing && people.length > 0 && (
+        <Tag tone="info" icon={Users}>
+          {messages.editor.alsoHere(listed(people), people.length)}
+        </Tag>
+      )}
+      {!isClashing && agents.length > 0 && (
+        <Tag tone="info" icon={Bot}>
+          {messages.editor.agentHere(listed(agents), agents.length)}
+        </Tag>
+      )}
     </>
   );
   const onMore = (id: string) => {
     if (id.startsWith('language:')) return onSwitch?.(id.slice('language:'.length));
+    if (id === 'review') return setReviewing(true);
     if (id === 'preview') return void preview();
     if (id === 'save') return void run('save');
     if (id === 'undo') return undo();
@@ -500,6 +657,11 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
           actions={languageMore}
           onAction={onMore}
         />
+      )}
+      {!isPhone && isClashing && (
+        <Button variant="secondary" icon={GitCompareArrows} onPress={() => setReviewing(true)}>
+          {messages.editor.clashReview}
+        </Button>
       )}
       {!isPhone && (
         <>
@@ -571,6 +733,11 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
                           icon={isFormAway ? PanelRightOpen : PanelRightClose}
                           onPress={() => setFormAway(!isFormAway)}
                         />
+                        {!isPhone && isClashing && (
+                          <Button variant="secondary" icon={GitCompareArrows} onPress={() => setReviewing(true)}>
+                            {messages.editor.clashReview}
+                          </Button>
+                        )}
                         {!isPhone && (
                           <>
                             <IconButton label={messages.editor.undo} icon={Undo2} isDisabled={isBusy || !history.canUndo} onPress={undo} />
@@ -700,6 +867,28 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
           onClose={() => setShowingHistory(false)}
         />
       )}
+      <Dialog
+        isOpen={isReviewing && isClashing}
+        onOpenChange={setReviewing}
+        title={messages.editor.clashTitle}
+        role="alertdialog"
+        footer={
+          <>
+            <Button variant="ghost" onPress={() => setReviewing(false)} autoFocus>
+              {messages.editor.clashLater}
+            </Button>
+            <Button variant="secondary" onPress={() => choose('theirs')}>
+              {messages.editor.clashTakeTheirs}
+            </Button>
+            <Button onPress={() => choose('mine')}>{messages.editor.clashKeepMine}</Button>
+          </>
+        }
+      >
+        <Stack gap={3}>
+          <Text>{messages.editor.clashDescription}</Text>
+          <Text>{messages.editor.clashFields(namesOf(clash ?? []))}</Text>
+        </Stack>
+      </Dialog>
       <ConfirmDialog
         isOpen={guard.isAsking}
         onOpenChange={(isOpen) => {
