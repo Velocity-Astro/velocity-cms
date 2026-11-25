@@ -56,7 +56,7 @@ export function ContactDeals({ contact }: { readonly contact: Contact }) {
       </Stack>
       {/* Made anew each time it opens, so it never shows what was typed last time. */}
       {open !== null && pipeline.data && (
-        <DealDialog {...(open !== 'new' && { deal: open })} contact={contact} pipeline={pipeline.data} team={team.data ?? []} onClose={() => setOpen(null)} />
+        <DealDialog {...(open !== 'new' && { deal: deals.data?.items.find((deal) => deal.id === open.id) ?? open })} contact={contact} pipeline={pipeline.data} team={team.data ?? []} onClose={() => setOpen(null)} />
       )}
     </Card>
   );

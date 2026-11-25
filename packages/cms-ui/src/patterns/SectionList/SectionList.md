@@ -18,6 +18,7 @@ Sections of different kinds in an order a person chooses. Each opens to show its
 - A section's heading is a button that opens and closes it. Closed, it shows the section's kind, a few of its words and, when something is wrong inside, what.
 - Each section has move up, move down and a menu of the actions it is given. The first cannot move up and the last cannot move down.
 - A section with a `tag`, such as "Hidden", is shown quieter, so it reads as not on the page.
+- A section with `presence` ("Ana Ruiz is here") says so beside its title, while someone else is working in it.
 - A section is dragged by its heading or the handle at its start, and a line shows where it would land. With the keyboard, Enter on the handle picks it up, Tab goes to another section, and Enter puts it down in that section's place; Escape puts it back. The up and down buttons do the same one step at a time.
 - With no sections it shows `emptyText`, never an empty frame.
 - `revealId` brings a section into view when it was chosen somewhere else, such as on the page beside the form.

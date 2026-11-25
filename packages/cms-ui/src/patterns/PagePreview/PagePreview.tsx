@@ -131,6 +131,11 @@ export interface PagePreviewProps extends PagePreviewVariants {
    * button at each of its edges that adds a section there. Left out, the page has none.
    */
   readonly tools?: PageSectionTools;
+  /**
+   * Who else is working in which section now: for a section's id, their names as words. The page
+   * outlines each such section and writes the words on it. Left out, or empty, nothing is shown.
+   */
+  readonly company?: Readonly<Record<string, string>>;
   /** Called when a button of `tools` is pressed on the page. The page changes nothing itself. */
   readonly onSectionAction?: (id: string, action: PageSectionAction) => void;
   /**
@@ -163,16 +168,17 @@ export interface PagePreviewProps extends PagePreviewVariants {
  * A page of the site as it would look with what is in a form now, in a frame. The page is drawn
  * by the site itself, so it looks exactly as it will; nothing of it is drawn here.
  */
-export function PagePreview({ label, address, draft, note, toolbar, action, emptyText, onSectionPress, onPartPress, shownSectionId, shownAt = 0, typable, onWords, tools, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onSectionSwatch, onSectionSlot, onTextLink, onUndo, onRedo, onSave, escapes = 0, isBare = false, width }: PagePreviewProps) {
+export function PagePreview({ label, address, draft, note, toolbar, action, emptyText, onSectionPress, onPartPress, shownSectionId, shownAt = 0, typable, onWords, tools, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onSectionSwatch, onSectionSlot, onTextLink, onUndo, onRedo, onSave, escapes = 0, isBare = false, width, company }: PagePreviewProps) {
   const name = `preview-${useId().replaceAll(':', '')}`;
   const form = useRef<HTMLFormElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const hasSent = useRef(false);
   const places = typable === undefined ? undefined : JSON.stringify(typable);
   const offered = tools === undefined ? undefined : JSON.stringify(tools);
-  const latest = useRef({ onSectionPress, onPartPress, shownSectionId, onWords, places, offered, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onSectionSwatch, onSectionSlot, onTextLink, onUndo, onRedo, onSave });
+  const together = company === undefined ? undefined : JSON.stringify(company);
+  const latest = useRef({ onSectionPress, onPartPress, shownSectionId, onWords, places, offered, together, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onSectionSwatch, onSectionSlot, onTextLink, onUndo, onRedo, onSave });
   useEffect(() => {
-    latest.current = { onSectionPress, onPartPress, shownSectionId, onWords, places, offered, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onSectionSwatch, onSectionSlot, onTextLink, onUndo, onRedo, onSave };
+    latest.current = { onSectionPress, onPartPress, shownSectionId, onWords, places, offered, together, onSectionAction, onSectionMove, onSectionPicture, onSectionLink, onSectionItem, onSectionSwatch, onSectionSlot, onTextLink, onUndo, onRedo, onSave };
   });
   // When words were last typed on the page, and whether the page lacks a change made in the form.
   const typedAt = useRef(0);
@@ -255,6 +261,8 @@ export function PagePreview({ label, address, draft, note, toolbar, action, empt
     if (said !== undefined) frame.current?.contentWindow?.postMessage({ source: SOURCE, type: 'typable', places: JSON.parse(said) as unknown }, window.location.origin);
   };
 
+  const accompany = (said: string | undefined) => said !== undefined && frame.current?.contentWindow?.postMessage({ source: SOURCE, type: 'company', sections: JSON.parse(said) as unknown }, window.location.origin);
+
   const offer = (said: string | undefined) => {
     if (said !== undefined) frame.current?.contentWindow?.postMessage({ source: SOURCE, type: 'tools', ...(JSON.parse(said) as object) }, window.location.origin);
   };
@@ -320,6 +328,7 @@ export function PagePreview({ label, address, draft, note, toolbar, action, empt
         zoom(scaleNow.current);
         tell(latest.current.places);
         offer(latest.current.offered);
+        accompany(latest.current.together);
         // Outlined again, and brought into view only on the first page or when the change that drew this one asked for it.
         show(latest.current.shownSectionId, hasDrawn.current && Math.abs(askedAt.current - changedAt.current) > TOGETHER);
         hasDrawn.current = true;
@@ -336,6 +345,7 @@ export function PagePreview({ label, address, draft, note, toolbar, action, empt
   }, [shownSectionId, shownAt]);
   useEffect(() => tell(places), [places]);
   useEffect(() => offer(offered), [offered]);
+  useEffect(() => void accompany(together), [together]);
 
   return (
     <div className={pagePreviewVariants({ isBare })}>

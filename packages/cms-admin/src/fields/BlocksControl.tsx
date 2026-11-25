@@ -491,6 +491,7 @@ export function BlocksControl({ field, label, help, value, onChange, path, probl
             icon: blockIcon(block?.icon),
             ...(summary !== undefined && { summary }),
             ...(isRetired ? { tag: messages.editor.sectionRetired } : hidden && { tag: messages.editor.sectionHidden }),
+            ...(focus?.company[section.id] !== undefined && { presence: focus.company[section.id] }),
             ...(found > 0 && { problem: messages.editor.sectionProblems(found) }),
             actions: [
               ...(isRetired

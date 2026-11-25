@@ -169,6 +169,15 @@ it('tells the page where words may be typed, when it is drawn and when that chan
   expect(post).toHaveBeenLastCalledWith({ source: 'velocity-cms', type: 'typable', places: { s1: ['title', 'items.0.text'] } }, window.location.origin);
 });
 
+it('tells the page who else is working in which section, when it is drawn and when that changes', () => {
+  const { rerender } = render(example({ company: { s1: 'Maya Ellison is here' } }));
+  const post = vi.spyOn(frame().contentWindow as Window, 'postMessage').mockImplementation(() => undefined);
+  say({ source: 'velocity-cms', type: 'ready' });
+  expect(post).toHaveBeenCalledWith({ source: 'velocity-cms', type: 'company', sections: { s1: 'Maya Ellison is here' } }, window.location.origin);
+  rerender(example({ company: {} }));
+  expect(post).toHaveBeenLastCalledWith({ source: 'velocity-cms', type: 'company', sections: {} }, window.location.origin);
+});
+
 it('says so when there is no page yet, and asks for nothing', () => {
   render(example({ address: undefined }));
   expect(screen.getByText('Save the page once to see it here.')).toBeTruthy();

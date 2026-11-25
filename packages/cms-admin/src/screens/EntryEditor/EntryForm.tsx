@@ -1,6 +1,6 @@
-import type { ContentTypeDef, Entry, EntryData, FieldDef } from '@velocity-astro/cms-core';
+import type { ContentTypeDef, Entry, EntryData, FieldDef, PresentOther } from '@velocity-astro/cms-core';
 import { HOME_SLUG, SLUG_PATH, hasOwnPages, isSlug, isSlugPath, liveFields, takesSlugPath } from '@velocity-astro/cms-core';
-import { Box, Button, Card, ConfirmDialog, Dialog, Form, IconButton, Menu, PageBody, SaveBar, Split, Stack, Tag, Text, TextField, Workbench, toast } from '@velocity-astro/cms-ui';
+import { Box, Button, Card, ConfirmDialog, Dialog, Fieldset, Form, Grid, IconButton, Menu, PageBody, SaveBar, Split, Stack, Tag, Text, TextField, Workbench, toast } from '@velocity-astro/cms-ui';
 import { Bot, CalendarClock, Copy, Ellipsis, ExternalLink, Eye, EyeOff, GitCompareArrows, History, Languages, Palette, PanelRightClose, PanelRightOpen, Redo2, Save, Trash2, Undo2, Users } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
@@ -13,6 +13,7 @@ import { FieldGrid, PageFocusProvider, useControlFor } from '../../fields/index.
 import { entryAddress, entryState, entryTitle, languageName, localized, sameData, withValue, type EntryState } from '../../lib/content.js';
 import { mergeEntryData, type Prefer } from '../../lib/merge-entry.js';
 import { openPreviewTab } from '../../lib/preview-tab.js';
+import { differingWords } from '../../lib/value-words.js';
 import { openSite } from '../../lib/open-site.js';
 import { relativeTime } from '../../lib/relative-time.js';
 import { slugify } from '../../lib/slug.js';
@@ -26,6 +27,7 @@ import { useLocale, useMessages } from '../../messages/messages-context.js';
 import { PluginBoundary } from '../../plugins/PluginBoundary.js';
 import { usePluginExtensions } from '../../plugins/plugin-editor.js';
 import { EntryDeals } from './EntryDeals.js';
+import { PageCompany } from './PageCompany.js';
 import { PagePane, PageWidths, type PageWidth } from './PagePane.js';
 import { SectionOutline } from './SectionOutline.js';
 import { SitePartCard, useSitePart, type PressedPart } from './SitePartCard.js';
@@ -48,6 +50,17 @@ const VIEW = 'view';
 const VISUAL = 'visual';
 /** How long after the last change the draft is saved by itself, in milliseconds. */
 export const AUTOSAVE_PAUSE_MS = 2500;
+/** The same while someone else has the entry open too: sooner, so each sees what the other typed as near as a save can bring it. */
+export const AUTOSAVE_TOGETHER_MS = 1000;
+/** How long the same news of someone else's saves (the same person, the same fields) is not said again, in milliseconds. */
+const SAME_NEWS_MS = 20_000;
+/** How long a newer version waits to be brought in for word of who saved it, in milliseconds. */
+const NAME_WAIT_MS = 1500;
+/** Where in an entry someone is, as presence says it: a field's id (`_` when it is not known), then a section's. */
+const placeOf = (at: string | undefined) => {
+  const [field, section] = at?.split('/') ?? [];
+  return { field: field === undefined || field === '_' ? undefined : field, section };
+};
 
 export interface EntryFormProps {
   readonly type: ContentTypeDef;
@@ -83,7 +96,16 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   const previewLink = usePreviewEntry();
   const session = useSession();
   // Who else is at this entry now. Asking is also how its form hears that it was saved somewhere else.
-  const others = useEntryPresence(entry?.id ?? null);
+  // Where this person is in the entry: the field their focus is in, and the section they last turned to.
+  const place = useRef<{ field?: string; section?: string }>({});
+  const company = useEntryPresence(entry?.id ?? null, () => {
+    const { field, section } = place.current;
+    const at = field === undefined && section === undefined ? undefined : `${field ?? '_'}${section !== undefined ? `/${section}` : ''}`;
+    return { revision: revision.current, ...(at !== undefined && { at }) };
+  });
+  const others = company.others;
+  // Another person has it open now: the two work together, so each save follows the typing sooner.
+  const isTogether = others.some((one) => one.kind === 'user');
   const refresh = useRefreshEntry();
   const wrote = useWroteEntry();
 
@@ -218,13 +240,16 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
         autosave.current = null;
         setAutosaveTurn((turn) => turn + 1);
       });
-    }, AUTOSAVE_PAUSE_MS);
+    }, isTogether ? AUTOSAVE_TOGETHER_MS : AUTOSAVE_PAUSE_MS);
     return () => clearTimeout(waiting);
     // `keep` and the entry are read as they are when the pause ends.
-  }, [data, slug, hasChanges, running, slugFits, entry?.id, autosaveTurn, isBehind]);
+  }, [data, slug, hasChanges, running, slugFits, entry?.id, autosaveTurn, isBehind, isTogether]);
 
+  // The revision whose saver was waited for long enough: it is brought in without a name.
+  const [waitedFor, setWaitedFor] = useState(0);
   /** Takes a newer version as the one the form's values come from, with what the form should now hold. */
   const said = useRef<(() => void) | null>(null);
+  const saidOf = useRef<{ readonly news: string; readonly at: number } | null>(null);
   const asked = useRef<(() => void) | null>(null);
   function take(newer: Entry, prefer: Prefer, isOurs: boolean): EntryData {
     if (base === null) return held.current;
@@ -245,11 +270,25 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
     setAutosaveFailed(false);
     // What is held now is new to the server, even when it was tried before.
     autosaved.current = null;
-    if (!isOurs && cameIn) {
+    const saver = company.savedBy[0];
+    const changed = [...type.fields.filter((field) => !sameData(from[field.id], newer.data[field.id])).map((field) => field.id), ...(newer.slug !== base.slug ? [SLUG_PATH] : [])];
+    // Someone working beside this person saves every second or so while they type: the same news
+    // (the same person, the same fields) is said once, not with every save.
+    const news = `${saver?.id ?? ''}:${changed.join()}`;
+    const isOld = saidOf.current?.news === news && Date.now() - saidOf.current.at < SAME_NEWS_MS;
+    if (!isOurs && cameIn) saidOf.current = { news, at: Date.now() };
+    if (!isOurs && cameIn && !isOld) {
       // One message at a time, however many saves an agent makes.
       said.current?.();
       said.current = toast({
-        title: messages.editor.updatedElsewhere,
+        title:
+          saver?.id === me
+            ? changed.length > 0
+              ? messages.editor.changedByYou(namesOf(changed))
+              : messages.editor.updatedByYou
+            : changed.length > 0
+              ? messages.editor.changedBy(whoIs(saver), namesOf(changed))
+              : messages.editor.updatedBy(whoIs(saver)),
         description: sameData(merged, newer.data) ? messages.editor.updatedElsewhereDescription : messages.editor.updatedElsewhereKeptDescription,
       });
     }
@@ -287,6 +326,12 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
     }
     // A save of this form is on its way and will be refused: looked at again once it is back.
     if (running !== null || autosave.current !== null) return;
+    // Who saved it is asked for at the same time and may be a moment behind: waited for, briefly, so they can be named.
+    if (company.revision < entry.revision && waitedFor !== entry.revision) {
+      company.ask();
+      const waiting = setTimeout(() => setWaitedFor(entry.revision), NAME_WAIT_MS);
+      return () => clearTimeout(waiting);
+    }
     const clashes = clashesWith(entry);
     if (clashes.length === 0) return void take(entry, 'mine', false);
     if (clash === null) {
@@ -294,7 +339,15 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
     }
     if (clash === null || clash.join() !== clashes.join()) setClash(clashes);
     // `take` and what is held are read as they are when the newer version arrives.
-  }, [entry, base, running, autosaveTurn]);
+  }, [entry, base, running, autosaveTurn, company.revision, waitedFor]);
+
+  /** Someone else, as the form calls them: by name, as somebody's agent, or as someone when nobody can say. */
+  const me = session.data?.id;
+  function whoIs(one: PresentOther | undefined): string {
+    if (one === undefined) return messages.editor.someone;
+    if (one.of !== undefined) return one.of === me ? messages.editor.yourAgent : messages.editor.agentOf(one.name);
+    return one.name === '' ? messages.editor.someone : one.name;
+  }
 
   /** The fields by the names the form shows them under. */
   function namesOf(fields: readonly string[]): string {
@@ -573,7 +626,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   const card = (section: (typeof sections)[number]) => (
     <Card key={section.key} {...(section.title !== undefined && { title: section.title })}>
       {/* Beside the content there is room for one field per row. */}
-      <FieldGrid fields={section.fields} values={data} onChange={changeField} pathOf={(field) => field.key} problems={problems} {...(section.aside && { perRow: 1 as const })} />
+      <FieldGrid fields={section.fields} values={data} onChange={changeField} pathOf={(field) => field.key} problems={problems} company={fieldCompany} {...(section.aside && { perRow: 1 as const })} />
     </Card>
   );
 
@@ -583,7 +636,22 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
   // People with this entry open, and agents that just worked on it: said beside its state, so nobody is surprised by the other.
   const listed = (those: readonly { readonly name: string }[]) => new Intl.ListFormat(locale, { type: 'conjunction' }).format(those.map((one) => one.name));
   const people = others.filter((one) => one.kind === 'user' && one.name !== '');
-  const agents = others.filter((one) => one.kind === 'agent' && one.name !== '');
+  const agents = others.filter((one) => one.kind === 'agent' && one.name !== '').map((one) => ({ name: whoIs(one) }));
+  // Where each of them is: at a field of the entry, or in a section of its page. Beside a page, a
+  // section says so on its own row and on the page; without one, the field that holds the sections does.
+  const hereAt = (pick: (where: ReturnType<typeof placeOf>) => string | undefined) => {
+    const byPlace = new Map<string, { name: string }[]>();
+    for (const one of people) {
+      const at = pick(placeOf(one.at));
+      if (at !== undefined) byPlace.set(at, [...(byPlace.get(at) ?? []), one]);
+    }
+    return Object.fromEntries([...byPlace].map(([at, those]) => [at, messages.editor.hereAt(listed(those), those.length)]));
+  };
+  const fieldCompany = {
+    labels: hereAt((where) => (where.section === undefined || !showsPage ? where.field : undefined)), // Coming from another field leaves the section behind; a section opened by the press that brought the focus here is kept.
+    onEnter: (field: string) => (place.current = place.current.field === undefined || place.current.field === field ? { ...place.current, field } : { field }),
+  };
+  const sectionCompany = hereAt((where) => where.section);
   const heading = isSingle ? typeName : (title ?? (entry ? messages.contentList.untitled : messages.editor.newTitle));
   const status = (
     <>
@@ -707,6 +775,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
           {showsPage ? (
             // The page is beside the form, so everything else is in the form's one column.
             <PageFocusProvider>
+              <PageCompany company={sectionCompany} onSection={(section) => (place.current = { ...place.current, section })} />
               <Workbench
                 paneLabel={messages.editor.pagePane}
                 view={isVisual ? 'whole' : 'beside'}
@@ -875,18 +944,46 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
         footer={
           <>
             <Button variant="ghost" onPress={() => setReviewing(false)} autoFocus>
-              {messages.editor.clashLater}
+              {isPhone ? messages.editor.clashLaterShort : messages.editor.clashLater}
             </Button>
             <Button variant="secondary" onPress={() => choose('theirs')}>
-              {messages.editor.clashTakeTheirs}
+              {isPhone ? messages.editor.clashTakeTheirsShort : messages.editor.clashTakeTheirs}
             </Button>
             <Button onPress={() => choose('mine')}>{messages.editor.clashKeepMine}</Button>
           </>
         }
       >
-        <Stack gap={3}>
+        <Stack gap={4}>
           <Text>{messages.editor.clashDescription}</Text>
+          {company.savedBy[0] !== undefined && <Text>{company.savedBy[0].id === me ? messages.editor.clashByYou : messages.editor.clashBy(whoIs(company.savedBy[0]))}</Text>}
           <Text>{messages.editor.clashFields(namesOf(clash ?? []))}</Text>
+          {/* Both versions of each, side by side, by the words that tell them apart. */}
+          {(clash ?? []).map((id) => {
+            const mine = id === SLUG_PATH ? slug : data[id];
+            const theirs = id === SLUG_PATH ? entry?.slug : entry?.data[id];
+            const said = (one: unknown, other: unknown) => {
+              const words = differingWords(one, other);
+              return words !== '' ? words : one === undefined || one === '' ? messages.editor.clashNothing : messages.editor.clashNoWords;
+            };
+            return (
+              <Fieldset key={id} legend={messages.editor.clashCompare(namesOf([id]))}>
+                <Grid columns={2} gap={4}>
+                  <Stack gap={1}>
+                    <Text size="sm" tone="muted">
+                      {messages.editor.clashMine}
+                    </Text>
+                    <Text>{said(mine, theirs)}</Text>
+                  </Stack>
+                  <Stack gap={1}>
+                    <Text size="sm" tone="muted">
+                      {messages.editor.clashTheirs}
+                    </Text>
+                    <Text>{said(theirs, mine)}</Text>
+                  </Stack>
+                </Grid>
+              </Fieldset>
+            );
+          })}
         </Stack>
       </Dialog>
       <ConfirmDialog

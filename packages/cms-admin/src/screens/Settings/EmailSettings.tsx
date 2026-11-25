@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { AdminRequestError } from '../../client/errors.js';
 import { useEmailSettings, useSaveEmailSettings, useSendTestEmail, useSession } from '../../client/queries.js';
+import { isConflict, useDraft } from '../../lib/use-draft.js';
 import { useMessages } from '../../messages/messages-context.js';
 
 const NO_PROBLEMS: Readonly<Record<string, string>> = {};
@@ -33,11 +34,14 @@ function EmailCard({ settings }: { readonly settings: EmailSettings }) {
   const session = useSession();
   const save = useSaveEmailSettings();
   const test = useSendTestEmail();
-  const [provider, setProvider] = useState<EmailProvider>(settings.provider);
   const kept = partsOf(settings.from);
   const keptName = settings.senderName !== '' ? settings.senderName : kept.name;
-  const [from, setFrom] = useState(kept.address);
-  const [senderName, setSenderName] = useState(keptName);
+  // Only what is typed here is held, so what another owner saved meanwhile is shown and never saved over unseen.
+  const draft = useDraft<{ provider: EmailProvider; from: string; senderName: string }>({ provider: settings.provider, from: kept.address, senderName: keptName });
+  const { provider, from, senderName } = draft.values;
+  const setProvider = (next: EmailProvider) => draft.set('provider', next);
+  const setFrom = (next: string) => draft.set('from', next);
+  const setSenderName = (next: string) => draft.set('senderName', next);
   const [key, setKey] = useState('');
   const [replacing, setReplacing] = useState(false);
   const [stopping, setStopping] = useState(false);
@@ -56,14 +60,13 @@ function EmailCard({ settings }: { readonly settings: EmailSettings }) {
           // What was typed is not kept on the screen once it is saved.
           setKey('');
           setReplacing(false);
-          setFrom(partsOf(saved.from).address);
-          setSenderName(saved.senderName);
+          draft.settle();
           toast({ title: words.saved, ...(saved.sending && !settings.sending && { description: words.savedDescription }), tone: 'success' });
         },
         onError: (error) => {
           const issues = error instanceof AdminRequestError ? error.issues : [];
           setProblems(Object.fromEntries(issues.map((issue) => [String(issue.path[0] ?? 'from'), issue.message])));
-          toast({ title: words.notSaved, description: messageOf(error), tone: 'danger' });
+          toast({ title: words.notSaved, description: isConflict(error) ? messages.app.savedElsewhere : messageOf(error), tone: 'danger' });
         },
       },
     );
@@ -84,7 +87,7 @@ function EmailCard({ settings }: { readonly settings: EmailSettings }) {
           setReplacing(false);
           toast({ title: words.stopped, description: words.stoppedDescription, tone: 'success' });
         },
-        onError: (error) => toast({ title: words.notSaved, description: messageOf(error), tone: 'danger' }),
+        onError: (error) => toast({ title: words.notSaved, description: isConflict(error) ? messages.app.savedElsewhere : messageOf(error), tone: 'danger' }),
         onSettled: () => setStopping(false),
       },
     );
@@ -102,14 +105,14 @@ function EmailCard({ settings }: { readonly settings: EmailSettings }) {
     save.mutate(
       { senderName, expectedRevision: settings.revision },
       {
-        onSuccess: (saved) => {
-          setSenderName(saved.senderName);
+        onSuccess: () => {
+          draft.settle();
           toast({ title: words.saved, tone: 'success' });
         },
         onError: (error) => {
           const issues = error instanceof AdminRequestError ? error.issues : [];
           setProblems(Object.fromEntries(issues.map((issue) => [String(issue.path[0] ?? 'senderName'), issue.message])));
-          toast({ title: words.notSaved, description: messageOf(error), tone: 'danger' });
+          toast({ title: words.notSaved, description: isConflict(error) ? messages.app.savedElsewhere : messageOf(error), tone: 'danger' });
         },
       },
     );

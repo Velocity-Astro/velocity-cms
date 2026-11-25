@@ -123,7 +123,8 @@ function DealBoard({ pipeline }: { readonly pipeline: Pipeline }) {
           );
         }}
       />
-      {open && <DealDialog deal={open} contact={{ id: open.contactId }} pipeline={pipeline} team={team.data ?? []} onClose={() => setOpen(null)} />}
+      {/* The deal as it is now, so what someone else saved while its window is open is in it. */}
+      {open && <DealDialog deal={byId.get(open.id) ?? open} contact={{ id: open.contactId }} pipeline={pipeline} team={team.data ?? []} onClose={() => setOpen(null)} />}
     </>
   );
 }

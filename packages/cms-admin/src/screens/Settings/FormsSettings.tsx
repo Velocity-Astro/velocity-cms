@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { AdminRequestError } from '../../client/errors.js';
 import { useFormsSettings, useSaveFormsSettings, useTestFormsSettings } from '../../client/queries.js';
+import { isConflict, useDraft } from '../../lib/use-draft.js';
 import { useMessages } from '../../messages/messages-context.js';
 
 const NO_PROBLEMS: Readonly<Record<string, string>> = {};
@@ -32,8 +33,11 @@ function ChallengeCard({ settings }: { readonly settings: FormsSettings }) {
   const words = messages.settings.forms;
   const save = useSaveFormsSettings();
   const test = useTestFormsSettings();
-  const [provider, setProvider] = useState<ChallengeProvider>(settings.provider);
-  const [siteKey, setSiteKey] = useState(settings.siteKey);
+  // Only what is typed here is held, so what another owner saved meanwhile is shown and never saved over unseen.
+  const draft = useDraft<{ provider: ChallengeProvider; siteKey: string }>({ provider: settings.provider, siteKey: settings.siteKey });
+  const { provider, siteKey } = draft.values;
+  const setProvider = (next: ChallengeProvider) => draft.set('provider', next);
+  const setSiteKey = (next: string) => draft.set('siteKey', next);
   const [secret, setSecret] = useState('');
   const [replacing, setReplacing] = useState(false);
   const [stopping, setStopping] = useState(false);
@@ -54,13 +58,12 @@ function ChallengeCard({ settings }: { readonly settings: FormsSettings }) {
           // What was typed is not kept on the screen once it is saved.
           setSecret('');
           setReplacing(false);
-          setSiteKey(saved.siteKey);
-          setProvider(saved.provider);
+          draft.settle();
           toast({ title: words.saved, ...(saved.checking && { description: words.savedDescription[saved.provider] }), tone: 'success' });
         },
         onError: (error) => {
           setProblems(problemsOf(error));
-          toast({ title: words.notSaved, description: messageOf(error), tone: 'danger' });
+          toast({ title: words.notSaved, description: isConflict(error) ? messages.app.savedElsewhere : messageOf(error), tone: 'danger' });
         },
       },
     );
@@ -77,13 +80,12 @@ function ChallengeCard({ settings }: { readonly settings: FormsSettings }) {
       { siteKey: '', secretKey: null, postsPerAddress: settings.postsPerAddress, expectedRevision: settings.revision },
       {
         onSuccess: () => {
-          setSiteKey('');
-          setProvider(settings.provider);
+          draft.settle();
           setSecret('');
           setReplacing(false);
           toast({ title: words.stopped, description: words.stoppedDescription, tone: 'success' });
         },
-        onError: (error) => toast({ title: words.notSaved, description: messageOf(error), tone: 'danger' }),
+        onError: (error) => toast({ title: words.notSaved, description: isConflict(error) ? messages.app.savedElsewhere : messageOf(error), tone: 'danger' }),
         onSettled: () => setStopping(false),
       },
     );
@@ -167,9 +169,12 @@ function ChallengeCard({ settings }: { readonly settings: FormsSettings }) {
 }
 
 function LimitCard({ settings }: { readonly settings: FormsSettings }) {
-  const words = useMessages().settings.forms;
+  const messages = useMessages();
+  const words = messages.settings.forms;
   const save = useSaveFormsSettings();
-  const [limit, setLimit] = useState<number | null>(settings.postsPerAddress);
+  const draft = useDraft<{ limit: number | null }>({ limit: settings.postsPerAddress });
+  const limit = draft.values.limit;
+  const setLimit = (next: number | null) => draft.set('limit', next);
   const [problem, setProblem] = useState<string | undefined>(undefined);
 
   const send = () => {
@@ -179,12 +184,12 @@ function LimitCard({ settings }: { readonly settings: FormsSettings }) {
       { siteKey: settings.siteKey, postsPerAddress: limit ?? 0, expectedRevision: settings.revision },
       {
         onSuccess: (saved) => {
-          setLimit(saved.postsPerAddress);
+          draft.settle();
           toast({ title: words.limitSaved, description: words.limitSavedDescription(saved.postsPerAddress), tone: 'success' });
         },
         onError: (error) => {
           setProblem(problemsOf(error)['postsPerAddress']);
-          toast({ title: words.limitNotSaved, description: messageOf(error), tone: 'danger' });
+          toast({ title: words.limitNotSaved, description: isConflict(error) ? messages.app.savedElsewhere : messageOf(error), tone: 'danger' });
         },
       },
     );

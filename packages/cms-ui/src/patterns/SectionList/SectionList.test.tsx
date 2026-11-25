@@ -79,6 +79,14 @@ it('marks a section in an unusual state, and says what is wrong inside a closed 
   expect(screen.getByText('Title: fill this in before publishing.')).toBeTruthy();
 });
 
+it('says who else is working in a section, beside its title', () => {
+  const all = props();
+  const [first, ...rest] = all.items;
+  if (!first) throw new Error('A section was expected.');
+  render(<SectionList {...all} items={[{ ...first, presence: 'Ana Ruiz is here' }, ...rest]} />);
+  expect(screen.getAllByRole('button').some((button) => button.textContent.includes('Ana Ruiz is here'))).toBe(true);
+});
+
 it('says so when it is empty, shows what is wrong, adds, and stops adding when full', async () => {
   const user = userEvent.setup();
   const all = props({ items: [], errorMessage: 'Add at least one section.' });

@@ -1,11 +1,13 @@
-import type { Deal, DealSubject, Pipeline, TeamMember } from '@velocity-astro/cms-core';
+import type { Deal, Pipeline, TeamMember } from '@velocity-astro/cms-core';
 import { Button, DateField, Dialog, Form, Grid, NumberField, Select, TextField, toast } from '@velocity-astro/cms-ui';
 import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { AdminRequestError } from '../../client/errors.js';
 import { useCreateDeal, useDeleteDeal, useUpdateDeal } from '../../client/queries.js';
 import { CustomValueFields, useCustomValues } from '../../fields/custom-values.js';
+import { ChangedElsewhere } from '../../app/ChangedElsewhere.js';
 import { useClosing } from '../../lib/use-closing.js';
+import { isConflict, useDraft } from '../../lib/use-draft.js';
 import { useMessages } from '../../messages/messages-context.js';
 import { useStageName } from '../Contacts/pipeline.js';
 import { DealSubjectFields, useDealSubjects } from './deal-subject.js';
@@ -32,13 +34,17 @@ export function DealDialog({ deal, contact, pipeline, team, onClose }: DealDialo
   const create = useCreateDeal();
   const update = useUpdateDeal();
   const remove = useDeleteDeal();
-  const [title, setTitle] = useState(deal?.title ?? '');
-  const [about, setAbout] = useState<DealSubject | undefined>(deal?.about);
+  // Only what is changed here is held: the rest is the deal as it is now, so what someone else saved meanwhile is kept.
+  const draft = useDraft({
+    title: deal?.title ?? '',
+    about: deal?.about,
+    value: deal?.value ?? null,
+    stage: deal?.stage ?? pipeline.stages[0]?.id ?? '',
+    owner: deal ? (deal.ownerId ?? NOBODY) : (contact.ownerId ?? NOBODY),
+    closeOn: deal?.closeOn ?? null,
+  });
+  const { title, about, value, stage, owner, closeOn } = draft.values;
   const subjects = useDealSubjects();
-  const [value, setValue] = useState<number | null>(deal?.value ?? null);
-  const [stage, setStage] = useState(deal?.stage ?? pipeline.stages[0]?.id ?? '');
-  const [owner, setOwner] = useState(deal ? (deal.ownerId ?? NOBODY) : (contact.ownerId ?? NOBODY));
-  const [closeOn, setCloseOn] = useState<string | null>(deal?.closeOn ?? null);
   const [problems, setProblems] = useState(NO_PROBLEMS);
   const custom = useCustomValues('deal', deal?.data);
   const currency = pipeline.currency ?? 'USD';
@@ -47,15 +53,30 @@ export function DealDialog({ deal, contact, pipeline, team, onClose }: DealDialo
     // What was typed stays; each problem goes to the field it names.
     if (error instanceof AdminRequestError) setProblems(Object.fromEntries(error.issues.map((issue) => [String(issue.path[0]), issue.message])));
     custom.refused(error);
-    toast({ title: messages.deals.notSaved, description: messageOf(error), tone: 'danger' });
+    toast({ title: messages.deals.notSaved, description: isConflict(error) ? messages.app.savedElsewhere : messageOf(error), tone: 'danger' });
   };
+  const { changed } = draft;
+  const named = { title: messages.deals.name, about: messages.deals.about, value: messages.deals.value(currency), stage: messages.deals.stage, owner: messages.deals.owner, closeOn: messages.deals.closeOn };
   const send = () => {
     if (title.trim() === '') return setProblems({ title: messages.deals.nameNeeded });
     setProblems(NO_PROBLEMS);
     const worth = value ?? 0;
     if (deal) {
       update.mutate(
-        { id: deal.id, changes: { title, about: about ?? null, value: worth, stage, ownerId: owner === NOBODY ? null : owner, closeOn, ...custom.toSend(), expectedRevision: deal.revision } },
+        {
+          id: deal.id,
+          // Only what was changed here: a field someone else changed meanwhile is not put back as it was.
+          changes: {
+            ...('title' in changed && { title }),
+            ...('about' in changed && { about: about ?? null }),
+            ...('value' in changed && { value: worth }),
+            ...('stage' in changed && { stage }),
+            ...('owner' in changed && { ownerId: owner === NOBODY ? null : owner }),
+            ...('closeOn' in changed && { closeOn }),
+            ...custom.toSend(),
+            expectedRevision: deal.revision,
+          },
+        },
         {
           onSuccess: (saved) => {
             toast({ title: messages.deals.saved(saved.title), tone: 'success' });
@@ -124,7 +145,7 @@ export function DealDialog({ deal, contact, pipeline, team, onClose }: DealDialo
           label={messages.deals.name}
           placeholder={messages.deals.namePlaceholder}
           value={title}
-          onChange={setTitle}
+          onChange={(next) => draft.set('title', next)}
           isRequired
           autoFocus
           autoComplete="off"
@@ -135,24 +156,25 @@ export function DealDialog({ deal, contact, pipeline, team, onClose }: DealDialo
           about={about}
           problem={problems['about']}
           onChange={(next, name) => {
-            setAbout(next);
+            draft.set('about', next);
             // A deal with no words of its own yet is called by what it is about.
-            if (name !== undefined && title.trim() === '') setTitle(name);
+            if (name !== undefined && title.trim() === '') draft.set('title', name);
           }}
         />
         <Grid columns={2} gap={3}>
-          <NumberField label={messages.deals.value(currency)} value={value} onChange={setValue} minValue={0} isInteger {...(problems['value'] !== undefined && { errorMessage: problems['value'] })} />
+          <NumberField label={messages.deals.value(currency)} value={value} onChange={(next) => draft.set('value', next)} minValue={0} isInteger {...(problems['value'] !== undefined && { errorMessage: problems['value'] })} />
           <Select
             label={messages.deals.stage}
             options={pipeline.stages.map((candidate) => ({ id: candidate.id, label: stageName(candidate) }))}
             value={stage}
-            onChange={setStage}
+            onChange={(next) => draft.set('stage', next)}
             {...(problems['stage'] !== undefined && { errorMessage: problems['stage'] })}
           />
-          <Select label={messages.deals.owner} options={owners} value={owner} onChange={setOwner} {...(problems['ownerId'] !== undefined && { errorMessage: problems['ownerId'] })} />
-          <DateField label={messages.deals.closeOn} value={closeOn} onChange={setCloseOn} {...(problems['closeOn'] !== undefined && { errorMessage: problems['closeOn'] })} />
+          <Select label={messages.deals.owner} options={owners} value={owner} onChange={(next) => draft.set('owner', next)} {...(problems['ownerId'] !== undefined && { errorMessage: problems['ownerId'] })} />
+          <DateField label={messages.deals.closeOn} value={closeOn} onChange={(next) => draft.set('closeOn', next)} {...(problems['closeOn'] !== undefined && { errorMessage: problems['closeOn'] })} />
         </Grid>
         <CustomValueFields custom={custom} />
+        <ChangedElsewhere names={draft.clashes.map((key) => named[key])} />
       </Form>
     </Dialog>
   );

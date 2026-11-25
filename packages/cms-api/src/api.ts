@@ -252,7 +252,8 @@ const dealChanges = z.strictObject({
 });
 const newNote = z.strictObject({ text: z.string() });
 /** A request that says everything in its address. */
-const noBody = z.strictObject({});
+/** What an open editor says of itself: where its person is, and the revision its form holds. */
+const presenceRequest = z.strictObject({ at: z.string().max(200).optional(), revision: z.number().int().min(0).optional() });
 const scheduleRequest = z.strictObject({ at: z.string().max(40), expectedRevision: z.number().int().positive() });
 const revertRequest = z.strictObject({ revision: z.number().int().positive(), expectedRevision: z.number().int().positive() });
 const publishRequest = z.strictObject({ expectedRevision: z.number().int().positive() });
@@ -388,8 +389,8 @@ export class CmsApi {
       // An open editor says it is still there, every few seconds, and learns who else is and whether the entry moved on.
       .add('POST', '/entries/:id/presence', async (call) => {
         const who = actor(call);
-        parse(noBody, await this.#body(call.request));
-        return json(await presence.here(who, param(call, 'id'), call.session?.user.name ?? ''));
+        const said = parse(presenceRequest, await this.#body(call.request));
+        return json(await presence.here(who, param(call, 'id'), call.session?.user.name ?? '', { ...(said.at !== undefined && { at: said.at }), ...(said.revision !== undefined && { revision: said.revision }) }));
       })
       .add('POST', '/entries/:id/unpublish', async (call) => json(await content.unpublish(actor(call), param(call, 'id'))))
       .add('DELETE', '/entries/:id', async (call) => json(await content.trash(actor(call), param(call, 'id'))))

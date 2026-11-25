@@ -57,7 +57,7 @@ function DealsAbout({ typeId, entry }: { readonly typeId: string; readonly entry
         <Table label={messages.deals.entryDeals} columns={columns} rows={rows} onRowAction={(id) => setOpen(deals.data.items.find((deal) => deal.id === id) ?? null)} />
       )}
       {/* Made anew each time it opens, so it never shows what was typed last time. */}
-      {open !== null && pipeline.data && <DealDialog deal={open} contact={{ id: open.contactId }} pipeline={pipeline.data} team={team.data ?? []} onClose={() => setOpen(null)} />}
+      {open !== null && pipeline.data && <DealDialog deal={deals.data?.items.find((deal) => deal.id === open.id) ?? open} contact={{ id: open.contactId }} pipeline={pipeline.data} team={team.data ?? []} onClose={() => setOpen(null)} />}
     </Card>
   );
 }

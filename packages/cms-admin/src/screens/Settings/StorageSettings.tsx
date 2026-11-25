@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
 import { AdminRequestError } from '../../client/errors.js';
 import { useSaveStorageSettings, useStorageSettings, useTestStorage } from '../../client/queries.js';
+import { isConflict, useDraft } from '../../lib/use-draft.js';
 import { useMessages } from '../../messages/messages-context.js';
 
 const NO_PROBLEMS: Readonly<Record<string, string>> = {};
@@ -25,10 +26,13 @@ function StorageCard({ settings }: { readonly settings: StorageSettings }) {
   const words = messages.settings.storage;
   const save = useSaveStorageSettings();
   const test = useTestStorage();
-  const [endpoint, setEndpoint] = useState(settings.endpoint);
-  const [bucket, setBucket] = useState(settings.bucket);
-  const [region, setRegion] = useState(settings.region);
-  const [accessKeyId, setAccessKeyId] = useState(settings.accessKeyId);
+  // Only what is typed here is held, so what another owner saved meanwhile is shown and never saved over unseen.
+  const draft = useDraft({ endpoint: settings.endpoint, bucket: settings.bucket, region: settings.region, accessKeyId: settings.accessKeyId });
+  const { endpoint, bucket, region, accessKeyId } = draft.values;
+  const setEndpoint = (next: string) => draft.set('endpoint', next);
+  const setBucket = (next: string) => draft.set('bucket', next);
+  const setRegion = (next: string) => draft.set('region', next);
+  const setAccessKeyId = (next: string) => draft.set('accessKeyId', next);
   const [secret, setSecret] = useState('');
   const [replacing, setReplacing] = useState(false);
   const [stopping, setStopping] = useState(false);
@@ -52,16 +56,13 @@ function StorageCard({ settings }: { readonly settings: StorageSettings }) {
           // What was typed is not kept on the screen once it is saved.
           setSecret('');
           setReplacing(false);
-          setEndpoint(saved.endpoint);
-          setBucket(saved.bucket);
-          setRegion(saved.region);
-          setAccessKeyId(saved.accessKeyId);
+          draft.settle();
           toast({ title: words.saved, ...(saved.hasSecret && { description: words.savedDescription }), tone: 'success' });
         },
         onError: (error) => {
           const issues = error instanceof AdminRequestError ? error.issues : [];
           setProblems(Object.fromEntries(issues.map((issue) => [String(issue.path[0] ?? 'endpoint'), issue.message])));
-          toast({ title: words.notSaved, description: messageOf(error), tone: 'danger' });
+          toast({ title: words.notSaved, description: isConflict(error) ? messages.app.savedElsewhere : messageOf(error), tone: 'danger' });
         },
       },
     );
@@ -82,7 +83,7 @@ function StorageCard({ settings }: { readonly settings: StorageSettings }) {
           setReplacing(false);
           toast({ title: words.stopped, description: words.stoppedDescription, tone: 'success' });
         },
-        onError: (error) => toast({ title: words.notSaved, description: messageOf(error), tone: 'danger' }),
+        onError: (error) => toast({ title: words.notSaved, description: isConflict(error) ? messages.app.savedElsewhere : messageOf(error), tone: 'danger' }),
         onSettled: () => setStopping(false),
       },
     );

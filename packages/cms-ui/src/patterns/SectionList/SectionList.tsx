@@ -41,6 +41,8 @@ export interface SectionListItem {
   readonly icon?: LucideIcon;
   /** A word beside the title for a section in an unusual state: "Hidden". It is also shown quieter. */
   readonly tag?: string;
+  /** Who else is working in the section now, as words: "Ana Ruiz". Shown beside the title. */
+  readonly presence?: string;
   /** What is wrong inside the section, shown while it is closed too. */
   readonly problem?: string;
   /** The section's own fields, shown when it is open. */
@@ -160,7 +162,7 @@ interface SectionRowProps extends Pick<SectionListProps, 'onOpenChange' | 'onMov
 
 /** One section: it is dragged by its heading, and takes a section dropped on it before or after itself. */
 function SectionRow({ item, index, ids, isOpen, onOpenChange, onMove, onAction, moveUpLabel, moveDownLabel, moreLabel, dragLabel }: SectionRowProps) {
-  const { id, title, summary, icon: Icon, tag, problem, content, actions } = item;
+  const { id, title, summary, icon: Icon, tag, presence, problem, content, actions } = item;
   const row = useRef<HTMLLIElement>(null);
   // Where a section held over this one would land. With the keyboard there is no "where": it takes this one's place.
   const [landing, setLanding] = useState<'before' | 'after' | 'here' | null>(null);
@@ -208,10 +210,11 @@ function SectionRow({ item, index, ids, isOpen, onOpenChange, onMove, onAction, 
               )}
               <span className={sectionTextClass}>
                 <span className={sectionTitleVariants({ tone })}>{title}</span>
-                {(tag !== undefined || summary !== undefined) && (
+                {(tag !== undefined || summary !== undefined || presence !== undefined) && (
                   <span className={sectionDetailClass}>
                     {summary !== undefined && <span className={sectionSummaryClass}>{summary}</span>}
                     {tag !== undefined && <Tag>{tag}</Tag>}
+                    {presence !== undefined && <Tag tone="info">{presence}</Tag>}
                   </span>
                 )}
               </span>

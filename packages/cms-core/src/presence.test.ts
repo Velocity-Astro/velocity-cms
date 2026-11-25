@@ -50,9 +50,8 @@ it('forgets someone whose editor stopped saying so', async () => {
   expect((await cms.presence.here(maya, page.id, 'Maya Ellison')).others).toEqual([]);
 });
 
-it('shows an agent that just worked on the entry, for longer, and only an agent is marked that way', async () => {
+it('shows an agent that just worked on the entry, for longer', async () => {
   await cms.presence.touched(agent, page.id, 'Claude');
-  await cms.presence.touched(daniel, page.id, 'Daniel Reyes');
   expect((await cms.presence.here(maya, page.id, 'Maya Ellison')).others).toEqual([{ id: 'token-1', kind: 'agent', name: 'Claude' }]);
   clock.pass(PRESENCE_AGENT_MS);
   expect((await cms.presence.here(maya, page.id, 'Maya Ellison')).others).toEqual([]);
@@ -67,4 +66,38 @@ it('is for those who may read entries, about an entry that exists', async () => 
   await expect(cms.presence.here(maya, 'no-such-entry', 'Maya Ellison')).rejects.toBeInstanceOf(NotFoundError);
   await cms.presence.touched(stranger, page.id, 'Nobody');
   expect((await cms.presence.here(maya, page.id, 'Maya Ellison')).others).toEqual([]);
+});
+
+it('shows an agent that works in a person\'s own session as that person\'s agent, to the person too', async () => {
+  await cms.presence.touched(daniel, page.id, 'Daniel Reyes');
+  const theirs = { id: 'daniel:agent', kind: 'agent', name: 'Daniel Reyes', of: 'daniel' };
+  expect((await cms.presence.here(maya, page.id, 'Maya Ellison')).others).toEqual([theirs]);
+  expect((await cms.presence.here(daniel, page.id, 'Daniel Reyes')).others).toEqual([theirs, { id: 'maya', kind: 'user', name: 'Maya Ellison' }]);
+});
+
+it('says where in the entry someone is, and takes nothing that is no place', async () => {
+  await cms.presence.here(daniel, page.id, 'Daniel Reyes', { at: 'f1/s1/f2' });
+  expect((await cms.presence.here(maya, page.id, 'Maya Ellison')).others).toEqual([{ id: 'daniel', kind: 'user', name: 'Daniel Reyes', at: 'f1/s1/f2' }]);
+  await cms.presence.here(daniel, page.id, 'Daniel Reyes', { at: '<script>' });
+  expect((await cms.presence.here(maya, page.id, 'Maya Ellison')).others).toEqual([{ id: 'daniel', kind: 'user', name: 'Daniel Reyes' }]);
+});
+
+it('tells an editor that holds an older revision who saved since, latest first', async () => {
+  await cms.presence.here(daniel, page.id, 'Daniel Reyes');
+  const first = await cms.content.update(daniel, page.id, { slug: 'home', data: {}, expectedRevision: page.revision });
+  await cms.presence.touched(agent, page.id, 'Claude');
+  const second = await cms.content.update(agent, page.id, { slug: 'home', data: {}, expectedRevision: first.revision });
+  const told = await cms.presence.here(maya, page.id, 'Maya Ellison', { revision: page.revision });
+  expect(told.savedBy).toEqual([{ id: 'token-1', kind: 'agent', name: 'Claude' }, { id: 'daniel', kind: 'user', name: 'Daniel Reyes' }]);
+  // Up to date, nothing is said and no history is read.
+  expect((await cms.presence.here(maya, page.id, 'Maya Ellison', { revision: second.revision })).savedBy).toBeUndefined();
+});
+
+it('takes a save made as the asker for their agent\'s while it is at work, and for their own otherwise; someone gone has no name', async () => {
+  const mine = await cms.content.update(maya, page.id, { slug: 'home', data: {}, expectedRevision: page.revision });
+  expect((await cms.presence.here(maya, page.id, 'Maya Ellison', { revision: page.revision })).savedBy).toEqual([{ id: 'maya', kind: 'user', name: 'Maya Ellison' }]);
+  await cms.presence.touched(maya, page.id, 'Maya Ellison');
+  expect((await cms.presence.here(maya, page.id, 'Maya Ellison', { revision: page.revision })).savedBy).toEqual([{ id: 'maya:agent', kind: 'agent', name: 'Maya Ellison', of: 'maya' }]);
+  await cms.content.update(daniel, page.id, { slug: 'home', data: {}, expectedRevision: mine.revision });
+  expect((await cms.presence.here(maya, page.id, 'Maya Ellison', { revision: mine.revision })).savedBy).toEqual([{ id: 'daniel', kind: 'user', name: '' }]);
 });

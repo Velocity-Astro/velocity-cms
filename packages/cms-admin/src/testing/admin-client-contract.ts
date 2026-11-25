@@ -149,6 +149,11 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       const saved = await client.updateEntry('e2', { slug: entry.slug, data: entry.data, expectedRevision: entry.revision });
       // Whoever asks is never one of the others.
       expect(await client.entryPresence('e2')).toEqual({ revision: saved.revision, others: [] });
+      // Saying where it is and which revision it holds: holding an older one, it is told who saved since.
+      expect(await client.entryPresence('e2', { at: 'f1', revision: saved.revision })).toEqual({ revision: saved.revision, others: [] });
+      const told = await client.entryPresence('e2', { revision: entry.revision });
+      expect(told.savedBy).toHaveLength(1);
+      expect(told.savedBy?.[0]).toMatchObject({ kind: 'user' });
       await expect(client.entryPresence('nothing')).rejects.toMatchObject({ code: 'not_found' });
     });
 

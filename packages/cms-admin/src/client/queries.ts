@@ -1,6 +1,7 @@
 import { MutationCache, QueryCache, QueryClient, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { PresentOther, FormsSettingsChanges, GeneralSettingsChanges, EmailSettingsChanges, StorageSettingsChanges, ContactImportReport, ContactImportRow, ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, DealChanges, NewDeal, Page, PipelineChanges, CustomFieldsChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity-astro/cms-core';
+import type { PresentOther, PresenceSaid, FormsSettingsChanges, GeneralSettingsChanges, EmailSettingsChanges, StorageSettingsChanges, ContactImportReport, ContactImportRow, ContentTypeChanges, EntryData, ContentTypeDef, Entry, FieldArrangement, FieldChanges, FieldSection, Contact, ContactChanges, DealChanges, NewDeal, Page, PipelineChanges, CustomFieldsChanges, FormChanges, FormDef, NewContact, NewForm, NewUpload, Role, SubmissionStatus } from '@velocity-astro/cms-core';
 import type { ConnectionAnswer, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, ImageList, NewAccessToken, NewEntry, NewPerson, Profile, ProfileChanges, NewType, NewTypeField, SubmissionListQuery } from './admin-client.js';
+import { useRef } from 'react';
 import { AdminRequestError } from './errors.js';
 import { useClient } from './client-context.js';
 
@@ -317,33 +318,49 @@ export function useEntry(id: string | null) {
 }
 
 const NOBODY: readonly PresentOther[] = [];
+/** How often it is asked while someone else is at the entry too, so two who work on one page see each other's changes as they are saved. */
+export const ENTRY_TOGETHER_MS = 1_500;
+
+export interface EntryCompany {
+  /** Who else is at the entry now. */
+  readonly others: readonly PresentOther[];
+  /** Who saved the entry since the revision this editor said it holds, latest first. None when it is up to date, or nobody can say. */
+  readonly savedBy: readonly PresentOther[];
+  /** The entry's revision as of the last answer, or 0 before the first: what `savedBy` is true of. */
+  readonly revision: number;
+  /** Asks now, without waiting for the next turn. */
+  readonly ask: () => void;
+}
 
 /**
  * Who else is at an entry while it is open here: people with it open in their editor, and agents
- * that worked on it a moment ago. Asking is also how this editor says it is there, every few
- * seconds while its tab is in view, and how it learns that the entry was saved somewhere else:
- * the entry is then asked for again, and its form brings the newer version in.
+ * that worked on it a moment ago. Asking is also how this editor says it is there, and where
+ * (`said`, read as it is each time), every few seconds while its tab is in view, and how it learns
+ * that the entry was saved somewhere else and by whom: the entry is then asked for again, and its
+ * form brings the newer version in. While someone else is there too it asks more often.
  */
-export function useEntryPresence(id: string | null): readonly PresentOther[] {
+export function useEntryPresence(id: string | null, said?: () => PresenceSaid): EntryCompany {
   const client = useClient();
   const cache = useQueryClient();
+  const saying = useRef(said);
+  saying.current = said;
   const presence = useQuery({
     queryKey: keys.entryPresence(id ?? ''),
     queryFn: async () => {
-      const now = await client.entryPresence(id ?? '');
+      const now = await client.entryPresence(id ?? '', saying.current?.() ?? {});
       const held = cache.getQueryData<Entry>(keys.entry(id ?? ''));
       if (held !== undefined && now.revision > held.revision) void cache.invalidateQueries({ queryKey: keys.entry(id ?? ''), exact: true });
       return now;
     },
     enabled: id !== null,
-    refetchInterval: ENTRY_WATCH_MS,
+    refetchInterval: (query) => ((query.state.data?.others.length ?? 0) > 0 ? ENTRY_TOGETHER_MS : ENTRY_WATCH_MS),
     refetchOnWindowFocus: 'always',
     // Who was there a while ago says nothing of who is there now.
     staleTime: 0,
     gcTime: 0,
   });
-  // The same list while nobody came or went, so nothing is drawn again every few seconds.
-  return presence.data?.others ?? NOBODY;
+  // The same lists while nobody came or went, so nothing is drawn again every few seconds.
+  return { others: presence.data?.others ?? NOBODY, savedBy: presence.data?.savedBy ?? NOBODY, revision: presence.data?.revision ?? 0, ask: () => void presence.refetch() };
 }
 
 /** Asks for an entry again now, and answers once it is here: after a save was refused because someone else saved first. */
@@ -500,7 +517,9 @@ export function useCreateForm() {
 
 export function useUpdateForm() {
   const client = useClient();
-  return useMutation({ mutationFn: ({ id, changes }: { id: string; changes: FormChanges }) => client.updateForm(id, changes), onSuccess: useFormChanged() });
+  const cache = useQueryClient();
+  // Refused, perhaps because someone else saved first: the forms as they are now are asked for.
+  return useMutation({ mutationFn: ({ id, changes }: { id: string; changes: FormChanges }) => client.updateForm(id, changes), onSuccess: useFormChanged(), onError: () => cache.invalidateQueries({ queryKey: keys.forms }) });
 }
 
 export function useTrashForm() {
@@ -673,7 +692,7 @@ export function useEmailSettings() {
 export function useSaveEmailSettings() {
   const client = useClient();
   const cache = useQueryClient();
-  return useMutation({ mutationFn: (changes: EmailSettingsChanges) => client.saveEmailSettings(changes), onSuccess: (saved) => cache.setQueryData(keys.emailSettings, saved) });
+  return useMutation({ mutationFn: (changes: EmailSettingsChanges) => client.saveEmailSettings(changes), onSuccess: (saved) => cache.setQueryData(keys.emailSettings, saved), onError: () => cache.invalidateQueries({ queryKey: keys.emailSettings }) });
 }
 
 export function useSendTestEmail() {
@@ -690,7 +709,7 @@ export function useGeneralSettings() {
 export function useSaveGeneralSettings() {
   const client = useClient();
   const cache = useQueryClient();
-  return useMutation({ mutationFn: (changes: GeneralSettingsChanges) => client.saveGeneralSettings(changes), onSuccess: (saved) => cache.setQueryData(keys.generalSettings, saved) });
+  return useMutation({ mutationFn: (changes: GeneralSettingsChanges) => client.saveGeneralSettings(changes), onSuccess: (saved) => cache.setQueryData(keys.generalSettings, saved), onError: () => cache.invalidateQueries({ queryKey: keys.generalSettings }) });
 }
 
 /** How the site's forms are guarded. Owners only. */
@@ -702,7 +721,7 @@ export function useFormsSettings() {
 export function useSaveFormsSettings() {
   const client = useClient();
   const cache = useQueryClient();
-  return useMutation({ mutationFn: (changes: FormsSettingsChanges) => client.saveFormsSettings(changes), onSuccess: (saved) => cache.setQueryData(keys.formsSettings, saved) });
+  return useMutation({ mutationFn: (changes: FormsSettingsChanges) => client.saveFormsSettings(changes), onSuccess: (saved) => cache.setQueryData(keys.formsSettings, saved), onError: () => cache.invalidateQueries({ queryKey: keys.formsSettings }) });
 }
 
 export function useTestFormsSettings() {
@@ -726,6 +745,8 @@ export function useSaveStorageSettings() {
       // Whether the site takes uploads may have changed with it.
       void cache.invalidateQueries({ queryKey: keys.images });
     },
+    // Refused, perhaps because another owner saved first: what is saved now is asked for.
+    onError: () => cache.invalidateQueries({ queryKey: keys.storageSettings }),
   });
 }
 
@@ -742,7 +763,7 @@ export function usePipeline() {
 
 export function useSavePipeline() {
   const client = useClient();
-  return useMutation({ mutationFn: (changes: PipelineChanges) => client.savePipeline(changes), onSuccess: useContactsChanged() });
+  return useMutation({ mutationFn: (changes: PipelineChanges) => client.savePipeline(changes), onSettled: useContactsChanged() });
 }
 
 /** The fields this site adds to its contacts and deals. */
@@ -813,7 +834,7 @@ export function useImportContacts() {
 
 export function useUpdateContact() {
   const client = useClient();
-  return useMutation({ mutationFn: ({ id, changes }: { id: string; changes: ContactChanges }) => client.updateContact(id, changes), onSuccess: useContactsChanged() });
+  return useMutation({ mutationFn: ({ id, changes }: { id: string; changes: ContactChanges }) => client.updateContact(id, changes), onSettled: useContactsChanged() });
 }
 
 export function useEraseContact() {

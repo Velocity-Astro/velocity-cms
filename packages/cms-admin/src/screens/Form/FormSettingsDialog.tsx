@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { AdminRequestError } from '../../client/errors.js';
 import { useCustomFields, useUpdateForm } from '../../client/queries.js';
 import { localized } from '../../lib/content.js';
+import { ChangedElsewhere } from '../../app/ChangedElsewhere.js';
 import { useClosing } from '../../lib/use-closing.js';
+import { isConflict, useDraft } from '../../lib/use-draft.js';
 import { useLocale, useMessages } from '../../messages/messages-context.js';
 
 const NO_PROBLEMS: Readonly<Record<string, string>> = {};
@@ -26,19 +28,37 @@ export function FormSettingsDialog({ form, onClose }: FormSettingsDialogProps) {
   const fields = liveFields(form.fields);
   const keyOf = (id: string | undefined) => fields.find((field) => field.id === id)?.key ?? NONE;
 
-  const [name, setName] = useState(localized(form.label, locale));
-  const [isOpen, setOpen] = useState(form.open);
-  const [notify, setNotify] = useState(form.notify.join('\n'));
-  const [senderName, setSenderName] = useState(keyOf(form.contact?.name));
-  const [senderEmail, setSenderEmail] = useState(keyOf(form.contact?.email));
-  const [senderPhone, setSenderPhone] = useState(keyOf(form.contact?.phone));
-  const [success, setSuccess] = useState(form.success ? localized(form.success, locale) : '');
-  const [submitLabel, setSubmitLabel] = useState(form.submitLabel ? localized(form.submitLabel, locale) : '');
-  const [days, setDays] = useState<number | null>(form.retentionDays ?? null);
-  const [startsDeal, setStartsDeal] = useState(form.startsDeal === true);
   // Which of the form's fields fills each of the site's own fields for contacts, by the custom field's id.
   const custom = liveFields(useCustomFields().data?.contact ?? []);
-  const [fills, setFills] = useState<Readonly<Record<string, string>>>(() => Object.fromEntries(Object.entries(form.fills ?? {}).map(([fieldId, customId]) => [customId, keyOf(fieldId)])));
+  // Only what is changed here is held: the rest is the form as it is now, so what someone else saved meanwhile is kept.
+  const draft = useDraft<{ name: string; isOpen: boolean; notify: string; senderName: string; senderEmail: string; senderPhone: string; success: string; submitLabel: string; days: number | null; startsDeal: boolean; fills: Readonly<Record<string, string>> }>({
+    name: localized(form.label, locale),
+    isOpen: form.open,
+    notify: form.notify.join('\n'),
+    senderName: keyOf(form.contact?.name),
+    senderEmail: keyOf(form.contact?.email),
+    senderPhone: keyOf(form.contact?.phone),
+    success: form.success ? localized(form.success, locale) : '',
+    submitLabel: form.submitLabel ? localized(form.submitLabel, locale) : '',
+    days: form.retentionDays ?? null,
+    startsDeal: form.startsDeal === true,
+    fills: Object.fromEntries(Object.entries(form.fills ?? {}).map(([fieldId, customId]) => [customId, keyOf(fieldId)])),
+  });
+  const { name, isOpen, notify, senderName, senderEmail, senderPhone, success, submitLabel, days, startsDeal, fills } = draft.values;
+  const { changed } = draft;
+  const named = {
+    name: messages.forms.formName,
+    isOpen: messages.forms.isOpen,
+    notify: messages.forms.notify,
+    senderName: messages.forms.senderName,
+    senderEmail: messages.forms.senderEmail,
+    senderPhone: messages.forms.senderPhone,
+    success: messages.forms.success,
+    submitLabel: messages.forms.submitLabel,
+    days: messages.forms.retention,
+    startsDeal: messages.forms.startsDeal,
+    fills: messages.forms.fillsHelp,
+  };
   const [problems, setProblems] = useState(NO_PROBLEMS);
 
   // Each mark is offered the fields of the kind that can hold it.
@@ -52,19 +72,22 @@ export function FormSettingsDialog({ form, onClose }: FormSettingsDialogProps) {
       {
         id: form.id,
         changes: {
-          label: { ...form.label, [language]: name.trim() },
-          open: isOpen,
-          notify: notify.split(/[\n,;]+/),
-          contact: {
-            ...(senderName !== NONE && { name: senderName }),
-            ...(senderEmail !== NONE && { email: senderEmail }),
-            ...(senderPhone !== NONE && { phone: senderPhone }),
-          },
-          success: words(success, form.success),
-          submitLabel: words(submitLabel, form.submitLabel),
-          retentionDays: days,
-          fills: Object.fromEntries(Object.entries(fills).flatMap(([customId, key]) => (key === NONE ? [] : [[key, customId]]))),
-          startsDeal,
+          // Only what was changed here: a setting someone else changed meanwhile is not put back as it was.
+          ...('name' in changed && { label: { ...form.label, [language]: name.trim() } }),
+          ...('isOpen' in changed && { open: isOpen }),
+          ...('notify' in changed && { notify: notify.split(/[\n,;]+/) }),
+          ...(('senderName' in changed || 'senderEmail' in changed || 'senderPhone' in changed) && {
+            contact: {
+              ...(senderName !== NONE && { name: senderName }),
+              ...(senderEmail !== NONE && { email: senderEmail }),
+              ...(senderPhone !== NONE && { phone: senderPhone }),
+            },
+          }),
+          ...('success' in changed && { success: words(success, form.success) }),
+          ...('submitLabel' in changed && { submitLabel: words(submitLabel, form.submitLabel) }),
+          ...('days' in changed && { retentionDays: days }),
+          ...('fills' in changed && { fills: Object.fromEntries(Object.entries(fills).flatMap(([customId, key]) => (key === NONE ? [] : [[key, customId]]))) }),
+          ...('startsDeal' in changed && { startsDeal }),
           expectedRevision: form.revision,
         },
       },
@@ -77,7 +100,7 @@ export function FormSettingsDialog({ form, onClose }: FormSettingsDialogProps) {
           // What the server said about a setting goes on that setting.
           const about = error instanceof AdminRequestError ? String(error.issues[0]?.path[0] ?? '') : '';
           if (about !== '') setProblems({ [about]: messageOf(error) });
-          toast({ title: messages.forms.notSaved, description: messageOf(error), tone: 'danger' });
+          toast({ title: messages.forms.notSaved, description: isConflict(error) ? messages.app.savedElsewhere : messageOf(error), tone: 'danger' });
         },
       },
     );
@@ -102,15 +125,15 @@ export function FormSettingsDialog({ form, onClose }: FormSettingsDialogProps) {
       }
     >
       <Form label={title} gap={4} onSubmit={send}>
-        <TextField label={messages.forms.formName} value={name} onChange={setName} isRequired autoComplete="off" {...(problems['label'] !== undefined && { errorMessage: problems['label'] })} />
-        <Switch label={messages.forms.isOpen} isSelected={isOpen} onChange={setOpen} />
+        <TextField label={messages.forms.formName} value={name} onChange={(next) => draft.set('name', next)} isRequired autoComplete="off" {...(problems['label'] !== undefined && { errorMessage: problems['label'] })} />
+        <Switch label={messages.forms.isOpen} isSelected={isOpen} onChange={(next) => draft.set('isOpen', next)} />
         <Text size="sm" tone="muted">
           {messages.forms.isOpenHelp}
         </Text>
-        <TextArea label={messages.forms.notify} description={messages.forms.notifyHelp} value={notify} onChange={setNotify} rows={3} {...(problems['notify'] !== undefined && { errorMessage: problems['notify'] })} />
-        <Select label={messages.forms.senderEmail} description={messages.forms.senderHelp} options={choices('email')} value={senderEmail} onChange={setSenderEmail} />
-        <Select label={messages.forms.senderName} options={choices('text')} value={senderName} onChange={setSenderName} />
-        <Select label={messages.forms.senderPhone} options={choices('phone')} value={senderPhone} onChange={setSenderPhone} />
+        <TextArea label={messages.forms.notify} description={messages.forms.notifyHelp} value={notify} onChange={(next) => draft.set('notify', next)} rows={3} {...(problems['notify'] !== undefined && { errorMessage: problems['notify'] })} />
+        <Select label={messages.forms.senderEmail} description={messages.forms.senderHelp} options={choices('email')} value={senderEmail} onChange={(next) => draft.set('senderEmail', next)} />
+        <Select label={messages.forms.senderName} options={choices('text')} value={senderName} onChange={(next) => draft.set('senderName', next)} />
+        <Select label={messages.forms.senderPhone} options={choices('phone')} value={senderPhone} onChange={(next) => draft.set('senderPhone', next)} />
         {custom.map((field, index) => (
           <Select
             key={field.id}
@@ -118,24 +141,25 @@ export function FormSettingsDialog({ form, onClose }: FormSettingsDialogProps) {
             {...(index === 0 && { description: messages.forms.fillsHelp })}
             options={choices(field.type)}
             value={fills[field.id] ?? NONE}
-            onChange={(key) => setFills({ ...fills, [field.id]: key })}
+            onChange={(key) => draft.set('fills', { ...fills, [field.id]: key })}
           />
         ))}
-        <Switch label={messages.forms.startsDeal} isSelected={startsDeal} onChange={setStartsDeal} />
+        <Switch label={messages.forms.startsDeal} isSelected={startsDeal} onChange={(next) => draft.set('startsDeal', next)} />
         <Text size="sm" tone="muted">
           {messages.forms.startsDealHelp}
         </Text>
-        <TextField label={messages.forms.success} description={messages.forms.successHelp} value={success} onChange={setSuccess} autoComplete="off" />
-        <TextField label={messages.forms.submitLabel} description={messages.forms.submitLabelHelp} value={submitLabel} onChange={setSubmitLabel} autoComplete="off" />
+        <TextField label={messages.forms.success} description={messages.forms.successHelp} value={success} onChange={(next) => draft.set('success', next)} autoComplete="off" />
+        <TextField label={messages.forms.submitLabel} description={messages.forms.submitLabelHelp} value={submitLabel} onChange={(next) => draft.set('submitLabel', next)} autoComplete="off" />
         <NumberField
           label={messages.forms.retention}
           description={messages.forms.retentionHelp}
           value={days}
-          onChange={setDays}
+          onChange={(next) => draft.set('days', next)}
           minValue={1}
           isInteger
           {...(problems['retentionDays'] !== undefined && { errorMessage: problems['retentionDays'] })}
         />
+        <ChangedElsewhere names={draft.clashes.map((key) => named[key])} />
       </Form>
     </Dialog>
   );

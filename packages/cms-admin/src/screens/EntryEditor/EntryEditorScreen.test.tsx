@@ -740,7 +740,8 @@ it('shows what someone else saved while the entry was open', async () => {
   comeBack();
 
   await waitFor(async () => expect((await field('Title')).value).toBe('Changed by an agent'));
-  expect(await screen.findByText('This page was updated')).toBeTruthy();
+  // The same person, from another tab or through an agent in their own session without its mark.
+  expect(await screen.findByText('You changed Title in another tab')).toBeTruthy();
   // Nothing was typed here, so there is nothing to save, and nothing to take back.
   expect(saveBar().getByText(/^Saved /)).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Save draft' })).toHaveProperty('disabled', true);
@@ -850,6 +851,57 @@ it('says who else has the entry open, and which agent is working on it', async (
   await client.openedBy('e1', { id: 'u3', name: 'Sam' });
   comeBack();
   expect(await saveBar().findByText('Maya Ellison and Sam are here too')).toBeTruthy();
+});
+
+it('names who saved meanwhile and what they changed: a person, an agent, and an agent in this person\'s own session', async () => {
+  const { client } = renderApp('/content/listings/e1', signedIn());
+  await field('Title');
+  await client.savedBy('e1', { id: 'u2', name: 'Maya Ellison' }, { 'f-price': 725000 });
+  comeBack();
+  expect(await screen.findByText('Maya Ellison changed Price')).toBeTruthy();
+  await waitFor(async () => expect((await field('Price')).value).toBe('725,000'));
+
+  // An agent that works in this person's own browser session is this person to the CMS: it is named as their agent.
+  await client.touchedInSession('e1');
+  await savedElsewhere(client, 'e1', { 'f-title': 'Changed by my agent' });
+  comeBack();
+  expect(await screen.findByText('Your agent changed Title')).toBeTruthy();
+  expect(await saveBar().findByText(/Your agent is working on this/)).toBeTruthy();
+}, 15_000);
+
+it('shows both versions side by side when both changed the same field, and who saved the newer one', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/content/listings/e1', signedIn());
+  await user.type(await field('Title'), ' East');
+  await client.savedBy('e1', { id: 'u2', name: 'Maya Ellison' }, { 'f-title': 'Lakeshore, by Maya' });
+  comeBack();
+  await user.click(await screen.findByRole('button', { name: 'Review changes' }));
+  // The message that says so is an alert of its own: the window is the one with the choice in it.
+  const window = (await screen.findByRole('button', { name: 'Keep mine' })).closest<HTMLElement>('[role="alertdialog"]');
+  if (!window) throw new Error('The choice is not in a window.');
+  const dialog = within(window);
+  expect(dialog.getByText('The newer version was saved by Maya Ellison.')).toBeTruthy();
+  const both = within(dialog.getByRole('group', { name: 'Title, in both versions' }));
+  expect(both.getByText('6214 Lakeshore Drive East')).toBeTruthy();
+  expect(both.getByText('Lakeshore, by Maya')).toBeTruthy();
+  await user.click(dialog.getByRole('button', { name: 'Use the newer version' }));
+  await waitFor(async () => expect((await field('Title')).value).toBe('Lakeshore, by Maya'));
+}, 15_000);
+
+it('shows which field someone else is at, and tells them which this person is at', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/content/listings/e1', signedIn());
+  await field('Title');
+  await client.openedBy('e1', { id: 'u2', name: 'Maya Ellison', at: 'f-price' });
+  const asked = vi.spyOn(client, 'entryPresence');
+  comeBack();
+  expect(await screen.findByText('Maya Ellison is here')).toBeTruthy();
+  expect((await field('Price')).closest('[data-taken]')).not.toBeNull();
+  expect((await field('Title')).closest('[data-taken]')).toBeNull();
+  // Coming to a field is said with the next word that this editor is still here.
+  await user.click(await field('Title'));
+  comeBack();
+  await waitFor(() => expect(asked.mock.calls.at(-1)?.[1]).toMatchObject({ at: 'f-title' }));
 });
 
 it('hears from the server that the entry moved on, and asks for it again', async () => {

@@ -524,6 +524,15 @@
       "uses": []
     },
     {
+      "name": "PresenceMark",
+      "layer": "component",
+      "group": "Feedback",
+      "description": "Says that someone else is working at what it holds (a ring, and who in words), and when the person's own focus comes inside.",
+      "example": "<PresenceMark label=\"Ana Ruiz is here\" onEnter={() => iAmAt('title')}>\n  <TextField label=\"Title\" />\n</PresenceMark>",
+      "useInstead": "Tag in a screen's bar for who has the screen open; Spotlight to point at a field.",
+      "uses": []
+    },
+    {
       "name": "Fieldset",
       "layer": "component",
       "group": "Forms",

@@ -3,7 +3,9 @@ import { Button, Checkbox, Dialog, Fieldset, Form, Grid, NumberField, Repeater, 
 import { useRef, useState } from 'react';
 import { AdminRequestError } from '../../client/errors.js';
 import { useSavePipeline } from '../../client/queries.js';
+import { ChangedElsewhere } from '../../app/ChangedElsewhere.js';
 import { useClosing } from '../../lib/use-closing.js';
+import { isConflict, useDraft } from '../../lib/use-draft.js';
 import { useMessages } from '../../messages/messages-context.js';
 
 /** A stage while it is being edited. `row` only tells the rows apart; `id` is set for a stage that exists. */
@@ -26,10 +28,19 @@ export function StagesDialog({ pipeline, team, onClose }: { readonly pipeline: P
   const save = useSavePipeline();
   const added = useRef(0);
   const builtIn: Readonly<Record<string, string>> = messages.contacts.stages;
-  const [stages, setStages] = useState<readonly Draft[]>(() => pipeline.stages.map((stage) => ({ row: stage.id, id: stage.id, label: stage.label ?? '', kind: stage.kind, chance: stage.chance ?? 50 })));
-  const [currency, setCurrency] = useState(pipeline.currency ?? 'USD');
-  const [assignTo, setAssignTo] = useState<readonly string[]>(pipeline.assignTo ?? []);
-  const [monthlyTarget, setMonthlyTarget] = useState<number | null>(pipeline.monthlyTarget ?? null);
+  // Only what is changed here is held: the rest is the pipeline as it is now, so what someone else saved meanwhile is kept.
+  const draft = useDraft<{ stages: readonly Draft[]; currency: string; assignTo: readonly string[]; monthlyTarget: number | null }>({
+    stages: pipeline.stages.map((stage) => ({ row: stage.id, id: stage.id, label: stage.label ?? '', kind: stage.kind, chance: stage.chance ?? 50 })),
+    currency: pipeline.currency ?? 'USD',
+    assignTo: pipeline.assignTo ?? [],
+    monthlyTarget: pipeline.monthlyTarget ?? null,
+  });
+  const { stages, currency, assignTo, monthlyTarget } = draft.values;
+  const setStages = (next: readonly Draft[]) => draft.set('stages', next);
+  const setCurrency = (next: string) => draft.set('currency', next);
+  const setAssignTo = (next: readonly string[]) => draft.set('assignTo', next);
+  const setMonthlyTarget = (next: number | null) => draft.set('monthlyTarget', next);
+  const named = { stages: messages.contacts.editStagesTitle, currency: messages.contacts.currency, assignTo: messages.contacts.assignTo, monthlyTarget: messages.contacts.monthlyTarget };
   const [problems, setProblems] = useState<Readonly<Record<string, string>>>({});
 
   const change = (row: string, changes: Partial<Draft>) => setStages(stages.map((stage) => (stage.row === row ? { ...stage, ...changes } : stage)));
@@ -38,11 +49,12 @@ export function StagesDialog({ pipeline, team, onClose }: { readonly pipeline: P
     save.mutate(
       {
         stages: stages.map(({ id, label, kind, chance }) => ({ ...(id !== undefined && { id }), label, kind, ...(kind === 'open' && chance !== null && { chance }) })),
-        currency,
+        // The rest only where it was changed here: what someone else set meanwhile is not put back as it was.
+        ...('currency' in draft.changed && { currency }),
         // Someone who left is dropped from the list rather than refused.
-        assignTo: assignTo.filter((id) => team.some((member) => member.id === id)),
+        ...('assignTo' in draft.changed && { assignTo: assignTo.filter((id) => team.some((member) => member.id === id)) }),
         // Emptied, there is no target.
-        monthlyTarget,
+        ...('monthlyTarget' in draft.changed && { monthlyTarget }),
         expectedRevision: pipeline.revision,
       },
       {
@@ -53,7 +65,7 @@ export function StagesDialog({ pipeline, team, onClose }: { readonly pipeline: P
         onError: (error) => {
           // What was typed stays; each problem goes to the row and field it names.
           if (error instanceof AdminRequestError) setProblems(Object.fromEntries(error.issues.map((issue) => [issue.path.join('.'), issue.message])));
-          toast({ title: messages.contacts.stagesNotSaved, description: messageOf(error), tone: 'danger' });
+          toast({ title: messages.contacts.stagesNotSaved, description: isConflict(error) ? messages.app.savedElsewhere : messageOf(error), tone: 'danger' });
         },
       },
     );
@@ -172,6 +184,7 @@ export function StagesDialog({ pipeline, team, onClose }: { readonly pipeline: P
             )}
           </Stack>
         </Fieldset>
+        <ChangedElsewhere names={draft.clashes.map((key) => named[key])} />
       </Form>
     </Dialog>
   );

@@ -221,8 +221,39 @@ export function previewBridge(page: Window & typeof globalThis): void {
     }
     Object.assign(box.style, { display: 'block', top: `${rect.top}px`, left: `${rect.left}px`, width: `${rect.width}px`, height: `${rect.height}px` });
   };
+  // Company: who else is working in which section, as the editor says. Each such section is outlined in
+  // the design system's colour for what informs (`--info`), with their names on a tab at its top.
+  const INFO = 'oklch(59.5% 0.19 260)';
+  let company: Record<string, string> = {};
+  const companions = new Map<string, { readonly box: HTMLElement; readonly tab: HTMLElement }>();
+  const placeCompany = (): void => {
+    for (const [id, drawn] of companions) {
+      if (company[id] !== undefined) continue;
+      drawn.box.remove();
+      companions.delete(id);
+    }
+    for (const [id, names] of Object.entries(company)) {
+      const element = [...doc.querySelectorAll<HTMLElement>('[data-cms-section]')].find((section) => section.dataset['cmsSection'] === id);
+      let drawn = companions.get(id);
+      if (!drawn) {
+        const box = doc.createElement('div');
+        box.setAttribute('data-cms-company', id);
+        Object.assign(box.style, { position: 'absolute', display: 'none', boxSizing: 'border-box', border: `2px solid ${INFO}`, borderRadius: '4px' });
+        const tab = grows(doc.createElement('div'));
+        Object.assign(tab.style, { position: 'absolute', top: '0', left: '0', maxWidth: '100%', padding: '4px 8px', background: INFO, color: '#fff', font: '600 12px/1.2 system-ui, sans-serif', borderRadius: '0 0 4px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' });
+        box.append(tab);
+        layer.append(box);
+        drawn = { box, tab };
+        companions.set(id, drawn);
+      }
+      // Written as text: a name is whatever a person called themselves.
+      if (drawn.tab.textContent !== names) drawn.tab.textContent = names;
+      place(drawn.box, element ? { element, section: id } : null);
+    }
+  };
   let placeTools = (): void => undefined;
   const draw = (): void => {
+    placeCompany();
     place(boxes.chosen, marks.chosen);
     // One outline is enough where the pointer is over what is chosen.
     place(boxes.over, marks.over && marks.over.element === marks.chosen?.element ? null : marks.over);
@@ -1669,6 +1700,12 @@ export function previewBridge(page: Window & typeof globalThis): void {
     if (event.data.type === 'typable') {
       const places = (event.data as { places?: unknown }).places;
       typable = typeof places === 'object' && places !== null ? (places as Record<string, unknown>) : {};
+      return;
+    }
+    if (event.data.type === 'company') {
+      const said = (event.data as { sections?: unknown }).sections;
+      company = typeof said === 'object' && said !== null ? Object.fromEntries(Object.entries(said).filter((one): one is [string, string] => typeof one[1] === 'string' && one[1] !== '')) : {};
+      draw();
       return;
     }
     if (event.data.type === 'escape') {

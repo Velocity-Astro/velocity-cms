@@ -72,6 +72,27 @@ it('changes a contact\'s details, and shows a refusal on the field it names', as
   expect(details.getByText('ana.ruiz@example.com')).toBeTruthy();
 });
 
+it('keeps what someone else changed about a contact while its details were open here', async () => {
+  const user = userEvent.setup();
+  const { client } = await openAna(user);
+  await user.click(screen.getByRole('button', { name: 'Edit details' }));
+  const dialog = within(await screen.findByRole('dialog', { name: 'Edit Ana Ruiz' }));
+  await user.type(dialog.getByRole('textbox', { name: /^Phone/ }), '512 555 0142');
+  // Meanwhile someone else, or an agent, renames her.
+  const [ana] = (await client.listContacts({ search: 'ana@' })).items;
+  if (!ana) throw new Error('Ana is not among the contacts.');
+  await client.updateContact(ana.id, { name: 'Ana Ruiz-Ortega', expectedRevision: ana.revision });
+  await user.click(dialog.getByRole('button', { name: 'Save details' }));
+  // The save is refused, the newer contact comes into the open form, and the phone number typed here stays.
+  expect(await screen.findByText(/Someone else saved this a moment ago/)).toBeTruthy();
+  await waitFor(() => expect((dialog.getByRole('textbox', { name: /^Name/ }) as HTMLInputElement).value).toBe('Ana Ruiz-Ortega'));
+  expect((dialog.getByRole('textbox', { name: /^Phone/ }) as HTMLInputElement).value).toBe('512 555 0142');
+  await user.click(dialog.getByRole('button', { name: 'Save details' }));
+  expect(await screen.findByText('Ana Ruiz-Ortega saved')).toBeTruthy();
+  const [now] = (await client.listContacts({ search: 'ana@' })).items;
+  expect(now).toMatchObject({ name: 'Ana Ruiz-Ortega', phone: '512 555 0142' });
+});
+
 it('hands over a person\'s file, with a word about keeping it safe', async () => {
   const user = userEvent.setup();
   const made: Blob[] = [];
