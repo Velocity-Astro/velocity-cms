@@ -1,6 +1,6 @@
 {
   "name": "@velocity-astro/cms-astro",
-  "version": "0.1.0-beta.23",
+  "version": "0.1.0-beta.24",
   "description": "Velocity CMS for Astro: an open source CMS with its editor at /admin, pages built from sections on the live page, forms and a built-in CRM, on SQLite. The integration, a live loader for pages rendered on demand and a Content Layer loader for static builds.",
   "type": "module",
   "license": "MIT",
