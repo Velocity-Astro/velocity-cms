@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+## 0.1.0-beta.26
+
 - **Runs on Cloudflare Workers (experimental).** With the `@astrojs/cloudflare` adapter the CMS is a Worker: the content in a D1 database (`VELOCITY_CMS_DATABASE_URL=d1:<binding>`) and uploads in an R2 bucket (`VELOCITY_CMS_R2_BUCKET=<binding>`), both by binding, with no address or keys. It has run in the Workers runtime on a computer and in CI (`examples/starter`, `npm run check:workers`), and on a deployed Worker with D1, R2 and the Images binding: pages, the editor, publishing, scheduled publishing, uploads and forms. Email, passkeys and plugins that send out have not been tried there. The README says how to set one up. Node and Vercel sites are unchanged.
   - The `velocity-cms` command and a seed script reach the D1 database through Wrangler, which the site installs: the local one `astro dev` and `wrangler dev` use, or the real one where the Wrangler config marks the binding `"remote": true`. `init` fills the two settings in from the Wrangler config and says how a deployed Worker gets its secret.
   - D1 holds no transaction open, so each save is sent as one batch that is kept whole or not at all, and is refused as a conflict when what it was decided from changed meanwhile.
