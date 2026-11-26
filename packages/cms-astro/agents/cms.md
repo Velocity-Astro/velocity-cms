@@ -69,6 +69,19 @@ Find these files before you change anything. If the site has no CMS yet, use the
   `choices`, `labels` and, for colours, `swatches` (hex or a CSS colour function). The
   component decides what each name looks like. Site-wide colours and fonts are `color` and
   `font` fields of a settings page (the Theme), never per section.
+- **Formatted text draws its looks from the template's palette.** A `richtext` field's options
+  may name `formats` (what its spot of the design has room for: a card's summary is
+  `['bold', 'italic', 'link']`; leave it out for an article) and the looks it offers, each like
+  a `select`'s choices: `colours`, `highlights`, `callouts`, `tables`, `buttons`, as
+  `{ choices, labels, swatches }`. The text keeps the name; the site's stylesheet draws the
+  classes the CMS writes (`cms-colour-<name>`, `cms-highlight-<name>`, `cms-callout-<tone>`,
+  `cms-table-<style>`, `cms-button-<style>`, `cms-align-center`, `cms-image-wide`,
+  `cms-image-full`, `cms-code`, `cms-details`, `cms-embed`). Style them inside the template's
+  prose class, and give every name a field lists a rule.
+- A text that can hold videos or maps calls `allowEmbeds(Astro, value)` in the component that
+  writes it, so the page's policy lets their frames in. A template that draws pictures, tables
+  or code its own way reads `value.parts` (each `{ kind, html, … }`) instead of `value.html`;
+  `value.headings` lists the headings with their ids, for a table of contents.
 - A block that stops being described is retired, not deleted: its sections are kept and left
   off the site.
 - A block may hold sections (a `blocks` field inside it, such as columns). Mark each place with
@@ -101,6 +114,7 @@ nothing, so the template keeps its own values as the fallback.
 | `single(Astro, 'settings')` | A single page's values by key (name, logo, phone, theme). |
 | `menuLinks(Astro, { type, field })` | A menu people edit, as `{ label, href, columns? }` links. |
 | `linkTo(Astro, value)` | Where a `link` field leads today, or nothing. |
+| `allowEmbeds(Astro, value)` | Lets the videos and maps of formatted text into the page's policy (`frame-src`). |
 | `siteForm(Astro, { id })` or `siteForm(Astro, 'key')` | A form to draw: fields, `action`, `hidden`, `trap`. |
 | `pageHead(Astro, { title, description })` | What the page writes in its head after plugins: title, description, robots, share `image`, Search Console and Bing `verification`, and the `analytics` ids. Call it in the layout, on every page. |
 | `cmsLiveLoader({ type })` | A live collection for lists (`getLiveCollection`, `getLiveEntry`). |

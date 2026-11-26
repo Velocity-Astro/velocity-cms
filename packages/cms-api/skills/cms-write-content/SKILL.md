@@ -32,6 +32,29 @@ name, phone number, header, footer). Change it with care and say exactly what yo
 - Formatted text takes `{"markdown": "..."}`: headings, lists, quotes, bold, italics, code and
   links. Start body headings at the level the site's entries use; the title is a field of its
   own. Short fields, summaries and anything for search engines take a plain string.
+- A long text may hold more, but only what its field's `formats` name (no `formats` means all
+  of them), and only the looks its options list (`colours`, `highlights`, `callouts`, `tables`,
+  `buttons`). Anything else is turned into plain paragraphs. In the markdown:
+  - `<u>words</u>`, `~~words~~`, `<sup>2</sup>`, `<sub>2</sub>`.
+  - `[words]{colour=brand}` and `[words]{highlight=sun}`, with a name from the field's options.
+    Never a colour of your own.
+  - `{align=center}` (or `right`) at the end of a paragraph or a heading.
+  - `[words](entry:<type key>/<translation group>)` for a link to an entry of the site (it
+    follows the entry when its address changes), and `{target=_blank rel=nofollow}` after a
+    link that should open in a new tab or that search engines should not follow (`sponsored`
+    for a paid one).
+  - A table in GitHub's form, with `{style=<name> header=none}` on the line after it if needed.
+  - Fenced code with its language, and `---` for a divider.
+  - `![What it shows](porch.webp "Caption")` alone on its line for a picture of the site by
+    its name, from `list_images`, with `{size=wide}` or `{size=full}` straight after it on the
+    same line. A picture from elsewhere cannot be added: ask the person to upload it.
+  - `> [!TIP]` (or `NOTE`, `WARNING`, `SUCCESS`, or a callout name the field lists) on the
+    first line of a quote, for a callout.
+  - `<details><summary>Question</summary>` on its line, the answer, then `</details>` on its
+    own line, with an empty line around the answer.
+  - A YouTube, Vimeo, Loom, Spotify or Google Maps address alone on its line, or
+    `[What it is](address){embed}`, to show the video or map.
+  - `[Book a visit](/visit/){button=primary}` for a button, with a style the field lists.
 - An image field stores an image's name, from `list_images`. You cannot upload one: ask the
   person to add it in the editor (Media).
 - A page built from sections is another job: use the `cms-build-page` skill.

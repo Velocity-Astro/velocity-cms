@@ -20,9 +20,10 @@ export interface Section {
   data: Record<string, unknown>;
 }
 
-/** Text someone shaped in the editor: HTML the CMS made from it, every word escaped. */
+/** Text someone shaped in the editor: HTML the CMS made from it, every word escaped, and its headings for a list of contents. */
 export interface RichText {
   html: string;
+  headings?: { level: number; id: string; text: string }[];
 }
 
 /** A link chosen in the editor: a page of the site or a typed address. `linkTo` says where it leads. */

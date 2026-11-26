@@ -10,6 +10,18 @@ const field = (type) => (key, label, { help, ...extra } = {}) => ({ key, type, l
 const text = field('text');
 const long = (key, label, extra = {}) => text(key, label, { ...extra, options: { multiline: true } });
 const rich = field('richtext');
+// The looks formatted text may take, from the starter's own palette (src/styles/site.css): the
+// text keeps the name, and the stylesheet draws `cms-colour-brand` and the like.
+const look = (names) => ({
+  choices: Object.keys(names),
+  labels: Object.fromEntries(Object.entries(names).map(([name, [label]]) => [name, en(label)])),
+  swatches: Object.fromEntries(Object.entries(names).map(([name, [, swatch]]) => [name, swatch])),
+});
+const looks = {
+  colours: look({ brand: ['Brand', '#2f4bd8'], soft: ['Soft', '#5b6270'] }),
+  highlights: look({ tint: ['Tint', '#e8ecfb'] }),
+  buttons: look({ solid: ['Solid', '#2f4bd8'], outline: ['Outline', '#ffffff'] }),
+};
 const link = field('link');
 const group = (key, label, fields) => field('group')(key, label, { options: { fields } });
 // How many items a list takes (`min`, `max`) belongs with what it holds, in its options.
@@ -26,7 +38,7 @@ const blocks = [
     text('buttonLabel', 'Button words'),
     link('buttonTo', 'Button goes to'),
   ]),
-  block('text', 'Text', 'A heading and text you shape: paragraphs, lists, bold and links.', 'align-left', [text('title', 'Title'), rich('body', 'Text', { required: true })]),
+  block('text', 'Text', 'A heading and text you shape: paragraphs, lists, bold and links.', 'align-left', [text('title', 'Title'), rich('body', 'Text', { required: true, options: looks })]),
   block('features', 'Features', 'Up to six short points in a grid.', 'layout-grid', [
     text('title', 'Title'),
     list('items', 'Points', group('item', 'Point', [text('title', 'Name', { required: true }), long('text', 'A sentence or two')]), { required: true, max: 6 }),
@@ -68,7 +80,7 @@ const posts = {
     text('title', 'Title', { required: true }),
     field('date')('date', 'Date', { required: true }),
     long('excerpt', 'Summary', { help: 'Shown in the list of posts and in search results.' }),
-    rich('body', 'Text', { required: true }),
+    rich('body', 'Text', { required: true, options: looks }),
   ],
   sections: [section('post', 'Post', ['title', 'body']), section('about', 'About this post', ['date', 'excerpt'], true)],
 };

@@ -36,8 +36,9 @@ what happens to anything with no field. Settle these with the person:
 
 1. `create_entry` for one item, as a draft. Show its `preview_link` and get a yes.
 2. Then the rest, one `create_entry` each, all drafts. Formatted text goes in as
-   `{"markdown": "..."}`: keep headings, lists, links, bold and quotes, and drop styling the
-   site does not use.
+   `{"markdown": "..."}`: keep headings, lists, links, bold, quotes, tables and code, and
+   drop styling the site does not use. A picture inside the text must be one of the site's
+   (`list_images`): list the ones that are not, so the person can upload them.
 3. When one is refused, read why, fix that item and go on. Keep a list of what could not be
    brought in and why; don't stop the whole job for one item.
 

@@ -50,6 +50,7 @@ export { CHALLENGE_HOSTS, FORM_CHALLENGE_FIELD, FORM_RECAPTCHA_FIELD, RECAPTCHA_
 export { FORM_SCRIPT, siteForm, siteFormPosts, type FormChoice, type SiteForm, type SiteFormOptions } from './site-forms.js';
 export { menuLinks, type MenuColumn, type MenuLink, type MenuOptions } from './menu.js';
 export { single } from './single.js';
+export { allowEmbeds, resolvedImage, withRichText } from './rich-text.js';
 export type { PageHead } from '@velocity-astro/cms-core';
 export { cmsLoader, type CmsLoaderOptions } from './loader.js';
 export {

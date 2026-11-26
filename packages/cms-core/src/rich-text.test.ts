@@ -25,13 +25,15 @@ describe('richTextSchema', () => {
       type: 'doc',
       content: [{ type: 'paragraph', attrs: { textAlign: null }, content: [text('Hi', { type: 'link', attrs: { href: '/a', target: '_blank', class: 'x', rel: null } })] }],
     };
-    expect(richTextSchema.parse(fromEditor)).toEqual({ type: 'doc', content: [{ type: 'paragraph', content: [text('Hi', { type: 'link', attrs: { href: '/a' } })] }] });
+    expect(richTextSchema.parse(fromEditor)).toEqual({ type: 'doc', content: [{ type: 'paragraph', content: [text('Hi', { type: 'link', attrs: { href: '/a', target: '_blank' } })] }] });
   });
 
   it('refuses a kind of block or mark it does not know, and a heading the page has no place for', () => {
     const doc = (block: object) => ({ type: 'doc', content: [block] });
     expect(richTextSchema.safeParse(doc({ type: 'image', attrs: { src: 'x' } })).success).toBe(false);
-    expect(richTextSchema.safeParse(doc({ type: 'paragraph', content: [text('x', { type: 'strike' })] })).success).toBe(false);
+    expect(richTextSchema.safeParse(doc({ type: 'paragraph', content: [text('x', { type: 'blink' })] })).success).toBe(false);
+    expect(richTextSchema.safeParse(doc({ type: 'paragraph', content: [text('x', { type: 'colour', attrs: { name: 'Red; color: x' } })] })).success).toBe(false);
+    expect(richTextSchema.safeParse(doc({ type: 'heading', attrs: { level: 5 }, content: [text('x')] })).success).toBe(false);
     expect(richTextSchema.safeParse(doc({ type: 'heading', attrs: { level: 1 }, content: [text('x')] })).success).toBe(false);
     expect(richTextSchema.safeParse({ type: 'paragraph' }).success).toBe(false);
   });
@@ -66,7 +68,7 @@ describe('what the site receives', () => {
 
   it('is HTML with every word and address escaped', () => {
     expect(richTextHtml(parsed)).toBe(
-      '<h2>The house</h2>' +
+      '<h2 id="the-house">The house</h2>' +
         '<p>Four bedrooms &amp; a <em><strong>porch</strong></em><br><a href="https://example.com/tour?a=1&amp;b=2" rel="noopener noreferrer">See the tour</a></p>' +
         '<ul><li><p>Lake &lt;view&gt;</p></li></ul>' +
         '<blockquote><p><a href="/contact/">Home.</a></p></blockquote>' +
@@ -90,7 +92,7 @@ describe('what the site receives', () => {
     const context = { fields: createFieldRegistry(), mode: 'draft' as const };
     expect(field.editor).toBe('rich-text');
     expect(field.toPublic(parsed, {}, context)).toMatchObject({ paragraphs: ['The house', 'Four bedrooms & a porch See the tour', 'Lake <view>', 'Home.'] });
-    expect(field.toPublic(['One', 'Two'], {}, context)).toEqual({ html: '<p>One</p><p>Two</p>', paragraphs: ['One', 'Two'] });
+    expect(field.toPublic(['One', 'Two'], {}, context)).toMatchObject({ html: '<p>One</p><p>Two</p>', paragraphs: ['One', 'Two'], parts: [{ kind: 'prose', html: '<p>One</p><p>Two</p>' }] });
   });
 });
 
@@ -99,7 +101,7 @@ describe('Markdown', () => {
     const { richTextFromMarkdown, richTextHtml } = await import('./rich-text.js');
     const text = richTextFromMarkdown('# Title\n\nA **bold** and *slanted* [link](https://example.com) and [bad](javascript:void).\n\n- one\n- two\n  - inner\n\n1. first\n\n> quoted\n\n![photo](/a.jpg)');
     expect(richTextHtml(text)).toBe(
-      '<h2>Title</h2><p>A <strong>bold</strong> and <em>slanted</em> <a href="https://example.com" rel="noopener noreferrer">link</a> and bad.</p><ul><li><p>one</p></li><li><p>two</p><ul><li><p>inner</p></li></ul></li></ul><ol><li><p>first</p></li></ol><blockquote><p>quoted</p></blockquote>',
+      '<h2 id="title">Title</h2><p>A <strong>bold</strong> and <em>slanted</em> <a href="https://example.com" rel="noopener noreferrer">link</a> and bad.</p><ul><li><p>one</p></li><li><p>two</p><ul><li><p>inner</p></li></ul></li></ul><ol><li><p>first</p></li></ol><blockquote><p>quoted</p></blockquote>',
     );
   });
 
@@ -177,6 +179,7 @@ describe('limitRichText', () => {
   it('keeps each format once, in order, and refuses one it does not know', () => {
     const field = createFieldRegistry().get('richtext');
     expect(field.define({ formats: ['link', 'bold', 'link'] }, undefined, { fields: createFieldRegistry(), ids: { next: () => 'x' }, now: new Date(0).toISOString() } as DefineContext)).toEqual({ formats: ['bold', 'link'] });
-    expect(field.options.safeParse({ formats: ['tables'] }).success).toBe(false);
+    expect(field.options.safeParse({ formats: ['tables'] }).success).toBe(true);
+    expect(field.options.safeParse({ formats: ['marquee'] }).success).toBe(false);
   });
 });

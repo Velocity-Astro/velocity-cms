@@ -1,4 +1,5 @@
 ---
+import { allowEmbeds } from '@velocity-astro/cms-astro';
 import type { RichText } from '../blocks';
 
 interface Props {
@@ -7,6 +8,8 @@ interface Props {
 }
 
 const { title, body } = Astro.props;
+// A video or a map in the text is allowed by the page's policy.
+allowEmbeds(Astro, body);
 ---
 
 <section class="band">

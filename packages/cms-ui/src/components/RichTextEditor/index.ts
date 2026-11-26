@@ -1,1 +1,12 @@
-export { RichTextEditor, type RichTextDocument, type RichTextEditorProps, type RichTextEditorWords, type RichTextFormat } from './RichTextEditor.js';
+export {
+  RichTextEditor,
+  type RichTextDocument,
+  type RichTextEditorLooks,
+  type RichTextEditorProps,
+  type RichTextEditorWords,
+  type RichTextEmbedValue,
+  type RichTextFormat,
+  type RichTextLinkValue,
+  type RichTextLook,
+  type RichTextPicture,
+} from './RichTextEditor.js';

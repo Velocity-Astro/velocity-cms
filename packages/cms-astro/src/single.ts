@@ -3,6 +3,7 @@ import { sharedConnection } from './connection.js';
 import { DEFAULT_LOCALE, entriesOf } from './link.js';
 import type { DrawnPage } from './page-head.js';
 import { isPreview, withPreviewDraft } from './preview.js';
+import { withRichText } from './rich-text.js';
 
 /** `single` for a CMS already at hand. `preview` reads the version being worked on. */
 export async function singleFrom(cms: Cms, locale: string, type: string, preview = false): Promise<Readonly<Record<string, unknown>> | undefined> {
@@ -12,7 +13,7 @@ export async function singleFrom(cms: Cms, locale: string, type: string, preview
   // What a site says about itself (its name, its phone number) holds in every language, so a
   // language with no entry of its own reads the first language's instead of going without.
   const entry = shown.find((candidate) => candidate.locale === locale) ?? shown.find((candidate) => candidate.locale === DEFAULT_LOCALE) ?? shown[0];
-  return entry && cms.content.toPublic(holder, withPreviewDraft(entry), preview ? 'working' : 'published').data;
+  return entry && withRichText(cms, cms.content.toPublic(holder, withPreviewDraft(entry), preview ? 'working' : 'published').data, locale, preview);
 }
 
 /**

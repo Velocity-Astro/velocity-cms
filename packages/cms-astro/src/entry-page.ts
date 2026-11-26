@@ -1,6 +1,8 @@
 import { pageAddress, type Cms, type ContentTypeDef, type PublicEntry } from '@velocity-astro/cms-core';
 import { sharedConnection, SITE } from './connection.js';
 import { pageAt, type DrawnPage } from './page-head.js';
+import { isPreview } from './preview.js';
+import { withRichText } from './rich-text.js';
 
 /** The language of the pages at a type's `urlPattern`. */
 const DEFAULT_LOCALE = 'en';
@@ -42,7 +44,9 @@ export async function entryPage(page: DrawnPage, options: EntryPageOptions = {})
 /** `entryPage` for a CMS already at hand. */
 export async function entryPageAt(cms: Cms, path: string, types?: readonly string[]): Promise<EntryPage | undefined> {
   const found = await pageAt(cms, among(await cms.schema.list(), types), path);
-  return found.entry && found.type && found.locale !== undefined ? { type: found.type.key, locale: found.locale, entry: found.entry } : undefined;
+  if (!found.entry || !found.type || found.locale === undefined) return undefined;
+  // Its formatted text links to entries and shows pictures as they are now, for this language.
+  return { type: found.type.key, locale: found.locale, entry: await withRichText(cms, found.entry, found.locale, isPreview()) };
 }
 
 /**

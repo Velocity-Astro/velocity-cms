@@ -1,4 +1,4 @@
-import type { ContentTypeDef } from '@velocity-astro/cms-core';
+import { RICH_TEXT_FORMATS, type ContentTypeDef } from '@velocity-astro/cms-core';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it } from 'vitest';
@@ -81,7 +81,7 @@ it('adds formatted text that offers only what its place has room for', async () 
 
   expect(await screen.findByRole('alertdialog', { name: 'Story was added' })).toBeTruthy();
   const saved = (await client.listContentTypes()).find((type) => type.key === 'agents')?.fields.at(-1);
-  expect(saved).toMatchObject({ key: 'story', type: 'richtext', options: { formats: ['bold', 'italic', 'code', 'link', 'lists'] } });
+  expect(saved).toMatchObject({ key: 'story', type: 'richtext', options: { formats: RICH_TEXT_FORMATS.filter((format) => format !== 'headings' && format !== 'quotes') } });
 
   await user.click(screen.getByRole('link', { name: 'View entries' }));
   await user.click((await screen.findAllByRole('button', { name: 'New entry' }))[0] as HTMLElement);

@@ -166,7 +166,7 @@ These are the built-in field types (`createFieldRegistry` in `cms-core`):
 | `font` | One of the fonts the template offers, by name | `choices` (required), `labels` |
 | `reference` | Another entry, by its slug | `to` (a type's key, required) |
 | `image` | An image, by its name | |
-| `richtext` | Formatted text (headings, lists, bold, italic, code, links) | `formats` (what it may hold beyond paragraphs) |
+| `richtext` | Formatted text: headings, lists, marks and links, and for long text pictures, tables, code, callouts, details, embeds and buttons | `formats` (what it may hold beyond paragraphs); `colours`, `highlights`, `callouts`, `tables`, `buttons` (the template's looks, each `{ choices, labels, swatches }`) |
 | `group` | Several fields together | `fields` |
 | `list` | Several values of one type | `of: { type, options }`, `min`, `max` |
 | `blocks` | The sections of a page | `blocks`, `min`, `max` |
@@ -684,7 +684,7 @@ other marks, it adds nothing to a visitor's page.
 
 ### Formatted text
 
-A `richtext` value reaches the site as `{ html, paragraphs }`. Every word in `html` is escaped,
+A `richtext` value reaches the site as `{ html, paragraphs, headings, parts, frames }`. Every word in `html` is escaped,
 so write it with `set:html`, in one element and with nothing else in it:
 
 ```astro
@@ -708,8 +708,54 @@ Anything else pasted in becomes plain paragraphs, and no word is lost:
 { key: 'intro', type: 'richtext', label: { en: 'Introduction' }, options: { formats: ['bold', 'italic', 'link', 'lists'] } }
 ```
 
-The formats are `bold`, `italic`, `link`, `headings`, `lists` and `quotes`. Left out, it takes
-them all.
+The formats are `bold`, `italic`, `underline`, `strike`, `script` (superscript and subscript),
+`code`, `link`, `colour`, `highlight`, `headings`, `lists`, `quotes`, `align`, `images`,
+`tables`, `codeBlocks`, `callouts`, `details`, `embeds`, `buttons` and `divider`. Left out, it
+takes them all. A summary or a lead under a title names a few; an article or a post names none.
+
+#### Looks from the template's palette
+
+Colours and highlights are never picked freely. The field names the template's own, like a
+`select`'s choices, and the editor offers only those, with their swatches:
+
+```js
+const looks = {
+  colours: { choices: ['brand', 'muted'], labels: { brand: { en: 'Brand' }, muted: { en: 'Muted' } }, swatches: { brand: '#c2410c', muted: '#57534e' } },
+  highlights: { choices: ['sand'], labels: { sand: { en: 'Sand' } }, swatches: { sand: '#f4e7d3' } },
+  buttons: { choices: ['primary', 'outline'], labels: { primary: { en: 'Primary' }, outline: { en: 'Outline' } } },
+};
+{ key: 'body', type: 'richtext', label: { en: 'Text' }, options: looks }
+```
+
+The text keeps the name and the HTML carries a class, which the template's stylesheet draws
+inside its prose class: `cms-colour-<name>`, `cms-highlight-<name>`, `cms-callout-<tone>`
+(`note`, `tip`, `warning` and `success` unless `callouts` names others), `cms-table-<style>`,
+`cms-button-<style>`, `cms-align-center` and `cms-align-right`, `cms-image-wide` and
+`cms-image-full`, and `cms-code`, `cms-table`, `cms-callout`, `cms-details`, `cms-embed`,
+`cms-button`. Give each a rule, as `examples/starter/src/styles/site.css` does. Headings carry
+an `id`, so a page can link to them; `headings` lists them, for a table of contents.
+
+#### Videos and maps
+
+A text that allows `embeds` can show a YouTube, Vimeo, Loom or Spotify player or a Google map,
+kept as the service and its id, never as markup. Call `allowEmbeds` where the text is written,
+so the page's content security policy lets the frame in:
+
+```astro
+---
+import { allowEmbeds } from '@velocity-astro/cms-astro';
+allowEmbeds(Astro, body);
+---
+<div class="prose" set:html={body?.html ?? ''} />
+```
+
+#### Drawing parts with the template's own components
+
+`parts` is the same text a piece at a time: `{ kind: 'prose', html }` for the words between,
+and `image` (with `alt`, `caption`, `size`, `href` and `src`, which is `{ src, width, height, srcset }`), `table` (`rows`), `code` (`language`,
+`code`), `callout` (`tone`, `inner`), `details`, `embed` (`provider`, `src`) and `button`
+(`label`, `href`, `style`). A template that has a component for one of them (its own button, a
+figure with a lightbox) draws that kind itself and writes the rest with `set:html`.
 
 ### Images
 
@@ -1061,6 +1107,7 @@ Components
 - [ ] Words are shown exactly as held, so they can be typed into on the page.
 - [ ] Places for inner sections have `slotMark`.
 - [ ] Rich text is written with `set:html={value.html}` in one element of its own.
+- [ ] Long text names the template's looks (`colours`, `highlights`, …), the stylesheet draws every `cms-*` class, and `allowEmbeds` is called where embeds are allowed.
 - [ ] Links go through `linkTo`; menus through `menuLinks` with the template's own links as fallback.
 - [ ] Settings come from `single(Astro, 'settings')` with fallbacks.
 - [ ] Every page's head comes from `pageHead`, and `fullTitle`, `noindex`, `image`, `verification` and `analytics` are honoured.

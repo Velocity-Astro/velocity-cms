@@ -3,6 +3,7 @@ import { isLiveType, type ContentTypeDef, type Entry } from '@velocity-astro/cms
 import { sharedConnection, SITE, type ConnectionOptions } from './connection.js';
 import { siteCacheTag } from './hosted.js';
 import { isPreview, withPreviewDraft } from './preview.js';
+import { withRichText } from './rich-text.js';
 
 export interface CmsLiveLoaderOptions extends ConnectionOptions {
   /** The key of the content type to load, e.g. `listings`. */
@@ -95,7 +96,14 @@ export function cmsLiveLoader(
           entries.push(...page.items.map((entry) => toLive(cms, type, entry)));
           if (offset + page.items.length >= page.total || page.items.length === 0) break;
         }
-        return { entries, cacheHint: { tags: [siteCacheTag(), tag] } };
+        // Formatted text is drawn for its language, once for all the entries of that language.
+        const drawn = new Map<string, Record<string, unknown>>();
+        for (const locale of new Set(entries.map((entry) => String(entry.data.locale)))) {
+          const shown = entries.filter((entry) => entry.data.locale === locale);
+          const datas = await withRichText(cms, shown.map((entry) => entry.data), locale, isPreview());
+          shown.forEach((entry, at) => drawn.set(entry.id, datas[at] ?? entry.data));
+        }
+        return { entries: entries.map((entry) => ({ ...entry, data: drawn.get(entry.id) ?? entry.data })), cacheHint: { tags: [siteCacheTag(), tag] } };
       } catch (error) {
         return { error: error instanceof Error ? error : new Error(String(error)) };
       }
@@ -111,7 +119,9 @@ export function cmsLiveLoader(
         const slug = filter.id.slice(separator + 1);
         const version = isPreview() ? 'working' : 'published';
         const match = await cms.content.findBySlug(SITE, { typeId: type.id, locale, slug, version });
-        return match ? toLive(cms, type, match) : undefined;
+        if (!match) return undefined;
+        const live = toLive(cms, type, match);
+        return { ...live, data: await withRichText(cms, live.data, locale, isPreview()) };
       } catch (error) {
         return { error: error instanceof Error ? error : new Error(String(error)) };
       }

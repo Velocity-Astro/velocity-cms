@@ -1,7 +1,7 @@
-import { fromPlainText, isSwatchColour, liveFields, RICH_TEXT_FORMATS, type FieldDef, type RichText, type RichTextFormat } from '@velocity-astro/cms-core';
-import { ColorPicker, DateField, Fieldset, NumberField, Repeater, SectionList, Segmented, Select, Skeleton, SkeletonGroup, Stack, Switch, Text, TextArea, TextField } from '@velocity-astro/cms-ui';
+import { isSwatchColour, liveFields, type FieldDef } from '@velocity-astro/cms-core';
+import { ColorPicker, DateField, Fieldset, NumberField, Repeater, SectionList, Segmented, Select, Switch, Text, TextArea, TextField } from '@velocity-astro/cms-ui';
 import { Copy, Trash2 } from 'lucide-react';
-import { lazy, Suspense, useState } from 'react';
+import { useState } from 'react';
 import { useContentTypes, useEntries, useForms } from '../client/queries.js';
 import { entryTitle, groupTranslations, localized, sameData, withValue } from '../lib/content.js';
 import { richTextFromHtml } from '../lib/rich-from-html.js';
@@ -13,8 +13,8 @@ import { FieldEditor } from './FieldEditor.js';
 import { FieldGrid } from './FieldGrid.js';
 import { useControlFor } from './FieldSummary.js';
 import { LinkControl } from './LinkControl.js';
+import { RichTextControl } from './RichTextControl.js';
 import { SiteImagePicker } from './SiteImagePicker.js';
-import { loadFresh } from '../lib/load-fresh.js';
 
 /** A field setting, when it is a number. Settings are checked by the server, not here. */
 function numberOption(field: FieldDef, name: string): number | undefined {
@@ -298,49 +298,6 @@ function ImageControl({ field, label, help, isLabelHidden = false, value, onChan
       {...(help !== undefined && { help })}
       {...(problem !== undefined && { problem })}
     />
-  );
-}
-
-/** Text saved before a field became rich text is plain: a string, or a list of paragraphs. */
-const isPlainText = (value: unknown): value is string | string[] =>
-  typeof value === 'string' || (Array.isArray(value) && value.every((item) => typeof item === 'string'));
-
-/**
- * The rich text editor is the largest part of the editor by far, and many forms have no rich
- * text. It is fetched the first time a form shows one, not with the first screen.
- */
-const RichTextEditor = lazy(async () => ({ default: (await loadFresh(() => import('@velocity-astro/cms-ui/rich-text'))).RichTextEditor }));
-
-/** Text with headings, lists, quotes, bold, italics and links. */
-function RichTextControl({ field, label, help, isLabelHidden = false, value, onChange, problem }: FieldControlProps) {
-  const messages = useMessages();
-  const text = isPlainText(value) ? fromPlainText(value) : typeof value === 'object' && value !== null ? (value as RichText) : null;
-  const given = field.options['formats'];
-  const formats = Array.isArray(given) ? RICH_TEXT_FORMATS.filter((format: RichTextFormat) => given.includes(format)) : undefined;
-  return (
-    <Suspense
-      fallback={
-        <SkeletonGroup label={messages.app.loading}>
-          <Stack gap={2}>
-            <Skeleton width="sm" />
-            <Skeleton shape="block" />
-          </Stack>
-        </SkeletonGroup>
-      }
-    >
-      <RichTextEditor
-        label={label}
-        isLabelHidden={isLabelHidden}
-        value={text}
-        // Nothing to read is an empty field, so "required" means what it says.
-        onChange={(next) => onChange(next ?? undefined)}
-        isRequired={field.required}
-        words={messages.editor.richText}
-        {...(formats !== undefined && { formats })}
-        {...(help !== undefined && { description: help })}
-        {...(problem !== undefined && { errorMessage: problem })}
-      />
-    </Suspense>
   );
 }
 

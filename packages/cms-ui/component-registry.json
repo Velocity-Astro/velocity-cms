@@ -350,10 +350,10 @@
       "name": "RichTextEditor",
       "layer": "component",
       "group": "Forms",
-      "description": "Text with headings, lists, quotes, bold, italics and links, with its label, help and error.",
-      "example": "<RichTextEditor label=\"Description\" value={text} onChange={setText} words={words} />",
+      "description": "Formatted text with its label, help and error: headings, lists, quotes, marks, links to addresses or entries, and, where allowed, the site's colours, pictures, tables, code, callouts, details, embeds, buttons and dividers, with a slash menu and a bar over chosen words.",
+      "example": "<RichTextEditor label=\"Description\" value={text} onChange={setText} words={words} looks={looks} onPickImage={pick} />",
       "useInstead": "TextArea for plain text of several lines.",
-      "uses": ["Button", "TextField", "Tooltip"]
+      "uses": ["Button", "Checkbox", "Segmented", "Select", "TextField", "Tooltip"]
     },
     {
       "name": "TextArea",

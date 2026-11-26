@@ -1,6 +1,7 @@
 import type { Loader } from 'astro/loaders';
 import { isLiveType } from '@velocity-astro/cms-core';
 import { connect, SITE, type ConnectionOptions } from './connection.js';
+import { withRichText } from './rich-text.js';
 
 export interface CmsLoaderOptions extends ConnectionOptions {
   /** The key of the content type to load, e.g. `listings`. */
@@ -45,7 +46,8 @@ export function cmsLoader(options: CmsLoaderOptions): Loader {
             const live = cms.content.toPublic(type, entry);
             const id = `${live.locale}/${live.slug}`;
             seen.add(id);
-            const data = { ...live.data, slug: live.slug, locale: live.locale };
+            // Formatted text links to entries and shows pictures as they are at the build.
+            const data = await withRichText(cms, { ...live.data, slug: live.slug, locale: live.locale }, live.locale);
             // The digest lets Astro skip an entry that has not changed since the last build.
             const digest = generateDigest({ revision: entry.published?.revision, data });
             if (store.get(id)?.digest === digest) continue;

@@ -3,7 +3,7 @@ import { defineFields, type NewField } from '../define-fields.js';
 import { FieldType, type DefineContext, type FieldContext } from '../field-type.js';
 import type { FieldDef } from '../model.js';
 import { Registry } from '../registry.js';
-import { fromPlainText, limitRichText, RICH_TEXT_FORMATS, richTextHtml, richTextParagraphs, richTextSchema, type RichText, type RichTextFormat } from '../rich-text.js';
+import { fromPlainText, isLookName, limitRichText, publicRichText, RICH_TEXT_FORMATS, richTextSchema, type PublicRichText, type RichText, type RichTextFormat, type RichTextLookChoices, type RichTextLooks } from '../rich-text.js';
 import { buildFieldsSchema, toPublicData } from '../schema-builder.js';
 import { BlocksField } from './blocks.js';
 import { LinkField } from './link.js';
@@ -277,37 +277,54 @@ export class ImageField extends FieldType<string, NoOptions> {
   }
 }
 
-/** Formatted text as the site receives it. */
-export interface PublicRichText {
-  /** Ready to show: every word in it is escaped. */
-  readonly html: string;
-  /** The words alone, one entry per paragraph, heading or list item. */
-  readonly paragraphs: readonly string[];
-}
+export type { PublicRichText } from '../rich-text.js';
 
 /** The settings of a rich text field. */
-export interface RichTextOptions {
+export interface RichTextOptions extends RichTextLooks {
   /** What the field may hold beyond paragraphs. Left out, everything the format has. */
   readonly formats?: readonly RichTextFormat[] | undefined;
 }
 
+/** One kind of look of the template's, as a field's settings name it: like a `select` field's choices. */
+const lookChoices: z.ZodType<RichTextLookChoices> = z
+  .object({
+    choices: z.array(z.string().refine(isLookName, 'A look is named by the template: lower case letters, digits and dashes, such as "brand".')).min(1).max(24),
+    labels: z.record(z.string(), z.record(z.string(), z.string())).optional(),
+    swatches: z.record(z.string(), z.string().refine(isSwatchColour, 'A swatch is a hex colour or a CSS colour function, such as #f4f1ec or oklch(96% 0.01 80).')).optional(),
+  })
+  .refine((looks) => new Set(looks.choices).size === looks.choices.length, 'Each look is named once.');
+
 /**
- * Text with headings, lists, bold, italics and links. Stored as a tree, never as HTML, and given
- * to the site as HTML made from that tree. A field that was plain text, or a list of
- * paragraphs, can be changed to this type: what is stored is read as paragraphs.
+ * Text with headings, lists, bold, italics, links, pictures, tables, code, callouts and more.
+ * Stored as a tree, never as HTML, and given to the site as HTML made from that tree, with the
+ * same text a piece at a time for a template that draws some kinds itself. A field that was
+ * plain text, or a list of paragraphs, can be changed to this type: what is stored is read as
+ * paragraphs.
  *
  * A field shown in a tight spot of a design names the formats that spot was drawn for
  * (`formats`): the editor offers only those, and anything else that reaches a save (pasted, or
  * sent by a script) is turned into plain paragraphs, never refused, so no words are lost. What is
  * handed to the site is limited the same way, for text saved before the field was.
+ *
+ * Colours, highlights and the styles of callouts, tables and buttons are the template's looks,
+ * named in the field's settings (`colours`, `highlights`, `callouts`, `tables`, `buttons`), each
+ * with a sample swatch for the editor. The text holds the name; the template draws it, as the
+ * class `cms-colour-<name>` and the like. A field with no colours offers none.
  */
 export class RichTextField extends FieldType<RichText, RichTextOptions> {
   readonly type = 'richtext';
   readonly editor = 'rich-text';
-  readonly options = z.object({ formats: z.array(z.enum(RICH_TEXT_FORMATS)).optional() });
+  readonly options = z.object({
+    formats: z.array(z.enum(RICH_TEXT_FORMATS)).optional(),
+    colours: lookChoices.optional(),
+    highlights: lookChoices.optional(),
+    callouts: lookChoices.optional(),
+    tables: lookChoices.optional(),
+    buttons: lookChoices.optional(),
+  });
 
-  schema({ formats }: RichTextOptions) {
-    return formats === undefined ? richTextSchema : richTextSchema.transform((text) => limitRichText(text, formats));
+  schema(options: RichTextOptions) {
+    return richTextSchema.transform((text) => limitRichText(text, options.formats, options));
   }
 
   override define(described: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> {
@@ -317,11 +334,11 @@ export class RichTextField extends FieldType<RichText, RichTextOptions> {
     return { ...described, formats: RICH_TEXT_FORMATS.filter((format) => formats.includes(format)) };
   }
 
-  override toPublic(value: RichText | string | readonly string[], { formats }: RichTextOptions): PublicRichText {
+  override toPublic(value: RichText | string | readonly string[], options: RichTextOptions): PublicRichText {
     // What was saved before the field became rich text is still plain.
     const stored = typeof value === 'string' || Array.isArray(value) ? fromPlainText(value as string | readonly string[]) : (value as RichText);
-    const text = limitRichText(stored, formats);
-    return { html: richTextHtml(text), paragraphs: richTextParagraphs(text) };
+    // A link to an entry and a picture are drawn once the site has found them (cms-astro's `withRichText`).
+    return publicRichText(limitRichText(stored, options.formats, options));
   }
 }
 

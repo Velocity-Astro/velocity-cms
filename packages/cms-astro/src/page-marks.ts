@@ -1,3 +1,4 @@
+import { isPlainRichText, type RichText } from '@velocity-astro/cms-core';
 import { isEditorPreview } from './preview.js';
 
 /** Attributes a template spreads on an element of a page. Nothing at all, except beside the editor's form. */
@@ -22,10 +23,12 @@ function shown(data: unknown, path: readonly (string | number)[], into: (readonl
   // A section inside this one (a column's) says what it holds on its own mark.
   const inner = data as { id?: unknown; block?: unknown; data?: unknown };
   if (typeof inner.id === 'string' && typeof inner.block === 'string' && typeof inner.data === 'object' && inner.data !== null) return;
-  const html: unknown = (data as { html?: unknown }).html;
-  // Text shaped in the editor is one field, found by its words and not its markup.
+  const { html, doc } = data as { html?: unknown; doc?: unknown };
+  // Text shaped in the editor is one field, found by its words and not its markup. Only text that
+  // typing on the page can give back whole is offered there: a table or a picture is changed in the form.
   if (typeof html === 'string' && path.length > 0) {
-    if (html.trim() !== '') into.push([path.join('.'), html, 'html']);
+    const plain = typeof doc !== 'object' || doc === null || isPlainRichText(doc as RichText);
+    if (html.trim() !== '' && plain) into.push([path.join('.'), html, 'html']);
     return;
   }
   for (const [key, value] of Object.entries(data)) shown(value, [...path, key], into);
