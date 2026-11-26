@@ -6,3 +6,4 @@ dist/
 prototypes/**/work/
 storybook-static/
 app-dist/
+.wrangler/

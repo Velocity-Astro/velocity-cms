@@ -1,0 +1,13 @@
+// For `npm run check:workers`, and a start for a site that runs on Cloudflare Workers.
+{
+  "name": "velocity-cms-starter",
+  "compatibility_date": "2026-11-01",
+  // The CMS uses Node's own modules (crypto, async_hooks), which this flag provides.
+  "compatibility_flags": ["nodejs_compat"],
+  // The content. VELOCITY_CMS_DATABASE_URL=d1:DB opens the database bound here as DB.
+  // Before a deploy, make one (`npx wrangler d1 create velocity-cms`) and put its id here.
+  "d1_databases": [{ "binding": "DB", "database_name": "velocity-cms", "database_id": "00000000-0000-0000-0000-000000000000" }],
+  // The images people upload. VELOCITY_CMS_R2_BUCKET=MEDIA keeps them in the bucket bound here as MEDIA.
+  // Before a deploy, make it (`npx wrangler r2 bucket create velocity-cms-media`).
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "velocity-cms-media" }]
+}

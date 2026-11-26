@@ -10,12 +10,17 @@
     "start": "node --env-file-if-exists=.env ./dist/server/entry.mjs",
     "seed": "node --env-file-if-exists=.env cms/seed.mjs",
     "check": "node cms/check.mjs",
-    "check:hosted": "node cms/check-hosted.mjs"
+    "check:hosted": "node cms/check-hosted.mjs",
+    "check:workers": "node cms/check.mjs --workers"
   },
   "dependencies": {
     "@astrojs/node": "11.1.9",
     "@velocity-astro/cms-astro": "workspace:*",
     "@velocity-astro/cms-core": "workspace:*",
     "astro": "7.4.5"
+  },
+  "devDependencies": {
+    "@astrojs/cloudflare": "^14.4.9",
+    "wrangler": "^4.168.0"
   }
 }

@@ -69,3 +69,6 @@ export { refreshUploadedImages, uploadedFile, uploadedImage } from './site-media
 export { folderImages, type ImageFile } from './site-images.js';
 export { indexPages, indexSite, searchSite, toSearchDocument } from './site-search.js';
 export { NoSiteError, currentSite, hostedRequest, inSite, isHosted, siteCacheTag, useSiteRegistry, type HostedSite, type SiteRegistry } from './hosted.js';
+export { clearKeptPages, type PageCache } from './kept-pages.js';
+export { R2MediaStore, r2FromEnv, type R2Bucket } from './r2-store.js';
+export { CloudflareImageOptimizer, imagesOptimizerFromEnv, type CloudflareImageOptimizerOptions, type ImagesBinding } from './images-binding.js';

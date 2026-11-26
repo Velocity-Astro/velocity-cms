@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { hasSiteSecret, indexPages, indexSite, invalidateLiveContent, siteCacheTag } from '@velocity-astro/cms-astro';
+import { clearKeptPages, hasSiteSecret, indexPages, indexSite, invalidateLiveContent, siteCacheTag } from '@velocity-astro/cms-astro';
 import { ownOrigin } from './editor.ts';
 import { addresses, clientDir } from './pages.ts';
 
@@ -18,7 +18,7 @@ interface Notice {
 export const POST: APIRoute = async ({ cache, request }) => {
   if (!hasSiteSecret(request)) return new Response(null, { status: 404 });
   invalidateLiveContent();
-  await cache.invalidate({ tags: [siteCacheTag()] });
+  await clearKeptPages(cache, [siteCacheTag()]);
   const { reindex } = (await request.json().catch(() => ({}))) as Notice;
   const origin = ownOrigin(request);
   if (!reindex || origin === null) return Response.json({});

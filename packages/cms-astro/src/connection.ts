@@ -3,10 +3,12 @@ import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { createCms, type Actor, type Cms, type NameLookup, type SearchIndex } from '@velocity-astro/cms-core';
 import { AuthTeam } from '@velocity-astro/cms-auth/team';
-import { openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqliteDealRepository, SqlitePipelineStore, SqlitePresenceStore, SqliteSettingsStore, SqliteCustomFieldsStore, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Db } from '@velocity-astro/cms-db';
+import { d1Client, openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqliteDealRepository, SqlitePipelineStore, SqlitePresenceStore, SqliteSettingsStore, SqliteCustomFieldsStore, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Db } from '@velocity-astro/cms-db';
+import { d1Binding, inWorker } from './d1-binding.js';
 import { currentSite } from './hosted.js';
-import { SharpImageOptimizer } from './image-optimizer.js';
+import { siteImageOptimizer } from './site-optimizer.js';
 import { bucketFromEnv, folderFromEnv } from './media-store.js';
+import { r2FromEnv } from './r2-store.js';
 import { SiteMediaStore } from './site-storage.js';
 import { SiteChallenge } from './challenge.js';
 import { siteSecret } from './secret.js';
@@ -41,22 +43,33 @@ export interface Connection {
 const lookUp: NameLookup = async (host) => (await lookup(host, { all: true })).map((found) => found.address);
 
 /** One for the whole server: it holds a library and nothing of any site. */
-const optimizer = new SharpImageOptimizer();
+const optimizer = siteImageOptimizer();
 
 export async function connect(options: ConnectionOptions): Promise<Connection> {
   const site = currentSite();
   const authToken = site ? site.database.authToken : (options.authToken ?? (process.env.VELOCITY_CMS_DATABASE_TOKEN || undefined));
   const url = resolveUrl(options);
+  // A Worker has no disk for a database that is a file, which is what a site with no address set would open.
+  if (inWorker() && !/^(d1|libsql|https?|wss?):/.test(url)) {
+    throw new Error('On Cloudflare Workers the database is a D1 database the Worker is bound to. Set VELOCITY_CMS_DATABASE_URL=d1:<binding>, such as d1:DB, with that binding under d1_databases in the Wrangler config. While developing, a Worker reads its settings from .env or .dev.vars, not from the shell.');
+  }
   // A database that is a file is made on first use, and so is the folder it sits in.
   const file = /^file:(?!:memory:)([^?]+)/.exec(url)?.[1];
   if (file !== undefined) mkdirSync(path.dirname(path.resolve(file.replace(/^\/\/(?=\/)/, ''))), { recursive: true });
-  const database = await openDatabase({ url, ...(authToken !== undefined && { authToken }) });
+  // `d1:<binding>` is a Cloudflare D1 database, reached through the binding of that name.
+  const d1 = /^d1:(\w+)$/.exec(url)?.[1];
+  const bound = d1 === undefined ? undefined : await d1Binding(d1);
+  // A database on a host with no disk (D1, or a hosted one reached from a Worker) is migrated from the bundle.
+  const database = bound
+    ? await openDatabase({ url, client: d1Client(bound.binding) })
+    : await openDatabase({ url, ...(authToken !== undefined && { authToken }), ...(inWorker() && { bundledMigrations: true }) });
   // A hosted site keeps uploads where its host says, and nowhere a setting of the server names.
   // A site of its own keeps them where the server's settings say, then in the bucket an owner
   // named in the editor, then in a folder beside a database that is a file.
   const store: SiteMediaStore = new SiteMediaStore({
     account: () => cms.settings.bucketAccount(),
-    fixed: site ? site.media : bucketFromEnv(),
+    // On Cloudflare Workers, the R2 bucket the Worker is bound to; anywhere, a bucket named by its address and keys.
+    fixed: site ? site.media : (r2FromEnv() ?? bucketFromEnv()),
     hosted: site !== undefined,
     folder: site ? undefined : folderFromEnv(url),
     lookup: lookUp,
@@ -88,7 +101,16 @@ export async function connect(options: ConnectionOptions): Promise<Connection> {
   });
   cms.settings.useStorage(store.room());
   cms.settings.useChallenge(new SiteChallenge({ account: () => cms.settings.challengeAccount() }));
-  return { cms, search: new SqliteSearchIndex(database.db), db: database.db, close: () => database.close() };
+  return {
+    cms,
+    search: new SqliteSearchIndex(database.db),
+    db: database.db,
+    close: () => {
+      database.close();
+      // What was started to reach a D1 database from this computer is let go, so a command can end.
+      void bound?.release();
+    },
+  };
 }
 
 const shared = new Map<string, Promise<Connection>>();

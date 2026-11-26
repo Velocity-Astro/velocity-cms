@@ -1,6 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { appDirectory } from '@velocity-astro/cms-admin/app-directory';
+import * as built from '@velocity-astro/cms-admin/app-directory';
+
+/** On a host with no disk the integration bundles the editor's page, and its files are served as the site's own. */
+const bundledTemplate = (built as { editorTemplate?: string }).editorTemplate;
 
 /** What the editor needs to know about the site, written into its page. */
 export interface EditorPageConfig {
@@ -15,7 +18,8 @@ interface StaticFile {
   readonly type: string;
 }
 
-const TYPES: Readonly<Record<string, string>> = {
+/** What each kind of the editor's files is sent as. A kind that is not here is never sent. */
+export const EDITOR_FILE_TYPES: Readonly<Record<string, string>> = {
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml',
@@ -43,7 +47,7 @@ const PAGE_HEADERS = {
 };
 
 /** Where `@velocity-astro/cms-admin` keeps the editor it built. */
-export const builtEditorDirectory = (): string => appDirectory;
+export const builtEditorDirectory = (): string => built.appDirectory;
 
 /**
  * Serves the editor: a page and the files it loads, built ahead of time by `cms-admin`. The
@@ -57,17 +61,21 @@ export class AdminFiles {
   readonly #adminPath: string;
 
   constructor(directory: string, config: EditorPageConfig) {
+    this.#adminPath = config.adminPath;
+    this.#config = config;
+    if (bundledTemplate !== undefined && directory === built.appDirectory) {
+      this.#template = bundledTemplate;
+      return;
+    }
     const index = path.join(directory, 'index.html');
     if (!fs.existsSync(index)) {
       throw new Error(`The editor has not been built: ${index} is missing. Run \`pnpm --filter @velocity-astro/cms-admin build:app\`.`);
     }
     for (const name of fs.readdirSync(directory, { recursive: true }).map(String)) {
       const file = path.join(directory, name);
-      const type = TYPES[path.extname(name)];
+      const type = EDITOR_FILE_TYPES[path.extname(name)];
       if (type && fs.statSync(file).isFile()) this.#files.set(name.replaceAll('\\', '/'), { body: fs.readFileSync(file), type });
     }
-    this.#adminPath = config.adminPath;
-    this.#config = config;
     this.#template = fs.readFileSync(index, 'utf8');
   }
 

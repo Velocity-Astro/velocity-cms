@@ -4,6 +4,16 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **Runs on Cloudflare Workers (experimental).** With the `@astrojs/cloudflare` adapter the CMS is a Worker: the content in a D1 database (`VELOCITY_CMS_DATABASE_URL=d1:<binding>`) and uploads in an R2 bucket (`VELOCITY_CMS_R2_BUCKET=<binding>`), both by binding, with no address or keys. It has run in the Workers runtime on a computer and in CI (`examples/starter`, `npm run check:workers`), and on a deployed Worker with D1, R2 and the Images binding: pages, the editor, publishing, scheduled publishing, uploads and forms. Email, passkeys and plugins that send out have not been tried there. The README says how to set one up. Node and Vercel sites are unchanged.
+  - The `velocity-cms` command and a seed script reach the D1 database through Wrangler, which the site installs: the local one `astro dev` and `wrangler dev` use, or the real one where the Wrangler config marks the binding `"remote": true`. `init` fills the two settings in from the Wrangler config and says how a deployed Worker gets its secret.
+  - D1 holds no transaction open, so each save is sent as one batch that is kept whole or not at all, and is refused as a conflict when what it was decided from changed meanwhile.
+  - Images are made lighter by Cloudflare's Images binding, since the library used elsewhere does not run in a Worker.
+  - Pages are kept by Cloudflare's own cache with Astro's `cacheCloudflare()`, which every copy of the Worker shares and a publish clears. On a person's own computer that cache has nothing to clear, and a publish no longer fails over it.
+  - `astro dev` works with the adapter: the development server sends the editor's files itself.
+  - A site that builds its ready-made pages in Node (the adapter's `prerenderEnvironment: 'node'`, for a page that needs a library a Worker cannot load) builds too: there the CMS is loaded from `node_modules`, as on any Node host.
+  - The `cms-deploy` skill a site's coding agent is taught covers Cloudflare Workers. Run `npx velocity-cms agents` to bring a site's copy up to date.
+- The database's migrations are also bundled with the code (`migrations.generated.ts`), for a host with no disk to read them from. A database migrated one way is left alone by the other.
+
 ## 0.1.0-beta.25
 
 - **Get the latest version, with one button.** An entry's bar has a button (in the menu on a phone) that asks for the entry as it is saved now and brings it into the form, with whatever you typed, as the editor does by itself every few seconds. It says so when you already have the latest. A window you come back to, or a computer that wakes, now asks at once instead of waiting for its next turn.

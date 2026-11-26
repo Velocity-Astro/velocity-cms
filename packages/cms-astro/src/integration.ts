@@ -1,7 +1,10 @@
 import fs from 'node:fs';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { AstroIntegration } from 'astro';
+import { EDITOR_FILE_TYPES } from './admin-files.js';
 import { loadCmsEnv } from './init.js';
 
 const PACKAGE = '@velocity-astro/cms-astro';
@@ -14,6 +17,9 @@ const SITES = 'virtual:velocity-cms/sites';
 const IMAGE_FILES = '**/*.{jpg,jpeg,png,webp,avif,gif}';
 const ADMIN_PATH = '/admin';
 const route = (file: string) => fileURLToPath(new URL(`../routes/${file}`, import.meta.url));
+const EDITOR_DIRECTORY = '@velocity-astro/cms-admin/app-directory';
+/** Where the built editor is on the machine that builds the site. */
+const editorDirectory = (): string => path.join(path.dirname(createRequire(import.meta.url).resolve('@velocity-astro/cms-admin/package.json')), 'app-dist');
 
 export interface VelocityCmsOptions {
   /** Addresses to leave out of the sitemap, such as search results: `['/search/', '/es/buscar/']`. */
@@ -91,6 +97,7 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
   let clientDir = '';
   let site: string | undefined;
   let root = '';
+  let workers = false;
   return {
     name: PACKAGE,
     hooks: {
@@ -125,13 +132,48 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
         injectRoute({ pattern: '/api/cms/[...path]', entrypoint: route('api.ts') });
         injectRoute({ pattern: `${ADMIN_PATH}/[...path]`, entrypoint: route('admin.ts') });
 
+        // Cloudflare Workers have no node_modules to load from at run time: everything is bundled.
+        workers = config.integrations.some((one) => one.name === '@astrojs/cloudflare') || config.adapter?.name === '@astrojs/cloudflare';
         const external = { resolve: { external: [PACKAGE] } };
         updateConfig({
           vite: {
-            ssr: { external: [PACKAGE] },
-            // Astro builds prerendered pages in their own Vite environment, which does not read `ssr`.
-            environments: { ssr: external, prerender: external, astro: external },
+            ...(!workers && { ssr: { external: [PACKAGE] }, environments: { ssr: external, prerender: external, astro: external } }),
             plugins: [
+              {
+                // With no disk at run time, the editor's page is bundled and its files are copied into the site's own.
+                name: 'velocity-cms:editor-files',
+                enforce: 'pre' as const,
+                // A site on Workers may still build its ready-made pages in Node (the adapter's `prerenderEnvironment: 'node'`).
+                // There the package is loaded from node_modules, as on any Node host: it opens a database through a
+                // native module, which a bundle for Node cannot carry. Only a Worker's own bundle holds it whole.
+                resolveId(this: { environment?: { config: { consumer?: string; resolve: { conditions: readonly string[] } } } }, id: string) {
+                  if (!workers) return undefined;
+                  const here = this.environment?.config;
+                  const inNode = here !== undefined && here.consumer === 'server' && !here.resolve.conditions.includes('workerd');
+                  if (inNode && (id === PACKAGE || id.startsWith(`${PACKAGE}/`))) return { id, external: true };
+                  return !inNode && id === EDITOR_DIRECTORY ? `\0${EDITOR_DIRECTORY}` : undefined;
+                },
+                load: (id: string) =>
+                  id === `\0${EDITOR_DIRECTORY}`
+                    ? `export const appDirectory = '';\nexport const editorTemplate = ${JSON.stringify(fs.readFileSync(path.join(editorDirectory(), 'index.html'), 'utf8'))};`
+                    : undefined,
+                // A build copies the editor's files into the site's own. While developing there is no build,
+                // so the development server sends them itself, before the request reaches the Worker.
+                configureServer: (server: { middlewares: { use(handler: (request: IncomingMessage, response: ServerResponse, next: () => void) => void): void } }) => {
+                  if (!workers) return;
+                  const from = `${ADMIN_PATH}/assets/`;
+                  server.middlewares.use((request, response, next) => {
+                    const asked = (request.url ?? '').split('?')[0] ?? '';
+                    const name = asked.startsWith(from) ? asked.slice(from.length) : '';
+                    const type = EDITOR_FILE_TYPES[path.extname(name)];
+                    const file = path.join(editorDirectory(), 'assets', name);
+                    // One file name and nothing that could name a folder, of a kind the editor has.
+                    if (!/^[\w.-]+$/.test(name) || name.includes('..') || !type || !fs.existsSync(file)) return next();
+                    response.writeHead(200, { 'content-type': type, 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' });
+                    fs.createReadStream(file).pipe(response);
+                  });
+                },
+              },
               {
                 name: 'velocity-cms:options',
                 resolveId: (id: string) => (id === OPTIONS || id === MAILER || id === IMAGES || id === PLUGINS || id === SITES ? `\0${id}` : undefined),
@@ -177,6 +219,10 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
       // Every page is drawn when it is asked for, for the site whose host name asked.
       'astro:route:setup': ({ route: page }) => {
         if (options.sites) page.prerender = false;
+      },
+      'astro:build:done': () => {
+        if (!workers) return;
+        fs.cpSync(path.join(editorDirectory(), 'assets'), path.join(clientDir, ADMIN_PATH.replace(/^\//, ''), 'assets'), { recursive: true });
       },
       'astro:config:done': ({ config }) => {
         clientDir = fileURLToPath(config.adapter ? config.build.client : config.outDir);

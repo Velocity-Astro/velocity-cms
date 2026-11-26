@@ -3,12 +3,12 @@ import path from 'node:path';
 import type { MediaStore, StoredFile } from '@velocity-astro/cms-core';
 
 /** A key is one file name the CMS made: nothing that could name a folder or another place. */
-const KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*\.(?:jpg|png|webp)$/;
+export const MEDIA_KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*\.(?:jpg|png|webp)$/;
 const TYPES: Readonly<Record<string, string>> = { jpg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
-const typeOf = (key: string): string => TYPES[key.slice(key.lastIndexOf('.') + 1)] ?? 'application/octet-stream';
+export const mediaTypeOf = (key: string): string => TYPES[key.slice(key.lastIndexOf('.') + 1)] ?? 'application/octet-stream';
 
-function checked(key: string): string {
-  if (!KEY.test(key)) throw new Error(`"${key}" is not a name an uploaded file can be kept under.`);
+export function checkedMediaKey(key: string): string {
+  if (!MEDIA_KEY.test(key)) throw new Error(`"${key}" is not a name an uploaded file can be kept under.`);
   return key;
 }
 
@@ -18,13 +18,13 @@ export class FolderMediaStore implements MediaStore {
 
   async put(key: string, file: StoredFile): Promise<void> {
     await mkdir(this.directory, { recursive: true });
-    await writeFile(path.join(this.directory, checked(key)), file.bytes);
+    await writeFile(path.join(this.directory, checkedMediaKey(key)), file.bytes);
   }
 
   async get(key: string): Promise<StoredFile | null> {
-    if (!KEY.test(key)) return null;
+    if (!MEDIA_KEY.test(key)) return null;
     try {
-      return { bytes: new Uint8Array(await readFile(path.join(this.directory, key))), contentType: typeOf(key) };
+      return { bytes: new Uint8Array(await readFile(path.join(this.directory, key))), contentType: mediaTypeOf(key) };
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
       throw error;
@@ -32,7 +32,7 @@ export class FolderMediaStore implements MediaStore {
   }
 
   async remove(key: string): Promise<void> {
-    if (KEY.test(key)) await rm(path.join(this.directory, key), { force: true });
+    if (MEDIA_KEY.test(key)) await rm(path.join(this.directory, key), { force: true });
   }
 }
 
@@ -99,20 +99,20 @@ export class S3MediaStore implements MediaStore {
   }
 
   async put(key: string, file: StoredFile): Promise<void> {
-    const response = await this.#send('PUT', checked(key), file);
+    const response = await this.#send('PUT', checkedMediaKey(key), file);
     if (!response.ok) throw await this.#failure('keep', key, response);
   }
 
   async get(key: string): Promise<StoredFile | null> {
-    if (!KEY.test(key)) return null;
+    if (!MEDIA_KEY.test(key)) return null;
     const response = await this.#send('GET', key);
     if (response.status === 404) return null;
     if (!response.ok) throw await this.#failure('read', key, response);
-    return { bytes: new Uint8Array(await response.arrayBuffer()), contentType: response.headers.get('content-type') ?? typeOf(key) };
+    return { bytes: new Uint8Array(await response.arrayBuffer()), contentType: response.headers.get('content-type') ?? mediaTypeOf(key) };
   }
 
   async remove(key: string): Promise<void> {
-    if (!KEY.test(key)) return;
+    if (!MEDIA_KEY.test(key)) return;
     const response = await this.#send('DELETE', key);
     if (!response.ok && response.status !== 404) throw await this.#failure('remove', key, response);
   }
