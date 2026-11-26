@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+## 0.1.0-beta.27
+
 - **A site on Vercel answers again.** In 0.1.0-beta.26 a site deployed to Vercel answered 500 at every address, because the database's migrations were left out of what Vercel ships (`meta/_journal.json` could not be found). They are shipped again, and a test now traces the built package the way Vercel does. Sites on a Node server and on Cloudflare Workers were not affected.
 
 ## 0.1.0-beta.26

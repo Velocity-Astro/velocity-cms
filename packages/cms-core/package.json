@@ -1,6 +1,6 @@
 {
   "name": "@velocity-astro/cms-core",
-  "version": "0.1.0-beta.26",
+  "version": "0.1.0-beta.27",
   "description": "The Velocity CMS content model and every rule about it. No database, no Astro, no HTTP.",
   "type": "module",
   "license": "MIT",
