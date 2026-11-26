@@ -1,15 +1,24 @@
 # Velocity CMS
 
-A content management system for [Astro](https://astro.build) sites, built for [Velocity](https://github.com/southwellmedia/velocity). People edit at `/admin`, the content lives in a small SQLite database beside the site, and a change is on the site about a second after it is published, with no rebuild.
+The open source CMS for [Astro](https://astro.build): a visual editor at `/admin`, pages built from sections, a form builder, a built-in CRM, and an MCP server your AI agent edits through, beside you. One package, a small SQLite database you own, and your own components still draw every page. A change is on the site about a second after it is published, with no rebuild.
 
-**[Try the demo](https://realestate.deployvelocity.com/demo/)** · **[Read the docs](https://docs.deployvelocity.com/cms/)** · **[Add it to a site](#add-it-to-a-site)**
+**[Try the demo](https://realestate.deployvelocity.com/demo/)** · **[Docs](https://docs.deployvelocity.com/cms/)** · **[deployvelocity.com/cms](https://deployvelocity.com/cms)** · MIT · open beta
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/page-builder-dark.webp">
-  <img src="docs/screenshots/page-builder-light.webp" alt="The editor: a page as a list of sections, with the live page beside the form">
-</picture>
+<img src="docs/screenshots/demo.gif" width="100%" alt="The visual editor on a live page: an AI agent connected over MCP rewrites the page's opening, the editor says Claude is working on this, the change appears on the page as it is saved, and a person publishes it">
 
-> **Beta.** Versions are `0.x`: the plugin API and the template API may still change between releases, each change with a note on how to move. The packages are on npm as `@velocity-astro/cms-*`, with the `velocity-cms` command.
+```sh
+npx velocity-cms init you@example.com "Your Name"
+```
+
+Run it in an Astro site with a server adapter. It installs the CMS, makes you the owner and prints a link that signs you in at `/admin`. [More on adding it to a site](#add-it-to-a-site).
+
+- **Edit on the page.** Pages are sections from your template. Type on the page, drag sections by name, swap pictures and links, and try the theme's colors and fonts before publishing.
+- **Forms and a CRM, built in.** Build a form in the editor and place it on a page. Everyone who writes in becomes a contact, on a pipeline board with deals and a forecast.
+- **Made for agents.** Paste the site's MCP address into Claude or ChatGPT, sign in and press Allow (OAuth). The agent builds pages from the template's own sections, and you see its changes arrive in your open editor as it saves.
+- **Host-neutral.** Node on a server, Vercel, or Cloudflare Workers (experimental), on SQLite, libSQL or D1. Nothing is tied to one cloud.
+- **Yours.** MIT licensed, self-hosted, and the content is in a database you own.
+
+> **Open beta.** Versions are `0.x`: the plugin API and the template API may still change between releases, each change with a note on how to move. The packages are on npm as `@velocity-astro/cms-*`, with the `velocity-cms` command.
 
 The demo is a real estate site on the CMS, with one click into its editor. Everyone shares it and it starts over every night, so change whatever you like.
 
@@ -18,18 +27,25 @@ The demo is a real estate site on the CMS, with one click into its editor. Every
 | | |
 |---|---|
 | **Content** | Content types made in a visual builder or described in code. Drafts and published versions, trash, duplicate, history with restore, scheduled publishing, preview links, several languages. |
-| **Pages** | Pages built from sections, with the live page beside the form, or a visual editor that gives the page the window: words typed on the page, sections moved, added and removed there. Pages under pages, a home page, menus edited in the CMS. |
+| **Pages** | Pages built from sections, with the live page beside the form, or a visual editor that gives the page the window: words and formatted text typed on the page, sections moved, added and removed there, sections inside sections, pictures, links and list items changed where they are. Pages under pages, a home page, menus, a header and a footer edited in the CMS. |
 | **Theme** | A site's colors and fonts set in the editor: a color picker with the template's palette, the template's fonts, tried on the page before they are published. |
 | **Media** | An image library with uploads, kept in a folder, any S3-compatible bucket, or on Cloudflare Workers an R2 bucket the Worker is bound to. Each upload is made lighter and kept as WebP. |
-| **Forms** | A form builder, forms as page sections, spam marking, an optional Cloudflare Turnstile check, notices by email, export and erase of what a person sent. |
-| **CRM** | Contacts with a timeline and notes, a pipeline board, owners and follow-up days, deals with a forecast, custom fields, CSV import. |
+| **Forms** | A form builder, forms as page sections, spam marking, an optional Cloudflare Turnstile or Google reCAPTCHA check, notices by email, export and erase of what a person sent. |
+| **CRM** | Contacts with a timeline and notes, a pipeline board, owners and follow-up days, deals with a forecast, custom fields, CSV import. A form on a listing or a product can start a deal about it. |
 | **Plugins** | A plugin API with settings, secrets and retried background work. Seven come with it, off until an owner switches one on: SEO (search titles, share image, Search Console and Bing codes), Analytics (Google Analytics, Tag Manager, cookie consent), Redirects, Webhooks, and the experimental Mailchimp, Slack and HubSpot. |
 | **People** | Sign-in by email link or passkey, no passwords. Owner, editor and author roles. Invitations. |
+| **Working together** | Who else has an entry open, and where in it. What a person or an agent saves appears in your form and on the page within seconds, beside what you typed, and nobody is locked out. Only when two change the same field does the editor ask whose stands. |
 | **Editor** | A home that says what is waiting, one bar at the top of every screen, search with Ctrl or Command and K, light and dark, and a layout that fits a phone. |
-| **AI agents** | Rules and skills for coding agents, installed into every site and kept to the CMS's version. A `check` command that names each rule a site breaks and how to fix it. Access tokens, content commands and an MCP server that builds pages from the template's own sections. |
+| **AI agents** | Rules and skills for coding agents, installed into every site and kept to the CMS's version. A `check` command that names each rule a site breaks and how to fix it. An MCP server on every site that Claude and ChatGPT connect to by its address (OAuth), with tools that build pages from the template's own sections and skills that teach the job. Access tokens and content commands for scripts. |
 | **Site** | Live pages from a cache that a publish clears. Search and the sitemap follow. A fully static build is an option. |
+| **Hosting** | Node on a server and Vercel, with a SQLite file or a hosted libSQL database. Cloudflare Workers with D1 and R2 is experimental. |
 
 ## A look around
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/page-builder-dark.webp">
+  <img src="docs/screenshots/page-builder-light.webp" alt="The editor: a page as a list of sections, with the live page beside the form">
+</picture>
 
 | | |
 |---|---|
@@ -50,7 +66,7 @@ In an Astro site with a server adapter:
 npx velocity-cms init you@example.com "Your Name"
 ```
 
-It installs the CMS, writes a secret to `.env`, keeps it out of git, adds `velocityCms()` to the Astro config and makes you the owner. It prints a link that signs you in at `/admin`. It can be run again and changes nothing that is there. What a site then needs is what the starter has: a description of its content (`cms/model.mjs`), a route that draws pages, and a component for each kind of section. The [docs](https://docs.deployvelocity.com/cms/install/) walk through each, and [Converting a template](docs/converting-a-template.md) takes an existing Astro site there step by step, for a person or a coding agent.
+`init` installs the CMS, writes a secret to `.env`, keeps it out of git, adds `velocityCms()` to the Astro config and makes you the owner. It prints a link that signs you in at `/admin`. It can be run again and changes nothing that is there. What a site then needs is what the starter has: a description of its content (`cms/model.mjs`), a route that draws pages, and a component for each kind of section. The [docs](https://docs.deployvelocity.com/cms/install/) walk through each, and [Converting a template](docs/converting-a-template.md) takes an existing Astro site there step by step, for a person or a coding agent.
 
 A deployed site needs `VELOCITY_CMS_SECRET` and its address (`site` in the Astro config, or `VELOCITY_CMS_ORIGIN`) on the host, and a database: a file on a machine that keeps its disk, or a hosted libSQL database (`VELOCITY_CMS_DATABASE_URL`, `VELOCITY_CMS_DATABASE_TOKEN`) anywhere else. Node on a server and Vercel are tried. Cloudflare Workers is experimental (below). Netlify is not tried yet.
 
@@ -86,6 +102,8 @@ VELOCITY_CMS_R2_BUCKET=MEDIA
 ## Working with an AI agent
 
 `init` writes the CMS's rules for coding agents (`.agents/cms.md`) and nine skills (`cms-add-section`, `cms-add-form`, `cms-import-content` and the rest) into the site, in both `.agents/skills/` and `.claude/skills/`, and points `AGENTS.md` at them. `npx velocity-cms agents` brings them up to date after an upgrade, and `npx velocity-cms check` names every rule the site breaks, the file, and the fix.
+
+What an agent saves shows up in any editor that has the entry open, marked "Claude is working on this", within seconds and beside what the person typed.
 
 To let Claude or ChatGPT work with the content, add the site's MCP address (`https://your-site/api/cms/mcp`) to the app as a custom connector: it sends you to the editor, you sign in, choose what it may do and press Allow. Connected apps are listed, and disconnected, under Settings, Access tokens.
 
@@ -134,6 +152,7 @@ Open the link `init` printed once the site is running, then open Pages and chang
 | [`cms-admin`](packages/cms-admin) | The editor's screens. |
 | [`cms-plugins`](packages/cms-plugins) | The plugins that come with the CMS. |
 | [`cms-astro`](packages/cms-astro) | The Astro integration, the live loader and the `velocity-cms` command. |
+| [`velocity-cms`](packages/velocity-cms) | `npx velocity-cms` for a site that does not have the CMS yet: `init` installs it, and every command is handed to the CMS the site has. |
 
 Five rules shape the code. [`AGENTS.md`](AGENTS.md) has the detail, for people and for coding agents alike.
 
