@@ -1,4 +1,3 @@
-import { fileURLToPath } from 'node:url';
 import { createClient, type Client } from '@libsql/client';
 import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
@@ -31,8 +30,6 @@ export interface DatabaseOptions {
   readonly bundledMigrations?: boolean;
 }
 
-const migrationsDir = () => fileURLToPath(new URL('../migrations', import.meta.url));
-
 /**
  * Opens the database and brings it up to date. Migrations only move forward and are safe to run
  * on every start: the ones already applied are skipped.
@@ -46,6 +43,6 @@ export async function openDatabase(options: DatabaseOptions): Promise<Database> 
     });
   const db = drizzle(client, { schema: tables });
   if (options.client || options.bundledMigrations) await runBundledMigrations(client);
-  else await migrate(db, { migrationsFolder: migrationsDir() });
+  else await migrate(db, { migrationsFolder: (await import('./migrations-dir.js')).MIGRATIONS });
   return { db, close: () => client.close() };
 }
