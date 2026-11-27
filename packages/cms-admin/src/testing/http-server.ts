@@ -4,6 +4,7 @@ import { createCms } from '@velocity-astro/cms-core';
 import {
   InMemoryEntryRepository,
   InMemoryImageLibrary,
+  InMemoryLikeStore,
   InMemoryMediaRepository,
   InMemoryMediaStore,
   InMemorySchemaRepository,
@@ -32,7 +33,9 @@ export async function createHttpServer(seed: AdminClientSeed, user: SessionUser)
   const authenticator = new FixedAuthenticator({ user, actor: { kind: 'user', id: user.id, role: user.role } });
   const storage = { files: new InMemoryMediaRepository(), store: new InMemoryMediaStore() };
   const people = new MemoryPeople(seed.people ?? [user]);
-  const cms = createCms({ types, entries, team: people, previews: { secret: 'http-test-server-preview-secret-0' }, ...(seed.uploads !== false && { media: { storage } }) });
+  const likes = new InMemoryLikeStore();
+  for (const like of seed.likes ?? []) await likes.add(like);
+  const cms = createCms({ types, entries, likes, team: people, previews: { secret: 'http-test-server-preview-secret-0' }, ...(seed.uploads !== false && { media: { storage } }) });
   cms.media.include(new InMemoryImageLibrary(seed.images));
   cms.settings.useMail(new MemoryMailRoom(cms.settings));
   cms.settings.useSite({ defaultName: 'Lakeshore Realty', fixedBy: null });

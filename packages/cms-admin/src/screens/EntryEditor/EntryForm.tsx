@@ -27,6 +27,7 @@ import { useLocale, useMessages } from '../../messages/messages-context.js';
 import { PluginBoundary } from '../../plugins/PluginBoundary.js';
 import { usePluginExtensions } from '../../plugins/plugin-editor.js';
 import { EntryDeals } from './EntryDeals.js';
+import { EntryLikes } from './EntryLikes.js';
 import { PageCompany } from './PageCompany.js';
 import { PagePane, PageWidths, type PageWidth } from './PagePane.js';
 import { SectionOutline } from './SectionOutline.js';
@@ -626,10 +627,12 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
     ));
   // Deals are as personal as contacts: the card is for those who may read them, on a saved entry.
   const showsDeals = type.forDeals === true && entry !== null && session.data !== null && session.data !== undefined && session.data.role !== 'author';
+  const showsLikes = type.likes !== undefined && entry !== null;
   // Nothing to show beside the content: the content is read and filled in from top to bottom.
-  const isAlone = isSingle && panels.length === 0 && !showsDeals && !sections.some((section) => section.aside);
+  const isAlone = isSingle && panels.length === 0 && !showsDeals && !showsLikes && !sections.some((section) => section.aside);
   // Right under the address, where it is seen without scrolling past the fields beside the content.
   const dealsCard = showsDeals ? <EntryDeals type={type} entry={entry} /> : null;
+  const likesCard = showsLikes ? <EntryLikes type={type} entry={entry} /> : null;
   const savedNote =
     entry === null
       ? messages.editor.notSavedYet
@@ -904,6 +907,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
                   </Card>
                 )}
                 {dealsCard}
+                  {likesCard}
                   {sections.filter((section) => section.aside).map(card)}
                 {panels}
               </Workbench>
@@ -937,6 +941,7 @@ export function EntryForm({ type, entry, onCreated, versions = [], onSwitch, onT
                     </Card>
                   )}
                   {dealsCard}
+                  {likesCard}
                   {sections.filter((section) => section.aside).map(card)}
                   {panels}
                 </>

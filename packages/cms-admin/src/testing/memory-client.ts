@@ -21,6 +21,8 @@ import {
   type Deal,
   type DealChanges,
   type Forecast,
+  type Like,
+  type LikeCount,
   type NewDeal,
   type Pipeline,
   type EmailSettings,
@@ -59,6 +61,7 @@ import {
 import {
   InMemoryEntryRepository,
   InMemoryImageLibrary,
+  InMemoryLikeStore,
   InMemoryMediaRepository,
   InMemoryMediaStore,
   InMemorySchemaRepository,
@@ -87,6 +90,8 @@ export interface MemoryAdminClientOptions {
   readonly submissions?: readonly SeedSubmission[];
   /** The site's plugins, started before the first request. */
   readonly plugins?: readonly unknown[];
+  /** What visitors liked before the first request. */
+  readonly likes?: readonly Like[];
   /** Everyone who can sign in. Defaults to the person signed in at the start. */
   readonly people?: readonly Person[];
   /** The language new entries are written in. Defaults to `en`. */
@@ -172,7 +177,8 @@ export class MemoryAdminClient implements AdminClient {
     const types = new InMemorySchemaRepository();
     const entries = new InMemoryEntryRepository();
     const storage = { files: new InMemoryMediaRepository(), store: new InMemoryMediaStore() };
-    const cms = createCms({ types, entries, team: this.#people, previews: { secret: PREVIEW_SECRET }, ...(options.uploads !== false && { media: { storage } }) });
+    const likes = new InMemoryLikeStore();
+    const cms = createCms({ types, entries, likes, team: this.#people, previews: { secret: PREVIEW_SECRET }, ...(options.uploads !== false && { media: { storage } }) });
     this.#cms = cms;
     this.mail = new MemoryMailRoom(cms.settings);
     this.mail.fixed = options.emailFixedBy ?? null;
@@ -187,6 +193,7 @@ export class MemoryAdminClient implements AdminClient {
       for (const type of options.contentTypes ?? []) await types.save(type);
       for (const entry of options.entries ?? []) await entries.save(entry, { expectedRevision: null, actorId: 'seed' });
       await seedForms(cms, options.forms, options.submissions);
+      for (const like of options.likes ?? []) await likes.add(like);
       await cms.plugins.load(options.plugins ?? []);
     })();
   }
@@ -483,6 +490,14 @@ export class MemoryAdminClient implements AdminClient {
 
   getForecast(): Promise<Forecast> {
     return this.#request((actor) => this.#cms.deals.forecast(actor));
+  }
+
+  getLikeCounts(typeId: string): Promise<Readonly<Record<string, number>>> {
+    return this.#request((actor) => this.#cms.likes.counts(actor, typeId));
+  }
+
+  listMostLiked(query: { readonly limit?: number; readonly since?: string } = {}): Promise<readonly LikeCount[]> {
+    return this.#request((actor) => this.#cms.likes.top(actor, query));
   }
 
   getEmailSettings(): Promise<EmailSettings> {

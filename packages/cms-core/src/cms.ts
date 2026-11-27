@@ -5,14 +5,15 @@ import { createFieldRegistry } from './fields/index.js';
 import { PublishChecks } from './checks.js';
 import { PageHeads } from './pages.js';
 import { PluginHost } from './plugin.js';
-import type { Clock, ContactRepository, DealRepository, EntryRepository, FormRepository, IdGenerator, NameLookup, PipelineStore, PresenceStore, SettingsStore, CustomFieldsStore, PluginStore, SchemaRepository, SubmissionRepository, Team } from './ports.js';
-import { InMemoryContactRepository, InMemoryDealRepository, InMemoryFormRepository, InMemoryPipelineStore, InMemoryPresenceStore, InMemorySettingsStore, InMemoryCustomFieldsStore, InMemoryPluginStore, InMemorySubmissionRepository } from './testing/in-memory.js';
+import type { Clock, ContactRepository, DealRepository, EntryRepository, FormRepository, IdGenerator, NameLookup, PipelineStore, PresenceStore, LikeStore, SettingsStore, CustomFieldsStore, PluginStore, SchemaRepository, SubmissionRepository, Team } from './ports.js';
+import { InMemoryContactRepository, InMemoryDealRepository, InMemoryFormRepository, InMemoryPipelineStore, InMemoryPresenceStore, InMemoryLikeStore, InMemorySettingsStore, InMemoryCustomFieldsStore, InMemoryPluginStore, InMemorySubmissionRepository } from './testing/in-memory.js';
 import type { Registry } from './registry.js';
 import { ContentService } from './services/content-service.js';
 import { ContactService } from './services/contact-service.js';
 import { DealService } from './services/deal-service.js';
 import { PipelineService } from './services/pipeline-service.js';
 import { PresenceService } from './services/presence-service.js';
+import { LikeService } from './services/like-service.js';
 import { SettingsService } from './services/settings-service.js';
 import { SecretSeal } from './seal.js';
 import { CustomFieldsService } from './services/custom-fields-service.js';
@@ -47,6 +48,8 @@ export interface CmsOptions {
   readonly pipeline?: PipelineStore;
   /** Where it is kept who has which entry open now. Without one, in memory, which a site on one server could live with. */
   readonly presence?: PresenceStore;
+  /** Where visitors' likes are kept. Without one, in memory, which only suits tests. */
+  readonly likes?: LikeStore;
   /** Where what an owner sets up in the editor's settings is kept. Without one, in memory. */
   readonly settings?: SettingsStore;
   /** Where the fields a site adds to its contacts and deals are kept. Without one, in memory. */
@@ -73,6 +76,8 @@ export interface Cms {
   readonly media: MediaService;
   /** Who has an entry open now, and which agents just worked on it. */
   readonly presence: PresenceService;
+  /** What visitors liked, for the types that take likes. */
+  readonly likes: LikeService;
   /** The forms visitors fill in, and what they sent. */
   readonly forms: FormService;
   readonly submissions: SubmissionService;
@@ -113,6 +118,7 @@ export function createCms(options: CmsOptions): Cms {
   const pages = new PageHeads();
   const content = new ContentService(options.entries, schema, fields, access, events, clock, ids, checks);
   const presence = new PresenceService(options.presence ?? new InMemoryPresenceStore(), content, access, clock);
+  const likes = new LikeService(options.likes ?? new InMemoryLikeStore(), options.types, options.entries, access, events, clock);
   const media = new MediaService(access, events, clock, options.media);
   const formStore = options.forms ?? new InMemoryFormRepository();
   const submissionStore = options.submissions ?? new InMemorySubmissionRepository();
@@ -128,5 +134,5 @@ export function createCms(options: CmsOptions): Cms {
   const sealWith = options.secret ?? options.previews?.secret;
   const plugins = new PluginHost({ fields, events, checks, pages, store: options.pluginStore ?? new InMemoryPluginStore(), ids, schema, content, access, clock, ...(sealWith !== undefined && { secret: sealWith }), ...(options.lookup && { lookup: options.lookup }), ...(options.onPluginFault && { onFault: options.onPluginFault }) });
   const settings = new SettingsService(options.settings ?? new InMemorySettingsStore(), new SecretSeal(sealWith, 'velocity-cms site settings'), access, events);
-  return { settings, schema, content, presence, media, forms, submissions, contacts, pipeline, customFields, deals, previews, fields, events, access, plugins, pages };
+  return { settings, schema, content, presence, likes, media, forms, submissions, contacts, pipeline, customFields, deals, previews, fields, events, access, plugins, pages };
 }

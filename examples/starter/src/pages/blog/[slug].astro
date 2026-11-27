@@ -2,6 +2,7 @@
 import { entryPage } from '@velocity-astro/cms-astro';
 import type { RichText } from '@/components/blocks';
 import Layout from '@/layouts/Layout.astro';
+import ShareBar from '@/components/ShareBar.astro';
 
 export const prerender = false;
 
@@ -16,6 +17,8 @@ const post = found.entry.data as { title?: string; date?: string; excerpt?: stri
       <h1>{post.title}</h1>
       {post.date && <time datetime={post.date}>{post.date}</time>}
       <div class="prose" set:html={post.body?.html ?? ''} />
+      <div class="post-end"></div>
     </div>
   </article>
+  <ShareBar title={post.title ?? ''} />
 </Layout>

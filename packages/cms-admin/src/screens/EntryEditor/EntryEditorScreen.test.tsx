@@ -933,3 +933,18 @@ it('hears from the server that the entry moved on, and asks for it again', async
   expect(presence).toHaveBeenCalled();
   expect(get).toHaveBeenCalled();
 });
+
+it('says beside an entry how many visitors liked it, and whether the site shows the count', async () => {
+  const likedTypes = sampleContentTypes.map((type) => (type.key === 'listings' ? { ...type, likes: { showCount: false } } : type));
+  const likes = Array.from({ length: 4 }, (_, n) => ({ typeId: 'type-listings', entry: 'e1', visitor: String(n).repeat(64), at: new Date().toISOString() }));
+  renderApp('/content/listings/e1', { user: sampleUser, contentTypes: likedTypes, entries: sampleEntries(), likes });
+  const card = (await screen.findByRole('heading', { name: 'Likes' })).closest('section') ?? document.body;
+  expect(await within(card).findByText('4 visitors liked this')).toBeTruthy();
+  expect(within(card).getByText('Only your team sees this count. The site shows the button without a number.')).toBeTruthy();
+});
+
+it('shows no likes beside an entry of a type that takes none', async () => {
+  renderApp('/content/listings/e1', { user: sampleUser, contentTypes: sampleContentTypes, entries: sampleEntries() });
+  await screen.findByRole('heading', { level: 1, name: '6214 Lakeshore Drive' });
+  expect(screen.queryByRole('heading', { name: 'Likes' })).toBeNull();
+});

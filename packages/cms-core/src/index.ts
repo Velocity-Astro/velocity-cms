@@ -90,6 +90,9 @@ export {
   type ContactNote,
   type Pipeline,
   type Presence,
+  type LikeSettings,
+  type LikeCount,
+  type LikeState,
   type PresentOther,
   type EntryPresence,
   type PresenceSaid,
@@ -143,6 +146,8 @@ export type {
   ContactRepository,
   PipelineStore,
   PresenceStore,
+  Like,
+  LikeStore,
   SettingsStore,
   MailRoom,
   StorageRoom,
@@ -219,6 +224,7 @@ export { DealService, MAX_DEAL_TITLE_LENGTH, MAX_DEAL_VALUE, type DealChanges, t
 export { CustomFieldsService, CUSTOM_FIELDS_OF, MAX_CUSTOM_FIELDS, type CustomFieldInput, type CustomFieldsChanges, type CustomFieldsOf } from './services/custom-fields-service.js';
 export { SettingsService, siteNameFrom, EMAIL_PROVIDERS, MAX_EMAIL_FROM_LENGTH, MAX_EMAIL_KEY_LENGTH, MAX_SENDER_NAME_LENGTH, senderFrom, senderNameFrom, storageEndpointFrom, MAX_STORAGE_FIELD_LENGTH, MAX_SITE_NAME_LENGTH, DEFAULT_FORM_POSTS_PER_ADDRESS, MAX_FORM_POSTS_PER_ADDRESS, MAX_CHALLENGE_KEY_LENGTH, CHALLENGE_PROVIDERS, type FormsSettingsChanges, type EmailSettingsChanges, type StorageSettingsChanges, type GeneralSettingsChanges, type SiteNaming } from './services/settings-service.js';
 export { SecretSeal, type Sealed } from './seal.js';
+export { LikeService, MAX_LIKE_COUNTS, MAX_TOP_LIKED, type LikeSubject } from './services/like-service.js';
 export { PresenceService, PRESENCE_EDITOR_MS, PRESENCE_AGENT_MS, MAX_PRESENCE_NAME_LENGTH, MAX_PRESENCE_PLACE_LENGTH, sessionAgentId } from './services/presence-service.js';
 export { PipelineService, DEFAULT_CURRENCY, chanceOf, DEFAULT_STAGES, MAX_STAGES, MAX_STAGE_LABEL_LENGTH, MAX_MONTHLY_TARGET, type PipelineChanges, type StageInput } from './services/pipeline-service.js';
 export { ContactService, MAX_CONTACT_NAME_LENGTH, MAX_IMPORT_ROWS, MAX_NOTE_LENGTH, type ContactChanges, type ContactImportReport, type ContactImportRow, type NewContact } from './services/contact-service.js';

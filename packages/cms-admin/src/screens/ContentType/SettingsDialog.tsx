@@ -27,6 +27,8 @@ export function SettingsDialog({ type, onClose }: { readonly type: ContentTypeDe
   const [image, setImage] = useState(type.list?.imagePath ? wordOf(type.list.imagePath) : AUTOMATIC);
   const [columns, setColumns] = useState<readonly string[]>((type.list?.fieldPaths ?? []).map(wordOf));
   const [forDeals, setForDeals] = useState(type.forDeals === true);
+  const [likes, setLikes] = useState(type.likes !== undefined);
+  const [showCount, setShowCount] = useState(type.likes?.showCount ?? true);
   // Where a single page someone made is listed is theirs to say; a template's says it in its code.
   const was = placeOf(type);
   const [place, setPlace] = useState<TypePlace>(was);
@@ -64,6 +66,7 @@ export function SettingsDialog({ type, onClose }: { readonly type: ContentTypeDe
           titlePath: title === AUTOMATIC ? null : title.split('/'),
           list: image === AUTOMATIC && columns.length === 0 ? null : { ...(image !== AUTOMATIC && { imagePath: image.split('/') }), ...(columns.length > 0 && { fieldPaths: columns.map((word) => word.split('/')) }) },
           forDeals,
+          likes: likes ? { showCount } : null,
           ...(canMove && { place }),
         },
       },
@@ -145,6 +148,15 @@ export function SettingsDialog({ type, onClose }: { readonly type: ContentTypeDe
         <Fieldset legend={messages.builder.crm} description={messages.builder.forDealsHelp}>
           <Checkbox label={messages.builder.forDeals} isSelected={forDeals} onChange={setForDeals} />
         </Fieldset>
+        {type.kind === 'collection' && (
+        <Fieldset legend={messages.builder.likes} description={messages.builder.likesHelp}>
+          <Checkbox label={messages.builder.likesOn} isSelected={likes} onChange={setLikes} />
+          <Checkbox label={messages.builder.likesShowCount} isSelected={likes && showCount} isDisabled={!likes} onChange={setShowCount} />
+          <Text size="sm" tone="muted">
+            {messages.builder.likesShowCountHelp}
+          </Text>
+        </Fieldset>
+        )}
       </Form>
     </Dialog>
   );

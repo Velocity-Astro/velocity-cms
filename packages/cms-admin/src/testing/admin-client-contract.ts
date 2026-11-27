@@ -1,4 +1,4 @@
-import { definePlugin, type ContentTypeDef, type Entry, type NewForm, type SiteImage } from '@velocity-astro/cms-core';
+import { definePlugin, type ContentTypeDef, type Entry, type Like, type NewForm, type SiteImage } from '@velocity-astro/cms-core';
 import { tinyJpeg, tinyPng } from '@velocity-astro/cms-core/in-memory';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { SAMPLE_APP_QUERY } from './memory-connections.js';
@@ -18,6 +18,8 @@ export interface AdminClientSeed {
   readonly submissions?: readonly SeedSubmission[];
   /** The site's plugins, as its config would name them. */
   readonly plugins?: readonly unknown[];
+  /** What visitors liked. */
+  readonly likes?: readonly Like[];
 }
 
 /**
@@ -384,6 +386,28 @@ export function adminClientContract(name: string, make: (seed: AdminClientSeed) 
       expect((await client.savePipeline({ stages: targeted.stages, expectedRevision: targeted.revision })).monthlyTarget).toBe(20000);
       await expect(client.savePipeline({ stages: targeted.stages, monthlyTarget: 12.5, expectedRevision: targeted.revision + 1 })).rejects.toMatchObject({ code: 'validation_failed' });
       expect((await client.savePipeline({ stages: targeted.stages, monthlyTarget: null, expectedRevision: targeted.revision + 1 })).monthlyTarget).toBeUndefined();
+    });
+
+    it('counts likes by entry, lists the most liked, and turns likes on and off in a type’s settings', async () => {
+      const at = '2026-11-20T12:00:00.000Z';
+      const liked = await make({
+        contentTypes: sampleContentTypes,
+        entries: sampleEntries(new Date('2026-11-17T12:00:00.000Z')),
+        likes: [
+          { typeId: 'type-listings', entry: 'p1', visitor: 'a'.repeat(64), at },
+          { typeId: 'type-listings', entry: 'p1', visitor: 'b'.repeat(64), at },
+          { typeId: 'type-listings', entry: 'n1', visitor: 'a'.repeat(64), at: '2026-11-01T12:00:00.000Z' },
+        ],
+      });
+      expect(await liked.getLikeCounts('type-listings')).toEqual({ p1: 2, n1: 1 });
+      expect(await liked.getLikeCounts('type-agents')).toEqual({});
+      expect(await liked.listMostLiked()).toEqual([
+        { typeId: 'type-listings', entry: 'p1', count: 2 },
+        { typeId: 'type-listings', entry: 'n1', count: 1 },
+      ]);
+      expect(await liked.listMostLiked({ limit: 1, since: '2026-11-10T00:00:00.000Z' })).toEqual([{ typeId: 'type-listings', entry: 'p1', count: 2 }]);
+      expect((await liked.updateContentType('type-listings', { likes: { showCount: false } })).likes).toEqual({ showCount: false });
+      expect((await liked.updateContentType('type-listings', { likes: null })).likes).toBeUndefined();
     });
 
     it('keeps deals for a contact, forecasts them by stage, and gives new contacts to whoever the pipeline names', async () => {

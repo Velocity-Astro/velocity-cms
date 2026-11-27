@@ -18,6 +18,11 @@ export interface CmsEvents {
   'entry.restored': { entry: Entry; actor: Actor };
   /** The entry and its history are gone for good. `entry` is what it was. */
   'entry.deleted': { entry: Entry; actor: Actor };
+  /**
+   * A visitor liked an entry, or took a like back. Nobody is acting, and nothing says who the
+   * visitor is: `entry` is the translation group, and `count` how many likes it has now.
+   */
+  'entry.liked': { typeId: string; entry: string; liked: boolean; count: number };
   'form.saved': { form: FormDef; actor: Actor };
   /** The form went to the trash, came back from it, or is gone for good with its submissions. */
   'form.trashed': { form: FormDef; actor: Actor };

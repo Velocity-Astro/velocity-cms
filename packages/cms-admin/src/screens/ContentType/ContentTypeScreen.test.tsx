@@ -343,6 +343,29 @@ it('lets deals be about a type\'s entries', async () => {
   await waitFor(async () => expect((await client.listContentTypes()).find((type) => type.key === 'listings')?.forDeals).toBe(true));
 });
 
+it('lets visitors like a type\'s entries, with or without the count on the site', async () => {
+  const user = userEvent.setup();
+  const { client } = renderApp('/types/listings', signedIn);
+  await user.click(await screen.findByRole('button', { name: 'Settings' }));
+  let dialog = within(await screen.findByRole('dialog', { name: 'Settings for Listings' }));
+  const count = dialog.getByRole('checkbox', { name: 'Show how many on the site' });
+  expect((count as HTMLInputElement).disabled).toBe(true);
+  await user.click(dialog.getByRole('checkbox', { name: 'Visitors can like these' }));
+  expect((count as HTMLInputElement).disabled).toBe(false);
+  await user.click(dialog.getByRole('checkbox', { name: 'Show how many on the site' }));
+  await user.click(dialog.getByRole('button', { name: 'Save settings' }));
+  expect((await screen.findAllByRole('alertdialog', { name: 'Settings saved' })).length).toBeGreaterThan(0);
+  await waitFor(async () => expect((await client.listContentTypes()).find((type) => type.key === 'listings')?.likes).toEqual({ showCount: false }));
+
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Settings for Listings' })).toBeNull());
+  await user.click(screen.getByRole('button', { name: 'Settings' }));
+  dialog = within(await screen.findByRole('dialog', { name: 'Settings for Listings' }));
+  expect((dialog.getByRole('checkbox', { name: 'Visitors can like these' }) as HTMLInputElement).checked).toBe(true);
+  await user.click(dialog.getByRole('checkbox', { name: 'Visitors can like these' }));
+  await user.click(dialog.getByRole('button', { name: 'Save settings' }));
+  await waitFor(async () => expect((await client.listContentTypes()).find((type) => type.key === 'listings')?.likes).toBeUndefined());
+});
+
 it('archives a content type after asking, and restores it from the list of archived ones', async () => {
   const user = userEvent.setup();
   const { client } = renderApp('/types/agents', signedIn);

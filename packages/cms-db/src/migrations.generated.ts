@@ -220,5 +220,14 @@ export const MIGRATIONS: readonly BundledMigration[] = [
       "ALTER TABLE `entry_presence` ADD `at` text;",
       "\nALTER TABLE `entry_presence` ADD `of` text;"
     ]
+  },
+  {
+    "tag": "0020_entry_likes",
+    "when": 1795805349625,
+    "hash": "fd8fef680af4e103568b9f09ab8ef5b3f7bafbb29e4dd5f448d59aecbb9b31d5",
+    "statements": [
+      "CREATE TABLE `entry_like` (\n\t`type_id` text NOT NULL,\n\t`entry` text NOT NULL,\n\t`visitor` text NOT NULL,\n\t`at` text NOT NULL,\n\tPRIMARY KEY(`type_id`, `entry`, `visitor`)\n);\n",
+      "\nCREATE INDEX `entry_like_at` ON `entry_like` (`at`);"
+    ]
   }
 ];

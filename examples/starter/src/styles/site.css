@@ -49,3 +49,31 @@ time { display: block; color: var(--soft); font-size: 0.9375rem; }
 .trap { position: absolute; left: -100vw; }
 .foot { border-top: 1px solid var(--line); padding: 2rem 0; color: var(--soft); font-size: 0.9375rem; }
 :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* The share bar floats at the foot of a post, above everything, and keeps out of the text's way. */
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.share-bar { position: fixed; z-index: 10; left: 50%; bottom: max(1rem, env(safe-area-inset-bottom)); translate: -50% 0; display: flex; align-items: center; gap: 0.25rem; padding: 0.375rem; border: 1px solid var(--line); border-radius: 999px; background: color-mix(in srgb, #fff 92%, transparent); backdrop-filter: blur(12px); box-shadow: 0 8px 28px rgb(22 24 29 / 0.14); animation: share-bar-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.share-bar svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.share-bar svg .filled { fill: currentColor; stroke: none; }
+.share-bar__like, .share-bar__icon { display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem; min-width: 2.75rem; height: 2.75rem; padding: 0 0.75rem; border: 0; border-radius: 999px; background: transparent; color: var(--ink); font: inherit; font-weight: 600; text-decoration: none; cursor: pointer; transition: background 0.15s, color 0.15s, scale 0.15s; }
+.share-bar__icon { padding: 0; }
+.share-bar__like:hover, .share-bar__icon:hover { background: var(--tint); }
+.share-bar__like:active, .share-bar__icon:active { scale: 0.94; }
+.share-bar__like[aria-pressed='true'] { color: var(--brand); }
+.share-bar__like[aria-pressed='true'] svg { fill: currentColor; animation: share-bar-beat 0.35s ease-out; }
+.share-bar__count { font-variant-numeric: tabular-nums; color: var(--soft); }
+.share-bar__like[aria-pressed='true'] .share-bar__count { color: inherit; }
+.share-bar__icon[data-cms-share-state='copied'] { color: var(--brand); background: var(--tint); }
+.share-bar__rule { width: 1px; height: 1.5rem; background: var(--line); margin: 0 0.25rem; }
+.share-bar:not(:has(.share-bar__like)) .share-bar__rule { display: none; }
+/* Room under the post for the bar, so it never covers the last line. */
+.post-end { height: 5rem; }
+@keyframes share-bar-in { from { opacity: 0; translate: -50% 1rem; } }
+@keyframes share-bar-beat { 50% { scale: 1.25; } }
+@media (prefers-reduced-motion: reduce) { .share-bar, .share-bar svg { animation: none !important; } .share-bar__like, .share-bar__icon { transition: none; } }
+@media (max-width: 30rem) { .share-bar__word { display: none; } }
+
+.like-count { display: inline-flex; align-items: center; gap: 0.25rem; color: var(--soft); font-size: 0.9375rem; }
+.like-count::before { content: '♥' / ''; color: var(--brand); }
+.like-count:has([data-cms-like-count][hidden]) { display: none; }
+.posts .meta { display: flex; gap: 1rem; align-items: baseline; }

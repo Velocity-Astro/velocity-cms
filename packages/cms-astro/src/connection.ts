@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { createCms, type Actor, type Cms, type NameLookup, type SearchIndex } from '@velocity-astro/cms-core';
 import { AuthTeam } from '@velocity-astro/cms-auth/team';
-import { d1Client, openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqliteDealRepository, SqlitePipelineStore, SqlitePresenceStore, SqliteSettingsStore, SqliteCustomFieldsStore, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Db } from '@velocity-astro/cms-db';
+import { d1Client, openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqliteDealRepository, SqlitePipelineStore, SqlitePresenceStore, SqliteLikeStore, SqliteSettingsStore, SqliteCustomFieldsStore, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type Db } from '@velocity-astro/cms-db';
 import { d1Binding, inWorker } from './d1-binding.js';
 import { currentSite } from './hosted.js';
 import { siteImageOptimizer } from './site-optimizer.js';
@@ -83,6 +83,7 @@ export async function connect(options: ConnectionOptions): Promise<Connection> {
     contacts: new SqliteContactRepository(database.db),
     pipeline: new SqlitePipelineStore(database.db),
     presence: new SqlitePresenceStore(database.db),
+    likes: new SqliteLikeStore(database.db),
     settings: new SqliteSettingsStore(database.db),
     customFields: new SqliteCustomFieldsStore(database.db),
     deals: new SqliteDealRepository(database.db),

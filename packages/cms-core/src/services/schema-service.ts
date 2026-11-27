@@ -11,6 +11,7 @@ import {
   type ContentTypeKind,
   type FieldDef,
   type FieldSection,
+  type LikeSettings,
   type ListSummary,
   type LocalizedText,
   isTemplateType,
@@ -44,6 +45,12 @@ export interface NewContentType {
   readonly sections?: readonly NewSection[];
   /** Whether a deal can be about one of its entries. Left out, what the editor chose stays. */
   readonly forDeals?: boolean;
+  /**
+   * Whether visitors can like its entries: `true` (their pages show how many did), `{ showCount:
+   * false }` (a like is counted for the editor and the count is not shown), or `false`. Left out,
+   * what the editor chose stays.
+   */
+  readonly likes?: boolean | { readonly showCount?: boolean };
   /** For a single page that is part of the site's setup: the editor shows it under Settings. Left out, it stays as it is. */
   readonly inSettings?: boolean;
   /**
@@ -81,6 +88,8 @@ export interface ContentTypeChanges {
   readonly list?: ListSummary | null;
   /** Whether a deal can be about one of its entries. Deals already about one keep it either way. */
   readonly forDeals?: boolean;
+  /** Whether visitors can like its entries, and whether pages show the count. `null` takes likes away; the likes made are kept. */
+  readonly likes?: LikeSettings | null;
   /**
    * Where the editor lists the type (`TypePlace`). Only a single page can be listed anywhere but
    * with the content, and a type the template describes stays where the template says.
@@ -252,7 +261,7 @@ export class SchemaService {
   /** Changes what a content type is called, where its entries live and what lists show of them. Fields are changed one at a time. */
   async update(actor: Actor, typeId: string, change: ContentTypeChanges): Promise<ContentTypeDef> {
     this.access.require(actor, 'schema:write');
-    const { urlPattern, titlePath, list, forDeals, inSettings, sitePart, siteNamePath, brandPaths, ...type } = await this.getLive(typeId);
+    const { urlPattern, titlePath, list, forDeals, likes, inSettings, sitePart, siteNamePath, brandPaths, ...type } = await this.getLive(typeId);
     const was = placeOf({ inSettings, sitePart });
     const place = change.place ?? was;
     if (place !== was) {
@@ -278,6 +287,7 @@ export class SchemaService {
       ...(title && { titlePath: title }),
       ...(summary && (summary.imagePath !== undefined || (summary.fieldPaths?.length ?? 0) > 0) && { list: summary }),
       ...((change.forDeals ?? forDeals === true) && { forDeals: true as const }),
+      ...(likesOf(change.likes === undefined ? likes : change.likes === null ? false : { showCount: change.likes.showCount === true }, likes) ?? {}),
       ...(place === 'settings' && { inSettings: true as const }),
       ...(place === 'site' && { sitePart: true as const }),
       // The site's name and look are read from a page of the settings, and from nowhere else.
@@ -452,7 +462,7 @@ export class SchemaService {
 
   /** A type with a description applied to it: its fields, what entries are called by, and its layout. */
   private described(type: ContentTypeDef, input: NewContentType, byTemplate: boolean): ContentTypeDef {
-    const { titlePath: _title, list: _list, sections: _sections, urlPattern: _url, localizedUrlPatterns: _urls, forDeals, inSettings: wasInSettings, sitePart: wasSitePart, siteNamePath: _name, brandPaths: _brand, ...rest } = type;
+    const { titlePath: _title, list: _list, sections: _sections, urlPattern: _url, localizedUrlPatterns: _urls, forDeals, likes, inSettings: wasInSettings, sitePart: wasSitePart, siteNamePath: _name, brandPaths: _brand, ...rest } = type;
     const inSettings = input.inSettings ?? wasInSettings === true;
     const sitePart = input.sitePart ?? wasSitePart === true;
     if ((inSettings || input.siteNameField !== undefined) && type.kind !== 'single') {
@@ -496,6 +506,7 @@ export class SchemaService {
       }),
       ...(sections.length > 0 && { sections }),
       ...((input.forDeals ?? forDeals === true) && { forDeals: true as const }),
+      ...(likesOf(input.likes ?? likes, likes) ?? {}),
       ...(inSettings && { inSettings: true as const }),
       ...(sitePart && { sitePart: true as const }),
       ...(inSettings && input.siteNameField !== undefined && { siteNamePath: this.pathOf(live, input.siteNameField, 'the site name field') }),
@@ -636,4 +647,14 @@ function requirePattern(pattern: string): void {
       { path: ['urlPattern'], message: 'Not an address on this site' },
     ]);
   }
+}
+
+/**
+ * The likes a type takes, from what was asked and what it took before: a yes keeps whether the
+ * count was shown (shown, for a type that took none), and a no takes likes away.
+ */
+function likesOf(asked: boolean | { readonly showCount?: boolean } | LikeSettings | undefined, before: LikeSettings | undefined): { likes: LikeSettings } | undefined {
+  if (asked === undefined || asked === false) return undefined;
+  if (asked === true) return { likes: { showCount: before?.showCount ?? true } };
+  return { likes: { showCount: asked.showCount ?? before?.showCount ?? true } };
 }

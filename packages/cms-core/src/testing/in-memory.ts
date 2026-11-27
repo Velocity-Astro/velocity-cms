@@ -1,5 +1,5 @@
 import { ConflictError } from '../errors.js';
-import type { Contact, ContactNote, CustomFields, Deal, Pipeline, Presence, ContentTypeDef, Entry, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus } from '../model.js';
+import type { Contact, ContactNote, CustomFields, Deal, LikeCount, Pipeline, Presence, ContentTypeDef, Entry, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus } from '../model.js';
 import type {
   Clock,
   ContactQuery,
@@ -9,6 +9,8 @@ import type {
   StageTotal,
   PipelineStore,
   PresenceStore,
+  Like,
+  LikeStore,
   SettingsStore,
   CustomFieldsStore,
   EntryQuery,
@@ -467,6 +469,53 @@ export class InMemoryPresenceStore implements PresenceStore {
 
   async at(entryId: string, now: string): Promise<Presence[]> {
     return [...this.#marks.values()].filter((one) => one.entryId === entryId && one.until > now);
+  }
+}
+
+export class InMemoryLikeStore implements LikeStore {
+  readonly #likes = new Map<string, Like>();
+  readonly #key = (typeId: string, entry: string, visitor: string) => `${typeId}\n${entry}\n${visitor}`;
+
+  async add(like: Like): Promise<boolean> {
+    const key = this.#key(like.typeId, like.entry, like.visitor);
+    if (this.#likes.has(key)) return false;
+    this.#likes.set(key, { ...like });
+    return true;
+  }
+
+  async remove(typeId: string, entry: string, visitor: string): Promise<boolean> {
+    return this.#likes.delete(this.#key(typeId, entry, visitor));
+  }
+
+  async has(typeId: string, entry: string, visitor: string): Promise<boolean> {
+    return this.#likes.has(this.#key(typeId, entry, visitor));
+  }
+
+  async counts(typeId: string, entries?: readonly string[]): Promise<Record<string, number>> {
+    const named = entries === undefined ? null : new Set(entries);
+    const counts: Record<string, number> = {};
+    for (const like of this.#likes.values()) {
+      if (like.typeId !== typeId || (named !== null && !named.has(like.entry))) continue;
+      counts[like.entry] = (counts[like.entry] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  async top(limit: number, since?: string): Promise<LikeCount[]> {
+    const counts = new Map<string, LikeCount>();
+    for (const like of this.#likes.values()) {
+      if (since !== undefined && like.at < since) continue;
+      const key = `${like.typeId}\n${like.entry}`;
+      const sofar = counts.get(key);
+      counts.set(key, { typeId: like.typeId, entry: like.entry, count: (sofar?.count ?? 0) + 1 });
+    }
+    return [...counts.values()]
+      .sort((a, b) => b.count - a.count || a.typeId.localeCompare(b.typeId) || a.entry.localeCompare(b.entry))
+      .slice(0, limit);
+  }
+
+  async clear(typeId: string, entry: string): Promise<void> {
+    for (const [key, like] of this.#likes) if (like.typeId === typeId && like.entry === entry) this.#likes.delete(key);
   }
 }
 

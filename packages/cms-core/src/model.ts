@@ -51,6 +51,27 @@ export interface FieldSection {
 
 export type ContentTypeKind = 'collection' | 'single';
 
+/** How a content type takes likes. */
+export interface LikeSettings {
+  /** Whether the site may show visitors how many people liked an entry. The editor always sees the count. */
+  readonly showCount: boolean;
+}
+
+/** How many likes one entry has, in all its languages. */
+export interface LikeCount {
+  readonly typeId: string;
+  /** The entry's translation group: one count for every language of it. */
+  readonly entry: string;
+  readonly count: number;
+}
+
+/** What a visitor's page is told about one entry: whether this visitor liked it, and how many did when the type shows it. */
+export interface LikeState {
+  readonly liked: boolean;
+  /** Left out when the type does not show its count. */
+  readonly count?: number;
+}
+
 export interface ContentTypeDef {
   readonly id: string;
   /** The name code and URLs use, e.g. `listings`. */
@@ -79,6 +100,11 @@ export interface ContentTypeDef {
    * Left out, it cannot.
    */
   readonly forDeals?: true;
+  /**
+   * Whether visitors can like this type's entries (a post, a recipe, a listing), and whether its
+   * pages may show how many did. Left out, they cannot. See `LikeService`.
+   */
+  readonly likes?: LikeSettings;
   /**
    * Set on a single page that is part of the site's setup (its name, logo and contact details):
    * the editor shows it as a part of Settings and leaves it out of the list of content.

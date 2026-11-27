@@ -6,8 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { createClient, type Client, type InValue } from '@libsql/client';
 import { afterAll, describe, expect, it } from 'vitest';
 import { ConflictError } from '@velocity-astro/cms-core';
-import { contactRepositoryContract, dealRepositoryContract, pipelineStoreContract, presenceStoreContract, settingsStoreContract, customFieldsStoreContract, entryRepositoryContract, formRepositoryContract, submissionRepositoryContract, schemaRepositoryContract, mediaRepositoryContract, pluginStoreContract, searchIndexContract } from '@velocity-astro/cms-core/testing';
-import { d1Client, openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqliteDealRepository, SqlitePipelineStore, SqlitePresenceStore, SqliteSettingsStore, SqliteCustomFieldsStore, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type D1Binding, type D1Statement, type Database } from './index.js';
+import { contactRepositoryContract, dealRepositoryContract, pipelineStoreContract, presenceStoreContract, likeStoreContract, settingsStoreContract, customFieldsStoreContract, entryRepositoryContract, formRepositoryContract, submissionRepositoryContract, schemaRepositoryContract, mediaRepositoryContract, pluginStoreContract, searchIndexContract } from '@velocity-astro/cms-core/testing';
+import { d1Client, openDatabase, SqliteEntryRepository, SqliteFormRepository, SqliteSubmissionRepository, SqliteContactRepository, SqliteDealRepository, SqlitePipelineStore, SqlitePresenceStore, SqliteLikeStore, SqliteSettingsStore, SqliteCustomFieldsStore, SqliteMediaRepository, SqlitePluginStore, SqliteSchemaRepository, SqliteSearchIndex, type D1Binding, type D1Statement, type Database } from './index.js';
 
 /**
  * A stand-in for a D1 binding, over a SQLite database in memory. It keeps D1's two rules that
@@ -60,6 +60,7 @@ contactRepositoryContract('SqliteContactRepository on D1', async () => new Sqlit
 dealRepositoryContract('SqliteDealRepository on D1', async () => new SqliteDealRepository(await d1()));
 pipelineStoreContract('SqlitePipelineStore on D1', async () => new SqlitePipelineStore(await d1()));
 presenceStoreContract('SqlitePresenceStore on D1', async () => new SqlitePresenceStore(await d1()));
+likeStoreContract('SqliteLikeStore on D1', async () => new SqliteLikeStore(await d1()));
 settingsStoreContract('SqliteSettingsStore on D1', async () => new SqliteSettingsStore(await d1()));
 customFieldsStoreContract('SqliteCustomFieldsStore on D1', async () => new SqliteCustomFieldsStore(await d1()));
 schemaRepositoryContract('SqliteSchemaRepository on D1', async () => new SqliteSchemaRepository(await d1()));

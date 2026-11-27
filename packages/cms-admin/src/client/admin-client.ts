@@ -1,4 +1,4 @@
-import type { FormsSettings, FormsSettingsChanges, GeneralSettings, GeneralSettingsChanges, EmailSettings, EmailSettingsChanges, StorageSettings, StorageSettingsChanges, ContactImportReport, ContactImportRow, CustomFields, CustomFieldsChanges, Contact, ContactChanges, Deal, DealChanges, DealSubject, Forecast, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginTask, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, EntryPresence, PresenceSaid, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Revision, Role, SiteImage, TypePlace } from '@velocity-astro/cms-core';
+import type { FormsSettings, FormsSettingsChanges, GeneralSettings, GeneralSettingsChanges, EmailSettings, EmailSettingsChanges, StorageSettings, StorageSettingsChanges, ContactImportReport, ContactImportRow, CustomFields, CustomFieldsChanges, Contact, ContactChanges, Deal, DealChanges, DealSubject, Forecast, LikeCount, NewDeal, Pipeline, PipelineChanges, TeamMember, ContactNote, NewContact, TimelineItem, PluginSettings, PluginTask, PluginInfo, PluginEditorInfo, PluginRouteMethod, ContentTypeChanges, ContentTypeDef, ContentTypeKind, Entry, EntryData, EntryPresence, PresenceSaid, FieldArrangement, FieldChanges, FieldSection, FormChanges, FormDef, LocalizedText, NewForm, Submission, SubmissionStatus, NewField, NewUpload, Page, PreviewLink, Revision, Role, SiteImage, TypePlace } from '@velocity-astro/cms-core';
 
 /** The person who is signed in. */
 export interface SessionUser {
@@ -367,6 +367,10 @@ export interface AdminClient {
   deleteDeal(id: string): Promise<void>;
   /** Where the deals stand, stage by stage. */
   getForecast(): Promise<Forecast>;
+  /** How many likes each entry of a type has, by translation group. An entry with none is left out. */
+  getLikeCounts(typeId: string): Promise<Readonly<Record<string, number>>>;
+  /** The most liked entries of the site, most first. With `since`, only the likes made since then count. */
+  listMostLiked(query?: { readonly limit?: number; readonly since?: string }): Promise<readonly LikeCount[]>;
   getContact(id: string): Promise<Contact>;
   /** Adds a contact by hand. An email a contact already has is refused, naming the field. */
   createContact(input: NewContact): Promise<Contact>;

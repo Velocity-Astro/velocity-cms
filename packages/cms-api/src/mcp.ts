@@ -339,6 +339,7 @@ export const MCP_TOOLS: readonly McpTool[] = [
           ...(type.sitePart && { sitePart: true }),
           fields: liveFields(type.fields).map((field) => `${field.key} (${field.type})`),
           ...(liveFields(type.fields).some((field) => field.type === 'blocks') && { builtFromSections: true }),
+          ...(type.likes && { likes: { showCount: type.likes.showCount } }),
         })),
         forms: forms.map((form) => ({ key: form.key, label: say(form.label, locale), open: form.open })),
       };
@@ -768,6 +769,35 @@ export const MCP_TOOLS: readonly McpTool[] = [
     run: async ({ id, ...changes }, { cms, actor }) => {
       const deal = await cms.deals.get(actor, id);
       return cms.deals.update(actor, id, given<DealChanges>({ ...changes, expectedRevision: deal.revision }));
+    },
+  }),
+  tool({
+    name: 'get_likes',
+    title: 'Get likes',
+    description:
+      'How many visitors liked entries, most first: of one content type, or with no type, across the site. `since` (a date and time) counts only the likes made since then, across the site. Likes are counted for the types whose settings take them (`likes` in describe_site), and hold nothing about who liked.',
+    input: z.object({ type: z.string().optional(), since: z.iso.datetime().optional(), limit: z.number().int().min(1).max(50).default(10) }),
+    readOnly: true,
+    run: async ({ type: key, since, limit: most }, { cms, actor }) => {
+      const types = await cms.schema.list();
+      const ranked = key === undefined
+        ? await cms.likes.top(actor, { limit: most, ...(since !== undefined && { since }) })
+        : await (async () => {
+            const type = await cms.schema.getByKey(key);
+            const counts = await cms.likes.counts(actor, type.id);
+            return Object.entries(counts)
+              .map(([entry, count]) => ({ typeId: type.id, entry, count }))
+              .sort((a, b) => b.count - a.count || a.entry.localeCompare(b.entry))
+              .slice(0, most);
+          })();
+      const items = [];
+      for (const one of ranked) {
+        const type = types.find((candidate) => candidate.id === one.typeId);
+        const entry = type ? (await cms.content.find(actor, { typeId: type.id, translationGroup: one.entry, limit: 1 })).items[0] : undefined;
+        if (!type || !entry) continue;
+        items.push({ type: type.key, ...summary(type, entry), likes: one.count });
+      }
+      return { items };
     },
   }),
   tool({

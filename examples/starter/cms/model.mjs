@@ -64,6 +64,8 @@ const posts = {
   kind: 'collection',
   label: en('Posts'),
   titleField: 'title',
+  // Visitors can like a post, and its page shows how many did: the share bar on each post.
+  likes: true,
   fields: [
     text('title', 'Title', { required: true }),
     field('date')('date', 'Date', { required: true }),

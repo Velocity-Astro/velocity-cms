@@ -104,6 +104,20 @@ nothing, so the template keeps its own values as the fallback.
 | `siteForm(Astro, { id })` or `siteForm(Astro, 'key')` | A form to draw: fields, `action`, `hidden`, `trap`. |
 | `pageHead(Astro, { title, description })` | What the page writes in its head after plugins: title, description, robots, share `image`, Search Console and Bing `verification`, and the `analytics` ids. Call it in the layout, on every page. |
 | `cmsLiveLoader({ type })` | A live collection for lists (`getLiveCollection`, `getLiveEntry`). |
+| `siteLikes(Astro)` | The like button of this entry's page, when its type takes likes: `{ type, entry, showCount }`, or nothing. |
+| `typeLikes('posts')` | Whether a type takes likes and shows counts, for a list whose cards show them. |
+| `shareLinks(Astro, title)` | The page's address and links that share it on X, LinkedIn, Facebook and by email. |
+
+## Likes and sharing
+
+- Whether a type's entries take likes, and whether pages show how many, is set in the type's
+  settings in the editor (or `likes: true` in its description). Never add a field or a table for it.
+- Draw the button where the design wants it (a floating bar, under the title) with
+  `data-cms-like`, `data-cms-like-type` and `data-cms-like-entry` from `siteLikes`, a
+  `[data-cms-like-count]` drawn `hidden` only when `showCount`, and load `LIKES_SCRIPT`. Share
+  buttons are `data-cms-share="native"` (drawn `hidden`), `data-cms-share="copy"` and plain links
+  from `shareLinks`. A list's cards name each entry by the live loader's `entry.id`.
+- The count is fetched by the script, so a kept page is never behind: don't write counts into a page.
 
 ## Search, sharing and analytics are plugins
 
