@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+## 0.1.0-beta.29
+
 - **Switching likes on shows at once.** Saving a content type's settings (switching likes on or off, showing the count, a field renamed) now clears the pages the site kept, as a publish does. Before, a post kept from before showed no like button until something was published or a day passed.
 
 ## 0.1.0-beta.28
