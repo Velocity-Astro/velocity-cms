@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+## 0.1.0-beta.28
+
 - **Likes and a share bar.** A content type's settings have a new part, Likes: switched on, visitors can like each entry (a post, a recipe, a listing), and you choose whether the site shows how many did. The editor shows the count in the type's list, beside each entry, and the most liked of the last 30 days on Home; agents read them with the `get_likes` tool. A like is counted once per browser and holds nothing about who pressed it: the site keeps only a hash of a random id the browser makes when the button is first pressed, takes likes only from its own pages, and stops an address that sends too many.
   - A template draws the button and a share bar with `siteLikes(Astro)`, `shareLinks(Astro, title)` and the script at `/cms-likes.js` (the phone's own share sheet, copy the link, X, LinkedIn). The starter's posts have a floating like and share bar, and the blog shows each post's count. Run `npx velocity-cms agents` to teach a site's coding agent how.
   - A new table holds likes (`entry_like`); the migration runs by itself.
