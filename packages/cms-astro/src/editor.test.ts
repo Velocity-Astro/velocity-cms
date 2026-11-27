@@ -137,6 +137,7 @@ describe('signing in and publishing', () => {
       fields: [{ key: 'title', type: 'text', label: { en: 'Title' }, required: true }],
     });
     const title = type.fields[0]?.id ?? '';
+    host.takePublished();
     const cookie = await signIn();
 
     const created = await host.api(json('/api/cms/entries', cookie, { type: 'listings', slug: 'lakeshore', data: { [title]: 'Lakeshore Drive' } }));
@@ -166,6 +167,7 @@ describe('signing in and publishing', () => {
       urlPattern: '/listings/[slug]',
       fields: [{ key: 'title', type: 'text', label: { en: 'Title' } }],
     });
+    host.takePublished();
     const entry = await connection.cms.content.create(installer, { typeId: type.id, locale: 'en', slug: 'lakeshore', data: {} });
     const soon = new Date(Date.now() + 40).toISOString();
     await connection.cms.content.schedule(installer, entry.id, { at: soon, expectedRevision: 1 });
@@ -200,6 +202,21 @@ describe('signing in and publishing', () => {
     expect(host.takePublished()).toEqual(['/listings/lakeshore/']);
     expect((await host.api(json(`/api/cms/content-types/${type.id}/restore`, cookie, {}))).status).toBe(200);
     expect(host.takePublished()).toEqual(['/listings/lakeshore/']);
+  });
+
+  it('clears kept pages when the settings of a type change, such as switching likes on', async () => {
+    const type = await connection.cms.schema.create(installer, {
+      key: 'listings',
+      kind: 'collection',
+      label: { en: 'Listings' },
+      urlPattern: '/listings/[slug]',
+      fields: [{ key: 'title', type: 'text', label: { en: 'Title' } }],
+    });
+    host.takePublished();
+    const cookie = await signIn();
+    expect((await host.api(json(`/api/cms/content-types/${type.id}`, cookie, { likes: { showCount: true } }, 'PATCH'))).status).toBe(200);
+    expect(host.takePublished()).toEqual([]);
+    expect(host.takePublished()).toBeNull();
   });
 
   it('prints a sign-in link to the log when the site has no mailer', async () => {
