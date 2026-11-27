@@ -166,6 +166,22 @@ describe('the MCP endpoint', () => {
     expect(updated['data']).toEqual({ title: 'Our team', body: [expect.objectContaining({ block: 'hero', data: { title: 'Us' } })] });
   });
 
+  it('reads how many liked each entry, by type and across the site, for a type that takes likes', async () => {
+    await cms.schema.update(owner, (await cms.schema.getByKey('pages')).id, { likes: { showCount: true } });
+    const made = async (slug: string, title: string) => cms.content.publish(owner, String((await tool('create_entry', { type: 'pages', slug, data: { title } }))['id']));
+    const team = await made('team', 'Team');
+    const about = await made('about', 'About');
+    await cms.likes.like({ type: 'pages', entry: about.translationGroup }, 'a'.repeat(64));
+    await cms.likes.like({ type: 'pages', entry: about.translationGroup }, 'b'.repeat(64));
+    await cms.likes.like({ type: 'pages', entry: team.translationGroup }, 'a'.repeat(64));
+    expect((await tool('describe_site'))['contentTypes']).toEqual([expect.objectContaining({ key: 'pages', likes: { showCount: true } })]);
+    expect((await tool('get_likes', { type: 'pages' }))['items']).toEqual([
+      expect.objectContaining({ type: 'pages', id: about.id, title: 'About', likes: 2 }),
+      expect.objectContaining({ type: 'pages', id: team.id, title: 'Team', likes: 1 }),
+    ]);
+    expect((await tool('get_likes', { limit: 1 }))['items']).toEqual([expect.objectContaining({ id: about.id, likes: 2 })]);
+  });
+
   describe('skills', () => {
     type Listed = { uri: string; frontmatter: { name: string; description: string }; resources: { uri: string; digest: string; size: number }[] };
     const listSkills = async () => ((await rpc('skills/list')).result?.['skills'] ?? []) as Listed[];

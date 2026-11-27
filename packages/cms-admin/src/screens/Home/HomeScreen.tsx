@@ -4,7 +4,7 @@ import { ArrowRight, ExternalLink, Inbox, MousePointer2, Shapes } from 'lucide-r
 import { useGo } from '../../app/use-go.js';
 import { paths } from '../../app/paths.js';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
-import { useContentTypes, useEntriesOfTypes, useForecast, useForms, usePipeline, useSession, useSubmissionCountsOf, useSubmissionLists } from '../../client/queries.js';
+import { useContentTypes, useEntriesOfTypes, useForecast, useForms, useMostLiked, usePipeline, useSession, useSubmissionCountsOf, useSubmissionLists } from '../../client/queries.js';
 import { entryState, entryTitle, groupTranslations, localized, type EntryState } from '../../lib/content.js';
 import { dayPart } from '../../lib/day-part.js';
 import { openSite } from '../../lib/open-site.js';
@@ -25,6 +25,8 @@ const PAGE = 200;
 const RECENT = 8;
 /** How many days of submissions the chart shows, today last. */
 const DAYS = 14;
+/** How many days back the most liked are counted from. */
+const LIKED_DAYS = 30;
 
 export interface HomeScreenProps {
   readonly siteName: string;
@@ -185,12 +187,48 @@ export function HomeScreen({ siteName }: HomeScreenProps) {
                   )}
                 </Card>
                 {session.data && readsContacts && <FollowUps userId={session.data.id} />}
+                {types.data.some((type) => type.likes !== undefined) && <MostLiked listed={all} />}
               </Split>
             </>
           )}
         </Stack>
       </PageBody>
     </>
+  );
+}
+
+/**
+ * What visitors liked most in the last month, each leading to its entry. Only for a site with a
+ * type that takes likes. An entry the lists do not hold (in the trash, or of an archived type) is left out.
+ */
+function MostLiked({ listed }: { readonly listed: readonly Listed[] }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  // From the start of a day, so the question stays the same all day and is asked once.
+  const today = new Date();
+  const since = new Date(today.getFullYear(), today.getMonth(), today.getDate() - LIKED_DAYS).toISOString();
+  const liked = useMostLiked(since);
+  const byGroup = new Map(listed.map((one) => [`${one.type.id}/${one.entry.translationGroup}`, one]));
+  const shown = (liked.data ?? []).flatMap((one) => {
+    const found = byGroup.get(`${one.typeId}/${one.entry}`);
+    return found ? [{ ...found, count: one.count }] : [];
+  });
+  const number = (value: number) => new Intl.NumberFormat(locale).format(value);
+  return (
+    <Card title={messages.home.likedTitle} description={shown.length === 0 && liked.isSuccess ? messages.home.likedEmpty : messages.home.likedHelp}>
+      {liked.isPending && <LoadingState shape="summary" />}
+      {liked.isError && <ErrorState error={liked.error} onRetry={() => void liked.refetch()} />}
+      {liked.isSuccess && shown.length > 0 && (
+        <Stack gap={2}>
+          {shown.map(({ type, entry, count }) => (
+            <Inline key={entry.id} justify="between" gap={2}>
+              <Link href={paths.entry(type.key, entry.id)}>{entryTitle(type, entry.data) ?? messages.contentList.untitled}</Link>
+              <Tag>{messages.home.likedCount(count, number(count))}</Tag>
+            </Inline>
+          ))}
+        </Stack>
+      )}
+    </Card>
   );
 }
 

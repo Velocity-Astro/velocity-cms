@@ -88,8 +88,11 @@ const typeChanges = z.strictObject({
   titlePath: path.nullable().optional(),
   list: z.strictObject({ imagePath: path.optional(), fieldPaths: z.array(path).optional() }).nullable().optional(),
   forDeals: z.boolean().optional(),
+  likes: z.strictObject({ showCount: z.boolean() }).nullable().optional(),
   place: typePlace.optional(),
 });
+const likeCounts = z.object({ type: z.string().max(100) });
+const mostLiked = z.object({ limit: z.coerce.number().int().min(1).max(50).default(10), since: z.iso.datetime().optional() });
 const sectionList = z.strictObject({
   sections: z.array(z.strictObject({ key: z.string(), label: words, fieldIds: z.array(z.string()), aside: z.boolean().optional() })),
 });
@@ -273,7 +276,7 @@ export class CmsApi {
   constructor(options: CmsApiOptions) {
     this.#options = options;
     this.#basePath = `/${(options.basePath ?? '/api/cms').split('/').filter(Boolean).join('/')}`;
-    const { schema, content, presence, fields, media, previews, plugins, forms, submissions, contacts, pipeline, deals, customFields, settings } = options.cms;
+    const { schema, content, presence, likes, fields, media, previews, plugins, forms, submissions, contacts, pipeline, deals, customFields, settings } = options.cms;
     const defaultLocale = options.defaultLocale ?? 'en';
 
     this.#router
@@ -511,6 +514,15 @@ export class CmsApi {
         const who = actor(call);
         const body = parse(newDeal, await this.#body(call.request));
         return json(await deals.create(who, deep<NewDeal>(body)), 201);
+      })
+      // Not `/likes`: that address is the site's own, where visitors' pages send likes (`LikePosts`).
+      .add('GET', '/likes/counts', async (call) => {
+        const query = parse(likeCounts, Object.fromEntries(call.url.searchParams));
+        return json({ counts: await likes.counts(actor(call), query.type) });
+      })
+      .add('GET', '/likes/top', async (call) => {
+        const query = parse(mostLiked, Object.fromEntries(call.url.searchParams));
+        return json({ items: await likes.top(actor(call), { limit: query.limit, ...(query.since !== undefined && { since: query.since }) }) });
       })
       .add('GET', '/deals/forecast', async (call) => json(await deals.forecast(actor(call))))
       .add('GET', '/deals/:id', async (call) => json(await deals.get(actor(call), param(call, 'id'))))

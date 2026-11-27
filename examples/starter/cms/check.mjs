@@ -89,7 +89,19 @@ try {
   const contact = await get('/contact/');
   expect('the contact page draws the form', contact.status === 200 && contact.text.includes('data-cms-form') && contact.text.includes('name="email"'));
   expect('the blog lists the post', (await get('/blog/')).text.includes('href="/blog/hello/"'));
-  expect('the post has its page', (await get('/blog/hello/')).text.includes('This post lives in the CMS.'));
+  const post = await get('/blog/hello/');
+  expect('the post has its page', post.text.includes('This post lives in the CMS.'));
+  // Posts take likes: the post draws its share bar, and a like from its page is counted once.
+  const liking = /data-cms-like-entry="([^"]+)"/.exec(post.text)?.[1] ?? '';
+  expect('the post draws a like button and a share bar', liking !== '' && post.text.includes('data-cms-share="copy"') && (await get('/cms-likes.js')).status === 200);
+  const like = (body, from = origin) => fetch(`${origin}/api/cms/likes`, { method: 'POST', headers: { origin: from, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const browser = 'starter-check-browser-0001';
+  const first = await (await like({ type: 'posts', entry: liking, browser, liked: true })).json();
+  const again = await (await like({ type: 'posts', entry: liking, browser, liked: true })).json();
+  expect('a like is counted once', first.count === 1 && again.count === 1 && again.liked === true);
+  expect('a like from another site is refused', (await like({ type: 'posts', entry: liking, browser, liked: true }, 'https://elsewhere.example')).status === 403);
+  const counted = await (await fetch(`${origin}/api/cms/likes?type=posts&entries=en/hello`)).json();
+  expect('the blog is told how many liked each post', counted.counts?.['en/hello'] === 1);
   expect('an address with no page answers 404', (await get('/nothing-here/')).status === 404);
   expect('the editor is served', (await get('/admin')).status === 200);
   expect('nobody is signed in', (await get('/api/cms/session')).text.includes('null'));

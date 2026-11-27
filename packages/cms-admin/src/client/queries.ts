@@ -51,6 +51,10 @@ const keys = {
   deals: ['contacts', 'deals'] as const,
   dealList: (query: DealListQuery) => ['contacts', 'deals', 'list', query] as const,
   forecast: ['contacts', 'deals', 'forecast'] as const,
+  /** Everything about likes starts with this. */
+  likes: ['likes'] as const,
+  likeCounts: (typeId: string) => ['likes', 'counts', typeId] as const,
+  mostLiked: (since: string | undefined) => ['likes', 'top', since ?? 'ever'] as const,
   team: ['team'] as const,
   emailSettings: ['settings', 'email'] as const,
   storageSettings: ['settings', 'storage'] as const,
@@ -667,6 +671,18 @@ export function useWholeDealLists(stages: readonly string[]) {
       return { queryKey: keys.dealList(query), queryFn: () => whole(query, (asked) => client.listDeals(asked)) };
     }),
   });
+}
+
+/** How many likes each entry of a type has, by translation group. Asked only for a type that takes likes. */
+export function useLikeCounts(typeId: string, isWanted: boolean) {
+  const client = useClient();
+  return useQuery({ queryKey: keys.likeCounts(typeId), queryFn: () => client.getLikeCounts(typeId), enabled: isWanted });
+}
+
+/** The most liked entries of the site, most first. With `since`, only what was liked since then. */
+export function useMostLiked(since?: string, isWanted = true) {
+  const client = useClient();
+  return useQuery({ queryKey: keys.mostLiked(since), queryFn: () => client.listMostLiked({ limit: 10, ...(since !== undefined && { since }) }), enabled: isWanted });
 }
 
 export function useForecast() {

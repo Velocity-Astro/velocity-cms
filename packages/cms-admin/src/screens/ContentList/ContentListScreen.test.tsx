@@ -8,6 +8,9 @@ import { sampleContentTypes, sampleEntries, sampleUser } from '../../testing/sam
 
 const signedIn = { user: sampleUser, contentTypes: sampleContentTypes, entries: sampleEntries() };
 
+const likedTypes = sampleContentTypes.map((type) => (type.key === 'listings' ? { ...type, likes: { showCount: true } } : type));
+const likesOf = (entry: string, count: number) => Array.from({ length: count }, (_, n) => ({ typeId: 'type-listings', entry, visitor: String(n).repeat(64), at: new Date().toISOString() }));
+
 it('has the sections on the rail, and every type in the column of Content, with the content types and the trash', async () => {
   renderApp('/content/agents', signedIn);
   expect(await screen.findByRole('heading', { level: 1, name: 'Agents' })).toBeTruthy();
@@ -179,4 +182,17 @@ it('puts the home page first and says which it is', async () => {
   expect(home?.textContent).toContain('Home page');
   expect(about?.textContent).toContain('About us');
   expect(about?.textContent).not.toContain('Home page');
+});
+
+it('shows how many liked each entry, in a column of its own, for a type that takes likes', async () => {
+  renderApp('/content/listings', { ...signedIn, contentTypes: likedTypes, likes: [...likesOf('e1', 12), ...likesOf('e3', 1)] });
+  const table = await screen.findByRole('grid', { name: 'Listings' });
+  expect(within(table).getByRole('columnheader', { name: 'Likes' })).toBeTruthy();
+  await waitFor(() => expect(within(table).getAllByRole('row').slice(1).map((row) => Array.from(row.children, (cell) => cell.textContent)[1])).toEqual(['12', '0', '1', '0']));
+});
+
+it('has no column of likes for a type that takes none', async () => {
+  renderApp('/content/listings', signedIn);
+  const table = await screen.findByRole('grid', { name: 'Listings' });
+  expect(within(table).queryByRole('columnheader', { name: 'Likes' })).toBeNull();
 });

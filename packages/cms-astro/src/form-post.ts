@@ -350,7 +350,7 @@ async function readPost(request: Request): Promise<Record<string, unknown> | 'to
 }
 
 /** The body, or `null` once it has passed the limit, however long it said it was. */
-async function readLimited(request: Request): Promise<Uint8Array<ArrayBuffer> | null> {
+export async function readLimited(request: Request, limit = MAX_FORM_POST_BYTES): Promise<Uint8Array<ArrayBuffer> | null> {
   if (!request.body) return new Uint8Array();
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -359,7 +359,7 @@ async function readLimited(request: Request): Promise<Uint8Array<ArrayBuffer> | 
     const { done, value } = await reader.read();
     if (done) break;
     size += value.byteLength;
-    if (size > MAX_FORM_POST_BYTES) {
+    if (size > limit) {
       await reader.cancel();
       return null;
     }

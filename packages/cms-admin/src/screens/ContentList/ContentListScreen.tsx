@@ -22,7 +22,7 @@ import { Navigate, useParams } from 'react-router';
 import { useGo } from '../../app/use-go.js';
 import { paths } from '../../app/paths.js';
 import { ErrorState, LoadingState } from '../../app/RequestState.js';
-import { useContentTypes, useEntries, useImages } from '../../client/queries.js';
+import { useContentTypes, useEntries, useImages, useLikeCounts } from '../../client/queries.js';
 import { FieldSummary, useControlFor } from '../../fields/index.js';
 import { entryAddress, entryHolds, entryImage, entryState, entryTitle, fieldAt, groupTranslations, localized, type EntryState } from '../../lib/content.js';
 import { relativeTime } from '../../lib/relative-time.js';
@@ -61,6 +61,9 @@ export function ContentListScreen() {
   const controlFor = useControlFor();
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
+  // Asked for only when the type takes likes: a count is a column of its own then.
+  const liked = types.data?.find((candidate) => candidate.key === typeKey);
+  const likes = useLikeCounts(liked?.id ?? '', liked?.likes !== undefined);
 
   if (types.isPending) return <LoadingState />;
   if (types.isError) return <ErrorState error={types.error} onRetry={() => void types.refetch()} />;
@@ -106,9 +109,12 @@ export function ContentListScreen() {
   const hasPictures = type.list?.imagePath !== undefined;
   const pictures = new Map((images.data ?? []).map((image) => [image.name, smallOf(image)]));
 
+  const takesLikes = type.likes !== undefined;
+  const number = (value: number) => new Intl.NumberFormat(locale).format(value);
   const columns: TableColumn[] = [
     { id: 'title', label: messages.contentList.columnTitle },
     ...summaries.map(({ id, field }) => ({ id, label: localized(field.label, locale), align: controlFor(field.type)?.summaryAlign ?? ('start' as const) })),
+    ...(takesLikes ? [{ id: 'likes', label: messages.contentList.columnLikes, align: 'end' as const, isSecondary: true }] : []),
     { id: 'status', label: messages.contentList.columnStatus },
     ...(manyLanguages ? [{ id: 'languages', label: messages.contentList.columnLanguages, isSecondary: true }] : []),
     { id: 'updated', label: messages.contentList.columnUpdated, isSecondary: true },
@@ -136,6 +142,13 @@ export function ContentListScreen() {
         ...Object.fromEntries(
           summaries.map(({ id, path, field }) => [id, <FieldSummary key={id} field={field} value={fieldAt(type, primary.data, path)?.value} />]),
         ),
+        ...(takesLikes && {
+          likes: (
+            <Text size="sm" tone={(likes.data?.[primary.translationGroup] ?? 0) > 0 ? 'default' : 'muted'}>
+              {likes.isSuccess ? number(likes.data[primary.translationGroup] ?? 0) : ''}
+            </Text>
+          ),
+        }),
         status: <Tag tone={STATE_TONE[state]}>{messages.status[state]}</Tag>,
         ...(manyLanguages && {
           languages: (

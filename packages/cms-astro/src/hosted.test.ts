@@ -13,6 +13,7 @@ import { onRequest as previewRequest } from './preview.js';
 import { hasSiteSecret, siteSecret } from './secret.js';
 import { editorOrigin, pagesOrigin } from './site-editor.js';
 import { refreshUploadedImages, uploadedFile } from './site-media.js';
+import { siteLikePosts } from './site-likes.js';
 
 const owner: Actor = { kind: 'cli', id: 'installer', role: 'owner' };
 const settings = { site: 'https://the-template.example', dev: false };
@@ -176,6 +177,21 @@ describe('a server that runs many sites', () => {
     const request = new Request('https://harbor.example/admin', { headers: { host: 'attacker.example' } });
     expect(inSite(harbor, () => editorOrigin(request, settings))).toBe('https://harbor.example');
     expect(inSite(harbor, () => pagesOrigin(request, settings))).toBe('https://harbor.example');
+  });
+
+  it('counts a like on its own site only, from that site\'s pages only', async () => {
+    const likeAt = async (host: HostedSite, from: string) =>
+      inSite(host, async () => {
+        const { cms } = await sharedConnection({});
+        const pages = await cms.schema.getByKey('pages');
+        await cms.schema.update(owner, pages.id, { likes: { showCount: true } });
+        const request = new Request(`${host.origin}/api/cms/likes`, { method: 'POST', headers: { origin: from, 'content-type': 'application/json' }, body: JSON.stringify({ type: 'pages', entry: 'en/about', browser: 'hosted-check-browser-01', liked: true }) });
+        return (await siteLikePosts(settings)).handle(request);
+      });
+    expect((await likeAt(harbor, 'https://orchard.example')).status).toBe(403);
+    expect(await (await likeAt(harbor, 'https://harbor.example')).json()).toEqual({ liked: true, count: 1 });
+    expect(await (await likeAt(orchard, 'https://orchard.example')).json()).toEqual({ liked: true, count: 1 });
+    expect(await (await likeAt(harbor, 'https://harbor.example')).json()).toEqual({ liked: true, count: 1 });
   });
 
   it('takes one site\'s secret for that site only', () => {

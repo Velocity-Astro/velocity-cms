@@ -119,10 +119,12 @@ export default function velocityCms(options: VelocityCmsOptions = {}): AstroInte
         injectRoute({ pattern: '/api/cms/published', entrypoint: route('published.ts') });
         injectRoute({ pattern: '/cms-search.js', entrypoint: route('search-client.js.ts') });
         injectRoute({ pattern: '/cms-form.js', entrypoint: route('form-client.js.ts') });
+        injectRoute({ pattern: '/cms-likes.js', entrypoint: route('likes-client.js.ts') });
         injectRoute({ pattern: '/cms-preview.js', entrypoint: route('preview-client.js.ts') });
         injectRoute({ pattern: '/media/[file]', entrypoint: route('media.ts') });
         injectRoute({ pattern: '/cms-mail/[file]', entrypoint: route('mail-image.ts') });
         injectRoute({ pattern: '/api/cms/submit/[form]', entrypoint: route('submit.ts') });
+        injectRoute({ pattern: '/api/cms/likes', entrypoint: route('likes.ts') });
         injectRoute({ pattern: '/api/cms/schedule', entrypoint: route('schedule.ts') });
         injectRoute({ pattern: '/api/cms/auth/[...path]', entrypoint: route('auth.ts') });
         // How an app such as Claude connects by itself, given only the MCP server's address.

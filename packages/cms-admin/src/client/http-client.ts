@@ -1,4 +1,4 @@
-import { readImage, type EntryPresence, type PresenceSaid, type FormsSettings, type FormsSettingsChanges, type GeneralSettings, type GeneralSettingsChanges, type EmailSettings, type EmailSettingsChanges, type StorageSettings, type StorageSettingsChanges, type ContactImportReport, type ContactImportRow, type CustomFields, type CustomFieldsChanges, type Contact, type ContactChanges, type Deal, type DealChanges, type Forecast, type NewDeal, type Pipeline, type PipelineChanges, type TeamMember, type ContactNote, type NewContact, type TimelineItem, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PluginSettings, type PluginTask, type PluginEditorInfo, type PluginRouteMethod, type EntryData, type FormChanges, type FormDef, type NewForm, type PreviewLink, type Revision, type SiteImage, type Submission, type SubmissionStatus } from '@velocity-astro/cms-core';
+import { readImage, type EntryPresence, type PresenceSaid, type FormsSettings, type FormsSettingsChanges, type GeneralSettings, type GeneralSettingsChanges, type EmailSettings, type EmailSettingsChanges, type StorageSettings, type StorageSettingsChanges, type ContactImportReport, type ContactImportRow, type CustomFields, type CustomFieldsChanges, type Contact, type ContactChanges, type Deal, type DealChanges, type Forecast, type LikeCount, type NewDeal, type Pipeline, type PipelineChanges, type TeamMember, type ContactNote, type NewContact, type TimelineItem, type Role, type ContentTypeChanges, type ContentTypeDef, type FieldArrangement, type FieldChanges, type FieldSection, type Entry, type NewUpload, type Page, type PluginInfo, type PluginSettings, type PluginTask, type PluginEditorInfo, type PluginRouteMethod, type EntryData, type FormChanges, type FormDef, type NewForm, type PreviewLink, type Revision, type SiteImage, type Submission, type SubmissionStatus } from '@velocity-astro/cms-core';
 import type { AccessToken, AdminClient, AskedConnection, ConnectedApp, ConnectionAnswer, MadeAccessToken, NewAccessToken, ContactListQuery, DealListQuery, EntryChanges, EntryListQuery, FieldTypeInfo, ImageList, NewEntry, NewPerson, NewType, NewTypeField, Passkey, Person, PluginCall, Profile, ProfileChanges, SessionUser, SubmissionCounts, SubmissionListQuery, TrashQuery } from './admin-client.js';
 import { AdminRequestError, type RequestErrorCode, type RequestIssue } from './errors.js';
 
@@ -300,6 +300,17 @@ export class HttpAdminClient implements AdminClient {
 
   getForecast(): Promise<Forecast> {
     return this.#get('/deals/forecast');
+  }
+
+  async getLikeCounts(typeId: string): Promise<Readonly<Record<string, number>>> {
+    return (await this.#get<{ counts: Record<string, number> }>(`/likes/counts?${new URLSearchParams({ type: typeId })}`)).counts;
+  }
+
+  async listMostLiked(query: { readonly limit?: number; readonly since?: string } = {}): Promise<readonly LikeCount[]> {
+    const search = new URLSearchParams();
+    if (query.limit !== undefined) search.set('limit', String(query.limit));
+    if (query.since !== undefined) search.set('since', query.since);
+    return (await this.#get<{ items: LikeCount[] }>(`/likes/top?${search}`)).items;
   }
 
   getEmailSettings(): Promise<EmailSettings> {

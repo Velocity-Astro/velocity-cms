@@ -6,6 +6,9 @@ import { sampleContentTypes, sampleEntries, sampleUser } from '../../testing/sam
 
 const signedIn = { user: sampleUser, contentTypes: sampleContentTypes, entries: sampleEntries() };
 
+const likedTypes = sampleContentTypes.map((type) => (type.key === 'listings' ? { ...type, likes: { showCount: true } } : type));
+const likesOf = (entry: string, count: number) => Array.from({ length: count }, (_, n) => ({ typeId: 'type-listings', entry, visitor: String(n).repeat(64), at: new Date().toISOString() }));
+
 it('greets the person and counts where the content stands', async () => {
   renderApp('/', signedIn);
   // Home opens on its greeting and the person's name on a line of its own; what is waiting (two drafts and one entry with changes) is the smaller line under it.
@@ -106,4 +109,22 @@ it('offers no way to a home page a site does not have', async () => {
   renderApp('/', signedIn);
   expect(await screen.findByRole('button', { name: 'View the site' })).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Edit the home page' })).toBeNull();
+});
+
+it('lists what visitors liked most, each leading to its entry, on a site with a type that takes likes', async () => {
+  const user = userEvent.setup();
+  renderApp('/', { ...signedIn, contentTypes: likedTypes, likes: [...likesOf('e3', 3), ...likesOf('e1', 1)] });
+  const card = await screen.findByRole('heading', { name: 'Most liked' });
+  const liked = within(card.closest('section') ?? document.body);
+  expect(await liked.findByText('3 likes')).toBeTruthy();
+  expect(liked.getByText('1 like')).toBeTruthy();
+  expect(liked.getAllByRole('link').map((link) => link.textContent)).toEqual(['907 Mesa Verde Lane', '6214 Lakeshore Drive']);
+  await user.click(liked.getByRole('link', { name: '907 Mesa Verde Lane' }));
+  expect(await screen.findByRole('heading', { level: 1, name: '907 Mesa Verde Lane' })).toBeTruthy();
+});
+
+it('leaves the most liked out of a site where no type takes likes', async () => {
+  renderApp('/', signedIn);
+  await screen.findByRole('grid', { name: 'Recent changes' });
+  expect(screen.queryByRole('heading', { name: 'Most liked' })).toBeNull();
 });

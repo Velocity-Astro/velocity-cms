@@ -3,7 +3,7 @@
  * an adapter package implements each one and proves it with the contract tests in `./testing`.
  */
 import type { Actor } from './access.js';
-import type { ContentTypeDef, Entry, EntryStatus, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus, Timestamp, Contact, ContactNote, Deal, DealSubject, Pipeline, Presence, TeamMember, CustomFields, MailFixedBy, SettingFixedBy, StorageKeeping } from './model.js';
+import type { ContentTypeDef, Entry, EntryStatus, FormDef, MediaFile, Page, Revision, SiteImage, Submission, SubmissionStatus, Timestamp, Contact, ContactNote, Deal, DealSubject, Pipeline, Presence, TeamMember, CustomFields, MailFixedBy, SettingFixedBy, StorageKeeping, LikeCount } from './model.js';
 
 export interface EntryQuery {
   readonly typeId?: string;
@@ -213,6 +213,32 @@ export interface CustomFieldsStore {
    * were saved before: fields that have moved on are refused with a `ConflictError`.
    */
   save(fields: CustomFields, expectedRevision: number | null): Promise<CustomFields>;
+}
+
+/** One visitor's like of one entry. Nothing in it says who the visitor is: `visitor` is a hash the site made. */
+export interface Like {
+  readonly typeId: string;
+  /** The entry's translation group, so every language of it shares one count. */
+  readonly entry: string;
+  /** A hash that stands for one browser, made with the site's secret. Never an address or a name. */
+  readonly visitor: string;
+  readonly at: Timestamp;
+}
+
+/** Where likes are kept. One visitor likes one entry at most once. */
+export interface LikeStore {
+  /** Keeps a like. Answers `false`, and changes nothing, when this visitor already liked the entry. */
+  add(like: Like): Promise<boolean>;
+  /** Takes a visitor's like away. Answers `false` when there was none. */
+  remove(typeId: string, entry: string, visitor: string): Promise<boolean>;
+  /** Whether this visitor likes the entry. */
+  has(typeId: string, entry: string, visitor: string): Promise<boolean>;
+  /** How many likes each entry has, by translation group: the ones named, or every entry of the type that has any. An entry with none is left out. */
+  counts(typeId: string, entries?: readonly string[]): Promise<Record<string, number>>;
+  /** The most liked entries of any type, most first, then by type and entry. With `since`, only likes made at that time or after count. */
+  top(limit: number, since?: Timestamp): Promise<LikeCount[]>;
+  /** Forgets every like of an entry. */
+  clear(typeId: string, entry: string): Promise<void>;
 }
 
 /** Where it is kept who is at which entry now. Nothing here lasts: what has run out is of no use to anyone. */

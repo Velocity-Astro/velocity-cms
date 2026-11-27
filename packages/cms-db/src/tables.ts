@@ -210,6 +210,22 @@ export const entryPresence = sqliteTable(
 );
 
 /**
+ * What visitors liked: one row for each browser that liked an entry, by the entry's type and
+ * translation group. `visitor` is a hash the site made with its secret, so nothing here says who
+ * anyone is. Counted with `group by`, which the key on all three keeps quick.
+ */
+export const entryLikes = sqliteTable(
+  'entry_like',
+  {
+    typeId: text('type_id').notNull(),
+    entry: text('entry').notNull(),
+    visitor: text('visitor').notNull(),
+    at: text('at').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.typeId, table.entry, table.visitor] }), index('entry_like_at').on(table.at)],
+);
+
+/**
  * Small things a site keeps one of, each stored whole as JSON under its name: the pipeline's
  * stages today. `revision` is repeated beside it for the check a save makes.
  */

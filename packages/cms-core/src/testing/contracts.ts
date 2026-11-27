@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ConflictError } from '../errors.js';
 import type { Contact, ContactNote, ContentTypeDef, Entry, FormDef, MediaFile, Deal, Pipeline, Presence, Submission, CustomFields, FieldDef } from '../model.js';
-import type { ContactRepository, CustomFieldsStore, DealRepository, PipelineStore, PresenceStore, SettingsStore, EntryRepository, FormRepository, SubmissionRepository, MediaRepository, MediaStore, PluginStore, SchemaRepository, SearchDocument, SearchIndex } from '../ports.js';
+import type { ContactRepository, CustomFieldsStore, DealRepository, PipelineStore, PresenceStore, LikeStore, SettingsStore, EntryRepository, FormRepository, SubmissionRepository, MediaRepository, MediaStore, PluginStore, SchemaRepository, SearchDocument, SearchIndex } from '../ports.js';
 
 /**
  * The contract tests for storage adapters.
@@ -878,6 +878,60 @@ export function presenceStoreContract(name: string, create: () => Promise<Presen
       await store.mark(mark({ until: at(5) }), at(0));
       await store.mark(mark({ actorId: 'u2', name: 'Sam', until: at(60) }), at(20));
       expect(await store.at('e1', at(21))).toEqual([mark({ actorId: 'u2', name: 'Sam', until: at(60) })]);
+    });
+  });
+}
+
+/** Run this against every `LikeStore` adapter. */
+export function likeStoreContract(name: string, create: () => Promise<LikeStore>): void {
+  describe(`${name}: LikeStore contract`, () => {
+    const at = (day: number) => new Date(Date.UTC(2026, 0, day, 12)).toISOString();
+    const visitor = (n: number) => String(n).repeat(64).slice(0, 64);
+
+    it('counts each visitor once per entry, and one entry apart from another', async () => {
+      const store = await create();
+      expect(await store.counts('t1')).toEqual({});
+      expect(await store.add({ typeId: 't1', entry: 'g1', visitor: visitor(1), at: at(1) })).toBe(true);
+      expect(await store.add({ typeId: 't1', entry: 'g1', visitor: visitor(1), at: at(2) })).toBe(false);
+      expect(await store.add({ typeId: 't1', entry: 'g1', visitor: visitor(2), at: at(2) })).toBe(true);
+      expect(await store.add({ typeId: 't1', entry: 'g2', visitor: visitor(1), at: at(2) })).toBe(true);
+      expect(await store.add({ typeId: 't2', entry: 'g1', visitor: visitor(1), at: at(2) })).toBe(true);
+      expect(await store.counts('t1')).toEqual({ g1: 2, g2: 1 });
+      expect(await store.counts('t1', ['g1', 'g3'])).toEqual({ g1: 2 });
+      expect(await store.counts('t1', [])).toEqual({});
+      expect(await store.has('t1', 'g1', visitor(2))).toBe(true);
+      expect(await store.has('t1', 'g2', visitor(2))).toBe(false);
+    });
+
+    it('takes a like away once, and forgets every like of an entry', async () => {
+      const store = await create();
+      await store.add({ typeId: 't1', entry: 'g1', visitor: visitor(1), at: at(1) });
+      await store.add({ typeId: 't1', entry: 'g1', visitor: visitor(2), at: at(1) });
+      await store.add({ typeId: 't1', entry: 'g2', visitor: visitor(1), at: at(1) });
+      expect(await store.remove('t1', 'g1', visitor(1))).toBe(true);
+      expect(await store.remove('t1', 'g1', visitor(1))).toBe(false);
+      expect(await store.counts('t1')).toEqual({ g1: 1, g2: 1 });
+      await store.clear('t1', 'g1');
+      expect(await store.counts('t1')).toEqual({ g2: 1 });
+    });
+
+    it('lists the most liked entries of every type, most first, and only what was liked since a time when asked', async () => {
+      const store = await create();
+      for (const [n, entry, day] of [[1, 'a', 1], [2, 'a', 1], [3, 'a', 9], [1, 'b', 9], [2, 'b', 9], [1, 'c', 9]] as const) {
+        await store.add({ typeId: 't1', entry, visitor: visitor(n), at: at(day) });
+      }
+      await store.add({ typeId: 't2', entry: 'z', visitor: visitor(1), at: at(9) });
+      expect(await store.top(3)).toEqual([
+        { typeId: 't1', entry: 'a', count: 3 },
+        { typeId: 't1', entry: 'b', count: 2 },
+        { typeId: 't1', entry: 'c', count: 1 },
+      ]);
+      expect(await store.top(10, at(5))).toEqual([
+        { typeId: 't1', entry: 'b', count: 2 },
+        { typeId: 't1', entry: 'a', count: 1 },
+        { typeId: 't1', entry: 'c', count: 1 },
+        { typeId: 't2', entry: 'z', count: 1 },
+      ]);
     });
   });
 }
