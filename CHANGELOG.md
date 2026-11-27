@@ -4,6 +4,8 @@ Every package is released together under one version. While versions are `0.x`, 
 
 ## Unreleased
 
+- **Switching likes on shows at once.** Saving a content type's settings (switching likes on or off, showing the count, a field renamed) now clears the pages the site kept, as a publish does. Before, a post kept from before showed no like button until something was published or a day passed.
+
 ## 0.1.0-beta.28
 
 - **Likes and a share bar.** A content type's settings have a new part, Likes: switched on, visitors can like each entry (a post, a recipe, a listing), and you choose whether the site shows how many did. The editor shows the count in the type's list, beside each entry, and the most liked of the last 30 days on Home; agents read them with the `get_likes` tool. A like is counted once per browser and holds nothing about who pressed it: the site keeps only a hash of a random id the browser makes when the button is first pressed, takes likes only from its own pages, and stops an address that sends too many.

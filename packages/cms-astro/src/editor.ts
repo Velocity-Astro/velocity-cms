@@ -155,6 +155,9 @@ export class EditorHost {
     });
     cms.events.on('type.archived', shown);
     cms.events.on('type.restored', shown);
+    // A type's settings change what its pages draw (whether they take likes and show the count,
+    // what a field is called), so the copies kept from before are stale.
+    cms.events.on('type.saved', pagesChanged);
   }
 
   /** Answers a request to the API. */
